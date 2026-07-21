@@ -1,0 +1,12 @@
+TASK-003 semantic baseline build: PASS
+Deterministic assertions: 1640 PASS, 0 FAIL
+Corpus limits: 80/80 files, 205/250 units
+Architecture integrity: 53 clusters, 106 capabilities, 106 KUs
+Reviewed-source copies: 77 files, 208304970 bytes, 0 hash mismatches
+Original fingerprint regression: PASS
+Task 001 output regression: PASS
+Task 002 output regression: PASS
+Task 001 unit regression: 8/8 PASS on bundled Python 3.12
+Task 002 unit regression: 18/18 PASS on required Python 3.13 with existing bundled pypdf 6.10.0
+Environment note: an initial Task 002 attempt on Python 3.12 passed 16 tests and correctly hit 2 runtime-version gates; the final required-runtime run passed 18/18
+Product application build: NOT RUN (prohibited)

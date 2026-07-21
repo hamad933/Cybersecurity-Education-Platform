@@ -1,0 +1,17 @@
+product-repo/review-packets/source-readiness-001/CHANGED_FILES.txt
+product-repo/review-packets/source-readiness-001/CODEX_FINAL_REPORT.md
+product-repo/review-packets/source-readiness-001/SAMPLE_OUTPUT_SUMMARY.md
+product-repo/review-packets/source-readiness-001/TEST_RESULTS.txt
+product-repo/tools/source_readiness/README.md
+product-repo/tools/source_readiness/inventory.py
+product-repo/tools/source_readiness/tests/test_inventory.py
+source-vault/derived/readiness/SOURCE_GAPS.md
+source-vault/derived/readiness/SOURCE_READINESS_REPORT.md
+source-vault/derived/readiness/TOOL_RUN_METADATA.json
+source-vault/manifests/DIRECTORY_SUMMARY.tsv
+source-vault/manifests/DUPLICATE_FILE_HASHES.tsv
+source-vault/manifests/LARGE_FILES.tsv
+source-vault/manifests/SOURCE_FILE_CENSUS.tsv
+source-vault/manifests/SOURCE_MANIFEST.tsv
+source-vault/manifests/UNIVERSITY_COURSE_INVENTORY.tsv
+source-vault/manifests/ZERO_BYTE_FILES.tsv

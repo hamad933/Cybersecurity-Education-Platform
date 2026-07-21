@@ -1,0 +1,72 @@
+Source Structural Indexing 002 — Test Results
+Date: 2026-07-21
+Python: 3.13.7
+Dependency: pypdf==6.10.0
+Platform: Windows-11-10.0.26100-SP0
+
+Structural 002 command:
+product-repo/tools/source_structural_indexing/.venv/Scripts/python.exe -B -m unittest discover -s product-repo/tools/source_structural_indexing/tests -p "test_*.py" -v
+
+Structural 002 results:
+test_01_markdown_nested_headings_and_stable_section_ids ... ok
+test_02_heading_free_deterministic_chunk_boundaries ... ok
+test_03_very_large_line_is_bounded_and_counted ... ok
+test_04_arabic_unicode_heading_and_filename ... ok
+test_05_markdown_table_code_fence_and_link_counts ... ok
+test_06_csv_tsv_streaming_header_and_rows ... ok
+test_07_json_and_yaml_structural_key_inventory ... ok
+test_08_python_ast_symbols_without_execution ... ok
+test_09_pdf_page_count_and_text_status ... ok
+test_10_empty_text_pdf_classified_without_ocr ... ok
+test_11_university_sequence_inference_and_gap ... ok
+test_12_placeholder_zero_byte_not_flagged ... ok
+test_13_task_like_zero_byte_yaml_flagged ... ok
+test_14_multiple_provisional_domain_candidates ... ok
+test_15_unclassified_when_signal_is_insufficient ... ok
+test_16_output_root_overlap_rejected ... ok
+test_17_no_writes_under_originals ... ok
+test_18_deterministic_rerun_hashes ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 0.533s
+
+OK
+
+Source Readiness 001 regression command:
+product-repo/tools/source_structural_indexing/.venv/Scripts/python.exe -B -m unittest discover -s product-repo/tools/source_readiness/tests -p "test_*.py" -v
+
+Regression results:
+test_binary_detection ... ok
+test_empty_duplicate_and_large_threshold ... ok
+test_nested_directories_and_text_line_count ... ok
+test_no_writes_under_source_root ... ok
+test_overlapping_output_root_is_rejected ... ok
+test_portable_read_error_handling ... ok
+test_unicode_arabic_filename_and_deterministic_ids ... ok
+test_university_course_aggregation ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.917s
+
+OK
+
+Combined result: 26/26 passed.
+
+Additional production validation:
+- Required 10 structural TSV files: PASS
+- Required 5 structural reports/metadata files: PASS
+- Structural source IDs unique: PASS (2083/2083)
+- Segment/page candidate IDs unique: PASS (45086/45086)
+- Large Source Readiness 001 coverage: PASS (39/39)
+- PDF coverage: PASS (36/36)
+- Domain provisional-state invariant: PASS
+- Queue state and 100-item bound: PASS
+- Error-reference integrity: PASS
+- Generated output SHA-256 verification: PASS (14/14)
+- Deterministic full rerun comparison: PASS (14/14 identical)
+- Atomic temporary-file cleanup: PASS
+- No writes under originals: PASS
+- Approved Source Readiness 001 preservation: PASS
+
+Production result:
+Structural indexing complete: files=2083 candidates=45086 pdfs=36 queue=100 errors_and_warnings=49

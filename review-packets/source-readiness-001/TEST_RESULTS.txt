@@ -1,0 +1,39 @@
+Source Readiness Toolkit — Test and Validation Results
+Date: 2026-07-21
+Python: 3.13.7
+Platform: Windows-11-10.0.26100-SP0
+
+Command:
+python -B -m unittest discover -s product-repo/tools/source_readiness/tests -p "test_*.py" -v
+
+Results:
+test_binary_detection ... ok
+test_empty_duplicate_and_large_threshold ... ok
+test_nested_directories_and_text_line_count ... ok
+test_no_writes_under_source_root ... ok
+test_overlapping_output_root_is_rejected ... ok
+test_portable_read_error_handling ... ok
+test_unicode_arabic_filename_and_deterministic_ids ... ok
+test_university_course_aggregation ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.541s
+
+OK
+
+Additional validation:
+- Tool version command: PASS (1.0.0)
+- Required output files: PASS
+- Census row count: PASS (2083)
+- Unique source record IDs: PASS (2083/2083)
+- Unique relative paths: PASS (2083/2083)
+- Manifest mechanical/semantic/selection states: PASS
+- Generated TSV/Markdown SHA-256 verification: PASS (9/9)
+- Atomic temporary-file cleanup: PASS
+- Deterministic second-run output hash comparison: PASS (9/9 identical)
+- Source originals file count before/after: PASS (2083/2083)
+- Source originals metadata fingerprint before/after: PASS
+  1d982d5521754763aca3713f46f86678152ad3106ea468ae576a28b1c3344970
+
+Production run result:
+Source readiness inventory complete: files=2083 bytes=1563591059 errors=0

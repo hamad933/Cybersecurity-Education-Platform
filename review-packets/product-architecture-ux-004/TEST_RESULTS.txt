@@ -1,0 +1,18 @@
+TASK 004 + TASK 005 VALIDATION RESULTS
+Date: 2026-07-22 Asia/Riyadh
+
+PASS  Task 001 unit regression: 8/8 tests.
+PASS  Task 002 unit regression: 18/18 tests using Python 3.13.7 plus bundled dependency path.
+INFO  Initial Task 002 probe under bundled Python 3.12.13: 16 passed, 2 stopped by the suite's Python 3.13 guard.
+INFO  Initial Task 002 system-Python probe: import stopped because pypdf was absent; no test executed.
+PASS  Task 003 read-only validator: 1,640 assertions; 80 sources; 205 units; 77 copies; 208,304,970 bytes.
+PASS  Task 003R unit regression: 8/8 tests, including source and handoff hash checks.
+PASS  Task 004 core validation before packaging: 317 assertions.
+INFO  Seven inherited Task 003R review notices each reported no exact-repetition finding in its named field.
+PASS  Static JavaScript syntax check using bundled Node.js.
+PASS  HTML parse and local-link checks.
+PASS  Browser interactive and rendering checks: 14/14 PNGs, zero page-console errors, zero remote assets, checked horizontal-overflow result zero.
+PASS  Task 004 automatic-handoff validation: 435 assertions; copied-file and control hashes verified; missing count zero; ZIP CRC/member/size comparison passed.
+PASS  Task 004 unit regression after packaging: 8/8 tests.
+
+No semantic generation, product build, dependency installation, application execution, real lab, OCR, Internet crawl, or AI execution was run.

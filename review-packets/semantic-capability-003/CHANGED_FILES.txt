@@ -1,0 +1,114 @@
+AGENTS.md
+product-repo/review-packets/semantic-capability-003/CAPABILITY_OUTPUT_COUNTS.md
+product-repo/review-packets/semantic-capability-003/CHANGED_FILES.txt
+product-repo/review-packets/semantic-capability-003/CODEX_FINAL_REPORT.md
+product-repo/review-packets/semantic-capability-003/COVERAGE_SUMMARY.md
+product-repo/review-packets/semantic-capability-003/RESIDUAL_LIMITATIONS.md
+product-repo/review-packets/semantic-capability-003/REVIEW_CORPUS_SUMMARY.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/ad-identity-pilot/KNOWLEDGE_UNITS.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/ad-identity-pilot/PILOT_CONTROL.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/ad-identity-pilot/REVIEW_QUEUE.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/ad-identity-pilot/SOURCE_DECISIONS.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/00_Control_and_Indexes/CKV_ACCEPTANCE_STATUS.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/00_Control_and_Indexes/CKV_CANONICAL_FILE_MAP.csv
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/00_Control_and_Indexes/CKV_CANONICAL_FILE_MAP.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/00_Control_and_Indexes/CKV_DEPENDENCY_GRAPH.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/00_Control_and_Indexes/CKV_FINAL_MASTER_INDEX.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/00_Control_and_Indexes/CKV_PACKAGE_QA_REPORT.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/00_Control_and_Indexes/index_advance.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/01_Foundations_Governance_Risk/CKV-002_Security_Principles_and_Secure_by_Design_Thinking.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/01_Foundations_Governance_Risk/CKV-003_Risk_Management_and_Security_Governance.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/02_Networking_Protocols_Edge/CKV-017_Network_Design_Segmentation_DMZs_and_Hard_Controls.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/04_Identity_IAM_PKI_Secrets/CKV-022_Windows_Access_Control_Internals_Tokens_SIDs_ACLs_and_SRM.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/05_Application_API_Software_Data_AI/CKV-043_DevSecOps_Secure_SDLC_SAST_DAST_SCA_and_Security_Gates.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/05_Application_API_Software_Data_AI/CKV-122_Data_Security_DLP_Classification_Discovery_Masking_Tokenization_and_Privacy.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/06_Cloud_Containers_Platforms_OT_IoT/CKV-115_Kubernetes_Security_Internals.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/06_Cloud_Containers_Platforms_OT_IoT/CKV-124_OT_ICS_SCADA_Industrial_Network_Security.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/07_Detection_SOC_Automation_Intelligence/CKV-060_Detection_Engineering_and_Telemetry_Design.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/07_Detection_SOC_Automation_Intelligence/CKV-061_Incident_Response_Lifecycle_and_Playbook_Design.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/07_Detection_SOC_Automation_Intelligence/CKV-139_Malware_Analysis_Defensive_Internals.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/08_Forensics_Evidence/CKV-063_Digital_Forensics_and_Evidence_Handling.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/09_Threats_Offensive_Defensive_Concepts/CKV-070_Penetration_Testing_Methodology_and_Authorization.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/10_Operations_Assurance_Compliance_Resilience/CKV-082_Vulnerability_Management_Scanning_Prioritization_and_Remediation.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/Canonical_Knowledge_Vault_READY_FINAL/11_Tools_Labs_Roadmaps/CKV-092_Security_Architecture_Reference_Roadmaps.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/care_ultimate_best_assertion_centered_patched/care/domain/baseline.py
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/care_ultimate_best_assertion_centered_patched/care/domain/canonical_event.py
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/care_ultimate_best_assertion_centered_patched/care/domain/canonical_object.py
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/care_ultimate_best_assertion_centered_patched/care/domain/evidence.py
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/care_ultimate_best_assertion_centered_patched/care/domain/policy.py
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/CISSP 8 Domains From Books(1)/domain-2-asset-security.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/CISSP 8 Domains From Books(1)/domain-3-part-1-system-architecture-and-truste.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/CISSP 8 Domains From Books(1)/domain-4.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/CISSP 8 Domains From Books(1)/domain-5.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/CISSP 8 Domains From Books(1)/domain-6.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/CISSP 8 Domains From Books(1)/domain-7.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/CISSP 8 Domains From Books(1)/domain-8.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/CISSP 8 Domains From Books(1)/domain1-security-and-risk-management.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/CSV-TSV exports for DataBase OR LLM/CSV-TSV exports for DataBase OR LLM/02_Framework_Mapping/CIS_CONTROLS_CROSSWALK.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/CSV-TSV exports for DataBase OR LLM/CSV-TSV exports for DataBase OR LLM/04_Audit_Evidence_Tables/AUDIT_EVIDENCE_MATRIX.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/CSV-TSV exports for DataBase OR LLM/CSV-TSV exports for DataBase OR LLM/04_Audit_Evidence_Tables/COMPLIANCE_GAP_MATRIX.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/CSV-TSV exports for DataBase OR LLM/CSV-TSV exports for DataBase OR LLM/05_SOC_IR_Tables/SOC_DETECTION_USE_CASE_MATRIX.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/variant Roadmaps + thier References(1)/network-protocol-research-track-deep-technical.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/variant Roadmaps + thier References(1)/offensive-foundations-professional-authorized.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/variant Roadmaps + thier References(1)/security-architecture-and-engineering.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/chatgpt-project/variant Roadmaps + thier References(1)/validation-evidence-and-provability-outputs.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/historical-platform/CARE_Old_Project_Deep_Audit_AR.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/historical-platform/FUTURE_PLATFORM_VISION_AND_REQUIREMENTS.md
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/product-charter/Pasted text(16).txt
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Ethical Hacking/1) EH  - Introduction to Ethical Hacking L1_١٢٣٨٣٥.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Ethical Hacking/Bufferoverflow (1).pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Ethical Hacking/CEHv12 Module 04 Enumeration L6_121205 (1).pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Ethical Hacking/CEHv12-3 Module 05 Vulnerability Analysis.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Ethical Hacking/EH Module 04 Scanning Networks L5.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Network admin and monitoring/Introduction to System &.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Network admin and monitoring/NAC_lec8_Clustering(in same site OR Two Sites For DR-Site).pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Network admin and monitoring/NAM_Lec2.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Network admin and monitoring/NAM_Lec3.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Network admin and monitoring/NAM_Lec4_104810_٠٩٠٢٣٩.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Network admin and monitoring/NAM_Lec5_080612.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Network admin and monitoring/NAM_Lec6_Load-Balancing.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Network admin and monitoring/NAM_Lec7_ Backup.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Network admin and monitoring/NAM_Lec9_081458_٠٨٥٩٥٠.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Network security/NAC-lect 1,2.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Network security/NAC-lect 3,4.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Network security/NAC-lect 5,6.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Network security/NAC-lect 7,8.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/Network security/NAC-lect 9,10.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/SAD-secure App Developing/lecture_3_Installing_and_Configuring_Services_065559_١٢٥٨٠٥.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/SAD-secure App Developing/SAD Lecture 1 - Introduction.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/SAD-secure App Developing/SAD Lecture 2-Transport_and_Encryption.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/SAD-secure App Developing/SAD Lecture 4 - API and Endpoints.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/SAD-secure App Developing/SAD Lecture 5 - Cookies and user input.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/SAD-secure App Developing/SAD Lecture 6 - cross site requrest.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/SAD-secure App Developing/SAD Lecture 7 - password management.pdf
+product-repo/review-packets/semantic-capability-003/reviewed-source-copies/university-courses/SAD-secure App Developing/SAD Lecture 8 - authentication and authorization.pdf
+product-repo/review-packets/semantic-capability-003/REVIEWED_SOURCE_FILES_MANIFEST.tsv
+product-repo/review-packets/semantic-capability-003/SOURCE_AUTHORITY_SUMMARY.md
+product-repo/review-packets/semantic-capability-003/SOURCE_SAFETY_RESULTS.md
+product-repo/review-packets/semantic-capability-003/TEST_RESULTS.txt
+product-repo/tools/semantic_architecture_validation/build_semantic_baseline.py
+product-repo/tools/semantic_architecture_validation/validate_semantic_baseline.py
+source-vault/derived/semantic/ADAPTIVE_LEARNING_MODEL.md
+source-vault/derived/semantic/CAPABILITY_ARCHITECTURE_BASELINE.md
+source-vault/derived/semantic/CURRICULUM_COVERAGE_AND_GAPS.md
+source-vault/derived/semantic/CYBERSECURITY_DOMAIN_TAXONOMY_V1.md
+source-vault/derived/semantic/SEMANTIC_REVIEW_REPORT.md
+source-vault/derived/semantic/SOURCE_AUTHORITY_POLICY.md
+source-vault/derived/semantic/TASK003_DECISION_REGISTER.md
+source-vault/derived/semantic/UNIVERSITY_COURSE_SEMANTIC_ASSESSMENT.md
+source-vault/derived/semantic/UNRESOLVED_DECISIONS.md
+source-vault/derived/semantic/VS001_SOURCE_SELECTION.md
+source-vault/manifests/semantic/CAPABILITY_CATALOG.tsv
+source-vault/manifests/semantic/CAPABILITY_CLUSTER_CATALOG.tsv
+source-vault/manifests/semantic/CROSS_DOMAIN_RELATIONSHIPS.tsv
+source-vault/manifests/semantic/DOMAIN_COVERAGE_MATRIX.tsv
+source-vault/manifests/semantic/KNOWLEDGE_UNIT_CANDIDATES.tsv
+source-vault/manifests/semantic/SEMANTIC_DEFERRED_QUEUE.tsv
+source-vault/manifests/semantic/SEMANTIC_REVIEW_CORPUS.tsv
+source-vault/manifests/semantic/SEMANTIC_REVIEW_EVIDENCE.tsv
+source-vault/manifests/semantic/SEMANTIC_SOURCE_ASSESSMENTS.tsv
+source-vault/manifests/semantic/SOURCE_AUTHORITY_REGISTER.tsv
+source-vault/manifests/semantic/SOURCE_TO_CAPABILITY_MAP.tsv
+source-vault/manifests/semantic/SOURCE_TO_DOMAIN_MAP.tsv
+source-vault/manifests/semantic/UNRESOLVED_SOURCE_ISSUES.tsv
+source-vault/manifests/semantic/VS001_SOURCE_SELECTION.tsv

@@ -1,0 +1,97 @@
+{
+  "version": "1.0.0",
+  "normalization": "UNICODE_NFC_CASEFOLD",
+  "location_weights": {
+    "filename": 3,
+    "path": 2,
+    "heading": 2,
+    "metadata": 1
+  },
+  "confidence_bands": {
+    "HIGH_MECHANICAL_SIGNAL": 8,
+    "MEDIUM_MECHANICAL_SIGNAL": 4,
+    "LOW_MECHANICAL_SIGNAL": 1
+  },
+  "domains": [
+    {
+      "code": "D01",
+      "label": "Computing and Security Foundations",
+      "keywords": ["computing", "computer fundamentals", "operating system", "linux basics", "windows basics", "network fundamentals", "security fundamentals", "cybersecurity basics", "protocol basics", "foundations", "introduction to security"]
+    },
+    {
+      "code": "D02",
+      "label": "Security Architecture and Engineering",
+      "keywords": ["security architecture", "secure architecture", "security engineering", "zero trust", "defense in depth", "threat modeling", "security design", "architecture review", "reference architecture", "security pattern"]
+    },
+    {
+      "code": "D03",
+      "label": "Identity, Access and Directory Security",
+      "keywords": ["identity", "access control", "active directory", "directory service", "authentication", "authorization", "kerberos", "ldap", "entra id", "iam", "privileged access", "password", "single sign on", "sso"]
+    },
+    {
+      "code": "D04",
+      "label": "Network and Infrastructure Security",
+      "keywords": ["network security", "network administration", "firewall", "router", "switch", "vpn", "network monitoring", "packet", "tcp", "udp", "dns", "dhcp", "wireless security", "infrastructure security", "segmentation"]
+    },
+    {
+      "code": "D05",
+      "label": "Application, Web, API and Software Security",
+      "keywords": ["application security", "web security", "api security", "software security", "secure coding", "sdlc", "owasp", "sql injection", "cross site scripting", "xss", "code review", "devsecops", "mobile security"]
+    },
+    {
+      "code": "D06",
+      "label": "Offensive Security and Adversary Simulation",
+      "keywords": ["offensive security", "penetration testing", "ethical hacking", "red team", "adversary simulation", "post exploitation", "privilege escalation", "lateral movement", "command and control", "attack simulation", "pentest"]
+    },
+    {
+      "code": "D07",
+      "label": "Vulnerability, Exposure and Attack-Surface Management",
+      "keywords": ["vulnerability", "exposure", "attack surface", "vulnerability management", "scanning", "cve", "cvss", "patch management", "asset discovery", "misconfiguration", "remediation", "security assessment"]
+    },
+    {
+      "code": "D08",
+      "label": "Security Operations, Detection and Threat Hunting",
+      "keywords": ["security operations", "soc", "detection", "threat hunting", "siem", "soar", "alert", "monitoring", "telemetry", "correlation", "use case", "detection engineering", "threat intelligence"]
+    },
+    {
+      "code": "D09",
+      "label": "Incident Response and Crisis Operations",
+      "keywords": ["incident response", "incident handling", "crisis", "playbook", "containment", "eradication", "recovery", "breach response", "incident command", "lessons learned"]
+    },
+    {
+      "code": "D10",
+      "label": "Digital Forensics",
+      "keywords": ["digital forensics", "forensic", "evidence acquisition", "chain of custody", "disk image", "memory forensics", "network forensics", "timeline analysis", "artifact analysis"]
+    },
+    {
+      "code": "D11",
+      "label": "Malware Analysis, Reverse Engineering and Exploit Development",
+      "keywords": ["malware", "reverse engineering", "exploit development", "assembly", "debugger", "disassembly", "shellcode", "binary analysis", "static analysis", "dynamic analysis", "ransomware"]
+    },
+    {
+      "code": "D12",
+      "label": "Cloud, Containers and Modern Platform Security",
+      "keywords": ["cloud security", "aws", "azure", "gcp", "container security", "docker", "kubernetes", "k8s", "serverless", "cloud native", "infrastructure as code", "terraform", "platform security"]
+    },
+    {
+      "code": "D13",
+      "label": "Data, Cryptography and Privacy Engineering",
+      "keywords": ["cryptography", "encryption", "decryption", "hashing", "public key", "certificate", "pki", "tls", "privacy", "data protection", "key management", "data security", "secret management"]
+    },
+    {
+      "code": "D14",
+      "label": "Governance, Risk, Compliance and Assurance",
+      "keywords": ["governance", "risk management", "compliance", "audit", "assurance", "control framework", "policy", "standard", "procedure", "iso 27001", "nist", "cis control", "evidence", "regulatory", "grc"]
+    },
+    {
+      "code": "D15",
+      "label": "Specialized Environments",
+      "keywords": ["operational technology", "industrial control", "ics", "scada", "iot", "embedded security", "automotive security", "medical device", "telecommunications security", "satellite security", "critical infrastructure"]
+    },
+    {
+      "code": "D16",
+      "label": "Professional Practice and Capability Integration",
+      "keywords": ["professional practice", "career", "leadership", "communication", "security program", "capability", "skills framework", "training", "learning path", "roadmap", "certification", "project management", "team exercise"]
+    }
+  ]
+}
