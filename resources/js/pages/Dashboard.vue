@@ -1,0 +1,46 @@
+<script setup lang="ts">
+import { Head } from '@inertiajs/vue3';
+
+import AppShell from '../components/AppShell.vue';
+import BidiText from '../components/BidiText.vue';
+
+defineProps<{ health: { database: string; queue: string; storage: string; migrations: string } }>();
+</script>
+
+<template>
+  <Head title="لوحة الأساس" />
+  <AppShell>
+    <section aria-labelledby="dashboard-title">
+      <p class="text-sm font-semibold text-cyan-300">FOUNDATION / الأساس</p>
+      <h1 id="dashboard-title" class="mt-2 text-3xl font-bold sm:text-4xl">حالة المنصة المحلية</h1>
+      <p class="mt-3 max-w-3xl leading-7 text-slate-400">
+        هذه الواجهة تعرض أساس التشغيل فقط. لم تبدأ مسارات المنتج أو <BidiText value="VS-001" />.
+      </p>
+    </section>
+
+    <section class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="ملخص الصحة">
+      <article
+        v-for="(value, key) in health"
+        :key="key"
+        class="rounded-xl border border-slate-800 bg-slate-900/70 p-5"
+      >
+        <p class="text-sm text-slate-400 uppercase">{{ key }}</p>
+        <p class="mt-3 text-lg font-bold text-emerald-300">{{ value }}</p>
+      </article>
+    </section>
+
+    <section class="mt-8 rounded-xl border border-slate-800 bg-slate-900/60 p-6">
+      <h2 class="text-xl font-bold">حدود التنفيذ</h2>
+      <dl class="mt-5 grid gap-5 sm:grid-cols-2">
+        <div>
+          <dt class="text-sm text-slate-400">الوحدات النشطة</dt>
+          <dd class="mt-1"><BidiText value="MOD-IAM, MOD-PLT" /></dd>
+        </div>
+        <div>
+          <dt class="text-sm text-slate-400">ملف البيئة</dt>
+          <dd class="mt-1"><BidiText value="local / NO_DEVELOPMENT_AUTH_BYPASS" /></dd>
+        </div>
+      </dl>
+    </section>
+  </AppShell>
+</template>
