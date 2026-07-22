@@ -76,6 +76,9 @@
             "npm audit --audit-level=high",
             "@php scripts/secret_scan.php"
         ],
+        "compose:validate": [
+            "@php scripts/validate_compose.php"
+        ],
         "build": [
             "npm run build"
         ],
@@ -89,10 +92,8 @@
             "@test:integration",
             "@test:architecture",
             "@security",
+            "@compose:validate",
             "@build"
-        ],
-        "diagnose": [
-            "@php artisan app:diagnose"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

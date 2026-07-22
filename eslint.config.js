@@ -1,13 +1,13 @@
 import eslint from '@eslint/js';
+import { withVueTs, vueTsConfigs } from '@vue/eslint-config-typescript';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import pluginVue from 'eslint-plugin-vue';
-import tseslint from 'typescript-eslint';
 
-export default tseslint.config(
-    { ignores: ['vendor/**', 'node_modules/**', 'public/build/**', 'review-packets/**'] },
+export default withVueTs(
+    { ignores: ['vendor/**', 'node_modules/**', 'public/build/**', 'review-packets/**', 'design-prototypes/**'] },
     eslint.configs.recommended,
-    ...tseslint.configs.recommended,
-    ...pluginVue.configs['flat/recommended'],
+    pluginVue.configs['flat/essential'],
+    vueTsConfigs.recommended,
     eslintConfigPrettier,
-    { rules: { 'vue/multi-word-component-names': 'off' } },
+    { rules: { 'vue/multi-word-component-names': 'off', 'vue/one-component-per-file': 'off' } },
 );

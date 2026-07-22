@@ -1,0 +1,49 @@
+name: cybersecurity-education-platform
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: local
+      APP_PROFILE: local
+      APP_DEBUG: "false"
+      APP_KEY: "${APP_KEY:?Generate an APP_KEY locally}"
+      APP_URL: "http://127.0.0.1:${APP_PORT:-8080}"
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: cyber_platform
+      DB_USERNAME: cyber_platform
+      DB_PASSWORD: "${DB_PASSWORD:?Set a random local database password}"
+      SESSION_DRIVER: database
+      SESSION_TABLE: application_sessions
+      SESSION_ENCRYPT: "true"
+      QUEUE_CONNECTION: database
+      CACHE_STORE: file
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+    volumes:
+      - app-storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+  postgres:
+    image: postgres:18.4-bookworm
+    environment:
+      POSTGRES_DB: cyber_platform
+      POSTGRES_USER: cyber_platform
+      POSTGRES_PASSWORD: "${DB_PASSWORD:?Set a random local database password}"
+      PGDATA: /var/lib/postgresql/18/docker
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cyber_platform -d cyber_platform"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+volumes:
+  app-storage:
+  postgres-data:

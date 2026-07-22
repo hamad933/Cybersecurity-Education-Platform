@@ -1,0 +1,6 @@
+decision_id	topic	state	reason	next_gate
+UD-006-001	Docker/WSL runtime validation	DEFERRED_ENVIRONMENT_BLOCKED	WSL not installed and Docker/Compose commands absent; no system change authorized	Validate pinned build, health checks, migrations, volumes, and shutdown on an approved Docker host before release
+UD-006-002	Production TLS/cookie termination	DEFERRED_DEPLOYMENT	Task 006 is local-only; production reverse proxy and certificate authority are not selected	Deployment hardening phase
+UD-006-003	Audit retention and integrity linkage	DEFERRED_POLICY	Append-only application enforcement exists; retention duration and cryptographic linkage have no approved requirement	Governance/operations decision before production data
+UD-006-004	Gitleaks full-engine scan	DEFERRED_TOOLING	No trusted binary or Docker engine available; limited deterministic scanner passed	Run a pinned official gitleaks release/container before external release
+UD-006-005	Responsive screenshot recapture after final overflow correction	OPEN_EVIDENCE	Browser screenshots exposed a narrow-screen overflow; source was corrected after capture and static/component gates passed, but browser session had already been finalized	Recapture the six final views on the next authorized browser evidence pass

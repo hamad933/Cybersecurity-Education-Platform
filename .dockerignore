@@ -1,0 +1,10 @@
+.git
+.env
+vendor
+node_modules
+public/build
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+review-packets/TASK_006_REVIEW_HANDOFF*

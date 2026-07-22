@@ -13,11 +13,11 @@ function submit() {
 <template>
   <Head title="تسجيل الدخول" />
   <main
-    class="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top,#164e63_0%,#020617_48%)] px-4 py-10"
+    class="grid min-h-screen place-items-center overflow-x-hidden bg-[radial-gradient(circle_at_top,#164e63_0%,#020617_48%)] px-4 py-10"
     dir="rtl"
   >
     <section
-      class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-950/90 p-6 shadow-2xl sm:p-8"
+      class="box-border w-[calc(100vw-2rem)] max-w-md min-w-0 rounded-2xl border border-slate-700 bg-slate-950/90 p-6 shadow-2xl sm:p-8"
       aria-labelledby="login-title"
     >
       <div class="mb-8">

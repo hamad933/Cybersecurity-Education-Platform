@@ -14,10 +14,15 @@ html {
 body {
   margin: 0;
   min-width: 320px;
+  overflow-x: hidden;
 }
 .direction-ltr {
   direction: ltr;
   unicode-bidi: isolate;
+}
+
+bdi {
+  overflow-wrap: anywhere;
 }
 .form-input {
   width: 100%;

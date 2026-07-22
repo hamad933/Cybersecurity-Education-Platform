@@ -39,6 +39,10 @@ __pycache__/
 /browser-profiles/
 /review-packets/TASK_*_REVIEW_HANDOFF/
 /review-packets/TASK_*_REVIEW_HANDOFF.zip
+/review-packets/repository-foundation-006/CHANGED_FILES.txt
+/review-packets/repository-foundation-006/COMMANDS_EXECUTED.txt
+/review-packets/repository-foundation-006/GIT_BASELINE_AND_COMMITS.md
+/review-packets/repository-foundation-006/TEST_RESULTS.txt
 *.log
 *.pid
 *.sqlite

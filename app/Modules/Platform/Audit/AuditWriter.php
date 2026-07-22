@@ -9,7 +9,7 @@ class AuditWriter
     private const SENSITIVE_KEYS = ['password', 'password_confirmation', 'token', 'secret', 'session', 'content', 'file'];
 
     /**
-     * @param array{actor_identifier?: ?string, action: string, target_type: string, target_identifier?: ?string, correlation_id: string, outcome: string, safe_metadata?: array<string, mixed>, occurred_at?: mixed} $record
+     * @param  array{actor_identifier?: ?string, action: string, target_type: string, target_identifier?: ?string, correlation_id: string, outcome: string, safe_metadata?: array<string, mixed>, occurred_at?: mixed}  $record
      */
     public function append(array $record): AuditRecord
     {
