@@ -1,0 +1,119 @@
+﻿TASK-009 review candidate repository status
+This records the full current WIP state; no reset, clean, stage, or commit was performed.
+
+ M .dockerignore
+ M Dockerfile
+ M app/Http/Middleware/HandleInertiaRequests.php
+ M app/Modules/IdentityAccess/Http/Controllers/AuthenticatedSessionController.php
+ M app/Modules/Platform/Blobs/BlobStore.php
+ M app/Modules/Platform/Blobs/LocalBlobStore.php
+ M app/Modules/Platform/Health/DashboardController.php
+ M app/Modules/Platform/Health/DiagnoseCommand.php
+ M app/Modules/Platform/Health/FoundationHealth.php
+ M app/Modules/Platform/Messaging/OutboxPublisher.php
+ M database/seeders/DatabaseSeeder.php
+ M docs/development/LOCAL_DEVELOPMENT.md
+ M docs/development/TROUBLESHOOTING.md
+ M docs/governance/APPROVED_BASELINE_INDEX.md
+ M phpunit.xml
+ M resources/css/app.css
+ M resources/js/pages/Auth/Login.vue
+ M resources/js/pages/Dashboard.vue
+ M resources/js/tests/BidiAccessibility.spec.ts
+ M resources/js/tests/Login.spec.ts
+ M resources/js/tests/setup.ts
+ M routes/web.php
+ M scripts/package_task006_handoff.php
+ M tests/Architecture/ModuleBoundaryTest.php
+ M tests/Feature/AuthenticationTest.php
+ M tests/Integration/MigrationLifecycleTest.php
+ M tests/Integration/PlatformPrimitivesTest.php
+ M tests/TestCase.php
+ M vitest.config.ts
+?? COLLECT_TASK009_COMPLETION_CONTEXT_PS51.ps1
+?? app/Application/
+?? app/Http/Controllers/Vs001Controller.php
+?? app/Http/Controllers/Vs002Controller.php
+?? app/Http/Controllers/Vs003Controller.php
+?? app/Modules/Curriculum/
+?? app/Modules/Enterprise/
+?? app/Modules/Evidence/
+?? app/Modules/IdentityAccess/Http/Controllers/AuthenticatedSessionController.php.before-task009-auth-fix
+?? app/Modules/Knowledge/
+?? app/Modules/Learning/
+?? app/Modules/Platform/Support/ImmutableWhenFinal.php
+?? app/Modules/Simulator/
+?? app/Modules/SourceGovernance/
+?? compose.dev.yaml
+?? compose.dev.yaml.before-task009-runtime-fix
+?? config/vs001.php
+?? config/vs002.php
+?? config/vs003.php
+?? database/migrations/2026_07_22_000005_create_vs001_content_and_enterprise_tables.php
+?? database/migrations/2026_07_22_000006_create_vs001_simulation_evidence_learning_tables.php
+?? database/migrations/2026_07_22_000007_correct_vs001_boundaries_and_actor_scope.php
+?? database/migrations/2026_07_22_000008_create_vs002_web_authorization_tables.php
+?? database/migrations/2026_07_24_000009_correct_vs002_finding_occurrences.php
+?? database/migrations/2026_07_24_000010_create_vs003_investigation_tables.php
+?? database/migrations/2026_07_24_000011_harden_vs003_actor_replay_and_control_scope.php
+?? database/seeders/Vs001Seeder.php
+?? database/seeders/Vs002Seeder.php
+?? database/seeders/Vs003Seeder.php
+?? docs/architecture/VS001_IMPLEMENTATION_BASELINE.md
+?? docs/architecture/VS001_MODULE_INTERACTION.md
+?? docs/architecture/VS001_RULE_ENGINE_BOUNDARIES.md
+?? docs/architecture/VS001_WINDOWS_AUTHORITY_BASELINE.md
+?? docs/architecture/VS002_DETECTION_REMEDIATION_VERIFICATION_MODEL.md
+?? docs/architecture/VS002_IMPLEMENTATION_BASELINE.md
+?? docs/architecture/VS002_MODULE_INTERACTION.md
+?? docs/architecture/VS002_REQUEST_AUTHORIZATION_MODEL.md
+?? docs/architecture/VS002_WEB_API_AUTHORITY_BASELINE.md
+?? docs/architecture/VS003_AUTHORITY_BASELINE.md
+?? docs/development/TASK007_TROUBLESHOOTING.md
+?? docs/development/TASK008_TROUBLESHOOTING.md
+?? docs/development/VS001_LOCAL_WORKFLOW.md
+?? docs/development/VS001_TESTING.md
+?? docs/development/VS002_LOCAL_WORKFLOW.md
+?? docs/development/VS002_TESTING.md
+?? docs/governance/TASK006_EXTERNAL_REVIEW_RECORD.md
+?? docs/governance/TASK007_EXTERNAL_REVIEW_RECORD.md
+?? docs/governance/TASK008_EXTERNAL_REVIEW_RECORD.md
+?? planning/task007/
+?? planning/task008/
+?? planning/task009/
+?? resources/js/components/DecisionTrace.vue
+?? resources/js/components/OutcomeBadge.vue
+?? resources/js/components/Vs001Nav.vue
+?? resources/js/components/Vs002Nav.vue
+?? resources/js/components/WebDecisionTrace.vue
+?? resources/js/pages/Vs001/
+?? resources/js/pages/Vs002/
+?? resources/js/pages/Vs003/
+?? resources/js/tests/DecisionTrace.spec.ts
+?? resources/js/tests/Vs001CorrectedWorkflows.spec.ts
+?? resources/js/tests/Vs002SafeRendering.spec.ts
+?? resources/js/tests/Vs003AuthenticationInvestigation.spec.ts
+?? review-packets/vs001-007/
+?? review-packets/vs002-008/
+?? review-packets/vs003-009/
+?? scripts/Support/
+?? scripts/capture_task007_screenshots.mjs
+?? scripts/package_task007_handoff.php
+?? scripts/package_task008_handoff.php
+?? scripts/package_task009_handoff.php
+?? tests/Architecture/FoundationCorrectionsTest.php
+?? tests/Architecture/HandoffPackagingPolicyTest.php
+?? tests/Architecture/Vs003BoundaryTest.php
+?? tests/Feature/AuthenticationTest.php.before-task009-rate-limit-isolation
+?? tests/Feature/Vs001LifecycleTest.php
+?? tests/Feature/Vs001PublicationWorkflowTest.php
+?? tests/Feature/Vs001WorkspaceTest.php
+?? tests/Feature/Vs002CorrectionGateTest.php
+?? tests/Feature/Vs002LifecycleTest.php
+?? tests/Feature/Vs002WorkspaceTest.php
+?? tests/Feature/Vs003InvestigationTest.php
+?? tests/Fixtures/
+?? tests/Support/
+?? tests/Unit/DestructiveDatabaseGuardTest.php
+?? tests/Unit/WebAuthorizationDecisionEngineTest.php
+?? tests/Unit/WindowsAuthorizationDecisionEngineTest.php

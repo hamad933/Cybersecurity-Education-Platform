@@ -14,7 +14,8 @@ defineProps<{ health: { database: string; queue: string; storage: string; migrat
       <p class="text-sm font-semibold text-cyan-300">FOUNDATION / الأساس</p>
       <h1 id="dashboard-title" class="mt-2 text-3xl font-bold sm:text-4xl">حالة المنصة المحلية</h1>
       <p class="mt-3 max-w-3xl leading-7 text-slate-400">
-        هذه الواجهة تعرض أساس التشغيل فقط. لم تبدأ مسارات المنتج أو <BidiText value="VS-001" />.
+        اجتازت تصحيحات الأساس بوابتها، وأصبحت دورة <BidiText value="VS-001" /> متاحة ضمن حدودها
+        المعتمدة فقط.
       </p>
     </section>
 
@@ -34,7 +35,11 @@ defineProps<{ health: { database: string; queue: string; storage: string; migrat
       <dl class="mt-5 grid gap-5 sm:grid-cols-2">
         <div>
           <dt class="text-sm text-slate-400">الوحدات النشطة</dt>
-          <dd class="mt-1"><BidiText value="MOD-IAM, MOD-PLT" /></dd>
+          <dd class="mt-1">
+            <BidiText
+              value="MOD-IAM, MOD-PLT, MOD-SRC, MOD-KNO, MOD-CUR, MOD-ENT, MOD-SIM, MOD-EVD, MOD-LRN"
+            />
+          </dd>
         </div>
         <div>
           <dt class="text-sm text-slate-400">ملف البيئة</dt>
@@ -42,5 +47,10 @@ defineProps<{ health: { database: string; queue: string; storage: string; migrat
         </div>
       </dl>
     </section>
+    <a
+      href="/vs001/sources"
+      class="focus-ring mt-8 inline-flex rounded-lg bg-cyan-400 px-5 py-3 font-bold text-slate-950"
+      >افتح دورة VS-001</a
+    >
   </AppShell>
 </template>

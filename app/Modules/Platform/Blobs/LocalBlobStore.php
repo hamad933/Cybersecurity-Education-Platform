@@ -56,6 +56,14 @@ class LocalBlobStore implements BlobStore
         return $stream;
     }
 
+    public function delete(string $key): void
+    {
+        $this->guardKey($key);
+        if (! $this->filesystems->disk(config('platform.blob_disk'))->delete($key)) {
+            throw new RuntimeException('Blob deletion failed.');
+        }
+    }
+
     private function guardKey(string $key): void
     {
         if ($key === '' || str_contains($key, '..') || str_contains($key, '\\') || str_starts_with($key, '/') || preg_match('/^[A-Za-z]:/', $key)) {

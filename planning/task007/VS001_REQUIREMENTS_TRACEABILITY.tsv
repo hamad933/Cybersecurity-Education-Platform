@@ -1,0 +1,10 @@
+requirement_or_criterion	implementation_files	test_files	evidence_files	status
+VSAC-004-001	config/vs001.php;database/seeders/Vs001Seeder.php	tests/Feature/Vs001WorkspaceTest.php	planning/task007/VS001_ENTITY_SCOPE.tsv	IMPLEMENTED
+VSAC-004-002..004	database/seeders/Vs001Seeder.php;app/Modules/Knowledge/Publication/LessonRevisionWorkflow.php	tests/Feature/Vs001PublicationWorkflowTest.php	docs/architecture/VS001_WINDOWS_AUTHORITY_BASELINE.md;planning/task007/VS001_AUTHORITY_CLAIMS.tsv	IMPLEMENTED
+VSAC-004-005	app/Modules/Knowledge/Publication/LessonRevisionWorkflow.php;app/Modules/Platform/Support/ImmutableWhenFinal.php	tests/Feature/Vs001PublicationWorkflowTest.php	review-packets/vs001-007/REVISION_AND_PUBLICATION_RESULTS.md	IMPLEMENTED
+VSAC-004-006..017	app/Modules/Simulator/Authorization/WindowsAuthorizationDecisionEngine.php	tests/Unit/WindowsAuthorizationDecisionEngineTest.php	planning/task007/VS001_RULE_CATALOG.tsv;planning/task007/VS001_SCENARIO_CASES.tsv	IMPLEMENTED
+VSAC-004-018..020	app/Application/Vs001/Vs001Lifecycle.php	tests/Feature/Vs001LifecycleTest.php	review-packets/vs001-007/SCENARIO_RUN_ISOLATION_RESULTS.md	IMPLEMENTED
+VSAC-004-021	app/Http/Controllers/Vs001Controller.php;resources/js/pages/Vs001/MicroPractice.vue	tests/Feature/Vs001WorkspaceTest.php;resources/js/tests/DecisionTrace.spec.ts	review-packets/vs001-007/rendered/vs001-micro-practice-mobile.png	IMPLEMENTED
+VSAC-004-022..023	app/Application/Vs001/Vs001Lifecycle.php;resources/js/pages/Vs001/EvidenceMastery.vue	tests/Feature/Vs001LifecycleTest.php	review-packets/vs001-007/EVIDENCE_AND_MASTERY_RESULTS.md	IMPLEMENTED
+VSAC-004-024	app/Modules/Simulator/Authorization/WindowsAuthorizationDecisionEngine.php;tests/Architecture/ModuleBoundaryTest.php	tests/Architecture/ModuleBoundaryTest.php	docs/architecture/VS001_RULE_ENGINE_BOUNDARIES.md	IMPLEMENTED
+Foundation corrections	Dockerfile;app/Modules/Platform;tests/Architecture/FoundationCorrectionsTest.php	tests/Architecture/FoundationCorrectionsTest.php;tests/Integration/PlatformPrimitivesTest.php	review-packets/vs001-007/FOUNDATION_CORRECTION_GATE.md	PASS

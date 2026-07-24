@@ -21,6 +21,9 @@ class HandleInertiaRequests extends Middleware
                 'profile' => config('platform.profile'),
                 'localOnly' => true,
             ],
+            'flash' => [
+                'status' => fn () => $request->session()->get('status'),
+            ],
         ];
     }
 }

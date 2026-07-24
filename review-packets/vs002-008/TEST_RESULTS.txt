@@ -1,0 +1,22 @@
+TASK_008_TEST_RESULT=PASS_WITH_BROWSER_GATE_BLOCKED
+PHPUNIT=PASS; tests=127; assertions=1606; database=PostgreSQL_18.4
+VS001_CORRECTION_GATE=PASS; targeted_tests=49; targeted_assertions=701
+VS002_TARGETED=PASS; tests=22; assertions=232
+MIGRATION_LIFECYCLE=PASS; migrations=8; fresh=yes; rollback_reapply=yes
+PHPSTAN=PASS; files=96; errors=0
+PINT=PASS
+COMPOSER_VALIDATE_STRICT=PASS
+COMPOSER_AUDIT_LOCKED=PASS; advisories=0
+PRETTIER=PASS
+ESLINT=PASS
+VUE_TSC=PASS
+VITEST=PASS; files=6; tests=13
+VITE_BUILD=PASS; modules_transformed=587
+NPM_AUDIT_HIGH=PASS; vulnerabilities=0
+COMPOSE_STATIC_VALIDATION=PASS; checks=10
+SECRET_SCAN=PASS; scanner=limited_deterministic_fallback; worktree_files=528; git_history=yes; limitation=narrower_than_gitleaks
+DOCKER_RUNTIME=DOCKER_RUNTIME_UNAVAILABLE
+IN_APP_BROWSER=BLOCKED; reason=local_server_and_loopback_browser_actions_rejected_by_execution_approval_environment
+SCREENSHOTS=BLOCKED; required=12; captured=0; fabricated=0
+VS002_ACCEPTANCE=23/24; blocked=1; failed=0
+NOTES=php_artisan_test rendered each successful test as a warning because the wrapper attempted unreadable source excerpts; direct PHPUnit completed cleanly with 127/127 and 1606 assertions.

@@ -8,4 +8,6 @@
 - Owner already exists: the single-active-owner constraint is intentional. Do not edit the index or add registration.
 - Vite manifest missing: run `npm ci --ignore-scripts && npm run build`.
 - Diagnostic fails: inspect only the named check (`configuration`, `database`, `queue`, `storage`, `blob`, `migrations`, or `profile`); `app:diagnose` never prints environment values.
+- Diagnostic reports `SKIPPED_DATABASE_UNAVAILABLE`: restore PostgreSQL connectivity first; no audit write was attempted by design.
+- Test database guard fails: confirm `APP_ENV=testing`, a `pgsql` allow-list entry, an `_test` database suffix, and an explicitly allow-listed loopback or Compose host before retrying. Never weaken the guard to reach a non-test database.
 - Composer cache warning in a restricted environment: a read-only cache warning is acceptable when locked packages remain available; do not redirect caches into the repository.

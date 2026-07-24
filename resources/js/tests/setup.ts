@@ -15,6 +15,7 @@ Object.defineProperty(window, 'matchMedia', {
 vi.mock('@inertiajs/vue3', () => ({
   Head: defineComponent({ template: '<span data-head />' }),
   Link: defineComponent({ template: '<button><slot /></button>' }),
+  router: { post: vi.fn() },
   usePage: () =>
     reactive({
       props: {

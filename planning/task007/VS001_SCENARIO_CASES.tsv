@@ -1,0 +1,13 @@
+case_id	title	primary_path	expected_outcome	decisive_rule	coverage	status
+CASE-001-EXPLICIT-ALLOW	User SID explicit allow	positive	ALLOW	RULE-ALLOW-COMPLETE	user match; allow	PUBLISHED
+CASE-002-GROUP-ALLOW	Enabled group explicit allow	positive	ALLOW	RULE-ALLOW-COMPLETE	enabled group	PUBLISHED
+CASE-003-DENY-BEFORE-ALLOW	Explicit deny before later allow	negative	DENY	RULE-ACE-DENY	order; decisive deny	PUBLISHED
+CASE-004-CUMULATIVE-ALLOW	Cumulative allows	positive	ALLOW	RULE-ALLOW-COMPLETE	mask accumulation	PUBLISHED
+CASE-005-PARTIAL-MASK	Remaining mask	negative	DENY	RULE-REMAINING-MASK-DENY	partial mask	PUBLISHED
+CASE-006-NON-APPLICABLE	Non-applicable inherit-only ACE	parameter	ALLOW	RULE-ALLOW-COMPLETE	skipped ACE explanation	PUBLISHED
+CASE-007-MISSING-PRINCIPAL	Missing principal	insufficient	INSUFFICIENT_STATE	RULE-INPUT-PRINCIPAL	missing identity	PUBLISHED
+CASE-008-MISSING-DESCRIPTOR	Missing security descriptor	insufficient	INSUFFICIENT_STATE	RULE-INPUT-DESCRIPTOR	missing object state	PUBLISHED
+CASE-009-MISSING-MAPPING	Generic mapping missing	insufficient	INSUFFICIENT_STATE	RULE-GENERIC-MAPPING-MISSING	generic rights	PUBLISHED
+CASE-010-UNSUPPORTED-ACE	Unsupported ACE type	unsupported	UNSUPPORTED_STATE	RULE-UNSUPPORTED-ACE	unsupported semantics	PUBLISHED
+CASE-011-UNSUPPORTED-PRIVILEGE	Privilege-dependent case	unsupported	UNSUPPORTED_STATE	RULE-UNSUPPORTED-PRIVILEGE	no privilege guess	PUBLISHED
+CASE-012-DENY-ONLY-GROUP	Deny-only group cannot grant	negative	DENY	RULE-REMAINING-MASK-DENY	group attributes/replay fixture	PUBLISHED

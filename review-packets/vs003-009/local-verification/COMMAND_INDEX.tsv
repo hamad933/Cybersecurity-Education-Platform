@@ -1,0 +1,29 @@
+﻿gate	status	exit_code	log	note
+runtime_start_no_build	PASS	0	review-packets/vs003-009/local-verification/runtime_start_no_build.log	Existing images started without a build.
+runtime_app_php	PASS	0	review-packets/vs003-009/local-verification/runtime_app_php.log	Command completed successfully.
+runtime_postgres	PASS	0	review-packets/vs003-009/local-verification/runtime_postgres.log	Command completed successfully.
+vendor_ready	PASS	0	review-packets/vs003-009/local-verification/vendor_ready.log	Existing Composer development dependencies were reused.
+isolated_test_database	PASS	0	review-packets/vs003-009/local-verification/isolated_test_database.log	Isolated PostgreSQL database is ready.
+php_targeted_format_check	PASS	0	review-packets/vs003-009/local-verification/php_targeted_format_check.log	Command completed successfully.
+php_syntax_2026_07_24_000011_harden_vs003_actor_replay_and_control_scope	PASS	0	review-packets/vs003-009/local-verification/php_syntax_2026_07_24_000011_harden_vs003_actor_replay_and_control_scope.log	Command completed successfully.
+php_syntax_Vs003InvestigationTest	PASS	0	review-packets/vs003-009/local-verification/php_syntax_Vs003InvestigationTest.log	Command completed successfully.
+php_targeted_syntax	PASS	0	review-packets/vs003-009/local-verification/php_targeted_syntax.log	Both directly affected PHP files passed php -l.
+testing_config_clear	PASS	0	review-packets/vs003-009/local-verification/testing_config_clear.log	Command completed successfully.
+php_migration_lifecycle	PASS	0	review-packets/vs003-009/local-verification/php_migration_lifecycle.log	Command completed successfully.
+php_authentication	PASS	0	review-packets/vs003-009/local-verification/php_authentication.log	Command completed successfully.
+php_repository_safety	PASS	0	review-packets/vs003-009/local-verification/php_repository_safety.log	Command completed successfully.
+php_vs003_investigation	PASS	0	review-packets/vs003-009/local-verification/php_vs003_investigation.log	Command completed successfully.
+php_vs003_boundaries	PASS	0	review-packets/vs003-009/local-verification/php_vs003_boundaries.log	Command completed successfully.
+php_module_boundaries	PASS	0	review-packets/vs003-009/local-verification/php_module_boundaries.log	Command completed successfully.
+node_image_ready	PASS	0	review-packets/vs003-009/local-verification/node_image_ready.log	Existing locked Node image was reused.
+frontend_dependency_probe	PASS	0	review-packets/vs003-009/local-verification/frontend_dependency_probe.log	Required locked frontend tools are already present in the named volume.
+frontend_targeted_format	PASS	0	review-packets/vs003-009/local-verification/frontend_targeted_format.log	Command completed successfully.
+frontend_format_check	PASS	0	review-packets/vs003-009/local-verification/frontend_format_check.log	Command completed successfully.
+frontend_typecheck	PASS	0	review-packets/vs003-009/local-verification/frontend_typecheck.log	Command completed successfully.
+frontend_lint	PASS	0	review-packets/vs003-009/local-verification/frontend_lint.log	Command completed successfully.
+frontend_targeted_tests	PASS	0	review-packets/vs003-009/local-verification/frontend_targeted_tests.log	Command completed successfully.
+frontend_build	PASS	0	review-packets/vs003-009/local-verification/frontend_build.log	Command completed successfully.
+npm_audit	PASS	0	review-packets/vs003-009/local-verification/npm_audit.log	npm audit completed with no high-severity blocking result.
+composer_audit	PASS	0	review-packets/vs003-009/local-verification/composer_audit.log	Composer audit completed without a blocking advisory.
+secret_scan	PASS	0	review-packets/vs003-009/local-verification/secret_scan.log	No supported secret pattern was found.
+browser_runtime	BLOCKED_PRIOR_SINGLE_ATTEMPT	0	review-packets/vs003-009/local-verification/browser_gate.log	No second browser attempt was made.

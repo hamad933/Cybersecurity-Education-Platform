@@ -1,0 +1,10 @@
+finding_id	result	primary_evidence	residual_limitation
+FND-007-001	PASS_WITH_RUNTIME_LIMITATION	Dockerfile; .dockerignore; clean production staging; validate_compose 10/10; native PostgreSQL 18.4	DOCKER_RUNTIME_UNAVAILABLE
+FND-007-002	PASS	Authentication controller; Login.vue; login and architecture tests	persistent login intentionally unsupported
+FND-007-003	PASS	FoundationHealth split; BlobStore delete; dashboard/probe/failure cleanup tests	detailed CLI probe performs temporary write
+FND-007-004	PASS	DiagnoseCommand; available/unavailable/missing-table/no-audit tests	safe output omits diagnostic secrets
+FND-007-005	PASS	DestructiveDatabaseGuard; phpunit injection; negative guard tests	allow-lists remain operator controlled
+FND-007-006	PASS	database queue worker retry-success and terminal-failure tests	database queue only
+FND-007-007	PASS	HandoffPathPolicy; automated safe/prohibited matrix; packager enforcement	final complete Task-007 package verified at handoff
+FND-007-008	PASS	direct Task-004 SHA256SUMS.txt rehash; superseding records	historical typo retained immutably
+FND-007-009	PASS	six exact screenshots; overflow checks; 200-percent reflow; focus/Bidi review	in-app Browser connector unavailable; local Chrome capture used

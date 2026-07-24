@@ -16,7 +16,7 @@ describe('Bidirectional and accessibility primitives', () => {
     expect(css).toContain('.focus-ring:focus-visible');
     expect(css).toContain('outline: 3px solid');
     expect(css).toContain('.skip-link:focus');
-    expect(css).toContain('overflow-x: hidden');
+    expect(css).not.toContain('overflow-x: hidden');
     const shell = readFileSync(resolve('resources/js/components/AppShell.vue'), 'utf8');
     expect(shell).toContain('sm:flex-row');
     expect(shell).toContain('flex-wrap');

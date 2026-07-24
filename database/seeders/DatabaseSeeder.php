@@ -14,6 +14,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Deliberately empty: owner credentials are never seeded.
+        // Credentials remain interactive-only; vertical-slice seeds contain no user or secret.
+        $this->call(Vs001Seeder::class);
+        $this->call(Vs002Seeder::class);
+        $this->call(Vs003Seeder::class);
     }
 }

@@ -1,0 +1,62 @@
+ Container cybersecurity-education-platform-postgres-1 Running 
+ Container cybersecurity-education-platform-postgres-1 Waiting 
+ Container cybersecurity-education-platform-postgres-1 Healthy 
+ Container cybersecurity-education-platform-app-run-b7640b1940db Creating 
+ Container cybersecurity-education-platform-app-run-b7640b1940db Created 
+
+  [39;41;1m FAIL [39;49;22m[39m Tests\Feature\AuthenticationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mfirst owner is created interactively and second active owner is rej[39m[90m…[39m [90m2.87s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogin page guides first owner and registration is absent[39m[90m            [39m [90m1.16s[39m  
+  [32;1m✓[39;22m[90m [39m[90mguest is redirected and correct credentials authenticate[39m[90m            [39m [90m1.10s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mwrong credentials are safely audited and rate limited[39m[90m               [39m [90m2.00s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogout invalidates the session and protected dashboard rejects gues[39m[90m…[39m [90m0.54s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrelease profile has no authentication bypass[39m[90m                        [39m [90m0.67s[39m  
+
+  [39;41;1m FAIL [39;49;22m[39m Tests\Architecture\RepositorySafetyTest[39m
+  [32;1m✓[39;22m[90m [39m[90mapproved task004 artifacts remain byte for byte preserved[39m[90m           [39m [90m6.48s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mroot agents stable patch is present without removing original rules[39m[90m [39m [90m0.72s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrepository root lockfiles and secret exclusions are correct[39m[90m         [39m [90m0.89s[39m  
+  [32;1m✓[39;22m[90m [39m[90mruntime application has no source vault dependency or prohibited se[39m[90m…[39m [90m5.88s[39m  
+  [31m────────────────────────────────────────────────────────────────────────────[39m  
+  [41;1m FAILED [49;22m [1mTests\Feature\AuthenticationTest[22m [90m>[39m wrong credentials are safely a…   
+[39;1m  Session is missing expected key [errors].
+Failed asserting that false is true.[39;22m
+
+  at [32mtests/Feature/AuthenticationTest.php[39m:[32m65[39m
+     61▕     public function test_wrong_credentials_are_safely_audited_and_rate_limited(): void
+     62▕     {
+     63▕         $this->owner();
+     64▕         for ($attempt = 1; $attempt <= 5; $attempt++) {
+  ➜  65▕             $this->post('/login', ['email' => 'owner@example.test', 'password' => 'Wrong!Password9'])->assertSessionHasErrors('email');
+     66▕         }
+     67▕         $this->post('/login', ['email' => 'owner@example.test', 'password' => 'Wrong!Password9'])->assertTooManyRequests();
+     68▕         $record = AuditRecord::query()->where('outcome', 'failure')->firstOrFail();
+     69▕         $this->assertSame(hash('sha256', 'owner@example.test'), $record->target_identifier);
+
+  [31m────────────────────────────────────────────────────────────────────────────[39m  
+  [41;1m FAILED [49;22m [1mTests\Architecture\RepositorySafetyTest[22m [90m>[39m root agents stable patc…   
+[39;1m  Expected: [39;22m[31m# Project-wide Codex rules\n[39m[39;1m
+  [39;22m[31m\n[39m[39;1m
+  [39;22m[31m## Product and governance\n[39m[39;1m
+  [39;22m[90m... (49 more lines)[39m[39;1m
+
+  To contain: [39;22m[32msingle deployable Modular Monolith[39m
+
+  at [32mtests/Architecture/RepositorySafetyTest.php[39m:[32m36[39m
+     32▕     public function root_agents_stable_patch_is_present_without_removing_original_rules(): void
+     33▕     {
+     34▕         $rules = file_get_contents(base_path('../AGENTS.md'));
+     35▕         foreach (['source-vault/originals/', 'Manual AI Bridge', 'single deployable Modular Monolith', 'local single-owner workspace', 'PostgreSQL relational storage', 'design proofs, never product implementation', 'Task 004 is an architecture and UX candidate only'] as $required) {
+  ➜  36▕             $this->assertStringContainsString($required, $rules);
+     37▕         }
+     38▕     }
+     39▕ 
+     40▕     #[Test]
+
+  [33m1   [39m[39;1mtests/Architecture/RepositorySafetyTest.php[39;22m:[39;1m36[39;22m
+
+
+  [90mTests:[39m    [31;1m2 failed[39;22m[90m,[39m[39m [39m[32;1m8 passed[39;22m[90m (370 assertions)[39m
+  [90mDuration:[39m [39m23.02s[39m
+
+

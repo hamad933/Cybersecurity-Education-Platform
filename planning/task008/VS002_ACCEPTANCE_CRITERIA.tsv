@@ -1,0 +1,25 @@
+criterion_id	statement
+VS2-AC-001	Stable IDs and approved D05 selection are preserved.
+VS2-AC-002	Current primary authorities are recorded and each technical claim is bounded.
+VS2-AC-003	A reviewed, cited lesson moves through real draft/review/publication states.
+VS2-AC-004	Published lesson revision is immutable and restore creates a new draft.
+VS2-AC-005	Request context and each trust boundary are explicit and versioned.
+VS2-AC-006	Authentication and authorization are evaluated as separate steps.
+VS2-AC-007	Owner positive path returns ALLOW with deterministic trace.
+VS2-AC-008	Vulnerable cross-owner path incorrectly allows access and creates a finding.
+VS2-AC-009	Secure policy denies the same cross-owner request.
+VS2-AC-010	Client-supplied role/owner fields do not influence server-side authorization.
+VS2-AC-011	Action/method/resource mapping is explicit and bounded.
+VS2-AC-012	Missing/malformed/unsupported state never produces a guessed ALLOW.
+VS2-AC-013	Response serialization excludes non-approved sensitive fields.
+VS2-AC-014	Security events/findings are deterministic and redact secrets.
+VS2-AC-015	Remediation creates a new immutable policy revision.
+VS2-AC-016	Verification binds vulnerable run, remediation revision, and fixed run.
+VS2-AC-017	Replay is pinned to exact scenario/policy/rule/baseline revisions.
+VS2-AC-018	Scenario runs do not mutate the Enterprise Baseline.
+VS2-AC-019	All evidence is origin-labelled SIMULATED and actor-bound.
+VS2-AC-020	Mastery requires positive, negative, remediation, verification, provenance, and replay evidence.
+VS2-AC-021	Actual failures create specific ReviewTriggers.
+VS2-AC-022	Lesson/request/trace rendering keeps XSS markers inert.
+VS2-AC-023	Arabic RTL, technical LTR, keyboard, focus, mobile, and overflow gates pass.
+VS2-AC-024	VS-001 regressions and corrected criteria pass; no live exploit, scanner, connector, AI, or future slice is implemented.

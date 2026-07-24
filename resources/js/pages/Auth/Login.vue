@@ -3,7 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 
 defineProps<{ ownerExists: boolean }>();
 
-const form = useForm({ email: '', password: '', remember: false });
+const form = useForm({ email: '', password: '' });
 
 function submit() {
   form.post('/login', { onFinish: () => form.reset('password') });
@@ -13,11 +13,11 @@ function submit() {
 <template>
   <Head title="تسجيل الدخول" />
   <main
-    class="grid min-h-screen place-items-center overflow-x-hidden bg-[radial-gradient(circle_at_top,#164e63_0%,#020617_48%)] px-4 py-10"
+    class="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top,#164e63_0%,#020617_48%)] px-4 py-10"
     dir="rtl"
   >
     <section
-      class="box-border w-[calc(100vw-2rem)] max-w-md min-w-0 rounded-2xl border border-slate-700 bg-slate-950/90 p-6 shadow-2xl sm:p-8"
+      class="box-border w-full max-w-md min-w-0 rounded-2xl border border-slate-700 bg-slate-950/90 p-6 shadow-2xl sm:p-8"
       aria-labelledby="login-title"
     >
       <div class="mb-8">
@@ -70,10 +70,6 @@ function submit() {
             required
           />
         </div>
-        <label class="flex items-center gap-3 text-sm text-slate-300">
-          <input v-model="form.remember" type="checkbox" class="focus-ring size-4 rounded" />
-          تذكّر الجلسة على هذا الجهاز المحلي
-        </label>
         <button
           class="focus-ring w-full rounded-xl bg-cyan-400 px-4 py-3 font-bold text-slate-950 transition hover:bg-cyan-300 disabled:opacity-50"
           :disabled="form.processing"

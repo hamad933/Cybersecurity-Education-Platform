@@ -31,3 +31,21 @@ php artisan queue:work --tries=3
 No password argument exists on `owner:create`; both password and confirmation are interactive and hidden. Use `php artisan app:diagnose` for detailed CLI-only diagnostics. `/health/live` intentionally returns only `{"status":"ok"}`.
 
 Resetting a local database destroys local state and therefore is deliberately not wrapped as an automatic script. Stop the application and explicitly run `php artisan migrate:fresh` only against a disposable local database.
+
+## Test database safety
+
+All PHPUnit runs require `APP_ENV=testing`, an allow-listed connection, a database name ending in `_test`, and an allow-listed host. The guard executes before Laravel's database traits and before the explicit migration-lifecycle reset. These values are injectable; never commit a real password.
+
+Native example:
+
+```text
+APP_ENV=testing
+DB_CONNECTION=pgsql
+DB_HOST=127.0.0.1
+DB_DATABASE=cyber_platform_test
+TEST_DATABASE_ALLOWED_CONNECTIONS=pgsql
+TEST_DATABASE_ALLOWED_HOSTS=127.0.0.1
+php artisan test
+```
+
+Compose workflow: start the pinned PostgreSQL service, create a dedicated `cyber_platform_test` database inside the Compose network, and run the test-capable development checkout with `APP_ENV=testing`, `DB_HOST=postgres`, `DB_DATABASE=cyber_platform_test`, and `TEST_DATABASE_ALLOWED_HOSTS=postgres`. The production image intentionally contains no development test dependencies. Docker was unavailable during Task-007, so this workflow is documented and structurally checked but not claimed as executed.

@@ -9,4 +9,6 @@ interface BlobStore
 
     /** @return resource */
     public function readStream(string $key);
+
+    public function delete(string $key): void;
 }

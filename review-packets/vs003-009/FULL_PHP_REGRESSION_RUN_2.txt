@@ -1,0 +1,165 @@
+ Container cybersecurity-education-platform-postgres-1 Running 
+ Container cybersecurity-education-platform-postgres-1 Waiting 
+ Container cybersecurity-education-platform-postgres-1 Healthy 
+ Container cybersecurity-education-platform-app-run-580269f7977a Creating 
+ Container cybersecurity-education-platform-app-run-580269f7977a Created 
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\DestructiveDatabaseGuardTest[39m
+  [32;1m✓[39;22m[90m [39m[90maccepts an explicitly allowed postgresql test database[39m[90m              [39m [90m0.85s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrejects every unsafe context with data set "wrong environment"[39m[90m      [39m [90m0.43s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrejects every unsafe context with data set "wrong connection"[39m[90m       [39m [90m0.44s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrejects every unsafe context with data set "unsafe database name"[39m[90m   [39m [90m0.34s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrejects every unsafe context with data set "unapproved host"[39m[90m        [39m [90m0.56s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\IdentifierTest[39m
+  [32;1m✓[39;22m[90m [39m[90muuid v7 values are unique orderable and serializable[39m[90m                [39m [90m0.63s[39m  
+  [32;1m✓[39;22m[90m [39m[90mentity trait generates uuid v7 primary keys[39m[90m                         [39m [90m0.65s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\WebAuthorizationDecisionEngineTest[39m
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.90s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.57s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.68s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.55s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.58s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.73s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.56s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.45s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.57s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.32s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.39s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.40s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsupported pinned behavior version fails closed[39m[90m                    [39m [90m0.37s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\WindowsAuthorizationDecisionEngineTest[39m
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "user explicit allow"[39m[90m     [39m [90m0.70s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "enabled group allow"[39m[90m     [39m [90m0.43s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "deny before later allow"[39m[90m [39m [90m0.42s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "cumulative allows"[39m[90m       [39m [90m0.38s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "remaining mask denies"[39m[90m   [39m [90m0.32s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "missing principal"[39m[90m       [39m [90m0.39s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "missing descriptor"[39m[90m      [39m [90m0.43s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "missing generic mapping"[39m[90m [39m [90m0.46s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "approved file generic ma[39m[90m…[39m [90m0.56s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "unsupported a c e"[39m[90m       [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "privilege-dependent case[39m[90m…[39m [90m0.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "non-applicable a c e is[39m[90m… [39m [90m0.56s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "deny-only group cannot g[39m[90m…[39m [90m0.65s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "malformed s i d"[39m[90m         [39m [90m0.63s[39m  
+  [32;1m✓[39;22m[90m [39m[90msame input revision seed and actions are digest deterministic[39m[90m       [39m [90m0.63s[39m  
+  [32;1m✓[39;22m[90m [39m[90mordered trace records non applicable and mask accumulation steps[39m[90m    [39m [90m0.40s[39m  
+
+  [39;41;1m FAIL [39;49;22m[39m Tests\Feature\AuthenticationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mfirst owner is created interactively and second active owner is rej[39m[90m…[39m [90m2.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogin page guides first owner and registration is absent[39m[90m            [39m [90m1.28s[39m  
+  [32;1m✓[39;22m[90m [39m[90mguest is redirected and correct credentials authenticate[39m[90m            [39m [90m1.57s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mwrong credentials are safely audited and rate limited[39m[90m               [39m [90m1.69s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogout invalidates the session and protected dashboard rejects gues[39m[90m…[39m [90m0.72s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrelease profile has no authentication bypass[39m[90m                        [39m [90m0.63s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\LivenessTest[39m
+  [32;1m✓[39;22m[90m [39m[90mliveness is minimal and non sensitive[39m[90m                               [39m [90m0.57s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Vs001LifecycleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mrun is idempotent actor bound isolated and issues one evidence and[39m[90m… [39m [90m1.79s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreplay stays pinned after a newer revision is published[39m[90m             [39m [90m0.56s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmastery reads only evidence bound to the requested actor[39m[90m            [39m [90m0.66s[39m  
+  [32;1m✓[39;22m[90m [39m[90maccepted evidence is immutable and improvement is proposal only[39m[90m     [39m [90m0.60s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnon practice failure classes are derived from actual observations w[39m[90m…[39m [90m0.72s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnon practice failure classes are derived from actual observations w[39m[90m…[39m [90m0.61s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnon practice failure classes are derived from actual observations w[39m[90m…[39m [90m0.61s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnon practice failure classes are derived from actual observations w[39m[90m…[39m [90m0.70s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Vs001PublicationWorkflowTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdraft update uses optimistic lock and stable digest[39m[90m                 [39m [90m0.62s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpublication is blocked without approved authority[39m[90m                   [39m [90m0.50s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe or unregistered typed content is rejected[39m[90m                    [39m [90m0.80s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreturn approve publish immutability restore and audit are enforced[39m[90m  [39m [90m0.56s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Vs001WorkspaceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mall workspaces are owner only and render real seeded data[39m[90m           [39m [90m2.21s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlab requests are bounded actor scoped and idempotency conflicts are[39m[90m…[39m [90m0.59s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is evaluated server side with data set "correct[39m[90m…[39m [90m0.79s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is evaluated server side with data set "missing[39m[90m…[39m [90m0.59s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is evaluated server side with data set "unsuppo[39m[90m…[39m [90m0.69s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is evaluated server side with data set "wrong d[39m[90m…[39m [90m0.76s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is evaluated server side with data set "wrong d[39m[90m…[39m [90m0.59s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is evaluated server side with data set "wrong r[39m[90m…[39m [90m0.47s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is evaluated server side with data set "wrong r[39m[90m…[39m [90m0.50s[39m  
+  [32;1m✓[39;22m[90m [39m[90moversized practice payload is rejected without persistence[39m[90m          [39m [90m0.50s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlesson editor routes complete bounded review publication and restor[39m[90m…[39m [90m0.58s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Vs002CorrectionGateTest[39m
+  [32;1m✓[39;22m[90m [39m[90mfinding occurrences and verification are actor run and trace bound[39m[90m  [39m [90m0.99s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Vs002LifecycleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mvulnerable request creates actor bound finding and is idempotent[39m[90m    [39m [90m0.49s[39m  
+  [32;1m✓[39;22m[90m [39m[90mremediation is new immutable revision and verification links both r[39m[90m…[39m [90m0.73s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreplay remains pinned and client role never overrides server author[39m[90m…[39m [90m0.74s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmastery requires balanced actor bound remediation verification prov[39m[90m…[39m [90m1.10s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Vs002WorkspaceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mall real workspaces are owner only and use seeded revisions[39m[90m         [39m [90m1.89s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrequest validation and same actor idempotency are enforced[39m[90m          [39m [90m1.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is server evaluated and failure specific[39m[90m        [39m [90m0.89s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlesson workflow allows inert code but rejects active prose[39m[90m          [39m [90m0.72s[39m  
+  [32;1m✓[39;22m[90m [39m[90mremediation and verification routes link the vulnerable request[39m[90m     [39m [90m0.93s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Vs003InvestigationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdeterministic synthetic investigation covers all required outcomes[39m[90m… [39m [90m0.90s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Integration\MigrationLifecycleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpostgresql fresh rollback and reapply lifecycle[39m[90m                     [39m [90m1.92s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Integration\PlatformPrimitivesTest[39m
+  [32;1m✓[39;22m[90m [39m[90midentifier round trips through postgresql[39m[90m                           [39m [90m0.40s[39m  
+  [32;1m✓[39;22m[90m [39m[90maudit is append only bounded and rejects sensitive metadata[39m[90m         [39m [90m0.39s[39m  
+  [32;1m✓[39;22m[90m [39m[90maudit rejects sensitive metadata keys[39m[90m                               [39m [90m0.39s[39m  
+  [32;1m✓[39;22m[90m [39m[90mblob store rejects traversal and streams with digest[39m[90m                [39m [90m0.55s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdiagnostic blob probe is read verified and deleted[39m[90m                  [39m [90m0.54s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdiagnostic blob probe deletes the temporary blob when reading fails[39m[90m [39m [90m0.60s[39m  
+  [32;1m✓[39;22m[90m [39m[90mauthenticated dashboard health is read only for blob storage[39m[90m        [39m [90m0.57s[39m  
+  [32;1m✓[39;22m[90m [39m[90mprocessing run transitions and idempotency are enforced[39m[90m             [39m [90m0.60s[39m  
+  [32;1m✓[39;22m[90m [39m[90mprocessing run rejects invalid transition[39m[90m                           [39m [90m0.55s[39m  
+  [32;1m✓[39;22m[90m [39m[90moutbox publish is transactional and consumer is idempotent[39m[90m          [39m [90m0.45s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdatabase queue worker retries then completes a correlated job[39m[90m       [39m [90m0.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdatabase queue worker records terminal failure after real retries[39m[90m   [39m [90m0.83s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdiagnostic command reports success and failure states[39m[90m               [39m [90m0.68s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdiagnostic database failure is controlled and skips audit[39m[90m           [39m [90m0.79s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdiagnostic missing table is controlled and no audit option skips wr[39m[90m…[39m [90m1.58s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpostgresql constraints reject invalid owner and outbox state[39m[90m        [39m [90m0.94s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpostgresql outbox status constraint is active[39m[90m                       [39m [90m0.48s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Architecture\FoundationCorrectionsTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdocker build orders source before composer scripts and installs pla[39m[90m…[39m [90m0.37s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdocker context and handoff packager exclude runtime residuals[39m[90m       [39m [90m0.40s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpersistent login is absent from request and interface[39m[90m               [39m [90m0.44s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtask004 manifest hash uses the recomputed value[39m[90m                     [39m [90m0.38s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Architecture\HandoffPackagingPolicyTest[39m
+  [32;1m✓[39;22m[90m [39m[90mruntime generated secret and historical zip paths are rejected with[39m[90m…[39m [90m0.34s[39m  
+  [32;1m✓[39;22m[90m [39m[90mruntime generated secret and historical zip paths are rejected with[39m[90m…[39m [90m0.38s[39m  
+  [32;1m✓[39;22m[90m [39m[90mruntime generated secret and historical zip paths are rejected with[39m[90m…[39m [90m0.40s[39m  
+  [32;1m✓[39;22m[90m [39m[90mruntime generated secret and historical zip paths are rejected with[39m[90m…[39m [90m0.40s[39m  
+  [32;1m✓[39;22m[90m [39m[90mruntime generated secret and historical zip paths are rejected with[39m[90m…[39m [90m0.76s[39m  
+  [32;1m✓[39;22m[90m [39m[90mruntime generated secret and historical zip paths are rejected with[39m[90m…[39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mruntime generated secret and historical zip paths are rejected with[39m[90m…[39m [90m0.62s[39m  
+  [32;1m✓[39;22m[90m [39m[90mruntime generated secret and historical zip paths are rejected with[39m[90m…[39m [90m0.43s[39m  
+  [32;1m✓[39;22m[90m [39m[90mruntime generated secret and historical zip paths are rejected with[39m[90m…[39m [90m0.76s[39m  
+  [32;1m✓[39;22m[90m [39m[90mruntime generated secret and historical zip paths are rejected with[39m[90m…[39m [90m0.36s[39m  
+  [32;1m✓[39;22m[90m [39m[90mruntime generated secret and historical zip paths are rejected with[39m[90m…[39m [90m0.40s[39m  
+  [32;1m✓[39;22m[90m [39m[90mruntime generated secret and historical zip paths are rejected with[39m[90m…[39m [90m0.71s[39m  
+  [32;1m✓[39;22m[90m [39m[90mruntime generated secret and historical zip paths are rejected with[39m[90m…[39m [90m0.35s[39m  
+  [32;1m✓[39;22m[90m [39m[90msource and safe placeholders are allowed with data set "application[39m[90m…[39m [90m0.70s[39m  
+  [32;1m✓[39;22m[90m [39m[90msource and safe placeholders are allowed with data set "environment[39m[90m…[39m [90m0.58s[39m  
+  [32;1m✓[39;22m[90m [39m[90msource and safe placeholders are allowed with data set "bootstrap p[39m[90m…[39m [90m0.65s[39m  
+  [32;1m✓[39;22m[90m [39m[90msource and safe placeholders are allowed with data set "storage pla[39m[90m…[39m [90m0.48s[39m  
+  [32;1m✓[39;22m[90m [39m[90msource and safe placeholders are allowed with data set "current rev[39m[90m…[39m [90m0.44s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Architecture\ModuleBoundaryTest[39m
+  [32;1m✓[39;22m[90m [39m[90mregistry contains all ten modules and only vs001 modules are active[39m[90m [39m [90m0.68s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlocked graph is acyclic[39m[90m                                             [39m [90m0.43s[39m  
+  [32;1m✓[39;22m[90m [39m[90mimports obey dependencies and platform imports no domain module[39m[90m     [39m [90m3.82s[39m  
+  [32;1m✓[39;22m[90m [39m[90mno forbidden cross module model import exists[39m[90m                       [39m [90m2.96s[39m  
+  [32;1m✓[39;22m[90m [39m[90mraw table writes stay with the owning module[39m[90m                        [39m [90m3.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcoordinators controllers jobs and listeners do not import module or[39m[90m…[39m [90m0.87s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcontrollers do not coordinate multiple module model owners[39m[90m          [39m [90m0.49s[39m  

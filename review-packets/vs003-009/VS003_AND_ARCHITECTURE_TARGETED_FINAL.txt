@@ -1,0 +1,26 @@
+ Container cybersecurity-education-platform-postgres-1 Running 
+ Container cybersecurity-education-platform-postgres-1 Waiting 
+ Container cybersecurity-education-platform-postgres-1 Healthy 
+ Container cybersecurity-education-platform-app-run-dbc05c6d587e Creating 
+ Container cybersecurity-education-platform-app-run-dbc05c6d587e Created 
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Vs003InvestigationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdeterministic synthetic investigation covers all required outcomes[39m[90m… [39m [90m4.17s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Architecture\ModuleBoundaryTest[39m
+  [32;1m✓[39;22m[90m [39m[90mregistry contains all ten modules and only vs001 modules are active[39m[90m [39m [90m0.89s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlocked graph is acyclic[39m[90m                                             [39m [90m0.44s[39m  
+  [32;1m✓[39;22m[90m [39m[90mimports obey dependencies and platform imports no domain module[39m[90m     [39m [90m4.00s[39m  
+  [32;1m✓[39;22m[90m [39m[90mno forbidden cross module model import exists[39m[90m                       [39m [90m2.74s[39m  
+  [32;1m✓[39;22m[90m [39m[90mraw table writes stay with the owning module[39m[90m                        [39m [90m2.49s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcoordinators controllers jobs and listeners do not import module or[39m[90m…[39m [90m0.96s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcontrollers do not coordinate multiple module model owners[39m[90m          [39m [90m0.63s[39m  
+  [32;1m✓[39;22m[90m [39m[90msimulator has no evidence or learning implementation dependency[39m[90m     [39m [90m0.87s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery module import resolves to the registered graph[39m[90m                [39m [90m3.36s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Integration\MigrationLifecycleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpostgresql fresh rollback and reapply lifecycle[39m[90m                     [39m [90m3.04s[39m  
+
+  [90mTests:[39m    [32;1m11 passed[39;22m[90m (671 assertions)[39m
+  [90mDuration:[39m [39m24.66s[39m
+

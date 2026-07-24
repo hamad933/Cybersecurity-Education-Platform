@@ -1,0 +1,87 @@
+ Container cybersecurity-education-platform-postgres-1 Running 
+ Container cybersecurity-education-platform-postgres-1 Waiting 
+ Container cybersecurity-education-platform-postgres-1 Healthy 
+ Container cybersecurity-education-platform-app-run-13f5be377cbd Creating 
+ Container cybersecurity-education-platform-app-run-13f5be377cbd Created 
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\WindowsAuthorizationDecisionEngineTest[39m
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "user explicit allow"[39m[90m     [39m [90m0.85s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "enabled group allow"[39m[90m     [39m [90m0.42s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "deny before later allow"[39m[90m [39m [90m0.45s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "cumulative allows"[39m[90m       [39m [90m0.46s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "remaining mask denies"[39m[90m   [39m [90m0.42s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "missing principal"[39m[90m       [39m [90m0.62s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "missing descriptor"[39m[90m      [39m [90m0.33s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "missing generic mapping"[39m[90m [39m [90m0.46s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "approved file generic ma[39m[90m…[39m [90m0.34s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "unsupported a c e"[39m[90m       [39m [90m0.40s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "privilege-dependent case[39m[90m…[39m [90m0.54s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "non-applicable a c e is[39m[90m… [39m [90m0.42s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "deny-only group cannot g[39m[90m…[39m [90m0.48s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbounded authorization cases with data set "malformed s i d"[39m[90m         [39m [90m0.58s[39m  
+  [32;1m✓[39;22m[90m [39m[90msame input revision seed and actions are digest deterministic[39m[90m       [39m [90m0.56s[39m  
+  [32;1m✓[39;22m[90m [39m[90mordered trace records non applicable and mask accumulation steps[39m[90m    [39m [90m0.34s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\WebAuthorizationDecisionEngineTest[39m
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.48s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.33s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.35s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.35s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.34s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.42s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.43s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.35s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.39s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.46s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.46s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.46s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsupported pinned behavior version fails closed[39m[90m                    [39m [90m0.51s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Vs001LifecycleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mrun is idempotent actor bound isolated and issues one evidence and[39m[90m… [39m [90m3.39s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreplay stays pinned after a newer revision is published[39m[90m             [39m [90m0.48s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmastery reads only evidence bound to the requested actor[39m[90m            [39m [90m0.64s[39m  
+  [32;1m✓[39;22m[90m [39m[90maccepted evidence is immutable and improvement is proposal only[39m[90m     [39m [90m0.47s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnon practice failure classes are derived from actual observations w[39m[90m…[39m [90m0.47s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnon practice failure classes are derived from actual observations w[39m[90m…[39m [90m0.37s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnon practice failure classes are derived from actual observations w[39m[90m…[39m [90m0.44s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnon practice failure classes are derived from actual observations w[39m[90m…[39m [90m0.51s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Vs001PublicationWorkflowTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdraft update uses optimistic lock and stable digest[39m[90m                 [39m [90m0.53s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpublication is blocked without approved authority[39m[90m                   [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe or unregistered typed content is rejected[39m[90m                    [39m [90m0.44s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreturn approve publish immutability restore and audit are enforced[39m[90m  [39m [90m0.54s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Vs001WorkspaceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mall workspaces are owner only and render real seeded data[39m[90m           [39m [90m2.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlab requests are bounded actor scoped and idempotency conflicts are[39m[90m…[39m [90m0.75s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is evaluated server side with data set "correct[39m[90m…[39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is evaluated server side with data set "missing[39m[90m…[39m [90m0.82s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is evaluated server side with data set "unsuppo[39m[90m…[39m [90m0.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is evaluated server side with data set "wrong d[39m[90m…[39m [90m0.62s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is evaluated server side with data set "wrong d[39m[90m…[39m [90m0.69s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is evaluated server side with data set "wrong r[39m[90m…[39m [90m0.58s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is evaluated server side with data set "wrong r[39m[90m…[39m [90m0.64s[39m  
+  [32;1m✓[39;22m[90m [39m[90moversized practice payload is rejected without persistence[39m[90m          [39m [90m0.37s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlesson editor routes complete bounded review publication and restor[39m[90m…[39m [90m0.75s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Vs002CorrectionGateTest[39m
+  [32;1m✓[39;22m[90m [39m[90mfinding occurrences and verification are actor run and trace bound[39m[90m  [39m [90m0.79s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Vs002LifecycleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mvulnerable request creates actor bound finding and is idempotent[39m[90m    [39m [90m0.66s[39m  
+  [32;1m✓[39;22m[90m [39m[90mremediation is new immutable revision and verification links both r[39m[90m…[39m [90m0.49s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreplay remains pinned and client role never overrides server author[39m[90m…[39m [90m0.62s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmastery requires balanced actor bound remediation verification prov[39m[90m…[39m [90m0.65s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Vs002WorkspaceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mall real workspaces are owner only and use seeded revisions[39m[90m         [39m [90m1.99s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrequest validation and same actor idempotency are enforced[39m[90m          [39m [90m0.79s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is server evaluated and failure specific[39m[90m        [39m [90m0.66s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlesson workflow allows inert code but rejects active prose[39m[90m          [39m [90m0.72s[39m  
+  [32;1m✓[39;22m[90m [39m[90mremediation and verification routes link the vulnerable request[39m[90m     [39m [90m0.60s[39m  
+
+  [90mTests:[39m    [32;1m62 passed[39;22m[90m (524 assertions)[39m
+  [90mDuration:[39m [39m38.80s[39m
+

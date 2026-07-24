@@ -1,0 +1,4 @@
+decision_id	status	question	current_boundary	owner
+TASK008-UNRES-001	DEFERRED	Should browser policy behaviors such as CORS cookies CSP or OAuth be modeled?	Explicitly unsupported; VS-002 claims only the tested synthetic request and rendering behavior.	External reviewer
+TASK008-UNRES-002	BLOCKED_ENVIRONMENT	Can the required in-app browser screenshots be captured in this run?	Background local server launch was rejected by the execution approval environment; no fake screenshots created.	Runtime operator
+TASK008-UNRES-003	DEFERRED	Should Policy Revision 2 become an approved product policy?	Review candidate only; no self-approval.	External reviewer

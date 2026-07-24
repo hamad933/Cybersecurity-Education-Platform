@@ -1,0 +1,32 @@
+entity_id	module_id	name	classification	reason	criterion_ids	workflow_ids	persistence_class	mutability	implemented
+ENT-SRC-001	MOD-SRC	SourceRecord	REQUIRED_FOR_VS001	Preserves reviewed path/URL digest authority and status	VSAC-004-002	WF-004-002	PostgreSQL source_records	mutable review metadata; no original content	YES
+ENT-SRC-003	MOD-SRC	SourceClaim	REQUIRED_FOR_VS001	Maps exact segment and scope to source	VSAC-004-002	WF-004-003	PostgreSQL source_claims	append/review controlled	YES
+ENT-SRC-004	MOD-SRC	AuthorityAssessment	REQUIRED_FOR_VS001	Publication gate distinguishes technical authority	VSAC-004-002;VSAC-004-003;VSAC-004-004	WF-004-004	SourceRecord/SourceClaim fields	controlled	YES
+ENT-KNO-003	MOD-KNO	KnowledgeUnit	REQUIRED_FOR_VS001	Canonical KU-AD-02 identity	VSAC-004-001;VSAC-004-005	WF-004-006	PostgreSQL knowledge_units	stable identity	YES
+ENT-KNO-004	MOD-KNO	LessonRevision	REQUIRED_FOR_VS001	Draft/review/published lifecycle	VSAC-004-005	WF-004-006	PostgreSQL lesson_revisions	draft mutable; published immutable	YES
+ENT-KNO-006	MOD-KNO	PublicationDecision	REQUIRED_FOR_VS001	Atomic authority-gated publication	VSAC-004-003;VSAC-004-004;VSAC-004-005	WF-004-005;WF-004-006	lesson_revisions state/review fields	final immutable	YES
+ENT-KNO-008	MOD-KNO	LessonCitationSet	REQUIRED_FOR_VS001	Binds technical claim IDs into digest	VSAC-004-002	WF-004-004	lesson_revisions.citations	published immutable	YES
+ENT-CUR-003	MOD-CUR	CapabilityPlacement	REQUIRED_FOR_VS001	Preserves CAP-D03-03-01	VSAC-004-001	WF-004-007	PostgreSQL curriculum_placements	revisioned	YES
+ENT-CUR-004	MOD-CUR	LifecyclePlacement	REQUIRED_FOR_VS001	Records complete adaptive lifecycle	VSAC-004-001	WF-004-007	curriculum_placements.lifecycle	revisioned	YES
+ENT-ENT-009	MOD-ENT	PrincipalSnapshot	REQUIRED_FOR_VS001	Immutable scenario principal	VSAC-004-006	WF-004-012	enterprise_baseline_revisions.snapshot	published immutable	YES
+ENT-ENT-010	MOD-ENT	TokenUserSid	REQUIRED_FOR_VS001	Unambiguous token user SID	VSAC-004-006	WF-004-012	enterprise baseline/scenario input	published immutable	YES
+ENT-ENT-011	MOD-ENT	TokenGroupSnapshot	REQUIRED_FOR_VS001	Ordered group attributes	VSAC-004-007	WF-004-012	enterprise baseline/scenario input	published immutable	YES
+ENT-ENT-013	MOD-ENT	DeclaredPrivilegeSet	REQUIRED_FOR_VS001	Makes unsupported privilege state explicit	VSAC-004-008	WF-004-012	scenario input	published immutable	YES
+ENT-ENT-030	MOD-ENT	EnterpriseBaselineRevision	REQUIRED_FOR_VS001	Isolated immutable run input	VSAC-004-020	WF-004-011	PostgreSQL enterprise_baseline_revisions	published immutable	YES
+ENT-ENT-031	MOD-ENT	ImprovementProposal	REQUIRED_FOR_VS001	Captures suggestion without baseline mutation	VSAC-004-020	WF-004-013	PostgreSQL improvement_proposals	workflow controlled	YES
+ENT-ENT-032	MOD-ENT	TargetSecurityDescriptor	REQUIRED_FOR_VS001	Object owner and ordered DACL	VSAC-004-009;VSAC-004-010	WF-004-012	baseline/scenario JSONB typed snapshot	published immutable	YES
+ENT-SIM-002	MOD-SIM	ScenarioRevision	REQUIRED_FOR_VS001	Publishes bounded 12-case catalog	VSAC-004-017	WF-004-012	PostgreSQL scenario_revisions	published immutable	YES
+ENT-SIM-005	MOD-SIM	ScenarioRun	REQUIRED_FOR_VS001	Owns isolated run/replay state	VSAC-004-018;VSAC-004-019;VSAC-004-020	WF-004-013	PostgreSQL scenario_runs	run-owned final output	YES
+ENT-SIM-006	MOD-SIM	AuthorizationInput	REQUIRED_FOR_VS001	Typed normalized run input	VSAC-004-006;VSAC-004-007;VSAC-004-009;VSAC-004-010;VSAC-004-012	WF-004-012	scenario_runs.normalized_input	immutable after completion	YES
+ENT-SIM-007	MOD-SIM	DecisionTrace	REQUIRED_FOR_VS001	Ordered deterministic explanation	VSAC-004-011;VSAC-004-012;VSAC-004-014;VSAC-004-015;VSAC-004-016;VSAC-004-018;VSAC-004-019	WF-004-012	PostgreSQL decision_traces	append-only	YES
+ENT-SIM-008	MOD-SIM	RuleSetRevision	REQUIRED_FOR_VS001	Approved bounded semantics	VSAC-004-008;VSAC-004-013;VSAC-004-014;VSAC-004-015;VSAC-004-024	WF-004-012	PostgreSQL simulator_rule_revisions	approved immutable	YES
+ENT-EVD-001	MOD-EVD	EvidenceRecord	REQUIRED_FOR_VS001	SIMULATED revision/digest binding	VSAC-004-018	WF-004-014	PostgreSQL evidence_records	accepted content immutable	YES
+ENT-EVD-002	MOD-EVD	EvidenceOrigin	REQUIRED_FOR_VS001	Database constraint permits SIMULATED only	VSAC-004-018	WF-004-014	evidence_records.origin	constant	YES
+ENT-EVD-003	MOD-EVD	EvidenceDecision	REQUIRED_FOR_VS001	Independent human review state	VSAC-004-022	WF-004-014	PostgreSQL evidence_decisions	single auditable decision	YES
+ENT-LRN-002	MOD-LRN	MicroPractice	REQUIRED_FOR_VS001	One bounded access decision	VSAC-004-021	WF-004-008	PostgreSQL micro_practices	revisioned definition	YES
+ENT-LRN-004	MOD-LRN	PracticeAttempt	REQUIRED_FOR_VS001	Outcome plus explicit rationale	VSAC-004-021	WF-004-008	PostgreSQL practice_attempts	append-only	YES
+ENT-LRN-006	MOD-LRN	MasteryRuleRevision	REQUIRED_FOR_VS001	Versioned provisional rule	VSAC-004-022	WF-004-015	PostgreSQL mastery_rule_revisions	approved immutable	YES
+ENT-LRN-007	MOD-LRN	MasteryState	REQUIRED_FOR_VS001	Deterministic reevaluation result	VSAC-004-022	WF-004-015	PostgreSQL mastery_states	recomputed from evidence	YES
+ENT-LRN-008	MOD-LRN	ReviewTrigger	REQUIRED_FOR_VS001	Failure-specific trigger	VSAC-004-023	WF-004-016	PostgreSQL review_triggers	append/schedule controlled	YES
+ENT-LRN-009	MOD-LRN	ReviewSchedule	REQUIRED_FOR_VS001	Schedules source-anchored review	VSAC-004-023	WF-004-016	review_triggers status/scheduled_at	workflow controlled	YES
+ENT-AIB-001	MOD-AIB	ManualAIInteraction	NOT_IMPLEMENTED	Explicitly outside VS-001 and Task-007	NONE	NONE	NONE	NONE	NO

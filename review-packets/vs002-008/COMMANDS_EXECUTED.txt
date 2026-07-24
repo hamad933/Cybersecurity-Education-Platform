@@ -1,0 +1,19 @@
+Read active prompt, root AGENTS.md, approved planning/context, Task-007 review manifest, and existing Task-006/VS-001 implementation.
+Checked Docker/Compose once: DOCKER_RUNTIME_UNAVAILABLE; no retry.
+Verified historical Task-007 manifest rows and immutable workspace checkpoints with SHA-256.
+php artisan migrate:fresh --seed --force (native PostgreSQL 18.4 on loopback test database)
+php artisan test (targeted VS-001 correction, VS-002, full regression, migration lifecycle)
+vendor/bin/phpstan analyse --memory-limit=1G
+vendor/bin/pint --test
+composer validate --strict
+composer audit --locked
+npm run format:check
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+npm audit --audit-level=high
+Deterministic limited fallback repository and handoff secret scans (gitleaks unavailable)
+Compose static configuration validation (runtime start not claimed)
+Attempted approved in-app browser setup; local background server launch was rejected by execution approval environment, so screenshots were not fabricated.
+No git commit, tag, push, rebase, or squash command executed.

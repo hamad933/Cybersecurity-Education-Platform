@@ -1,24 +1,36 @@
-FROM composer:2.10.2 AS php-dependencies
+FROM php:8.5.8-cli-bookworm AS php-runtime
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y libicu-dev libonig-dev libpq-dev libzip-dev \
+    && docker-php-ext-install intl mbstring pdo_pgsql zip \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM php-runtime AS php-dependencies
 WORKDIR /app
-COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-interaction --no-progress --prefer-dist --no-scripts --classmap-authoritative
+COPY --from=composer:2.10.2 /usr/bin/composer /usr/bin/composer
+COPY . .
+RUN composer install --no-dev --no-interaction --no-progress --prefer-dist --classmap-authoritative \
+    && composer check-platform-reqs --no-dev
+
+FROM php-runtime AS php-development
+WORKDIR /app
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y git unzip \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=composer:2.10.2 /usr/bin/composer /usr/bin/composer
 
 FROM node:24.18.0-bookworm-slim AS frontend
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY resources ./resources
+COPY public ./public
 COPY vite.config.ts tsconfig.json env.d.ts ./
 RUN npm run build
 
-FROM php:8.5.8-cli-bookworm
-RUN apt-get update \
-    && apt-get install --no-install-recommends -y libpq-dev \
-    && docker-php-ext-install pdo_pgsql \
-    && rm -rf /var/lib/apt/lists/*
+FROM php-runtime
 WORKDIR /app
-COPY --chown=www-data:www-data . .
-COPY --from=php-dependencies --chown=www-data:www-data /app/vendor ./vendor
+COPY --from=php-dependencies --chown=www-data:www-data /app /app
 COPY --from=frontend --chown=www-data:www-data /app/public/build ./public/build
 USER www-data
 EXPOSE 8080

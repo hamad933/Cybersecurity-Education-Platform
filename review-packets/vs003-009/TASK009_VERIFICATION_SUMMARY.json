@@ -1,0 +1,212 @@
+﻿{
+    "task":  "TASK-009",
+    "scope":  "VS-003 last-mile targeted completion only",
+    "generated_at_utc":  "2026-07-24T21:54:07.7677531Z",
+    "overall_status":  "PASS",
+    "full_php_regression":  "INCOMPLETE_TIMEOUT_FROM_PRIOR_AUTHORIZED_RUNS; NOT_RERUN",
+    "browser_runtime":  "BLOCKED_PRIOR_SINGLE_ATTEMPT; NOT_RERUN",
+    "core_failures":  [
+
+                      ],
+    "network_blocked_audits":  [
+
+                               ],
+    "gates":  [
+                  {
+                      "gate":  "runtime_start_no_build",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/runtime_start_no_build.log",
+                      "note":  "Existing images started without a build."
+                  },
+                  {
+                      "gate":  "runtime_app_php",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/runtime_app_php.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "runtime_postgres",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/runtime_postgres.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "vendor_ready",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/vendor_ready.log",
+                      "note":  "Existing Composer development dependencies were reused."
+                  },
+                  {
+                      "gate":  "isolated_test_database",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/isolated_test_database.log",
+                      "note":  "Isolated PostgreSQL database is ready."
+                  },
+                  {
+                      "gate":  "php_targeted_format_check",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/php_targeted_format_check.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "php_syntax_2026_07_24_000011_harden_vs003_actor_replay_and_control_scope",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/php_syntax_2026_07_24_000011_harden_vs003_actor_replay_and_control_scope.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "php_syntax_Vs003InvestigationTest",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/php_syntax_Vs003InvestigationTest.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "php_targeted_syntax",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/php_targeted_syntax.log",
+                      "note":  "Both directly affected PHP files passed php -l."
+                  },
+                  {
+                      "gate":  "testing_config_clear",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/testing_config_clear.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "php_migration_lifecycle",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/php_migration_lifecycle.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "php_authentication",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/php_authentication.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "php_repository_safety",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/php_repository_safety.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "php_vs003_investigation",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/php_vs003_investigation.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "php_vs003_boundaries",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/php_vs003_boundaries.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "php_module_boundaries",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/php_module_boundaries.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "node_image_ready",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/node_image_ready.log",
+                      "note":  "Existing locked Node image was reused."
+                  },
+                  {
+                      "gate":  "frontend_dependency_probe",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/frontend_dependency_probe.log",
+                      "note":  "Required locked frontend tools are already present in the named volume."
+                  },
+                  {
+                      "gate":  "frontend_targeted_format",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/frontend_targeted_format.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "frontend_format_check",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/frontend_format_check.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "frontend_typecheck",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/frontend_typecheck.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "frontend_lint",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/frontend_lint.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "frontend_targeted_tests",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/frontend_targeted_tests.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "frontend_build",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/frontend_build.log",
+                      "note":  "Command completed successfully."
+                  },
+                  {
+                      "gate":  "npm_audit",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/npm_audit.log",
+                      "note":  "npm audit completed with no high-severity blocking result."
+                  },
+                  {
+                      "gate":  "composer_audit",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/composer_audit.log",
+                      "note":  "Composer audit completed without a blocking advisory."
+                  },
+                  {
+                      "gate":  "secret_scan",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/secret_scan.log",
+                      "note":  "No supported secret pattern was found."
+                  },
+                  {
+                      "gate":  "browser_runtime",
+                      "status":  "BLOCKED_PRIOR_SINGLE_ATTEMPT",
+                      "exit_code":  0,
+                      "log":  "review-packets/vs003-009/local-verification/browser_gate.log",
+                      "note":  "No second browser attempt was made."
+                  }
+              ]
+}

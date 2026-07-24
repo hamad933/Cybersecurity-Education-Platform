@@ -1,0 +1,2 @@
+dataset_id	version	origin	declared_baseline	event_ids	coverage	determinism	integrity
+VS003-WINDOWS-AUTH-TELEMETRY	1	SIMULATED	Windows Audit Logon 4624/4625	4624;4625	duplicate;late;missing;contradictory;benign;suspicious;unsupported	fixed ordered synthetic records and explicit UTC clock assumption	canonical JSON SHA-256 stored with immutable dataset revision

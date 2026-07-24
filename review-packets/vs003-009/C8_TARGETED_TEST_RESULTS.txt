@@ -1,0 +1,115 @@
+ Container cybersecurity-education-platform-postgres-1 Running 
+ Container cybersecurity-education-platform-postgres-1 Waiting 
+ Container cybersecurity-education-platform-postgres-1 Healthy 
+ Container cybersecurity-education-platform-app-run-120defb7b9d6 Creating 
+ Container cybersecurity-education-platform-app-run-120defb7b9d6 Created 
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\WebAuthorizationDecisionEngineTest[39m
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.82s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.38s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.37s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.30s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.30s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.28s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.36s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.39s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.34s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.39s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.36s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve request cases are deterministic and bounded with data se[39m[90m…[39m [90m0.34s[39m  
+
+  [39;41;1m FAIL [39;49;22m[39m Tests\Feature\Vs002LifecycleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mvulnerable request creates actor bound finding and is idempotent[39m[90m    [39m [90m3.29s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mremediation is new immutable revision and verification links both r[39m[90m…[39m [90m0.65s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mreplay remains pinned and client role never overrides server author[39m[90m…[39m [90m0.54s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mmastery requires balanced actor bound remediation verification prov[39m[90m…[39m [90m0.88s[39m  
+
+  [39;41;1m FAIL [39;49;22m[39m Tests\Feature\Vs002WorkspaceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mall real workspaces are owner only and use seeded revisions[39m[90m         [39m [90m1.95s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrequest validation and same actor idempotency are enforced[39m[90m          [39m [90m0.69s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is server evaluated and failure specific[39m[90m        [39m [90m0.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlesson workflow allows inert code but rejects active prose[39m[90m          [39m [90m0.52s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mremediation and verification routes link the vulnerable request[39m[90m     [39m [90m0.63s[39m  
+  [31m────────────────────────────────────────────────────────────────────────────[39m  
+  [41;1m FAILED [49;22m [1mTests\Feature\Vs002LifecycleTest[22m [90m>[39m remediation is… [41;1m LogicException [49;22m  
+[39;1m  Verification does not prove an isolated vulnerable-to-fixed transition.[39;22m
+
+  at [32mapp/Modules/Simulator/Application/Vs002SimulationService.php[39m:[32m248[39m
+    244▕             || (string) $verification->verification_of_run_id !== (string) $vulnerable->id
+    245▕             || (string) $verification->policy_revision_id !== (string) $policy->id
+    246▕             || (string) $verification->baseline_digest_before !== (string) $verification->baseline_digest_after
+    247▕             || (string) $vulnerable->baseline_digest_before !== (string) $vulnerable->baseline_digest_after) {
+  ➜ 248▕             throw new LogicException('Verification does not prove an isolated vulnerable-to-fixed transition.');
+    249▕         }
+    250▕ 
+    251▕         return [
+    252▕             'vulnerable_run_id' => (string) $vulnerable->id,
+
+  [33m1   [39m[39;1mapp/Modules/Simulator/Application/Vs002SimulationService.php[39;22m:[39;1m248[39;22m
+  [33m2   [39m[39;1mapp/Application/Vs002/Vs002Lifecycle.php[39;22m:[39;1m56[39;22m
+
+  [31m────────────────────────────────────────────────────────────────────────────[39m  
+  [41;1m FAILED [49;22m [1mTests\Feature\Vs002LifecycleTest[22m [90m>[39m replay remains pinned and clie…   
+[39;1m  Failed asserting that two strings are identical.
+  [39;22m[31m-'DENY'[39m[39;1m
+  [39;22m[32m+'UNSUPPORTED_STATE'[39m[39;1m
+  [39;22m
+
+  at [32mtests/Feature/Vs002LifecycleTest.php[39m:[32m83[39m
+     79▕     public function replay_remains_pinned_and_client_role_never_overrides_server_authorization(): void
+     80▕     {
+     81▕         $policy = $this->lifecycle->remediate();
+     82▕         $clientRole = $this->lifecycle->runCase('CASE-WEB-006', 8006, 'vs2:client-role', $this->owner->id);
+  ➜  83▕         $this->assertSame('DENY', $clientRole['run']['outcome']);
+     84▕         $this->assertSame('admin', $clientRole['trace']['authorization_inputs']['client_supplied_role_ignored']);
+     85▕         $this->assertSame($policy['id'], $clientRole['run']['policy_revision_id']);
+     86▕ 
+     87▕         $original = $this->lifecycle->runCase('CASE-WEB-012', 8012, 'vs2:replay:original', $this->owner->id);
+
+  [33m1   [39m[39;1mtests/Feature/Vs002LifecycleTest.php[39;22m:[39;1m83[39;22m
+
+  [31m────────────────────────────────────────────────────────────────────────────[39m  
+  [41;1m FAILED [49;22m [1mTests\Feature\Vs002LifecycleTest[22m [90m>[39m mastery requir… [41;1m LogicException [49;22m  
+[39;1m  Verification does not prove an isolated vulnerable-to-fixed transition.[39;22m
+
+  at [32mapp/Modules/Simulator/Application/Vs002SimulationService.php[39m:[32m248[39m
+    244▕             || (string) $verification->verification_of_run_id !== (string) $vulnerable->id
+    245▕             || (string) $verification->policy_revision_id !== (string) $policy->id
+    246▕             || (string) $verification->baseline_digest_before !== (string) $verification->baseline_digest_after
+    247▕             || (string) $vulnerable->baseline_digest_before !== (string) $vulnerable->baseline_digest_after) {
+  ➜ 248▕             throw new LogicException('Verification does not prove an isolated vulnerable-to-fixed transition.');
+    249▕         }
+    250▕ 
+    251▕         return [
+    252▕             'vulnerable_run_id' => (string) $vulnerable->id,
+
+  [33m1   [39m[39;1mapp/Modules/Simulator/Application/Vs002SimulationService.php[39;22m:[39;1m248[39;22m
+  [33m2   [39m[39;1mapp/Application/Vs002/Vs002Lifecycle.php[39;22m:[39;1m56[39;22m
+
+  [31m────────────────────────────────────────────────────────────────────────────[39m  
+  [41;1m FAILED [49;22m [1mTests\Feature\Vs002WorkspaceTest[22m [90m>[39m remediation and verification r…   
+[39;1m  Session has unexpected errors: 
+
+{
+    "default": [
+        "Verification does not prove an isolated vulnerable-to-fixed transition."
+    ]
+}
+Failed asserting that true is false.[39;22m
+
+  at [32mtests/Feature/Vs002WorkspaceTest.php[39m:[32m97[39m
+     93▕         $this->actingAs($owner)->post('/vs002/remediation')->assertSessionHasNoErrors();
+     94▕         $run = ScenarioRun::query()->where('case_id', 'CASE-WEB-002')->sole();
+     95▕         $finding = SecurityFinding::query()->where('scenario_run_id', $run->id)->where('category', 'access_control')->sole();
+     96▕         $policy = AuthorizationPolicyRevision::query()->where('policy_id', config('vs002.policy_id'))->where('revision', 2)->sole();
+  ➜  97▕         $this->actingAs($owner)->post("/vs002/findings/{$finding->id}/verify", ['vulnerable_run_id' => $run->id, 'remediation_policy_revision_id' => $policy->id, 'idempotency_key' => 'route:verification'])->assertSessionHasNoErrors();
+     98▕         $this->assertDatabaseHas('finding_verifications', ['security_finding_id' => $finding->id, 'vulnerable_run_id' => $run->id, 'remediation_policy_revision_id' => $policy->id, 'status' => 'VERIFIED_FIXED']);
+     99▕     }
+    100▕ 
+    101▕     private function owner(): OwnerAccount
+
+
+  [90mTests:[39m    [31;1m4 failed[39;22m[90m,[39m[39m [39m[32;1m17 passed[39;22m[90m (234 assertions)[39m
+  [90mDuration:[39m [39m15.12s[39m
+
+

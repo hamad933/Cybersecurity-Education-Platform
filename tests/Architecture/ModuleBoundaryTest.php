@@ -7,15 +7,27 @@ use Tests\TestCase;
 
 class ModuleBoundaryTest extends TestCase
 {
-    private array $namespaceToId = ['IdentityAccess' => 'MOD-IAM', 'Platform' => 'MOD-PLT'];
+    private array $namespaceToId = [
+        'IdentityAccess' => 'MOD-IAM',
+        'Platform' => 'MOD-PLT',
+        'SourceGovernance' => 'MOD-SRC',
+        'Knowledge' => 'MOD-KNO',
+        'Curriculum' => 'MOD-CUR',
+        'Enterprise' => 'MOD-ENT',
+        'Simulator' => 'MOD-SIM',
+        'Evidence' => 'MOD-EVD',
+        'Learning' => 'MOD-LRN',
+    ];
 
     #[Test]
-    public function registry_contains_all_ten_modules_and_only_two_are_active(): void
+    public function registry_contains_all_ten_modules_and_only_vs001_modules_are_active(): void
     {
         $modules = config('platform.modules');
         $this->assertCount(10, $modules);
-        $this->assertSame(['IdentityAccess', 'Platform'], $this->activeModuleDirectories());
-        $this->assertSame(['MOD-IAM', 'MOD-PLT'], collect($this->activeModuleDirectories())->map(fn ($name) => $this->namespaceToId[$name])->sort()->values()->all());
+        $expected = ['Curriculum', 'Enterprise', 'Evidence', 'IdentityAccess', 'Knowledge', 'Learning', 'Platform', 'Simulator', 'SourceGovernance'];
+        $this->assertSame($expected, $this->activeModuleDirectories());
+        $this->assertSame(['MOD-CUR', 'MOD-ENT', 'MOD-EVD', 'MOD-IAM', 'MOD-KNO', 'MOD-LRN', 'MOD-PLT', 'MOD-SIM', 'MOD-SRC'], collect($this->activeModuleDirectories())->map(fn ($name) => $this->namespaceToId[$name])->sort()->values()->all());
+        $this->assertDirectoryDoesNotExist(app_path('Modules/ManualAiBridge'));
     }
 
     #[Test]
@@ -45,7 +57,7 @@ class ModuleBoundaryTest extends TestCase
     #[Test]
     public function imports_obey_dependencies_and_platform_imports_no_domain_module(): void
     {
-        foreach ($this->phpFiles() as $file) {
+        foreach ($this->modulePhpFiles() as $file) {
             $source = file_get_contents($file);
             preg_match('/namespace App\\\\Modules\\\\([^;\\\\]+)/', $source, $owner);
             if (! isset($owner[1])) {
@@ -64,19 +76,37 @@ class ModuleBoundaryTest extends TestCase
     }
 
     #[Test]
-    public function no_learning_evidence_cycle_or_cross_module_model_import_exists(): void
+    public function no_forbidden_cross_module_model_import_exists(): void
     {
-        $source = collect($this->phpFiles())->map(fn ($file) => file_get_contents($file))->join("\n");
-        $this->assertStringNotContainsString('Modules\\Learning', $source);
-        $this->assertStringNotContainsString('Modules\\Evidence', $source);
-        $this->assertDoesNotMatchRegularExpression('/namespace App\\\\Modules\\\\Platform.*use App\\\\Modules\\\\IdentityAccess\\\\Models/s', $source);
+        foreach ($this->modulePhpFiles() as $file) {
+            $source = file_get_contents($file);
+            preg_match('/namespace App\\\\Modules\\\\([^;\\\\]+)/', $source, $owner);
+            preg_match_all('/use App\\\\Modules\\\\([^;\\\\]+)\\\\Models\\\\/', $source, $imports);
+            foreach ($imports[1] as $importName) {
+                $this->assertSame($owner[1], $importName, "Cross-module ORM import in {$file}");
+            }
+            if (($owner[1] ?? null) === 'Simulator') {
+                $this->assertStringNotContainsString('Modules\\Evidence', $source);
+                $this->assertStringNotContainsString('Modules\\Learning', $source);
+            }
+        }
     }
 
     #[Test]
     public function raw_table_writes_stay_with_the_owning_module(): void
     {
-        $ownership = ['IdentityAccess' => ['owner_accounts', 'application_sessions'], 'Platform' => ['audit_records', 'blob_objects', 'processing_runs', 'outbox_messages', 'jobs', 'job_batches', 'failed_jobs']];
-        foreach ($this->phpFiles() as $file) {
+        $ownership = [
+            'IdentityAccess' => ['owner_accounts', 'application_sessions'],
+            'Platform' => ['audit_records', 'blob_objects', 'processing_runs', 'outbox_messages', 'jobs', 'job_batches', 'failed_jobs'],
+            'SourceGovernance' => ['source_records', 'source_claims'],
+            'Knowledge' => ['knowledge_units', 'lesson_revisions'],
+            'Curriculum' => ['curriculum_placements'],
+            'Enterprise' => ['enterprise_baseline_revisions', 'improvement_proposals'],
+            'Simulator' => ['simulator_rule_revisions', 'scenario_revisions', 'scenario_runs', 'decision_traces', 'replay_records', 'vs003_telemetry_dataset_revisions', 'vs003_investigation_cases', 'vs003_investigation_alerts', 'vs003_triage_records'],
+            'Evidence' => ['evidence_records', 'evidence_decisions', 'vs003_custody_events', 'vs003_containment_proposals', 'vs003_control_revisions', 'vs003_verification_replays'],
+            'Learning' => ['micro_practices', 'practice_attempts', 'mastery_rule_revisions', 'mastery_states', 'review_triggers'],
+        ];
+        foreach ($this->modulePhpFiles() as $file) {
             $source = file_get_contents($file);
             preg_match('/namespace App\\\\Modules\\\\([^;\\\\]+)/', $source, $owner);
             if (! isset($owner[1])) {
@@ -89,6 +119,53 @@ class ModuleBoundaryTest extends TestCase
         }
     }
 
+    #[Test]
+    public function coordinators_controllers_jobs_and_listeners_do_not_import_module_orm_models(): void
+    {
+        foreach ($this->applicationBoundaryPhpFiles() as $file) {
+            $source = file_get_contents($file);
+            $this->assertDoesNotMatchRegularExpression(
+                '/use App\\\\Modules\\\\[^;]+\\\\Models\\\\/',
+                $source,
+                "Application boundary imports a module ORM model: {$file}",
+            );
+        }
+    }
+
+    #[Test]
+    public function controllers_do_not_coordinate_multiple_module_model_owners(): void
+    {
+        foreach ($this->phpFilesUnder(app_path('Http/Controllers')) as $file) {
+            $source = file_get_contents($file);
+            preg_match_all('/use App\\\\Modules\\\\([^;\\\\]+)\\\\Models\\\\/', $source, $imports);
+            $this->assertLessThanOrEqual(1, count(array_unique($imports[1])), "Controller imports models from multiple owned modules: {$file}");
+        }
+    }
+
+    #[Test]
+    public function simulator_has_no_evidence_or_learning_implementation_dependency(): void
+    {
+        foreach ($this->phpFilesUnder(app_path('Modules/Simulator')) as $file) {
+            $source = file_get_contents($file);
+            $this->assertStringNotContainsString('App\\Modules\\Evidence', $source, "Simulator depends on Evidence implementation: {$file}");
+            $this->assertStringNotContainsString('App\\Modules\\Learning', $source, "Simulator depends on Learning implementation: {$file}");
+        }
+    }
+
+    #[Test]
+    public function every_module_import_resolves_to_the_registered_graph(): void
+    {
+        $registered = array_keys(config('platform.modules'));
+        foreach ($this->allApplicationPhpFiles() as $file) {
+            $source = file_get_contents($file);
+            preg_match_all('/App\\\\Modules\\\\([^;\\\\]+)/', $source, $imports);
+            foreach ($imports[1] as $namespace) {
+                $this->assertArrayHasKey($namespace, $this->namespaceToId, "Unregistered module namespace {$namespace} in {$file}");
+                $this->assertContains($this->namespaceToId[$namespace], $registered);
+            }
+        }
+    }
+
     private function activeModuleDirectories(): array
     {
         $names = array_map('basename', glob(app_path('Modules/*'), GLOB_ONLYDIR));
@@ -97,9 +174,32 @@ class ModuleBoundaryTest extends TestCase
         return $names;
     }
 
-    private function phpFiles(): array
+    private function modulePhpFiles(): array
     {
-        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(app_path('Modules')));
+        return $this->phpFilesUnder(app_path('Modules'));
+    }
+
+    private function applicationBoundaryPhpFiles(): array
+    {
+        return array_merge(
+            $this->phpFilesUnder(app_path('Application')),
+            $this->phpFilesUnder(app_path('Http/Controllers')),
+            $this->phpFilesUnder(app_path('Jobs')),
+            $this->phpFilesUnder(app_path('Listeners')),
+        );
+    }
+
+    private function allApplicationPhpFiles(): array
+    {
+        return $this->phpFilesUnder(app_path());
+    }
+
+    private function phpFilesUnder(string $root): array
+    {
+        if (! is_dir($root)) {
+            return [];
+        }
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root));
 
         return array_values(array_filter(array_map(fn ($file) => $file->getPathname(), iterator_to_array($iterator)), fn ($file) => str_ends_with($file, '.php')));
     }

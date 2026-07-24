@@ -1,0 +1,40 @@
+ Container cybersecurity-education-platform-postgres-1 Running 
+ Container cybersecurity-education-platform-postgres-1 Waiting 
+ Container cybersecurity-education-platform-postgres-1 Healthy 
+ Container cybersecurity-education-platform-app-run-0aa3ed31a129 Creating 
+ Container cybersecurity-education-platform-app-run-0aa3ed31a129 Created 
+
+  [39;41;1m FAIL [39;49;22m[39m Tests\Feature\Vs002LifecycleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mvulnerable request creates actor bound finding and is idempotent[39m[90m    [39m [90m3.28s[39m  
+  [32;1m✓[39;22m[90m [39m[90mremediation is new immutable revision and verification links both r[39m[90m…[39m [90m0.60s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mreplay remains pinned and client role never overrides server author[39m[90m…[39m [90m0.66s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmastery requires balanced actor bound remediation verification prov[39m[90m…[39m [90m0.92s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Vs002WorkspaceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mall real workspaces are owner only and use seeded revisions[39m[90m         [39m [90m1.92s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrequest validation and same actor idempotency are enforced[39m[90m          [39m [90m0.62s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstructured practice is server evaluated and failure specific[39m[90m        [39m [90m0.42s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlesson workflow allows inert code but rejects active prose[39m[90m          [39m [90m0.77s[39m  
+  [32;1m✓[39;22m[90m [39m[90mremediation and verification routes link the vulnerable request[39m[90m     [39m [90m0.67s[39m  
+  [31m────────────────────────────────────────────────────────────────────────────[39m  
+  [41;1m FAILED [49;22m [1mTests\Feature\Vs002LifecycleTest[22m [90m>[39m replay remains pinned and clie…   
+[39;1m  Failed asserting that false is true.[39;22m
+
+  at [32mtests/Feature/Vs002LifecycleTest.php[39m:[32m90[39m
+     86▕ 
+     87▕         $original = $this->lifecycle->runCase('CASE-WEB-012', 8012, 'vs2:replay:original', $this->owner->id);
+     88▕         AuthorizationPolicyRevision::query()->create(['policy_id' => config('vs002.policy_id'), 'revision' => 4, 'state' => 'published', 'mode' => 'secure', 'rules' => ['default' => 'DENY', 'changed' => true], 'source_claim_ids' => ['WEB-AUTH-003'], 'digest' => hash('sha256', 'policy-v4'), 'published_at' => now()]);
+     89▕         $replay = $this->lifecycle->replay($original['run']['id'], 'vs2:replay:pinned');
+  ➜  90▕         $this->assertTrue($replay['digest_match']);
+     91▕         $this->assertDatabaseHas('scenario_runs', ['id' => $replay['replay_run_id'], 'policy_revision_id' => $original['run']['policy_revision_id'], 'trace_digest' => $original['run']['trace_digest']]);
+     92▕     }
+     93▕ 
+     94▕     #[Test]
+
+  [33m1   [39m[39;1mtests/Feature/Vs002LifecycleTest.php[39;22m:[39;1m90[39;22m
+
+
+  [90mTests:[39m    [31;1m1 failed[39;22m[90m,[39m[39m [39m[32;1m8 passed[39;22m[90m (129 assertions)[39m
+  [90mDuration:[39m [39m10.10s[39m
+
+

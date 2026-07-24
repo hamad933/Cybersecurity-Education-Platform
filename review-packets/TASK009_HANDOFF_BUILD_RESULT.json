@@ -1,0 +1,16 @@
+﻿{
+    "status":  "PASS",
+    "review_candidate":  true,
+    "self_approved":  false,
+    "acceptance":  "14/14 PASS, 0 BLOCKED, 0 FAIL",
+    "full_php_regression":  "INCOMPLETE_TIMEOUT; NOT_RERUN",
+    "browser_runtime":  "BLOCKED_PRIOR_SINGLE_ATTEMPT",
+    "zip_path":  "C:\\Users\\User\\Desktop\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\TASK_009_REVIEW_HANDOFF.zip",
+    "zip_sha256":  "9f3845df3ac5c1e8e73e4f29066444dda038cb2d9bd3ce307f7d202a858fe40a",
+    "total_files":  117,
+    "total_uncompressed_bytes":  960102,
+    "missing_count":  0,
+    "secret_scan":  "PASS",
+    "zip_integrity":  "PASS",
+    "stop_gate":  "STOP-VS003-009"
+}

@@ -60,6 +60,9 @@ class AuthenticationTest extends TestCase
 
     public function test_wrong_credentials_are_safely_audited_and_rate_limited(): void
     {
+        // Use a dedicated TEST-NET address so another authentication test cannot
+        // consume this named rate-limiter key before the five expected failures.
+        $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.42']);
         $this->owner();
         for ($attempt = 1; $attempt <= 5; $attempt++) {
             $this->post('/login', ['email' => 'owner@example.test', 'password' => 'Wrong!Password9'])->assertSessionHasErrors('email');

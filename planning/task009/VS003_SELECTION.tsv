@@ -1,0 +1,8 @@
+selection_type	id	role	manifest_path	anchor	status
+primary_capability	CAP-D09-01-02	Triage incidents using severity, scope, and evidence	source-vault/manifests/semantic-refined/CAPABILITY_CATALOG_REFINED.tsv	row CAP-D09-01-02	SELECTED
+primary_knowledge_unit	KU-D09-002	Triage incidents using severity, scope, and evidence	source-vault/manifests/semantic-refined/KNOWLEDGE_UNIT_CANDIDATES_REFINED.tsv	row KU-D09-002	SELECTED
+supporting	CAP-D03-02-01 / KU-D03-003	authentication and directory-flow context	respective refined manifests	rows CAP-D03-02-01;KU-D03-003	RELATIONSHIP_ONLY
+supporting	CAP-D08-01-02 / KU-D08-002	normalized and preserved telemetry	respective refined manifests	rows CAP-D08-01-02;KU-D08-002	RELATIONSHIP_ONLY
+supporting	CAP-D08-04-01 / KU-D08-007	triage, escalation, and case workflow	respective refined manifests	rows CAP-D08-04-01;KU-D08-007	RELATIONSHIP_ONLY
+supporting	CAP-D16-02-01 / KU-D16-003	institutional scenario	respective refined manifests	rows CAP-D16-02-01;KU-D16-003	RELATIONSHIP_ONLY
+supporting	CAP-D16-02-02 / KU-D16-004	evidence-backed constraints	respective refined manifests	rows CAP-D16-02-02;KU-D16-004	RELATIONSHIP_ONLY

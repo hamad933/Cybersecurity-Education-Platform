@@ -11,5 +11,7 @@ describe('Login', () => {
       'current-password',
     );
     expect(wrapper.find('form').exists()).toBe(true);
+    expect(wrapper.find('input[type="checkbox"]').exists()).toBe(false);
+    expect(wrapper.html()).not.toContain('remember');
   });
 });

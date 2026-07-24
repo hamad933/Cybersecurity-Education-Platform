@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+require_once __DIR__.'/Support/HandoffPathPolicy.php';
+
+use Task007\Packaging\HandoffPathPolicy;
+
 $repo = realpath(dirname(__DIR__));
 $workspace = realpath($repo.'/..');
 $reviewRoot = $repo.'/review-packets';
@@ -60,6 +64,8 @@ $requiredReviewFiles = [
     'rendered/keyboard-focus-visible.png',
 ];
 
+$isRuntimeResidual = static fn (string $relative): bool => HandoffPathPolicy::isRuntimeResidual($relative);
+
 $sources = [];
 foreach (array_merge($rootFiles, $specific, $baselineReferences) as $relative) {
     $sources[$relative] = true;
@@ -75,7 +81,10 @@ foreach ($directories as $directory) {
     $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($absolute, RecursiveDirectoryIterator::SKIP_DOTS));
     foreach ($iterator as $file) {
         if ($file->isFile()) {
-            $sources[str_replace('\\', '/', substr($file->getPathname(), strlen($repo) + 1))] = true;
+            $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($repo) + 1));
+            if (! $isRuntimeResidual($relative)) {
+                $sources[$relative] = true;
+            }
         }
     }
 }
@@ -105,7 +114,7 @@ if (! is_file($agentsSource)) {
 }
 
 foreach (array_keys($sources) as $relative) {
-    if (preg_match($prohibited, $relative)) {
+    if (preg_match($prohibited, $relative) || HandoffPathPolicy::isProhibited($relative)) {
         throw new RuntimeException("Prohibited source selected: {$relative}");
     }
     $source = $repo.'/'.$relative;
@@ -198,7 +207,7 @@ $uncompressed = 0;
 for ($index = 0; $index < $verify->numFiles; $index++) {
     $stat = $verify->statIndex($index);
     $name = $stat['name'];
-    if (preg_match($prohibited, $name) || str_contains($name, '..')) {
+    if (preg_match($prohibited, $name) || HandoffPathPolicy::isProhibited($name)) {
         throw new RuntimeException("Prohibited ZIP member: {$name}");
     }
     $members[$name] = (int) $stat['size'];

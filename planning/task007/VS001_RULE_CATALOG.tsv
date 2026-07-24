@@ -1,0 +1,16 @@
+rule_id	category	input_condition	outcome	trace_effect	authority_claims	status
+RULE-INPUT-PRINCIPAL	insufficient	principal or token user SID missing/malformed	INSUFFICIENT_STATE	no guessed principal	WIN-AUTH-003;WIN-AUTH-005	SUPPORTED_BOUNDARY
+RULE-INPUT-MASK	insufficient	requested mask missing malformed or zero	INSUFFICIENT_STATE	preserve normalized input	WIN-AUTH-003	SUPPORTED_BOUNDARY
+RULE-UNSUPPORTED-PRIVILEGE	unsupported	declared privilege set non-empty	UNSUPPORTED_STATE	record declared privileges and limitation	WIN-AUTH-003	EXPLICITLY_UNSUPPORTED
+RULE-UNSUPPORTED-OBJECT-TYPE	unsupported	object type is not FILE	UNSUPPORTED_STATE	record object type	WIN-AUTH-006;WIN-AUTH-007	EXPLICITLY_UNSUPPORTED
+RULE-INPUT-DESCRIPTOR	insufficient	owner/DACL field missing	INSUFFICIENT_STATE	record missing state	WIN-AUTH-003;WIN-AUTH-004	SUPPORTED_BOUNDARY
+RULE-GENERIC-MAPPING-MISSING	insufficient	generic bits requested without mapping	INSUFFICIENT_STATE	preserve original mask	WIN-AUTH-006	SUPPORTED_BOUNDARY
+RULE-GENERIC-MAPPING-UNSUPPORTED	unsupported	mapping ID is not approved FILE mapping	UNSUPPORTED_STATE	preserve mapping ID	WIN-AUTH-006;WIN-AUTH-007	EXPLICITLY_UNSUPPORTED
+RULE-INPUT-GROUPS	insufficient	group SID/attribute list malformed	INSUFFICIENT_STATE	no group-state guess	WIN-AUTH-005	SUPPORTED_BOUNDARY
+RULE-NULL-DACL-ALLOW	decision	DACL is explicitly null	ALLOW	remaining mask zero	WIN-AUTH-003;WIN-AUTH-004	SUPPORTED
+RULE-INPUT-DACL	insufficient	DACL is not an ordered list/null	INSUFFICIENT_STATE	no ordering guess	WIN-AUTH-004	SUPPORTED_BOUNDARY
+RULE-UNSUPPORTED-ACE	unsupported	ACE type is not explicit denied/allowed	UNSUPPORTED_STATE	skipped/evaluated reason recorded	WIN-AUTH-004	EXPLICITLY_UNSUPPORTED
+RULE-INPUT-ACE-MASK	insufficient	ACE mask malformed or contains generic bits	INSUFFICIENT_STATE	preserve remaining mask	WIN-AUTH-004;WIN-AUTH-006	SUPPORTED_BOUNDARY
+RULE-ACE-DENY	decision	applicable matching deny intersects remaining mask	DENY	record decisive ACE and mask effect	WIN-AUTH-004;WIN-AUTH-005	SUPPORTED
+RULE-ALLOW-COMPLETE	decision	applicable allows reduce remaining mask to zero	ALLOW	record cumulative ordered steps	WIN-AUTH-004;WIN-AUTH-005	SUPPORTED
+RULE-REMAINING-MASK-DENY	decision	ordered DACL exhausted with remaining mask	DENY	record remaining unresolved mask	WIN-AUTH-004	SUPPORTED_SUBSET

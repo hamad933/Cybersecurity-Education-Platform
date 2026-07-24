@@ -1,0 +1,8 @@
+module	entities_or_revisions	purpose
+MOD-SRC	SourceRecord;SourceClaim	primary authority provenance
+MOD-KNO	KnowledgeUnit;LessonRevision	published KU-D09-002 lesson
+MOD-CUR	CurriculumPlacement	primary/supporting relationship
+MOD-ENT	EnterpriseBaselineRevision	identities/devices/approved baseline facts
+MOD-SIM	telemetry dataset;timeline;detection rule;scenario;run;replay	immutable synthetic investigation state
+MOD-EVD	alert;case;custody;containment;control revision;verification;EvidenceRecord	actor-bound simulated evidence and preservation
+MOD-LRN	MicroPractice;MasteryState;ReviewTrigger	practice, mastery, failure review

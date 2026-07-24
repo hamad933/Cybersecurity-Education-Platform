@@ -1,0 +1,12 @@
+Read-only discovery: git status/log/diff, rg, Get-Content, Get-FileHash, environment/runtime inspection
+Authority verification: official Microsoft Learn, Windows SDK/API, and Microsoft Open Specifications pages
+Foundation gate: composer validate, clean composer install --no-dev, platform check, config cache, PostgreSQL runtime probes, queue workers, browser recapture
+Database: artisan migrate:fresh --seed --force; migrate rollback/reapply; guarded PostgreSQL test suites
+PHP quality: vendor/bin/pint --test; vendor/bin/phpstan analyse; artisan test Unit/Feature/Integration/Architecture
+Frontend quality: npm run format:check; npm run lint; npm run typecheck; npm test; npm run build
+Security: composer audit --locked; npm audit --audit-level=high; scripts/secret_scan.php
+Infrastructure: scripts/validate_compose.php; Docker executable inspection (unavailable)
+Browser: scripts/capture_task007_screenshots.mjs using temporary Chrome/CDP profile and environment-supplied credentials
+Packaging: scripts/package_task007_handoff.php; final manifest/hash/secret/member/CRC/integrity verification
+
+No commit, rebase, squash, tag, push, Task-008, AI call, Windows connector, host command from the simulator, or real-lab action was executed.

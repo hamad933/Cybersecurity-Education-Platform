@@ -9,7 +9,7 @@ class DashboardController
 {
     public function __invoke(FoundationHealth $health): Response
     {
-        $checks = $health->checks();
+        $checks = $health->summaryChecks();
 
         return Inertia::render('Dashboard', ['health' => ['database' => $checks['database'], 'queue' => $checks['queue'], 'storage' => $checks['storage'], 'migrations' => $checks['migrations']]]);
     }
