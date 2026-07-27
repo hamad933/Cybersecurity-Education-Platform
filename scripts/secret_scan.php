@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $safeRoot = str_replace('\\', '/', $root);
+$stderrRedirect = PHP_OS_FAMILY === 'Windows' ? ' 2>NUL' : ' 2>/dev/null';
+
 $git = static function (string $arguments) use ($root, $safeRoot): string {
     $command = 'git -c safe.directory='.escapeshellarg($safeRoot).' '.$arguments;
 
@@ -49,7 +51,7 @@ $historyPatterns = [
 $commits = preg_split('/\R/', trim($git('rev-list --all')), -1, PREG_SPLIT_NO_EMPTY);
 foreach ($commits as $commit) {
     foreach ($historyPatterns as $name => $pattern) {
-        $matches = trim($git('grep -I -l -E -- '.escapeshellarg($pattern).' '.escapeshellarg($commit).' -- . 2>NUL'));
+        $matches = trim($git('grep -I -l -E -- '.escapeshellarg($pattern).' '.escapeshellarg($commit).' -- .'.$stderrRedirect));
         foreach (preg_split('/\R/', $matches, -1, PREG_SPLIT_NO_EMPTY) as $match) {
             $findings[] = "GIT_HISTORY\t{$commit}:{$match}\t{$name}";
         }
@@ -61,7 +63,7 @@ if (in_array('.env', $historicalNames, true)) {
     $findings[] = "GIT_HISTORY\t.env\tforbidden-secret-file";
 }
 
-if (trim($git('ls-files --error-unmatch .env 2>NUL')) !== '') {
+if (trim($git('ls-files --error-unmatch .env'.$stderrRedirect)) !== '') {
     $findings[] = "TRACKING\t.env\tforbidden-secret-file";
 }
 

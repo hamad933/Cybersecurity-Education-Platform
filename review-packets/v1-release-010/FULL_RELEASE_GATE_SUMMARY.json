@@ -1,0 +1,182 @@
+{
+    "status":  "FAIL",
+    "full_php_regression_runs":  1,
+    "second_full_run_performed":  false,
+    "generated_at_utc":  "2026-07-27T19:49:27.5934608+00:00",
+    "release_url":  "http://127.0.0.1:18081",
+    "ephemeral_env_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\.env.task010.release-gate",
+    "failed_gates":  [
+                         "full_php_regression_single_run",
+                         "composer_audit"
+                     ],
+    "results":  [
+                    {
+                        "name":  "full_php_regression_single_run",
+                        "status":  "FAIL",
+                        "exit_code":  1,
+                        "duration_seconds":  44.472,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\full_php_regression_single_run.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "phpstan_full",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  22.938,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\phpstan_full.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "pint_full_check",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  17.554,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\pint_full_check.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "composer_audit",
+                        "status":  "FAIL",
+                        "exit_code":  127,
+                        "duration_seconds":  0.218,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\composer_audit.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "secret_scan",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  0.296,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\secret_scan.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "release_compose_validation",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  0.361,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\release_compose_validation.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "frontend_full_format_check",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  3.742,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\frontend_full_format_check.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "frontend_full_typecheck",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  5.236,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\frontend_full_typecheck.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "frontend_full_lint",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  35.956,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\frontend_full_lint.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "frontend_full_tests",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  5.276,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\frontend_full_tests.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "frontend_full_build",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  120.587,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\frontend_full_build.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "npm_audit_high",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  1.696,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\npm_audit_high.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "release_cleanup_before",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  0.328,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\release_cleanup_before.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "release_image_build",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  29.435,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\release_image_build.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "release_runtime_start",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  6.707,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\release_runtime_start.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "release_migrate_seed",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  0.876,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\release_migrate_seed.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "release_readiness",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  0.373,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\release_readiness.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "release_queue_smoke",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  0.995,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\release_queue_smoke.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "release_services_running",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  0.239,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\release_services_running.log",
+                        "detail":  ""
+                    },
+                    {
+                        "name":  "release_http_loopback",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  0.2119809,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\release_http_probe.log",
+                        "detail":  "HTTP 200"
+                    },
+                    {
+                        "name":  "release_final_service_health",
+                        "status":  "PASS",
+                        "exit_code":  0,
+                        "duration_seconds":  6.764975,
+                        "log_path":  "D:\\projects\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\full-release\\release_final_service_health.log",
+                        "detail":  "app state=running health=healthy; queue state=running health=none; postgres state=running health=healthy"
+                    }
+                ]
+}

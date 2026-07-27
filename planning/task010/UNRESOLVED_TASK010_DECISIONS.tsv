@@ -1,0 +1,5 @@
+id	status	decision_needed	current_v1_handling
+UR-004-005	OPEN	Arabic/English PostgreSQL FTS relevance measurement	Use simple dictionary with GIN and record bounded V1 measurements; do not claim linguistic stemming quality.
+UR-004-006	OPEN	Backup encryption, retention, RPO, and RTO	Local package has integrity and restrictive local handling but no built-in encryption; record measured restore duration without declaring an SLA.
+UR-009-BROWSER	OPEN_EXTERNAL	Browser capture availability	One bounded attempt; preserve PASS or BLOCKED with diagnostics and do not loop.
+UR-MASTERY-THRESHOLDS	PROVISIONAL	Production mastery thresholds	Preserve current actor-bound provisional rules; no silent threshold change in Task-010.

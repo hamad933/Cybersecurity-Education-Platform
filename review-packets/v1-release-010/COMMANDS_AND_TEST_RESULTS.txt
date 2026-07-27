@@ -1,0 +1,70 @@
+TASK-010 LOCAL VERIFICATION RESULTS
+Generated UTC: 2026-07-26T20:24:30.5225730+00:00
+
+[TARGETED] STATUS=PASS
+  PASS  runtime_start_no_build  exit=0  duration=0.771s
+  PASS  runtime_app_php  exit=0  duration=0.242s
+  PASS  runtime_postgres  exit=0  duration=0.322s
+  PASS  vendor_ready_probe  exit=0  duration=0.235s
+  PASS  php_format_apply_once  exit=0  duration=23.499s
+  PASS  storage_permissions  exit=0  duration=0.267s
+  PASS  isolated_test_database_drop  exit=0  duration=0.365s
+  PASS  isolated_test_database_create  exit=0  duration=0.428s
+  PASS  testing_migrate_fresh_seed  exit=0  duration=2.254s
+  PASS  php_package_security  exit=0  duration=3.023s
+  PASS  php_task010_import  exit=0  duration=2.697s
+  PASS  php_audit_chain  exit=0  duration=2.528s
+  PASS  php_manual_ai  exit=0  duration=3.051s
+  PASS  php_search_queue  exit=0  duration=1.98s
+  PASS  php_backup_restore  exit=0  duration=2.367s
+  PASS  php_release_center  exit=0  duration=2.731s
+  PASS  php_task010_boundaries  exit=0  duration=6.754s
+  PASS  php_affected_auth  exit=0  duration=4.343s
+  PASS  php_affected_vertical_slices  exit=0  duration=6.433s
+  PASS  php_migration_lifecycle  exit=0  duration=2.506s
+  PASS  php_format_check  exit=0  duration=14.715s
+  PASS  release_compose_static_validation  exit=0  duration=0.272s
+  PASS  node_modules_volume  exit=0  duration=0.065s
+  PASS  npm_cache_volume  exit=0  duration=0.052s
+  PASS  frontend_locked_dependencies  exit=0  duration=5.268s
+  PASS  frontend_format_apply_once  exit=0  duration=3.692s
+  PASS  frontend_format_check  exit=0  duration=4.346s
+  PASS  frontend_typecheck  exit=0  duration=4.599s
+  PASS  frontend_lint  exit=0  duration=20.556s
+  PASS  frontend_task010_tests  exit=0  duration=5.335s
+  PASS  frontend_build  exit=0  duration=92.723s
+
+[FULL_RELEASE] STATUS=PASS
+  PASS  full_php_regression_single_run  exit=0  duration=179.142s
+  PASS  phpstan_full  exit=0  duration=16.94s
+  PASS  pint_full_check  exit=0  duration=85.483s
+  PASS  composer_audit  exit=0  duration=10.184s
+  PASS  secret_scan  exit=0  duration=265.615s
+  PASS  release_compose_validation  exit=0  duration=1.022s
+  PASS  frontend_full_format_check  exit=0  duration=10.716s
+  PASS  frontend_full_typecheck  exit=0  duration=9.042s
+  PASS  frontend_full_lint  exit=0  duration=72.38s
+  PASS  frontend_full_tests  exit=0  duration=14.546s
+  PASS  frontend_full_build  exit=0  duration=363.525s
+  PASS  npm_audit_high  exit=0  duration=3.243s
+  PASS  release_cleanup_before  exit=0  duration=11.235s
+  PASS  release_image_build  exit=0  duration=743.537s
+  PASS  release_runtime_start  exit=0  duration=6.99s
+  PASS  release_migrate_seed  exit=0  duration=2.533s
+  PASS  release_readiness  exit=0  duration=0.64s
+  PASS  release_queue_smoke  exit=0  duration=1.467s
+  PASS  release_services_running  exit=0  duration=0.346s
+  PASS  release_http_loopback  exit=0  duration=0.5359662s
+  PASS  release_final_service_health  exit=0  duration=0.8094926s
+
+[RESTORE_DRILL] STATUS=PASS
+  PASS  restore_source_migrate_seed  exit=0  duration=2.928s
+  PASS  restore_backup_prepare  exit=0  duration=2.346s
+  PASS  restore_database_drop_before  exit=0  duration=0.288s
+  PASS  restore_database_create  exit=0  duration=0.467s
+  PASS  restore_target_migrate  exit=0  duration=2.301s
+  PASS  restore_apply_and_verify  exit=0  duration=2.27s
+  PASS  restore_database_drop_after  exit=0  duration=3.238s
+
+[BROWSER] STATUS=BLOCKED_BROWSER_UNAVAILABLE
+

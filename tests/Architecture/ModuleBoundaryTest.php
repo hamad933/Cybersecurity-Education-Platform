@@ -17,17 +17,18 @@ class ModuleBoundaryTest extends TestCase
         'Simulator' => 'MOD-SIM',
         'Evidence' => 'MOD-EVD',
         'Learning' => 'MOD-LRN',
+        'ManualAiBridge' => 'MOD-AIB',
     ];
 
     #[Test]
-    public function registry_contains_all_ten_modules_and_only_vs001_modules_are_active(): void
+    public function registry_contains_all_ten_v1_modules(): void
     {
         $modules = config('platform.modules');
         $this->assertCount(10, $modules);
-        $expected = ['Curriculum', 'Enterprise', 'Evidence', 'IdentityAccess', 'Knowledge', 'Learning', 'Platform', 'Simulator', 'SourceGovernance'];
+        $expected = ['Curriculum', 'Enterprise', 'Evidence', 'IdentityAccess', 'Knowledge', 'Learning', 'ManualAiBridge', 'Platform', 'Simulator', 'SourceGovernance'];
         $this->assertSame($expected, $this->activeModuleDirectories());
-        $this->assertSame(['MOD-CUR', 'MOD-ENT', 'MOD-EVD', 'MOD-IAM', 'MOD-KNO', 'MOD-LRN', 'MOD-PLT', 'MOD-SIM', 'MOD-SRC'], collect($this->activeModuleDirectories())->map(fn ($name) => $this->namespaceToId[$name])->sort()->values()->all());
-        $this->assertDirectoryDoesNotExist(app_path('Modules/ManualAiBridge'));
+        $this->assertSame(['MOD-AIB', 'MOD-CUR', 'MOD-ENT', 'MOD-EVD', 'MOD-IAM', 'MOD-KNO', 'MOD-LRN', 'MOD-PLT', 'MOD-SIM', 'MOD-SRC'], collect($this->activeModuleDirectories())->map(fn ($name) => $this->namespaceToId[$name])->sort()->values()->all());
+        $this->assertDirectoryExists(app_path('Modules/ManualAiBridge'));
     }
 
     #[Test]
@@ -97,14 +98,15 @@ class ModuleBoundaryTest extends TestCase
     {
         $ownership = [
             'IdentityAccess' => ['owner_accounts', 'application_sessions'],
-            'Platform' => ['audit_records', 'blob_objects', 'processing_runs', 'outbox_messages', 'jobs', 'job_batches', 'failed_jobs'],
-            'SourceGovernance' => ['source_records', 'source_claims'],
+            'Platform' => ['audit_records', 'blob_objects', 'processing_runs', 'outbox_messages', 'portable_packages', 'search_documents', 'backup_manifests', 'restore_runs', 'jobs', 'job_batches', 'failed_jobs'],
+            'SourceGovernance' => ['source_records', 'source_claims', 'source_imports'],
             'Knowledge' => ['knowledge_units', 'lesson_revisions'],
             'Curriculum' => ['curriculum_placements'],
             'Enterprise' => ['enterprise_baseline_revisions', 'improvement_proposals'],
             'Simulator' => ['simulator_rule_revisions', 'scenario_revisions', 'scenario_runs', 'decision_traces', 'replay_records', 'vs003_telemetry_dataset_revisions', 'vs003_investigation_cases', 'vs003_investigation_alerts', 'vs003_triage_records'],
-            'Evidence' => ['evidence_records', 'evidence_decisions', 'vs003_custody_events', 'vs003_containment_proposals', 'vs003_control_revisions', 'vs003_verification_replays'],
+            'Evidence' => ['evidence_records', 'evidence_decisions', 'imported_evidence_records', 'vs003_custody_events', 'vs003_containment_proposals', 'vs003_control_revisions', 'vs003_verification_replays'],
             'Learning' => ['micro_practices', 'practice_attempts', 'mastery_rule_revisions', 'mastery_states', 'review_triggers'],
+            'ManualAiBridge' => ['prompt_packages', 'prompt_package_revisions', 'imported_ai_results', 'ai_proposal_decisions'],
         ];
         foreach ($this->modulePhpFiles() as $file) {
             $source = file_get_contents($file);

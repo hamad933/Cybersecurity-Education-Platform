@@ -103,6 +103,7 @@ final class Vs002Lifecycle
                 throw new LogicException('VS-002 run mutated the Enterprise Baseline.');
             }
             $evidence = $this->evidence->recordRun($learnerActorId, $result['run'], $result['trace']);
+
             return $result + $evidence;
         });
     }

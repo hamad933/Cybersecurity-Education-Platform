@@ -1,0 +1,15 @@
+{
+    "status":  "PASS_WITH_RECORDED_BROWSER_BLOCKER",
+    "core_release_status":  "PASS",
+    "browser_status":  "BLOCKED_BROWSER_UNAVAILABLE",
+    "required_checkpoint":  "83b932a079bf2237dbfa033a4322c6bded042842",
+    "full_php_regression_runs":  1,
+    "second_full_run_performed":  false,
+    "targeted_gate":  "PASS",
+    "full_release_gate":  "PASS",
+    "restore_drill":  "PASS",
+    "release_queue_smoke":  "PASS",
+    "release_final_service_health":  "PASS",
+    "generated_at_utc":  "2026-07-26T20:24:30.5225730+00:00",
+    "stop_gate":  "STOP-V1-RELEASE-010"
+}

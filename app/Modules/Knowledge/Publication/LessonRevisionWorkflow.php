@@ -203,7 +203,7 @@ final class LessonRevisionWorkflow
             }
         }
         foreach ($citations as $claimId) {
-            if (! is_string($claimId) || preg_match('/^(?:WIN|WEB)-AUTH-\d{3}$/', $claimId) !== 1) {
+            if (! is_string($claimId) || preg_match('/^(?:WIN|WEB|VS3)-AUTH-\d{3}$/', $claimId) !== 1) {
                 throw new InvalidArgumentException('Citation claim ID is invalid.');
             }
         }

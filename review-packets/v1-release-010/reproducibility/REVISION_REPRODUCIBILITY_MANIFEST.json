@@ -1,0 +1,54 @@
+{
+    "status":  "PASS",
+    "scope":  "TASK-010 targeted review revision runners",
+    "generated_at_utc":  "2026-07-26T19:54:18.1736201+00:00",
+    "original_bundle_preserved":  true,
+    "compose_ps_json_mode":  "NDJSON_OR_ARRAY",
+    "files":  [
+                  {
+                      "path":  "reproducibility/runners/BUILD_TASK010_HANDOFF_PS51.ps1",
+                      "bytes":  16081,
+                      "sha256":  "5aa10f615c3992b8ca3bba36444c90e94ab044703ee82bb1b2a5c54ed9b2895a"
+                  },
+                  {
+                      "path":  "reproducibility/runners/COLLECT_TASK010_FAILURE_CONTEXT_PS51.ps1",
+                      "bytes":  4350,
+                      "sha256":  "115a7a5c6ad95fc1b5b788245758194c97cb5f4881545720b4e53cfcdc562c4e"
+                  },
+                  {
+                      "path":  "reproducibility/runners/RESUME_TASK010_AFTER_DOCKER_PS51.ps1",
+                      "bytes":  7434,
+                      "sha256":  "9b0f415d6d458f044a8d190673f64190038a4e2a48d52d4f460ad38ea31569a0"
+                  },
+                  {
+                      "path":  "reproducibility/runners/RUN_TASK010_BROWSER_GATE_PS51.ps1",
+                      "bytes":  7909,
+                      "sha256":  "4fc1fb77fb7e6499f9bc776fba6d5d52083bb81c053aed0bb728e6c82fcc4b25"
+                  },
+                  {
+                      "path":  "reproducibility/runners/RUN_TASK010_FULL_RELEASE_GATE_PS51.ps1",
+                      "bytes":  13378,
+                      "sha256":  "352467e8d33cbec3416bd3d0d4906a92bd08faf0c3393169ccdd6b53d5bc62da"
+                  },
+                  {
+                      "path":  "reproducibility/runners/RUN_TASK010_RESTORE_DRILL_PS51.ps1",
+                      "bytes":  5342,
+                      "sha256":  "31d3778c4ae1ceabd0625d4ebe1a009dc70d549a7f2ad867457ade9c167a115d"
+                  },
+                  {
+                      "path":  "reproducibility/runners/TASK010.Common.ps1",
+                      "bytes":  6527,
+                      "sha256":  "8c07e8e8a9bddef7438e8543d3f891b89689daf190e858da5305479707e7f861"
+                  },
+                  {
+                      "path":  "reproducibility/runners/VERIFY_TASK010_BUNDLE_PS51.ps1",
+                      "bytes":  2005,
+                      "sha256":  "49f5a30108592827f9e7a96da819ec0580671eda223b79517ccf14b9b75b2eee"
+                  },
+                  {
+                      "path":  "reproducibility/runners/VERIFY_TASK010_TARGETED_PS51.ps1",
+                      "bytes":  9852,
+                      "sha256":  "1b38de533ef8e71b2cb0be18e1cb7ccc2f0648c05a3b1470343fc510b4bcae6b"
+                  }
+              ]
+}

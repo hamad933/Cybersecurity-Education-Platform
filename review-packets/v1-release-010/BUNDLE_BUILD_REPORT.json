@@ -1,0 +1,7 @@
+{
+  "status": "STATIC_BUILD_PASS",
+  "required_checkpoint": "83b932a079bf2237dbfa033a4322c6bded042842",
+  "source_patch_files": 82,
+  "runtime_verification": "PENDING_LOCAL_RUN",
+  "stop_gate": "STOP-V1-RELEASE-010"
+}

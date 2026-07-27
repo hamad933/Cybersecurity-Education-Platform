@@ -29,11 +29,16 @@ final class EnterpriseBaselineService
     public function webAuthorizationFacts(string $revisionId, array $requestContext): array
     {
         $revision = EnterpriseBaselineRevision::query()->whereKey($revisionId)->where('state', 'published')->firstOrFail();
-        $snapshot = is_array($revision->snapshot) ? $revision->snapshot : [];
+        $snapshotValue = $revision->getAttribute('snapshot');
+        $snapshot = is_array($snapshotValue) ? $snapshotValue : [];
+        $actorsValue = $snapshot['actors'] ?? null;
+        $resourcesValue = $snapshot['resources'] ?? null;
+        $actors = is_array($actorsValue) ? $actorsValue : [];
+        $resources = is_array($resourcesValue) ? $resourcesValue : [];
         $actorId = is_string($requestContext['actor_id'] ?? null) ? $requestContext['actor_id'] : '';
         $resourceId = is_string($requestContext['resource_id'] ?? null) ? $requestContext['resource_id'] : '';
-        $actor = collect(is_array($snapshot['actors'] ?? null) ? $snapshot['actors'] : [])->first(fn (mixed $item): bool => is_array($item) && ($item['id'] ?? null) === $actorId);
-        $resource = collect(is_array($snapshot['resources'] ?? null) ? $snapshot['resources'] : [])->first(fn (mixed $item): bool => is_array($item) && ($item['id'] ?? null) === $resourceId);
+        $actor = collect($actors)->first(fn (mixed $item): bool => is_array($item) && ($item['id'] ?? null) === $actorId);
+        $resource = collect($resources)->first(fn (mixed $item): bool => is_array($item) && ($item['id'] ?? null) === $resourceId);
 
         return [
             'baseline_revision_id' => (string) $revision->id,

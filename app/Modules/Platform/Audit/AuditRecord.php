@@ -14,11 +14,19 @@ class AuditRecord extends Model
 
     public const CREATED_AT = 'occurred_at';
 
-    protected $fillable = ['actor_identifier', 'action', 'target_type', 'target_identifier', 'correlation_id', 'outcome', 'safe_metadata', 'occurred_at'];
+    protected $fillable = [
+        'actor_identifier', 'action', 'target_type', 'target_identifier',
+        'correlation_id', 'outcome', 'safe_metadata', 'occurred_at',
+        'sequence_no', 'previous_hash', 'record_hash',
+    ];
 
     protected function casts(): array
     {
-        return ['safe_metadata' => 'array', 'occurred_at' => 'immutable_datetime'];
+        return [
+            'safe_metadata' => 'array',
+            'occurred_at' => 'immutable_datetime',
+            'sequence_no' => 'integer',
+        ];
     }
 
     protected static function booted(): void

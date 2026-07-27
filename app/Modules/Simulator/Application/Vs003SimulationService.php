@@ -260,7 +260,7 @@ final class Vs003SimulationService
 
         $existing = ScenarioRun::query()->where('idempotency_key', $idempotencyKey)->first();
         if ($existing !== null) {
-            $existingInput = is_array($existing->normalized_input) ? $existing->normalized_input : [];
+            $existingInput = $existing->normalizedInputPayload();
             if (
                 (string) $existing->actor_id !== $actorId
                 || (string) $existing->verification_of_run_id !== $originalRunId
@@ -446,14 +446,15 @@ final class Vs003SimulationService
             ->whereKey($scenario->rule_set_revision_id)
             ->where('state', 'approved')
             ->firstOrFail();
-        $rules = is_array($rule->rules) ? $rule->rules : [];
+        $rulesValue = $rule->getAttribute('rules');
+        $rules = is_array($rulesValue) ? $rulesValue : [];
         if (! hash_equals((string) $rule->digest, $this->digest($rules))) {
             throw new LogicException('Pinned VS-003 rule digest verification failed.');
         }
         if (($rules['behavior_version'] ?? null) !== config('vs003.behavior_version')) {
             throw new LogicException('Unsupported pinned VS-003 behavior version.');
         }
-        $scenarioCases = is_array($scenario->cases) ? $scenario->cases : [];
+        $scenarioCases = $scenario->caseDefinitions();
         if (! hash_equals((string) $scenario->digest, $this->digest($scenarioCases))) {
             throw new LogicException('Pinned VS-003 scenario digest verification failed.');
         }
@@ -519,7 +520,10 @@ final class Vs003SimulationService
         ];
     }
 
-    /** @param list<array<string,mixed>> $events @return list<array<string,mixed>> */
+    /**
+     * @param  list<array<string,mixed>>  $events
+     * @return list<array<string,mixed>>
+     */
     private function normalizeEvents(array $events): array
     {
         $normalized = array_map(function (array $event): array {
@@ -537,7 +541,7 @@ final class Vs003SimulationService
             } catch (\Throwable) {
                 throw new LogicException('A VS-003 synthetic event timestamp is not strict UTC RFC3339.');
             }
-            if ($occurredAt === false || $occurredAt->format('Y-m-d\TH:i:s\Z') !== $event['occurred_at']) {
+            if ($occurredAt === null || $occurredAt->format('Y-m-d\TH:i:s\Z') !== $event['occurred_at']) {
                 throw new LogicException('A VS-003 synthetic event timestamp is not strict UTC RFC3339.');
             }
 

@@ -53,3 +53,8 @@ Desktop.ini
 /.vscode/
 *.swp
 *.swo
+/review-packets/TASK_010_REVIEW_HANDOFF/
+/review-packets/TASK_010_REVIEW_HANDOFF.zip
+/review-packets/v1-release-010/local-verification/
+/review-packets/v1-release-010/browser-evidence/
+/task010-failure-context/

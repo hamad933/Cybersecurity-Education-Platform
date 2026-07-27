@@ -18,6 +18,7 @@ use LogicException;
 final class Vs002SimulationService
 {
     public function __construct(private readonly EnterpriseBaselineService $enterprise) {}
+
     /** @return array<string,mixed> */
     public function latestPlan(string $caseId, int $seed): array
     {

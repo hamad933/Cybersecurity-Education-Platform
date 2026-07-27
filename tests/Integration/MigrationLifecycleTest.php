@@ -65,7 +65,7 @@ class MigrationLifecycleTest extends TestCase
         $this->assertTrue(Schema::hasColumns('vs003_verification_replays', ['actor_id', 'triage_record_id']));
 
         $migrationCount = count(glob(database_path('migrations/*.php')));
-        $this->assertSame(11, $migrationCount);
+        $this->assertSame(12, $migrationCount);
         $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => $migrationCount, '--force' => true]));
         $this->assertFalse(Schema::hasTable('owner_accounts'));
         $this->assertFalse(Schema::hasTable('vs003_telemetry_dataset_revisions'));

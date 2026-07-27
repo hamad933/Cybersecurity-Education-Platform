@@ -18,5 +18,6 @@ class DatabaseSeeder extends Seeder
         $this->call(Vs001Seeder::class);
         $this->call(Vs002Seeder::class);
         $this->call(Vs003Seeder::class);
+        $this->call(Task010Seeder::class);
     }
 }

@@ -3,6 +3,11 @@
 return [
     'profile' => env('APP_PROFILE', 'local'),
     'auth_bypass' => false,
+    'force_https' => env('FORCE_HTTPS', false),
+    'ai_network_provider_enabled' => false,
+    'source_import_max_bytes' => 10_485_760,
+    'manual_ai_result_max_bytes' => 262_144,
+    'release_loopback_only' => true,
     'blob_disk' => env('BLOB_DISK', 'local'),
     'blob_root' => env('BLOB_ROOT', 'blobs'),
     'audit_metadata_max_bytes' => 4096,

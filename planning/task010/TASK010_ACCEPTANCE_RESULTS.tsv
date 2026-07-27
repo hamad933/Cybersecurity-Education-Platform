@@ -1,0 +1,14 @@
+gate	status	evidence	note
+A1	PASS	review-packets/v1-release-010/APPLY_RESULT.json	Exact Task-009 checkpoint, clean repository, and tag were verified before application.
+A2	PASS	review-packets/v1-release-010/BUNDLE_FILE_SHA256SUMS.tsv	Every distributed bundle member and source patch file was hash verified.
+A3	PASS	review-packets/v1-release-010/TARGETED_GATE_SUMMARY.json	PostgreSQL migration, seed, and targeted lifecycle gates passed.
+A4	PASS	review-packets/v1-release-010/FULL_RELEASE_GATE_SUMMARY.json	Locked PHP and Node quality gates passed.
+A5	PASS	review-packets/v1-release-010/TARGETED_GATE_SUMMARY.json	Safe source, evidence, and portable package imports passed.
+A6	PASS	review-packets/v1-release-010/TARGETED_GATE_SUMMARY.json	Manual AI Bridge export/import and human decision controls passed.
+A7	PASS	review-packets/v1-release-010/TARGETED_GATE_SUMMARY.json	Search and explainable daily queue tests passed.
+A8	PASS	review-packets/v1-release-010/TARGETED_GATE_SUMMARY.json	Tamper-evident audit chain and actor-bound evidence controls passed.
+A9	PASS	review-packets/v1-release-010/RESTORE_DRILL_RESULT.json	Isolated logical backup and restore drill passed.
+A10	PASS	review-packets/v1-release-010/SECURITY_DEPENDENCY_RESULTS.md	Dependency audits, secret scan, and security controls passed.
+A11	PASS	review-packets/v1-release-010/FULL_RELEASE_GATE_SUMMARY.json;review-packets/v1-release-010/local-verification/full-release/release_queue_smoke.log;review-packets/v1-release-010/local-verification/full-release/release_final_service_health.log	Loopback release, bounded queue processing, and final service state passed.
+A12	BLOCKED_BROWSER_UNAVAILABLE	review-packets/v1-release-010/BROWSER_RESULT.json	Exactly one bounded browser attempt; status preserved truthfully.
+A13	PASS_WITH_RECORDED_BROWSER_BLOCKER	review-packets/v1-release-010/TASK010_FINAL_SUMMARY.json	Handoff built only after required core gates passed.

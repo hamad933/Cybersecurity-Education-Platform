@@ -1,0 +1,8 @@
+{
+    "status": "PASS",
+    "stop_gate": "STOP-V1-RELEASE-010",
+    "zip_path": "/app/review-packets/TASK_010_REVIEW_HANDOFF.zip",
+    "total_files": 274,
+    "zip_bytes": 411846,
+    "zip_sha256": "7c317bb53774febdbddc3e2e4a119ed8f9b115ed538ad82fa1212199077d849a"
+}

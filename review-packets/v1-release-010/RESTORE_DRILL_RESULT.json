@@ -1,0 +1,89 @@
+{
+    "status":  "PASS",
+    "generated_at_utc":  "2026-07-26T19:27:54.2502900+00:00",
+    "duration_seconds":  14.026,
+    "source_database":  "cyber_platform_test",
+    "restore_database":  "cyber_platform_restore_drill",
+    "restore_database_removed":  true,
+    "backup_manifest_id":  "019f9fe5-ce30-72e9-a59d-f790c92f49a9",
+    "restore_result":  {
+                           "status":  "verified",
+                           "restore_run_id":  "019f9fe5-e453-71ff-9b8c-fd66ef06dc82",
+                           "verification":  {
+                                                "valid":  true,
+                                                "table_mismatches":  [
+
+                                                                     ],
+                                                "blob_failures":  [
+
+                                                                  ],
+                                                "audit_chain":  {
+                                                                    "valid":  true,
+                                                                    "count":  0,
+                                                                    "first_invalid_sequence":  null
+                                                                }
+                                            }
+                       },
+    "failed_gates":  [
+
+                     ],
+    "gates":  [
+                  {
+                      "name":  "restore_source_migrate_seed",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "duration_seconds":  2.928,
+                      "log_path":  "C:\\Users\\User\\Desktop\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\restore-drill\\restore_source_migrate_seed.log",
+                      "detail":  ""
+                  },
+                  {
+                      "name":  "restore_backup_prepare",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "duration_seconds":  2.346,
+                      "log_path":  "C:\\Users\\User\\Desktop\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\restore-drill\\restore_backup_prepare.log",
+                      "detail":  ""
+                  },
+                  {
+                      "name":  "restore_database_drop_before",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "duration_seconds":  0.288,
+                      "log_path":  "C:\\Users\\User\\Desktop\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\restore-drill\\restore_database_drop_before.log",
+                      "detail":  ""
+                  },
+                  {
+                      "name":  "restore_database_create",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "duration_seconds":  0.467,
+                      "log_path":  "C:\\Users\\User\\Desktop\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\restore-drill\\restore_database_create.log",
+                      "detail":  ""
+                  },
+                  {
+                      "name":  "restore_target_migrate",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "duration_seconds":  2.301,
+                      "log_path":  "C:\\Users\\User\\Desktop\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\restore-drill\\restore_target_migrate.log",
+                      "detail":  ""
+                  },
+                  {
+                      "name":  "restore_apply_and_verify",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "duration_seconds":  2.27,
+                      "log_path":  "C:\\Users\\User\\Desktop\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\restore-drill\\restore_apply_and_verify.log",
+                      "detail":  ""
+                  },
+                  {
+                      "name":  "restore_database_drop_after",
+                      "status":  "PASS",
+                      "exit_code":  0,
+                      "duration_seconds":  3.238,
+                      "log_path":  "C:\\Users\\User\\Desktop\\Enterprise-Projects\\Cybersecurity-Education-Platform\\product-repo\\review-packets\\v1-release-010\\local-verification\\restore-drill\\restore_database_drop_after.log",
+                      "detail":  ""
+                  }
+              ],
+    "rpo_rto_claim":  "NOT_DECLARED_MEASUREMENT_ONLY"
+}
