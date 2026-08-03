@@ -1,0 +1,15 @@
+﻿criterion_id	result	evidence	limitation
+VS3-AC-001	PASS	planning/task009/VS003_SELECTION.tsv	Primary/supporting selection is stable and bounded.
+VS3-AC-002	PASS	planning/task009/VS003_AUTHORITY_CLAIMS.tsv;planning/task009/VS003_DATASET_MANIFEST.tsv	Authority scope and synthetic immutable dataset are recorded.
+VS3-AC-003	PASS	database/seeders/Vs003Seeder.php	KU-D09-002 lesson, practice, and mastery rules are versioned and published/approved.
+VS3-AC-004	PASS	tests/Feature/Vs003InvestigationTest.php;local-verification/php_vs003_investigation.log	Deterministic UTC normalization and explicit quality states are verified.
+VS3-AC-005	PASS	tests/Feature/Vs003InvestigationTest.php;local-verification/php_vs003_investigation.log	All five bounded outcomes are verified.
+VS3-AC-006	PASS	tests/Feature/Vs003InvestigationTest.php	Triage is permission-aware, actor-bound, exact, and idempotent.
+VS3-AC-007	PASS	app/Modules/Simulator/Application/Vs003SimulationService.php;tests/Feature/Vs003InvestigationTest.php	Alternative hypotheses and missing-data states remain explicit.
+VS3-AC-008	PASS	app/Modules/Evidence/Application/Vs003EvidenceService.php;tests/Feature/Vs003InvestigationTest.php	SIMULATED evidence and custody are actor/source/digest bound.
+VS3-AC-009	PASS	app/Modules/Evidence/Application/Vs003EvidenceService.php;tests/Feature/Vs003InvestigationTest.php	Containment remains proposal/approval only; no live action exists.
+VS3-AC-010	PASS	database/migrations/2026_07_24_000011_harden_vs003_actor_replay_and_control_scope.php;tests/Feature/Vs003InvestigationTest.php	Immutable actor-bound control revisions and pinned replay are verified, including idempotency conflicts.
+VS3-AC-011	PASS	tests/Feature/Vs003InvestigationTest.php	Enterprise baseline digest remains isolated before/after replay.
+VS3-AC-012	PASS	app/Modules/Learning/Application/Vs003LearningService.php;tests/Feature/Vs003InvestigationTest.php	Mastery uses persisted same-actor provenance and review triggers use actual failures.
+VS3-AC-013	PASS	resources/js/pages/Vs003/AuthenticationInvestigation.vue;resources/js/tests/Vs003AuthenticationInvestigation.spec.ts;local-verification/frontend_targeted_tests.log	Arabic RTL/LTR, safe rendering, keyboard/focus, bounded scrolling, and mobile-safe actions passed automated gates; browser screenshot runtime remains blocked and is not claimed.
+VS3-AC-014	PASS	review-packets/vs003-009/TASK009_VERIFICATION_SUMMARY.json;review-packets/TASK_009_REVIEW_HANDOFF.zip;ZIP_INTEGRITY_RESULT.txt	Targeted missing/affected groups, security gates, and verified handoff packaging passed; the prior full-suite run itself remains INCOMPLETE_TIMEOUT and was not misrepresented.

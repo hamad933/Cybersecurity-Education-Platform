@@ -1,0 +1,3 @@
+﻿decision_id	status	question	boundary	owner
+TASK009-UNRES-001	BLOCKED	Capture the optional five-view browser screenshot set when a supported browser-control runtime is available.	Do not retry repeatedly and never fabricate browser evidence.	Task-010 runtime operator
+TASK009-UNRES-002	CARRIED_LIMITATION	The prior second full PHP run has no completion summary after timeout.	Do not describe that run as PASS; rely only on the independently verified missing/directly affected groups.	External reviewer

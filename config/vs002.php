@@ -1,0 +1,36 @@
+<?php
+
+return [
+    'slice_id' => 'VS-002',
+    'capability_id' => 'CAP-D05-02-02',
+    'knowledge_unit_id' => 'KU-D05-004',
+    'authority_baseline_id' => 'WEB-API-AUTHORITY-2026-07-22-V1',
+    'rule_set_id' => 'WEB-API-BOUNDARY-RULES',
+    'endpoint_contract_id' => 'CASEFILE-GET-CONTRACT',
+    'policy_id' => 'CASEFILE-OBJECT-AUTHZ',
+    'scenario_id' => 'VS002-WEB-API-BOLA',
+    'mastery_rule_id' => 'MASTER-KU-D05-004-V1',
+    'required_claim_ids' => [
+        'WEB-AUTH-001',
+        'WEB-AUTH-002',
+        'WEB-AUTH-003',
+        'WEB-AUTH-004',
+        'WEB-AUTH-005',
+        'WEB-AUTH-006',
+        'WEB-AUTH-007',
+    ],
+    'allowed_response_fields' => ['id', 'title', 'status', 'owner_display'],
+    'failure_classes' => [
+        'authentication_authorization_confusion',
+        'ownership_check_missed',
+        'client_role_trusted',
+        'wrong_http_decision',
+        'trust_boundary_missed',
+        'unsafe_logging',
+        'remediation_not_verified',
+        'unsupported_state_guessed',
+        'unsafe_rendering_assumption',
+        'missing_provenance',
+        'replay_mismatch',
+    ],
+];

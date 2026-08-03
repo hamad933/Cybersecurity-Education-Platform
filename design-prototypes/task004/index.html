@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Task 004 local static UX design proof">
+  <title>مرصد — Task 004 Design Proof</title>
+  <link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+  <a class="skip-link" href="#workspace">تجاوز إلى مساحة العمل</a>
+  <div class="proof-banner" role="status">
+    <bdi dir="ltr">DESIGN PROOF — NOT IMPLEMENTED PRODUCT</bdi>
+    <span>بيانات تمثيلية محلية، بلا معالجة حقيقية أو اتصال خارجي</span>
+  </div>
+  <div class="app-shell">
+    <aside class="global-nav" id="global-nav" aria-label="التنقل العام">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">م</span>
+        <div><strong>مرصد</strong><small>Cyber Learning &amp; Simulation</small></div>
+      </div>
+      <nav>
+        <a href="#dashboard" data-view-link="dashboard"><span aria-hidden="true">⌂</span> اليوم</a>
+        <a href="#sources" data-view-link="sources"><span aria-hidden="true">▤</span> المصادر</a>
+        <a href="#knowledge" data-view-link="knowledge"><span aria-hidden="true">◫</span> المعرفة</a>
+        <a href="#curriculum" data-view-link="curriculum"><span aria-hidden="true">⌘</span> المنهج</a>
+        <a href="#lab" data-view-link="lab"><span aria-hidden="true">>_</span> المختبر</a>
+        <a href="#enterprise" data-view-link="enterprise"><span aria-hidden="true">◇</span> المؤسسة</a>
+        <a href="#evidence" data-view-link="evidence"><span aria-hidden="true">✓</span> الأدلة</a>
+        <a href="#manual-ai" data-view-link="manual-ai"><span aria-hidden="true">⇄</span> الجسر اليدوي</a>
+      </nav>
+      <div class="nav-foot">
+        <span class="owner-dot" aria-hidden="true"></span>
+        <span>مالك محلي واحد</span>
+        <bdi dir="ltr">LOCAL ONLY</bdi>
+      </div>
+    </aside>
+    <div class="app-main">
+      <header class="topbar">
+        <button class="icon-button menu-button" id="menu-button" type="button" aria-controls="global-nav" aria-expanded="false" aria-label="فتح قائمة التنقل">☰</button>
+        <div class="crumb" id="crumb">اليوم / لوحة المتابعة</div>
+        <div class="top-actions">
+          <button class="icon-button" type="button" aria-label="بحث محلي">⌕</button>
+          <span class="status-badge neutral">لا اتصال عام</span>
+          <button class="owner-button" type="button">المالك <span aria-hidden="true">⌄</span></button>
+        </div>
+      </header>
+      <main id="workspace" tabindex="-1"></main>
+      <div class="sr-status" id="sr-status" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+  <script src="assets/app.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,10 @@
+entity_or_table	owner_module	identifier	json_policy	lifecycle
+owner_accounts	MOD-IAM	UUIDv7	NONE	single active owner; deactivate only by future approved administration
+application_sessions	MOD-IAM	framework session key	NONE	database session expiry and logout invalidation
+audit_records	MOD-PLT	UUIDv7	bounded safe_metadata <=4096 bytes	append-only application semantics; retention unresolved
+blob_objects	MOD-PLT	UUIDv7	NONE	ready/quarantined/deleted metadata; bytes via BlobStore
+processing_runs	MOD-PLT	UUIDv7	NONE	validated state machine with terminal outcomes
+outbox_messages	MOD-PLT	UUIDv7	typed versioned payload <=16384 bytes	pending/leased/dispatched/failed
+jobs	MOD-PLT	framework bigint	framework queue payload	database queue retry lifecycle
+job_batches	MOD-PLT	framework string	framework options only	framework queue batch lifecycle
+failed_jobs	MOD-PLT	framework UUID	framework serialized failure payload	operator-controlled retry/removal

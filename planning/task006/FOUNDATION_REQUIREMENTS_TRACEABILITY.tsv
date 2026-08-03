@@ -1,0 +1,17 @@
+requirement_id	implementation	verification	status
+T006-GOV-001	docs/governance/TASK004_EXTERNAL_APPROVAL_RECORD.md; root AGENTS.md	tests/Architecture/RepositorySafetyTest.php	PASS
+T006-DEP-001	config/platform.php; planning/task006/MODULE_DEPENDENCIES_LOCKED.tsv	tests/Architecture/ModuleBoundaryTest.php	PASS
+T006-REPO-001	product-repo/.git; lockfiles; ignore rules	tests/Architecture/RepositorySafetyTest.php	PASS
+T006-IAM-001	app/Modules/IdentityAccess; owner_accounts; application_sessions	tests/Feature/AuthenticationTest.php	PASS
+T006-PLT-ID-001	app/Modules/Platform/Identifiers	tests/Unit/IdentifierTest.php; tests/Integration/PlatformPrimitivesTest.php	PASS
+T006-PLT-AUD-001	app/Modules/Platform/Audit	tests/Integration/PlatformPrimitivesTest.php	PASS
+T006-PLT-PRC-001	app/Modules/Platform/Processing	tests/Integration/PlatformPrimitivesTest.php	PASS
+T006-PLT-OUT-001	app/Modules/Platform/Messaging	tests/Integration/PlatformPrimitivesTest.php	PASS
+T006-PLT-BLB-001	app/Modules/Platform/Blobs	tests/Integration/PlatformPrimitivesTest.php	PASS
+T006-PLT-QUE-001	app/Modules/Platform/Queue; database queue migration	tests/Integration/PlatformPrimitivesTest.php	PASS
+T006-PLT-DIA-001	app/Modules/Platform/Health	tests/Feature/LivenessTest.php; tests/Integration/PlatformPrimitivesTest.php	PASS
+T006-PG-001	database/migrations/*.php	tests/Integration/MigrationLifecycleTest.php	PASS
+T006-UI-001	resources/js; resources/css; resources/views	Vitest; vue-tsc; ESLint; production build; rendered screenshots	PASS_WITH_RECORDED_RENDER_LIMITATION
+T006-OPS-001	Dockerfile; compose.yaml	scripts/validate_compose.php	STRUCTURAL_PASS_RUNTIME_UNAVAILABLE
+T006-SEC-001	scripts/secret_scan.php; dependency audit commands	composer audit; npm audit; fallback secret scan	PASS_WITH_LIMITED_SCANNER
+T006-SCOPE-001	active directories MOD-IAM and MOD-PLT only	module and repository safety tests	PASS

@@ -1,0 +1,12 @@
+rule_id	boundary	input	decision	http_status	authority_claims	implementation
+WEB-RULE-RESOURCE-ID-REQUIRED	route_input_normalization	missing_or_malformed_resource_id	INSUFFICIENT_STATE	422	WEB-AUTH-001,WEB-AUTH-005	WebAuthorizationDecisionEngine
+WEB-RULE-AUTHENTICATION-REQUIRED	authentication_context	unauthenticated_session	UNAUTHENTICATED	401	WEB-AUTH-001,WEB-AUTH-004	WebAuthorizationDecisionEngine
+WEB-RULE-ENDPOINT-CONTRACT	endpoint_contract	method_route_or_action_mismatch	DENY	405	WEB-AUTH-001,WEB-AUTH-005	WebAuthorizationDecisionEngine
+WEB-RULE-RESOURCE-NOT-FOUND	resource_lookup	resource_absent	NOT_FOUND	404	WEB-AUTH-001	WebAuthorizationDecisionEngine
+WEB-RULE-UNSUPPORTED-POLICY	authorization_policy	unsupported_policy_revision	UNSUPPORTED_STATE	422	WEB-AUTH-003	WebAuthorizationDecisionEngine
+WEB-RULE-VULNERABLE-AUTHENTICATED-ALLOW	authorization_policy	authenticated_without_ownership_check	ALLOW_WITH_FINDING	200	WEB-AUTH-002,WEB-AUTH-004	WebAuthorizationDecisionEngine
+WEB-RULE-EXPLICIT-SERVER-ADMIN	authorization_policy	server_admin_role	ALLOW	200	WEB-AUTH-003,WEB-AUTH-004	WebAuthorizationDecisionEngine
+WEB-RULE-OWNER-ALLOW	authorization_policy	actor_equals_owner	ALLOW	200	WEB-AUTH-002,WEB-AUTH-003	WebAuthorizationDecisionEngine
+WEB-RULE-CROSS-OWNER-DENY	authorization_policy	actor_not_owner_and_not_server_admin	DENY	403	WEB-AUTH-002,WEB-AUTH-003	WebAuthorizationDecisionEngine
+WEB-RULE-CLIENT-CONTEXT-IGNORED	authorization_policy	client_role_or_owner_present	NO_INFLUENCE	NA	WEB-AUTH-002,WEB-AUTH-003	WebAuthorizationDecisionEngine
+WEB-RULE-SAFE-SERIALIZER	response_serialization	fields_outside_registered_shape	EXCLUDE_AND_FIND	NA	WEB-AUTH-005,WEB-AUTH-006	WebAuthorizationDecisionEngine

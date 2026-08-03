@@ -1,0 +1,11 @@
+module_id	module_name	allowed_dependencies	topological_layer	task006_code_status	lock_status
+MOD-PLT	Platform Services	NONE	0	ACTIVE_FOUNDATION	LOCKED
+MOD-IAM	Platform Identity and Access	MOD-PLT	1	ACTIVE_FOUNDATION	LOCKED
+MOD-SRC	Source Library and Ingestion	MOD-PLT	1	REGISTRY_ONLY	LOCKED
+MOD-KNO	Knowledge and Publication	MOD-SRC;MOD-PLT	2	REGISTRY_ONLY	LOCKED
+MOD-CUR	Curriculum and Capability	MOD-KNO;MOD-PLT	3	REGISTRY_ONLY	LOCKED
+MOD-ENT	Enterprise Catalog	MOD-PLT	1	REGISTRY_ONLY	LOCKED
+MOD-SIM	Simulation and Scenario	MOD-ENT;MOD-CUR;MOD-PLT	4	REGISTRY_ONLY	LOCKED
+MOD-EVD	Evidence and Portfolio	MOD-PLT	1	REGISTRY_ONLY	LOCKED
+MOD-LRN	Learning and Mastery	MOD-CUR;MOD-KNO;MOD-PLT	4	REGISTRY_ONLY	LOCKED
+MOD-AIB	Manual AI Bridge	MOD-SRC;MOD-KNO;MOD-CUR;MOD-PLT	4	REGISTRY_ONLY	LOCKED

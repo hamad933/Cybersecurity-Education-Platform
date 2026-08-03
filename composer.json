@@ -1,0 +1,129 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "cybersecurity-education/platform",
+    "type": "project",
+    "description": "Local-first Cybersecurity Learning and Operations Simulation Platform foundation.",
+    "keywords": ["cybersecurity", "education", "simulation", "laravel"],
+    "license": "MIT",
+    "require": {
+        "php": "^8.5",
+        "inertiajs/inertia-laravel": "^3.1.1",
+        "laravel/framework": "^13.21.1",
+        "laravel/tinker": "^3.0.2"
+    },
+    "require-dev": {
+        "larastan/larastan": "^3.10.0",
+        "laravel/pint": "^1.29.3",
+        "mockery/mockery": "^1.6.12",
+        "nunomaduro/collision": "^8.9.5",
+        "phpunit/phpunit": "^12.5.31"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "setup": [
+            "composer install",
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
+            "@php artisan key:generate",
+            "@php artisan migrate --force",
+            "npm ci --ignore-scripts",
+            "npm run build"
+        ],
+        "start": [
+            "Composer\\Config::disableProcessTimeout",
+            "docker compose up -d --build"
+        ],
+        "stop": [
+            "docker compose down"
+        ],
+        "format": [
+            "pint --parallel",
+            "npm run format"
+        ],
+        "lint": [
+            "pint --parallel --test",
+            "npm run lint",
+            "npm run format:check"
+        ],
+        "analyse": [
+            "phpstan analyse --memory-limit=1G"
+        ],
+        "typecheck": [
+            "npm run typecheck"
+        ],
+        "test": [
+            "@php artisan config:clear --ansi",
+            "@php artisan test --testsuite=Unit,Feature"
+        ],
+        "test:integration": [
+            "@php artisan test --testsuite=Integration"
+        ],
+        "test:architecture": [
+            "@php artisan test --testsuite=Architecture"
+        ],
+        "security": [
+            "composer audit --locked",
+            "npm audit --audit-level=high",
+            "@php scripts/secret_scan.php"
+        ],
+        "compose:validate": [
+            "@php scripts/validate_compose.php"
+        ],
+        "build": [
+            "npm run build"
+        ],
+        "quality": [
+            "Composer\\Config::disableProcessTimeout",
+            "@lint",
+            "@analyse",
+            "@typecheck",
+            "npm test",
+            "@test",
+            "@test:integration",
+            "@test:architecture",
+            "@security",
+            "@compose:validate",
+            "@build"
+        ],
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [],
+        "pre-package-uninstall": [
+            "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

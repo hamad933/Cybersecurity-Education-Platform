@@ -1,0 +1,16 @@
+entity_id	module_id	name	classification	reuse_or_new	reason	criterion_ids	persistence_class	mutability	implemented
+ENT-KNO-004	MOD-KNO	LessonRevision	REUSED_FROM_VS001	REUSE	Typed reviewed lesson lifecycle already exists	VS2-AC-003;VS2-AC-004;VS2-AC-022	PostgreSQL	Draft mutable by optimistic lock; published immutable	YES
+ENT-ENT-030	MOD-ENT	EnterpriseBaselineRevision	REUSED_FROM_VS001	REUSE	Synthetic actors resources and server roles need immutable run input	VS2-AC-005;VS2-AC-018	PostgreSQL	Published immutable	YES
+ENT-SIM-002	MOD-SIM	ScenarioRevision	REUSED_FROM_VS001	REUSE	Twelve bounded cases fit the typed revision contract	VS2-AC-005;VS2-AC-017	PostgreSQL	Published immutable	YES
+ENT-SIM-008	MOD-SIM	SimulatorRuleRevision	REUSED_FROM_VS001	REUSE	Bounded fixed rules do not require a policy language	VS2-AC-006;VS2-AC-011	PostgreSQL	Approved immutable	YES
+ENT-SIM-WEB-001	MOD-SIM	EndpointContractRevision	REQUIRED_FOR_VS002	NEW	Method route action input and response shape require explicit versioning	VS2-AC-005;VS2-AC-011;VS2-AC-013	PostgreSQL	Published immutable	YES
+ENT-SIM-WEB-002	MOD-SIM	AuthorizationPolicyRevision	REQUIRED_FOR_VS002	NEW	Vulnerable and secure ownership rules must be distinct immutable revisions	VS2-AC-008;VS2-AC-009;VS2-AC-015	PostgreSQL	Published immutable	YES
+ENT-SIM-006	MOD-SIM	ScenarioRun	REUSED_FROM_VS001	REUSE	Run already owns revision seed action input and idempotency binding	VS2-AC-007..012;VS2-AC-017;VS2-AC-018	PostgreSQL	Immutable after completion	YES
+ENT-SIM-007	MOD-SIM	DecisionTrace	REUSED_FROM_VS001	REUSE	Typed JSON trace records bounded request authorization steps	VS2-AC-005..014	PostgreSQL	Immutable after creation	YES
+ENT-EVD-WEB-001	MOD-EVD	SecurityFinding	REQUIRED_FOR_VS002	NEW	Deterministic queryable access-control and serializer findings need ownership	VS2-AC-008;VS2-AC-013;VS2-AC-014	PostgreSQL	Open until verified; finding facts immutable	YES
+ENT-EVD-WEB-002	MOD-EVD	FindingVerification	REQUIRED_FOR_VS002	NEW	Closure must link vulnerable run remediation revision and fixed run	VS2-AC-015;VS2-AC-016	PostgreSQL	Append-only verification link	YES
+ENT-EVD-001	MOD-EVD	EvidenceRecord	REUSED_FROM_VS001	REUSE	Actor-bound SIMULATED evidence contract extends with policy finding and verification IDs	VS2-AC-019;VS2-AC-020	PostgreSQL	Accepted immutable	YES
+ENT-LRN-001	MOD-LRN	MicroPractice	REUSED_FROM_VS001	REUSE	Versioned structured answer key is already supported	VS2-AC-021	PostgreSQL	Versioned immutable definition	YES
+ENT-LRN-006	MOD-LRN	MasteryRuleRevision	REUSED_FROM_VS001	REUSE	Balanced evidence requirements remain versioned	VS2-AC-020	PostgreSQL	Approved immutable	YES
+ENT-LRN-008	MOD-LRN	ReviewTrigger	REUSED_FROM_VS001	REUSE	Actual failure classes retain actor source and rule links	VS2-AC-021	PostgreSQL	Scheduled lifecycle	YES
+ENT-AIB-001	MOD-AIB	AutomatedAIExecution	NOT_IMPLEMENTED	NONE	Explicitly prohibited in v1 and TASK-008	VS2-AC-024	NONE	NONE	NO

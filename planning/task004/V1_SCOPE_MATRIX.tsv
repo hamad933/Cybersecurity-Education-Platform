@@ -1,0 +1,29 @@
+scope_item_id	capability_or_boundary	classification	owning_module	acceptance_evidence	deferred_reason_or_constraint	future_task	status
+SCOPE-004-001	Local single-owner authentication	IN_V1	MOD-IAM	Auth session CSRF rate and release-profile tests	No separate reviewer accounts	TASK-006	CANDIDATE
+SCOPE-004-002	SaaS tenants registration billing collaboration	OUTSIDE_V1	MOD-IAM	Scope and dependency scan	No approved product need	POST_V1_DECISION	DEFERRED
+SCOPE-004-003	Immutable source custody and bounded safe import	IN_V1	MOD-SRC	Digest traversal MIME parser and audit tests	Broad OCR and crawler deferred	TASK-007;TASK-010	CANDIDATE
+SCOPE-004-004	Canonical knowledge and typed lesson revisions	IN_V1	MOD-KNO	Publication immutability block schema and provenance tests	Finished content limited to slices	TASK-007;TASK-008;TASK-009	CANDIDATE
+SCOPE-004-005	All 96 provisional KUs as finished content	OUTSIDE_V1	MOD-CUR	Content inventory and claim review	Expansion architecture is not curriculum completeness	POST_V1	DEFERRED
+SCOPE-004-006	Capability hierarchy and bounded path templates	IN_V1	MOD-CUR	Identifier relation and lifecycle-template tests	Only slice-required seeds publish	TASK-007;TASK-008;TASK-009	CANDIDATE
+SCOPE-004-007	Daily queue evidence mastery and failure review	IN_V1	MOD-LRN	Rationale state rule and review tests	Thresholds provisional	TASK-007;TASK-008;TASK-009	CANDIDATE
+SCOPE-004-008	Persistent enterprise catalogs and baselines	IN_V1	MOD-ENT	Ownership relationship version and isolation tests	No production discovery	TASK-007;TASK-009	CANDIDATE
+SCOPE-004-009	Visual Scenario Studio and portable packages	IN_V1	MOD-SIM	Authoring validation and round-trip tests	Manual package editing advanced only	TASK-007;TASK-009	CANDIDATE
+SCOPE-004-010	Stateful deterministic Institutional Simulator	IN_V1	MOD-SIM	Positive negative reset replay and trace tests	No claim beyond approved rule sets	TASK-007;TASK-008;TASK-009	CANDIDATE
+SCOPE-004-011	Real execution connectors	OUTSIDE_V1	MOD-SIM	Dependency and port scan	Separate high-risk authorization required	POST_V1_DECISION	DEFERRED
+SCOPE-004-012	Selective claim-specific Real-Lab evidence import	IN_V1	MOD-EVD	Origin classification and manual evidence review tests	No automated lab connectors	TASK-010	CANDIDATE
+SCOPE-004-013	Public credentials external attestations	OUTSIDE_V1	MOD-EVD	Scope review	No external trust framework approved	POST_V1	DEFERRED
+SCOPE-004-014	Manual AI Bridge file exchange	IN_V1	MOD-AIB	Export scope tamper validation diff and review tests	Manual ChatGPT Plus processing occurs outside app	TASK-010	CANDIDATE
+SCOPE-004-015	AI API provider adapters local models embeddings	ROADMAP_EXCLUDED	MOD-AIB	Architecture source dependency and network-call scan	Current permanent roadmap decision	UNSCHEDULED	EXCLUDED
+SCOPE-004-016	PostgreSQL full-text search	IN_V1	MOD-PLT	Authorized Arabic English relevance and provenance tests	Dedicated search deferred until measured	TASK-010	CANDIDATE
+SCOPE-004-017	Database-backed queue	IN_V1	MOD-PLT	Idempotency retry timeout and recovery tests	Broker and Redis deferred until measured	TASK-006;TASK-010	CANDIDATE
+SCOPE-004-018	Safe import export packages	IN_V1	MOD-PLT	Manifest hash schema traversal and round-trip tests	No public distribution marketplace	TASK-010	CANDIDATE
+SCOPE-004-019	Verified backup and staged restore	IN_V1	MOD-PLT	Corruption staging activation and rollback tests	RPO RTO and encryption choice unresolved	TASK-010	CANDIDATE
+SCOPE-004-020	Arabic-first accessible responsive web UX	IN_V1	MOD-PLT	Keyboard focus contrast bidi and viewport reports	PWA optional and deferred	TASK-006;TASK-007;TASK-010	CANDIDATE
+SCOPE-004-021	VS-001 Windows Authorization Decision	IN_V1	MOD-SIM	VS001 acceptance aggregate	Publication authority blockers must resolve	TASK-007	CANDIDATE
+SCOPE-004-022	VS-002 Web API trust-boundary failure	IN_V1	MOD-SIM	Bounded slice gate and VS-001 regression	Current primary web authorities required	TASK-008	CANDIDATE
+SCOPE-004-023	VS-003 Authentication anomaly investigation	IN_V1	MOD-SIM	Integrated scenario evidence and earlier regressions	Representative telemetry authority required	TASK-009	CANDIDATE
+SCOPE-004-024	Integration hardening release evidence	IN_V1	MOD-PLT	Aggregate security restore accessibility and release gate	No new curriculum breadth	TASK-010	CANDIDATE
+SCOPE-004-025	Microservices Kafka Kubernetes graph search cluster	ROADMAP_EXCLUDED	MOD-PLT	Deployment and dependency scan	No blocking or measured need	UNSCHEDULED	EXCLUDED
+SCOPE-004-026	Redis or message broker	OUTSIDE_V1	MOD-PLT	Dependency scan and queue benchmark	Only if database queue fails measured target	POST_V1_DECISION	DEFERRED
+SCOPE-004-027	Controlled multi-user operation	OUTSIDE_V1	MOD-IAM	New threat model and access decision	v1 single-owner boundary	POST_V1_DECISION	DEFERRED
+

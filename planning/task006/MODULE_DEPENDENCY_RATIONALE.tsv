@@ -1,0 +1,20 @@
+consumer_module	allowed_dependency_module	interaction_style	rationale	cycle_control	status
+MOD-PLT	NONE	FOUNDATION	Platform owns stable primitives and imports no domain module.	Root of graph.	LOCKED
+MOD-IAM	MOD-PLT	STABLE_PRIMITIVES	Identity uses actor identifiers audit clock blob-free health-safe platform contracts.	Platform never imports Identity.	LOCKED
+MOD-SRC	MOD-PLT	STABLE_PRIMITIVES	Future source custody uses platform audit blob processing and messaging contracts.	No Identity dependency; actor supplied at boundary.	LOCKED
+MOD-KNO	MOD-SRC	CONSUMER_OWNED_READ_PORT	Future knowledge resolves reviewed source evidence through typed data contracts.	No Source ORM imports or writes.	LOCKED
+MOD-KNO	MOD-PLT	STABLE_PRIMITIVES	Future publication uses identifiers audit transactions and outbox.	Platform never imports Knowledge.	LOCKED
+MOD-CUR	MOD-KNO	CONSUMER_OWNED_READ_PORT	Future curriculum resolves published knowledge identity through typed query data.	No Knowledge ORM imports or writes.	LOCKED
+MOD-CUR	MOD-PLT	STABLE_PRIMITIVES	Future curriculum uses identifiers audit and messages.	Platform remains root.	LOCKED
+MOD-ENT	MOD-PLT	STABLE_PRIMITIVES	Future enterprise catalogs use identifiers audit and revision primitives.	No Identity dependency.	LOCKED
+MOD-SIM	MOD-ENT	CONSUMER_OWNED_READ_PORT	Future simulation reads immutable baseline snapshots through typed contracts.	Runs cannot mutate baseline tables.	LOCKED
+MOD-SIM	MOD-CUR	CONSUMER_OWNED_READ_PORT	Future simulation resolves capability context without Learning implementation.	No Learning or Evidence dependency.	LOCKED
+MOD-SIM	MOD-PLT	STABLE_PRIMITIVES	Future runs use identifiers audit outbox and processing contracts.	Events flow outward through outbox.	LOCKED
+MOD-EVD	MOD-PLT	DURABLE_MESSAGE	Future evidence records message data using stable identifiers and blob contracts.	No Learning or Simulation implementation import.	LOCKED
+MOD-LRN	MOD-CUR	CONSUMER_OWNED_READ_PORT	Future learning resolves capability and lifecycle definitions.	No Curriculum ORM import.	LOCKED
+MOD-LRN	MOD-KNO	CONSUMER_OWNED_READ_PORT	Future learning resolves immutable lesson revision data.	No Knowledge ORM import.	LOCKED
+MOD-LRN	MOD-PLT	DURABLE_MESSAGE	Future evidence decisions arrive through outbox or a Learning-owned read port.	No Evidence implementation dependency.	LOCKED
+MOD-AIB	MOD-SRC	CONSUMER_OWNED_READ_PORT	Future manual packages resolve explicitly selected source references.	No source mutation or provider execution.	LOCKED
+MOD-AIB	MOD-KNO	CONSUMER_OWNED_PORT	Future accepted proposals may request owner-controlled draft creation only.	AIB cannot publish or import Knowledge ORM models.	LOCKED
+MOD-AIB	MOD-CUR	CONSUMER_OWNED_READ_PORT	Future package validation resolves governed capability identifiers.	No Curriculum mutation.	LOCKED
+MOD-AIB	MOD-PLT	STABLE_PRIMITIVES	Future manual exchange uses blobs audit processing and outbox.	No automated AI provider path.	LOCKED

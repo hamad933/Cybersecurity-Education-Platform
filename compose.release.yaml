@@ -1,0 +1,80 @@
+name: cybersecurity-education-platform-v1
+services:
+  app:
+    image: ${RELEASE_IMAGE:-cybersecurity-education-platform:v1}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment: &release-environment
+      APP_ENV: production
+      APP_PROFILE: release
+      APP_DEBUG: "false"
+      APP_KEY: "${APP_KEY:?Generate an APP_KEY locally}"
+      APP_URL: "http://127.0.0.1:${APP_PORT:-8081}"
+      FORCE_HTTPS: "false"
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: cyber_platform
+      DB_USERNAME: cyber_platform
+      DB_PASSWORD: "${DB_PASSWORD:?Set a random local database password}"
+      SESSION_DRIVER: database
+      SESSION_TABLE: application_sessions
+      SESSION_ENCRYPT: "true"
+      QUEUE_CONNECTION: database
+      CACHE_STORE: file
+      BLOB_DISK: local
+      BLOB_ROOT: blobs
+    ports:
+      - "127.0.0.1:${APP_PORT:-8081}:8080"
+    volumes:
+      - app-storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    user: "www-data"
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    restart: unless-stopped
+
+  queue:
+    image: ${RELEASE_IMAGE:-cybersecurity-education-platform:v1}
+    command: ["php", "artisan", "queue:work", "--sleep=1", "--tries=3", "--timeout=120", "--max-time=3600"]
+    environment: *release-environment
+    volumes:
+      - app-storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    user: "www-data"
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:18.4-bookworm
+    environment:
+      POSTGRES_DB: cyber_platform
+      POSTGRES_USER: cyber_platform
+      POSTGRES_PASSWORD: "${DB_PASSWORD:?Set a random local database password}"
+      PGDATA: /var/lib/postgresql/18/docker
+    volumes:
+      - postgres-release-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cyber_platform -d cyber_platform"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+volumes:
+  app-storage:
+  postgres-release-data:

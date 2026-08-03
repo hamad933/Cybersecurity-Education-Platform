@@ -1,0 +1,96 @@
+entity_id	entity_name	owning_module	purpose	persistence_class	key_relations	v1_scope	vs001_role	status
+ENT-IAM-001	OwnerAccount	MOD-IAM	Local application owner identity	CURRENT_WITH_HISTORY	OwnerCredential;ApplicationSession	V1	Author and reviewer actor	CANDIDATE
+ENT-IAM-002	OwnerCredential	MOD-IAM	Adaptive password hash and rotation metadata	SECRET	OwnerAccount	V1	Authenticates slice actor	CANDIDATE
+ENT-IAM-003	ApplicationSession	MOD-IAM	Protected authenticated session	EPHEMERAL_AUDITED	OwnerAccount	V1	Protects slice requests	CANDIDATE
+ENT-IAM-004	AuthorizationDecision	MOD-IAM	Recorded application policy decision	APPEND_ONLY	OwnerAccount;AuditRecord	V1	Separate from simulated access result	CANDIDATE
+ENT-SRC-001	OriginalSource	MOD-SRC	Immutable authorized source custody record	IMMUTABLE_CUSTODY	BlobObject;ExtractionRun	V1	Selected reviewed source identity	CANDIDATE
+ENT-SRC-002	ExtractedRepresentation	MOD-SRC	Versioned safe extraction output	IMMUTABLE_DERIVATIVE	OriginalSource;SourceSegment	V1	Provides bounded source representation	CANDIDATE
+ENT-SRC-003	SourceSegment	MOD-SRC	Stable cited line page or timestamp range	IMMUTABLE_DERIVATIVE	ExtractedRepresentation;ClaimSupport;CitationLink	V1	Anchors access-control evidence	CANDIDATE
+ENT-SRC-004	AuthorityAssessment	MOD-SRC	Scope currency applicability and authority review	REVISIONED	OriginalSource;SourceSegment	V1	Records local provisional and missing primary authority	CANDIDATE
+ENT-SRC-005	Claim	MOD-SRC	Bounded asserted proposition distinct from authority	REVISIONED	ClaimSupport;ConflictRecord	V1	Represents authorization claims	CANDIDATE
+ENT-SRC-006	ClaimSupport	MOD-SRC	Typed source support or contradiction relation	IMMUTABLE_RELATION	Claim;SourceSegment	V1	Links claims to exact evidence	CANDIDATE
+ENT-SRC-007	ConflictRecord	MOD-SRC	Unresolved source or applicability disagreement	REVISIONED	Claim;AuthorityAssessment	V1	Blocks unsupported publication	CANDIDATE
+ENT-SRC-008	ExtractionRun	MOD-SRC	Tool input output warnings and status	APPEND_ONLY	OriginalSource;ProcessingRun	V1	Proves extraction provenance	CANDIDATE
+ENT-KNO-001	KnowledgeItem	MOD-KNO	Singular canonical knowledge identity	CURRENT_WITH_HISTORY	KnowledgeRevision;KnowledgeUnit	V1	Canonical access-decision concept	CANDIDATE
+ENT-KNO-002	KnowledgeRevision	MOD-KNO	Immutable published or versioned knowledge content	IMMUTABLE_REVISION	KnowledgeItem;SourceSegment	V1	Published bounded technical explanation	CANDIDATE
+ENT-KNO-003	Lesson	MOD-KNO	Educational presentation identity	CURRENT_WITH_HISTORY	LessonRevision;KnowledgeUnit	V1	KU-AD-02 lesson identity	CANDIDATE
+ENT-KNO-004	LessonRevision	MOD-KNO	Draft reviewed or immutable published lesson version	IMMUTABLE_WHEN_PUBLISHED	Lesson;ContentBlockRevision;KnowledgeRevision	V1	Draft versus published revision	CANDIDATE
+ENT-KNO-005	ContentBlockRevision	MOD-KNO	Typed ordered schema-versioned lesson block	IMMUTABLE_WITH_REVISION	LessonRevision;CitationLink	V1	Explanation command output lab evidence blocks	CANDIDATE
+ENT-KNO-006	PublicationReview	MOD-KNO	Human publication decision and rationale	APPEND_ONLY	KnowledgeRevision;LessonRevision	V1	Enforces authority blockers	CANDIDATE
+ENT-KNO-007	ImpactAssessment	MOD-KNO	Dependent-content consequence classification	REVISIONED	KnowledgeRevision;LessonRevision	V1	Marks slice dependencies	CANDIDATE
+ENT-KNO-008	CitationLink	MOD-KNO	Exact block to source segment provenance link	IMMUTABLE_RELATION	ContentBlockRevision;SourceSegment	V1	Cites selected VS-001 evidence	CANDIDATE
+ENT-CUR-001	Domain	MOD-CUR	Top coverage boundary	GOVERNED_REFERENCE	CapabilityCluster	V1	D03 primary D05 related	CANDIDATE
+ENT-CUR-002	CapabilityCluster	MOD-CUR	Coherent professional practice grouping	GOVERNED_REFERENCE	Domain;Capability	V1	Owns parent cluster	CANDIDATE
+ENT-CUR-003	Capability	MOD-CUR	Observable professional capability	GOVERNED_REFERENCE	CapabilityCluster;KnowledgeUnit	V1	CAP-D03-03-01	CANDIDATE
+ENT-CUR-004	KnowledgeUnit	MOD-CUR	Canonical capability-centred educational unit	GOVERNED_REFERENCE	Capability;Lesson;LearningPathTemplate	V1	KU-AD-02	CANDIDATE
+ENT-CUR-005	CapabilityRelationship	MOD-CUR	Typed prerequisite context or integration relation	GOVERNED_RELATION	Capability;KnowledgeUnit;Domain	V1	D03 D05 contextual reuse	CANDIDATE
+ENT-CUR-006	LearningPathTemplate	MOD-CUR	Selected lifecycle stages and prerequisite rules	REVISIONED	KnowledgeUnit;DiagnosticDefinition;PracticeDefinition;LabDefinition	V1	Practical simulator lifecycle	CANDIDATE
+ENT-LRN-001	DiagnosticDefinition	MOD-LRN	Capability diagnostic specification	REVISIONED	KnowledgeUnit	V1	Optional precheck	CANDIDATE
+ENT-LRN-002	PracticeDefinition	MOD-LRN	Micro-practice prompt and evidence need	REVISIONED	KnowledgeUnit;Attempt	V1	Access-decision practice	CANDIDATE
+ENT-LRN-003	LabDefinition	MOD-LRN	Learning objective and simulator evidence contract	REVISIONED	KnowledgeUnit;ScenarioDefinitionRevision	V1	VS-001 Guided Lab definition	CANDIDATE
+ENT-LRN-004	Attempt	MOD-LRN	One learner activity instance	APPEND_ONLY_STATE	PracticeDefinition;LabDefinition;Evidence	V1	Positive or negative case attempt	CANDIDATE
+ENT-LRN-005	AttemptEvent	MOD-LRN	Ordered attempt state and interaction record	APPEND_ONLY	Attempt	V1	Records decision and failure	CANDIDATE
+ENT-LRN-006	MasteryRuleSet	MOD-LRN	Versioned capability-specific evidence transition rules	IMMUTABLE_REVISION	Capability;Evidence	V1	Provisional VS-001 rule set	CANDIDATE
+ENT-LRN-007	MasteryState	MOD-LRN	Current capability state plus history pointer	CURRENT_WITH_HISTORY	Capability;MasteryRuleSet;Evidence	V1	Candidate state transition	CANDIDATE
+ENT-LRN-008	ReviewTrigger	MOD-LRN	Specific failure retention or transfer signal	APPEND_ONLY	Attempt;MasteryState;ReviewSchedule	V1	ACE mask provenance or unresolved-state failure	CANDIDATE
+ENT-LRN-009	ReviewSchedule	MOD-LRN	Due priority and linked remediation activity	CURRENT_WITH_HISTORY	ReviewTrigger;KnowledgeUnit	V1	Failure and 28-day retention review	CANDIDATE
+ENT-LRN-010	ProjectIntegration	MOD-LRN	Multi-KU project or scenario learning relation	REVISIONED	KnowledgeUnit;ScenarioDefinitionRevision	V1	Marks vertical-slice integration	CANDIDATE
+ENT-ENT-001	Organization	MOD-ENT	Reusable simulated institution	REVISIONED_CATALOG	Site;EnterpriseBaselineRevision	V1	Owns VS-001 environment	CANDIDATE
+ENT-ENT-002	Site	MOD-ENT	Reusable physical or logical location	REVISIONED_CATALOG	Organization;Network;Asset	V1	Context only	CANDIDATE
+ENT-ENT-003	Network	MOD-ENT	Reusable simulated network	REVISIONED_CATALOG	Site;Zone;Asset	V1	Context only	CANDIDATE
+ENT-ENT-004	Zone	MOD-ENT	Trust or reachability boundary	REVISIONED_CATALOG	Network;Asset;Policy	V1	Context only	CANDIDATE
+ENT-ENT-005	Asset	MOD-ENT	Managed simulated asset identity	REVISIONED_CATALOG	Site;System;TargetObject	V1	Hosts target object	CANDIDATE
+ENT-ENT-006	System	MOD-ENT	Operating or platform system record	REVISIONED_CATALOG	Asset;Service;Application	V1	Declares bounded Windows context	CANDIDATE
+ENT-ENT-007	Service	MOD-ENT	Reusable service definition	REVISIONED_CATALOG	System;Application	V1	Context only	CANDIDATE
+ENT-ENT-008	Application	MOD-ENT	Reusable application definition	REVISIONED_CATALOG	System;Service	V1	Context only	CANDIDATE
+ENT-ENT-009	SimulatedIdentity	MOD-ENT	Scenario identity distinct from owner	REVISIONED_CATALOG	Account;Group;SimulatedRole	V1	Principal identity	CANDIDATE
+ENT-ENT-010	Account	MOD-ENT	Simulated account and SID context	REVISIONED_CATALOG	SimulatedIdentity;Group	V1	Token user SID	CANDIDATE
+ENT-ENT-011	Group	MOD-ENT	Simulated identity group	REVISIONED_CATALOG	Account;Privilege	V1	Token group SIDs	CANDIDATE
+ENT-ENT-012	SimulatedRole	MOD-ENT	Professional or scenario role only	REVISIONED_CATALOG	SimulatedIdentity;ResponsibilityAssignment	V1	AD Security Engineer role	CANDIDATE
+ENT-ENT-013	Privilege	MOD-ENT	Simulated token privilege definition	REVISIONED_CATALOG	Account;Group	V1	Enabled privilege input	CANDIDATE
+ENT-ENT-014	Trust	MOD-ENT	Typed identity system or organizational trust	REVISIONED_CATALOG	Organization;SimulatedIdentity	V1	Deferred in minimal case	CANDIDATE
+ENT-ENT-015	DataAsset	MOD-ENT	Classified simulated data record	REVISIONED_CATALOG	Asset;Policy	V1	Target context optional	CANDIDATE
+ENT-ENT-016	Policy	MOD-ENT	Reusable institutional policy	REVISIONED_CATALOG	Control;Asset;Identity	V1	Access policy context	CANDIDATE
+ENT-ENT-017	Control	MOD-ENT	Reusable security control	REVISIONED_CATALOG	Policy;Risk;Detection	V1	Verification context	CANDIDATE
+ENT-ENT-018	Risk	MOD-ENT	Reusable risk statement and treatment	REVISIONED_CATALOG	Asset;Threat;Control	V1	Consequence context	CANDIDATE
+ENT-ENT-019	Threat	MOD-ENT	Reusable threat statement	REVISIONED_CATALOG	Risk;Vulnerability	V1	Context optional	CANDIDATE
+ENT-ENT-020	Finding	MOD-ENT	Reusable observed control or state gap	REVISIONED_CATALOG	Asset;Control;Risk	V1	Generated consequence reference	CANDIDATE
+ENT-ENT-021	Vulnerability	MOD-ENT	Reusable weakness record	REVISIONED_CATALOG	Asset;Threat;Finding	V1	Context optional	CANDIDATE
+ENT-ENT-022	Detection	MOD-ENT	Reusable detection definition	REVISIONED_CATALOG	Alert;Control	V1	Context optional	CANDIDATE
+ENT-ENT-023	Alert	MOD-ENT	Reusable alert definition or baseline item	REVISIONED_CATALOG	Detection;Incident	V1	Context optional	CANDIDATE
+ENT-ENT-024	Incident	MOD-ENT	Reusable incident case definition	REVISIONED_CATALOG	Alert;Procedure	V1	Post-VS001 integration context	CANDIDATE
+ENT-ENT-025	Procedure	MOD-ENT	Reusable ordered institutional procedure	REVISIONED_CATALOG	Runbook;Control	V1	Remediation context	CANDIDATE
+ENT-ENT-026	Runbook	MOD-ENT	Reusable response workflow	REVISIONED_CATALOG	Procedure;SimulatedRole	V1	Context optional	CANDIDATE
+ENT-ENT-027	EvidenceRequirementDefinition	MOD-ENT	Reusable institutional evidence expectation	REVISIONED_CATALOG	Control;ResponsibilityAssignment	V1	Trace requirement context	CANDIDATE
+ENT-ENT-028	ResponsibilityAssignment	MOD-ENT	Ownership and accountability relation	REVISIONED_CATALOG	Organization;SimulatedRole;Asset	V1	Role responsibility context	CANDIDATE
+ENT-ENT-029	EnterpriseBaseline	MOD-ENT	Stable enterprise model identity	CURRENT_WITH_HISTORY	EnterpriseBaselineRevision	V1	VS-001 enterprise identity	CANDIDATE
+ENT-ENT-030	EnterpriseBaselineRevision	MOD-ENT	Immutable approved catalog relationship snapshot	IMMUTABLE_REVISION	EnterpriseBaseline;ScenarioDefinitionRevision	V1	Run source snapshot	CANDIDATE
+ENT-ENT-031	BaselineChangeProposal	MOD-ENT	Reviewed proposal from Run insight	REVISIONED	ScenarioRun;EnterpriseBaselineRevision	V1	Proves no direct mutation	CANDIDATE
+ENT-ENT-032	TargetObject	MOD-ENT	Simulated securable object and descriptor context	REVISIONED_CATALOG	Asset;Policy	V1	Security descriptor owner and DACL target	CANDIDATE
+ENT-SIM-001	ScenarioDefinition	MOD-SIM	Scenario authoring identity	CURRENT_WITH_HISTORY	ScenarioDefinitionRevision	V1	VS-001 scenario identity	CANDIDATE
+ENT-SIM-002	ScenarioDefinitionRevision	MOD-SIM	Immutable published scenario graph and rules	IMMUTABLE_REVISION	EnterpriseBaselineRevision;ScenarioNodeRevision;SimulationRuleSet	V1	Binds authorization cases	CANDIDATE
+ENT-SIM-003	ScenarioNodeRevision	MOD-SIM	Typed graph node edge action or evidence payload	IMMUTABLE_WITH_REVISION	ScenarioDefinitionRevision	V1	Inputs decisions and timeline	CANDIDATE
+ENT-SIM-004	ScenarioPackage	MOD-SIM	Portable versioned scenario representation	IMMUTABLE_PACKAGE	ScenarioDefinitionRevision;ExportPackage	V1	Round-trip representation	CANDIDATE
+ENT-SIM-005	ScenarioRun	MOD-SIM	Isolated execution instance and snapshot identity	APPEND_ONLY_STATE	ScenarioDefinitionRevision;EnterpriseBaselineRevision;RunState	V1	VS-001 lab instance	CANDIDATE
+ENT-SIM-006	RunState	MOD-SIM	Isolated mutable state with version and digest	CURRENT_WITH_HISTORY	ScenarioRun;SimulationTransition	V1	Token object and decision state	CANDIDATE
+ENT-SIM-007	SimulationTransition	MOD-SIM	Append-only action rule trace and consequences	APPEND_ONLY	ScenarioRun;SimulationRuleSet;Evidence	V1	Ordered ACE explanation trace	CANDIDATE
+ENT-SIM-008	SimulationRuleSet	MOD-SIM	Versioned deterministic engine rules	IMMUTABLE_REVISION	ScenarioDefinitionRevision	V1	Bounded authorization semantics	CANDIDATE
+ENT-SIM-009	DeviceContext	MOD-SIM	Run-scoped simulated device or console context	APPEND_ONLY_STATE	ScenarioRun;Asset;SimulatedIdentity	V1	Windows context label only	CANDIDATE
+ENT-EVD-001	Evidence	MOD-EVD	Origin-labelled capability evidence record	APPEND_ONLY	Attempt;ScenarioRun;EvidenceDecision	V1	SIMULATED access trace	CANDIDATE
+ENT-EVD-002	EvidenceBlob	MOD-EVD	Immutable evidence payload and digest binding	IMMUTABLE_CUSTODY	Evidence;BlobObject	V1	Trace artifact	CANDIDATE
+ENT-EVD-003	EvidenceDecision	MOD-EVD	Human or rule acceptance decision	APPEND_ONLY	Evidence;MasteryState	V1	Accepted or rejected trace	CANDIDATE
+ENT-EVD-004	PortfolioEntry	MOD-EVD	Curated view of evidence and limitations	REVISIONED	Evidence;Capability	V1	Shows simulated origin and boundary	CANDIDATE
+ENT-AIB-001	PromptPackage	MOD-AIB	Manual exchange aggregate identity	CURRENT_WITH_HISTORY	PromptPackageRevision	V1	Optional and non-authoritative	CANDIDATE
+ENT-AIB-002	PromptPackageRevision	MOD-AIB	Immutable selected scope schema manifest and digest	IMMUTABLE_REVISION	PromptPackage;SourceSegment;KnowledgeRevision	V1	May include bounded proposal scope	CANDIDATE
+ENT-AIB-003	ImportedResult	MOD-AIB	Quarantined structured manual result	IMMUTABLE_IMPORT	PromptPackageRevision;ValidationResult	V1	Cannot resolve authority by itself	CANDIDATE
+ENT-AIB-004	ValidationResult	MOD-AIB	Structural and provenance validation detail	APPEND_ONLY	ImportedResult	V1	Rejects bad source references	CANDIDATE
+ENT-AIB-005	AIProposalDecision	MOD-AIB	Per-change human accept partial reject or defer decision	APPEND_ONLY	ImportedResult;KnowledgeRevision	V1	Creates draft only	CANDIDATE
+ENT-PLT-001	AuditRecord	MOD-PLT	Append-only important action record	APPEND_ONLY	OwnerAccount	V1	Audits full slice	CANDIDATE
+ENT-PLT-002	BlobObject	MOD-PLT	Storage key size type digest and lifecycle metadata	IMMUTABLE_CUSTODY	OriginalSource;EvidenceBlob	V1	Stores source and evidence bytes	CANDIDATE
+ENT-PLT-003	SearchDocument	MOD-PLT	Authorized provenance-aware search projection	REBUILDABLE_PROJECTION	SourceSegment;KnowledgeRevision;Capability	V1	Finds slice records	CANDIDATE
+ENT-PLT-004	ProcessingRun	MOD-PLT	Idempotent async status retry and output state	APPEND_ONLY_STATE	ExtractionRun;OutboxMessage	V1	Tracks extraction indexing package work	CANDIDATE
+ENT-PLT-005	OutboxMessage	MOD-PLT	Durable schema-versioned internal message	APPEND_ONLY_STATE	AuditRecord;ProcessingRun	V1	Carries slice follow-up events	CANDIDATE
+ENT-PLT-006	ExportPackage	MOD-PLT	Manifested portable package metadata	IMMUTABLE_PACKAGE	BlobObject	V1	Exports slice artifacts	CANDIDATE
+ENT-PLT-007	BackupManifest	MOD-PLT	Consistent database blob version and checksum manifest	IMMUTABLE_PACKAGE	BlobObject;RestoreRun	V1	Backs up slice data	CANDIDATE
+ENT-PLT-008	RestoreRun	MOD-PLT	Staged restore validations activation or abandonment	APPEND_ONLY_STATE	BackupManifest;AuditRecord	V1	Verifies slice recovery	CANDIDATE
+

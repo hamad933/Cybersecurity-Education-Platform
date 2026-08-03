@@ -1,0 +1,23 @@
+requirement_id	implementation	test_or_gate	evidence
+PR-004-005	SafeSourceImportService	Task010ImportSecurityTest	review-packets/v1-release-010/local-verification/targeted/php_task010_import.log
+PR-004-006	SourceImport + BlobObject quarantine and hashes	Task010ImportSecurityTest	review-packets/v1-release-010/local-verification/targeted/php_task010_import.log
+PR-004-021	DailyQueueService	SearchQueueTest	review-packets/v1-release-010/local-verification/targeted/php_search_queue.log
+PR-004-022	ManualAiBridgeService	ManualAiBridgeTest	review-packets/v1-release-010/local-verification/targeted/php_manual_ai.log
+PR-004-027	SearchDocument generated tsvector + GIN	SearchQueueTest	review-packets/v1-release-010/local-verification/targeted/php_search_queue.log
+PR-004-028	IndexSearchDocumentJob retries + database queue	full release queue smoke	review-packets/v1-release-010/local-verification/full-release/release_queue_smoke.log
+PR-004-029	AuditWriter hash chain	Audit chain checks	review-packets/v1-release-010/local-verification/targeted/php_audit_chain.log
+PR-004-030	SafePackageService	PackagePathGuardTest + package tests	review-packets/v1-release-010/local-verification/targeted/php_package_security.log
+PR-004-031	BackupService + isolated restore guard	BackupRestoreTest + restore drill	review-packets/v1-release-010/RESTORE_DRILL_RESULT.json
+PR-004-033	Release/Center.vue RTL + bidi isolation	Task010ReleaseCenter.spec.ts	review-packets/v1-release-010/local-verification/targeted/frontend_task010_tests.log
+PR-004-034	Accessible forms, labels, focus, non-color state labels	Task010ReleaseCenter.spec.ts + browser gate	review-packets/v1-release-010/BROWSER_RESULT.json
+PR-004-042	StateLabel text + symbol + status token	Task010ReleaseCenter.spec.ts	review-packets/v1-release-010/local-verification/targeted/frontend_task010_tests.log
+SEC-004-010	ZIP limits, digest checks, path guard	PackagePathGuardTest	review-packets/v1-release-010/local-verification/targeted/php_package_security.log
+SEC-004-017	Secret scan and excluded env/runtime files	secret scan	review-packets/v1-release-010/local-verification/full-release/secret_scan.log
+SEC-004-019	Loopback-only local release and no public DB port	Task010BoundaryTest	review-packets/v1-release-010/local-verification/targeted/php_task010_boundaries.log
+SEC-004-023	Database + blob backup consistency	Restore drill	review-packets/v1-release-010/RESTORE_DRILL_RESULT.json
+SEC-004-024	Tamper-evident audit chain	AuditChainVerifier	review-packets/v1-release-010/local-verification/targeted/php_audit_chain.log
+SEC-004-025	Database queue retries and bounded worker	Release compose + queue probe	review-packets/v1-release-010/local-verification/full-release/release_queue_smoke.log;review-packets/v1-release-010/local-verification/full-release/release_final_service_health.log
+WF-004-017	Manual prompt package export	ManualAiBridgeTest	review-packets/v1-release-010/local-verification/targeted/php_manual_ai.log
+WF-004-018	Structured result import and human decision	ManualAiBridgeTest	review-packets/v1-release-010/local-verification/targeted/php_manual_ai.log
+WF-004-019	Verified backup creation	BackupRestoreTest	review-packets/v1-release-010/local-verification/targeted/php_backup_restore.log
+WF-004-020	Staged restore + isolated drill	Restore script	review-packets/v1-release-010/RESTORE_DRILL_RESULT.json

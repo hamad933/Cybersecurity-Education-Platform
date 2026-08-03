@@ -1,0 +1,6 @@
+decision_id	topic	status	scope_effect	reviewer_action
+UR-007-001	Docker runtime execution	RUNTIME_UNAVAILABLE	Native locked-runtime verification complete; no Docker runtime pass claimed	Re-run compose build/up/health/worker on a host with Docker
+UR-007-002	Full Windows authorization fidelity	DEFERRED_OUT_OF_SCOPE	VS-001 remains a documented educational subset	Approve measured need and new authority baseline before expansion
+UR-007-003	Privilege-dependent authorization	EXPLICITLY_UNSUPPORTED	Declared privileges return UNSUPPORTED_STATE	Review Microsoft authority before any future semantic addition
+UR-007-004	Mastery thresholds	PROVISIONAL_REVIEW_CANDIDATE	Rule revision requires positive negative unsupported provenance and replay	External reviewer validates or revises thresholds
+UR-007-005	Real-lab transfer validity	NOT_PERFORMED	All evidence is SIMULATED; no transfer claim	Authorize a later selective Real-Lab Validation only if needed

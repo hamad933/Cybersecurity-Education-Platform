@@ -1,0 +1,13 @@
+case_id	policy_revision	actor	resource	expected_decision	expected_http	finding	test_id
+CASE-WEB-001	1	SIM-ALICE	CF-ALICE-001	ALLOW	200	none	WebAuthorizationDecisionEngineTest::CASE-WEB-001
+CASE-WEB-002	1	SIM-BOB	CF-ALICE-001	ALLOW	200	access_control	WebAuthorizationDecisionEngineTest::CASE-WEB-002
+CASE-WEB-003	2	SIM-BOB	CF-ALICE-001	DENY	403	none	WebAuthorizationDecisionEngineTest::CASE-WEB-003
+CASE-WEB-004	1	unauthenticated	CF-ALICE-001	UNAUTHENTICATED	401	none	WebAuthorizationDecisionEngineTest::CASE-WEB-004
+CASE-WEB-005	2	SIM-ADMIN	CF-ALICE-001	ALLOW	200	none	WebAuthorizationDecisionEngineTest::CASE-WEB-005
+CASE-WEB-006	2	SIM-BOB_plus_client_admin_spoof	CF-ALICE-001	DENY	403	none	WebAuthorizationDecisionEngineTest::CASE-WEB-006
+CASE-WEB-007	2	SIM-ALICE	CF-ALICE-001	DENY	405	none	WebAuthorizationDecisionEngineTest::CASE-WEB-007
+CASE-WEB-008	1	SIM-ALICE	CF-MISSING-404	NOT_FOUND	404	none	WebAuthorizationDecisionEngineTest::CASE-WEB-008
+CASE-WEB-009	1	SIM-ALICE	malformed	INSUFFICIENT_STATE	422	none	WebAuthorizationDecisionEngineTest::CASE-WEB-009
+CASE-WEB-010	3	SIM-ALICE	CF-ALICE-001	UNSUPPORTED_STATE	422	none	WebAuthorizationDecisionEngineTest::CASE-WEB-010
+CASE-WEB-011	1	SIM-ALICE	CF-ALICE-001	ALLOW	200	serialization	WebAuthorizationDecisionEngineTest::CASE-WEB-011
+CASE-WEB-012	1	SIM-BOB	CF-ALICE-001	ALLOW	200	access_control_and_replay	WebAuthorizationDecisionEngineTest::CASE-WEB-012
