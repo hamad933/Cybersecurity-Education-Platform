@@ -25,8 +25,46 @@ env:
   POSTGRES_VERSION: '18.4'
 
 jobs:
+  frontend-assets:
+    name: Frontend manifest preparation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container:
+      image: node:24.18.0-bookworm-slim
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Verify exact Node and npm toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install --no-install-recommends -y ca-certificates git
+          rm -rf /var/lib/apt/lists/*
+          test "$(node --version)" = "v${NODE_VERSION}"
+          npm install --global --ignore-scripts "npm@${NPM_VERSION}"
+          test "$(npm --version)" = "${NPM_VERSION}"
+
+      - name: Build CI-only frontend manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+          test -s public/build/manifest.json
+
+      - name: Upload CI-only frontend assets
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Cybersecurity-Education-Platform-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-php-frontend-assets
+          path: public/build
+          if-no-files-found: error
+          retention-days: 14
+
   php-quality:
     name: PHP quality and tests
+    needs: frontend-assets
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     container:
@@ -60,7 +98,14 @@ jobs:
       SESSION_DRIVER: database
       CACHE_STORE: array
     steps:
-      - name: Check out repository
+      - name: Install checkout and PHP build prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install --no-install-recommends -y ca-certificates curl git libicu-dev libonig-dev libpq-dev libzip-dev unzip
+
+      - name: Check out full repository history
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
@@ -69,8 +114,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          apt-get update
-          apt-get install --no-install-recommends -y ca-certificates curl git libicu-dev libonig-dev libpq-dev libzip-dev unzip
           docker-php-ext-install -j"$(nproc)" intl mbstring pdo_pgsql zip
           curl --fail --silent --show-error --location "https://getcomposer.org/download/${COMPOSER_VERSION}/composer.phar" -o /usr/local/bin/composer
           echo "${COMPOSER_SHA256}  /usr/local/bin/composer" | sha256sum --check --strict
@@ -81,6 +124,16 @@ jobs:
       - name: Install locked Composer dependencies
         shell: bash
         run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Download CI-only frontend assets
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: Cybersecurity-Education-Platform-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-php-frontend-assets
+          path: public/build
+
+      - name: Verify frontend manifest contract
+        shell: bash
+        run: test -s public/build/manifest.json
 
       - name: Run PHP gates
         shell: bash
@@ -194,24 +247,69 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Run pinned gitleaks scan
+      - name: Run pinned gitleaks repository-history scan
         shell: bash
         run: |
-          set -euo pipefail
-          mkdir -p evidence/secret-scan
-          printf '[]\n' > evidence/secret-scan/gitleaks.json
+          set -uo pipefail
+          evidence=evidence/secret-scan
+          image=ghcr.io/gitleaks/gitleaks:v8.28.0
+          mkdir -p "$evidence"
+          printf '[]\n' > "$evidence/gitleaks.json"
+          printf '%s\n' 'gitleaks git . --redact=100 --no-banner --report-format=json --report-path=/repo/evidence/secret-scan/gitleaks.json' > "$evidence/command.txt"
+
+          set +e
+          docker run --rm "$image" version >"$evidence/version.log" 2>&1
+          version_code=$?
+          docker run --rm "$image" git --help >"$evidence/git-help.log" 2>&1
+          help_code=$?
           docker run --rm \
             -v "$PWD:/repo" \
-            ghcr.io/gitleaks/gitleaks:v8.28.0 \
-            git --source=/repo --redact --no-banner --report-format=json --report-path=/repo/evidence/secret-scan/gitleaks.json
-          cat > evidence/secret-scan/gate-summary.json <<JSON
-          {
-            "schema": "cep.gate-summary.v1",
-            "suite": "repository-secret-scan",
-            "scanner": "gitleaks-v8.28.0",
-            "status": "PASS"
-          }
-          JSON
+            -w /repo \
+            "$image" \
+            git . --redact=100 --no-banner --report-format=json --report-path=/repo/evidence/secret-scan/gitleaks.json \
+            >"$evidence/stdout.log" 2>"$evidence/stderr.log"
+          scan_code=$?
+          set -e
+
+          cat "$evidence/version.log"
+          cat "$evidence/stdout.log"
+          cat "$evidence/stderr.log" >&2
+
+          status=ERROR
+          result=scanner_execution_failure
+          if [[ $version_code -eq 0 && $help_code -eq 0 && $scan_code -eq 0 ]]; then
+            status=PASS
+            result=no_secret_findings
+          elif [[ $version_code -eq 0 && $help_code -eq 0 && $scan_code -eq 1 ]]; then
+            status=FAIL
+            result=secret_findings
+          fi
+
+          jq -n \
+            --arg status "$status" \
+            --arg result "$result" \
+            --arg scanner "gitleaks" \
+            --arg version "8.28.0" \
+            --arg command "$(cat "$evidence/command.txt")" \
+            --argjson version_exit "$version_code" \
+            --argjson help_exit "$help_code" \
+            --argjson scan_exit "$scan_code" \
+            '{schema:"cep.gitleaks-result.v1",scanner:$scanner,version:$version,command:$command,status:$status,result:$result,exit_codes:{version:$version_exit,help:$help_exit,scan:$scan_exit},history_scan:true,redaction_percent:100}' \
+            > "$evidence/gitleaks-result.json"
+          jq -n \
+            --arg status "$status" \
+            --arg result "$result" \
+            '{schema:"cep.gate-summary.v1",suite:"repository-secret-scan",status:$status,result:$result,scanner:"gitleaks-v8.28.0"}' \
+            > "$evidence/gate-summary.json"
+          cat "$evidence/gitleaks-result.json"
+
+          if [[ $status == PASS ]]; then
+            exit 0
+          fi
+          if [[ $status == FAIL ]]; then
+            exit 1
+          fi
+          exit 2
 
       - name: Finalize secret-scan evidence
         if: always()
@@ -230,7 +328,7 @@ jobs:
   required-gate-summary:
     name: Required gate summary
     if: always()
-    needs: [php-quality, frontend-quality, compose-validation, secret-scan]
+    needs: [frontend-assets, php-quality, frontend-quality, compose-validation, secret-scan]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -240,6 +338,7 @@ jobs:
       - name: Create truthful aggregate result
         shell: bash
         env:
+          FRONTEND_ASSETS_RESULT: ${{ needs.frontend-assets.result }}
           PHP_RESULT: ${{ needs.php-quality.result }}
           FRONTEND_RESULT: ${{ needs.frontend-quality.result }}
           COMPOSE_RESULT: ${{ needs.compose-validation.result }}
@@ -248,11 +347,11 @@ jobs:
           set -euo pipefail
           mkdir -p evidence/core-summary
           overall=PASS
-          for value in "$PHP_RESULT" "$FRONTEND_RESULT" "$COMPOSE_RESULT" "$SECRET_RESULT"; do
+          for value in "$FRONTEND_ASSETS_RESULT" "$PHP_RESULT" "$FRONTEND_RESULT" "$COMPOSE_RESULT" "$SECRET_RESULT"; do
             [[ "$value" == success ]] || overall=FAIL
           done
-          jq -n --arg status "$overall" --arg php "$PHP_RESULT" --arg frontend "$FRONTEND_RESULT" --arg compose "$COMPOSE_RESULT" --arg secret "$SECRET_RESULT" \
-            '{schema:"cep.gate-summary.v1",suite:"core-ci",status:$status,jobs:{php_quality:$php,frontend_quality:$frontend,compose_validation:$compose,secret_scan:$secret}}' \
+          jq -n --arg status "$overall" --arg assets "$FRONTEND_ASSETS_RESULT" --arg php "$PHP_RESULT" --arg frontend "$FRONTEND_RESULT" --arg compose "$COMPOSE_RESULT" --arg secret "$SECRET_RESULT" \
+            '{schema:"cep.gate-summary.v1",suite:"core-ci",status:$status,jobs:{frontend_manifest_preparation:$assets,php_quality:$php,frontend_quality:$frontend,compose_validation:$compose,secret_scan:$secret}}' \
             > evidence/core-summary/gate-summary.json
           bash scripts/ci/finalize_evidence.sh evidence/core-summary
           [[ "$overall" == PASS ]]
