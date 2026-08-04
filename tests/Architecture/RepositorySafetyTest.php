@@ -25,10 +25,12 @@ class RepositorySafetyTest extends TestCase
         $testing = file_get_contents(base_path('docs/development/TESTING_AND_QUALITY_GATES.md'));
         $evidence = file_get_contents(base_path('docs/development/GITHUB_ACTIONS_EVIDENCE_MODEL.md'));
 
-        $this->assertStringContainsString('Do not commit production credentials', $security);
+        foreach (['Report suspected vulnerabilities privately', 'Do not place credentials', 'Rotate and revoke any value accidentally disclosed'] as $invariant) {
+            $this->assertStringContainsString($invariant, $security);
+        }
         $this->assertStringContainsString('Every required result propagates truthfully', $testing);
         $this->assertStringContainsString('GitHub-hosted', $evidence);
-        $this->assertStringContainsString('artifacts/ci-core/', $evidence);
+        $this->assertStringContainsString('Artifact retention is 14 days', $evidence);
     }
 
     #[Test]
@@ -37,12 +39,13 @@ class RepositorySafetyTest extends TestCase
         $gitignore = file_get_contents(base_path('.gitignore'));
         $dockerignore = file_get_contents(base_path('.dockerignore'));
 
-        foreach (['/artifacts', '/public/build', 'review-packets/**/*.zip'] as $entry) {
+        foreach (['/public/build/', '/review-packets/', '/.env.*', '!/.env.example'] as $entry) {
             $this->assertStringContainsString($entry, $gitignore);
         }
         $this->assertStringContainsString('review-packets', $dockerignore);
 
         foreach ([
+            'AGENTS.md',
             'review-packets/TASK_004_REVIEW_HANDOFF/HANDOFF_MANIFEST.tsv',
             'review-packets/TASK_004_REVIEW_HANDOFF/SHA256SUMS.txt',
             'review-packets/TASK_006_REVIEW_HANDOFF/MANIFEST.sha256',
@@ -73,9 +76,18 @@ class RepositorySafetyTest extends TestCase
         $trackedCode = 0;
         exec($git.' ls-files 2>&1', $trackedOutput, $trackedCode);
         $this->assertSame(0, $trackedCode, 'Tracked-file inventory must be available to repository-safety tests.');
-        $tracked = implode("\n", $trackedOutput)."\n";
+        $trackedPaths = array_values(array_filter(array_map(
+            static fn (string $path): string => str_replace('\\', '/', trim($path)),
+            $trackedOutput,
+        )));
+        $tracked = implode("\n", $trackedPaths)."\n";
 
-        $this->assertDoesNotMatchRegularExpression('/(^|\/)\.env(?:\.[^\/]*)?$/m', $tracked);
+        $forbiddenEnvironmentFiles = array_values(array_filter($trackedPaths, static function (string $path): bool {
+            $name = basename($path);
+
+            return ($name === '.env' || str_starts_with($name, '.env.')) && ! str_ends_with($name, '.example');
+        }));
+        $this->assertSame([], $forbiddenEnvironmentFiles, 'Tracked runtime environment files are forbidden; only *.example templates are allowed.');
         $this->assertDoesNotMatchRegularExpression('/(^|\/)(vendor|node_modules|public\/build|artifacts)\//m', $tracked);
         $this->assertDoesNotMatchRegularExpression('/(^|\/)review-packets\/.*\.zip$/mi', $tracked);
     }

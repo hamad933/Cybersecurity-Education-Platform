@@ -59,11 +59,16 @@ class FoundationCorrectionsTest extends TestCase
 
         $testing = file_get_contents(base_path('docs/development/TESTING_AND_QUALITY_GATES.md'));
         $evidence = file_get_contents(base_path('docs/development/GITHUB_ACTIONS_EVIDENCE_MODEL.md'));
+        $workflow = file_get_contents(base_path('.github/workflows/core-ci.yml'));
+
         $this->assertStringContainsString('Core CI / PHP quality and tests', $testing);
         $this->assertStringContainsString('Core CI / Repository secret scan', $testing);
-        $this->assertStringContainsString('artifacts/ci-core/', $evidence);
-        $this->assertStringContainsString('commit SHA', $evidence);
-        $this->assertStringContainsString('run ID', $evidence);
+        foreach (['Artifact retention is 14 days', 'ARTIFACT_MANIFEST.json', 'SHA256SUMS.txt', 'commit SHA', 'run ID'] as $invariant) {
+            $this->assertStringContainsString($invariant, $evidence);
+        }
+        foreach (['Upload CI-only frontend assets', 'Upload PHP evidence', 'retention-days: 14'] as $invariant) {
+            $this->assertStringContainsString($invariant, $workflow);
+        }
 
         $this->assertFileDoesNotExist(base_path('review-packets/TASK_004_REVIEW_HANDOFF/SHA256SUMS.txt'));
     }
