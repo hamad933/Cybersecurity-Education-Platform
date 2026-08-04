@@ -20,17 +20,16 @@ class FoundationCorrectionsTest extends TestCase
         $this->assertStringContainsString('composer check-platform-reqs --no-dev', $dockerfile);
     }
 
-    public function test_docker_context_and_handoff_packager_exclude_runtime_residuals(): void
+    public function test_docker_context_and_current_handoff_policy_exclude_runtime_residuals(): void
     {
         $ignore = file_get_contents(base_path('.dockerignore'));
         foreach (['vendor', 'node_modules', 'public/build', 'bootstrap/cache/*', 'storage/framework/sessions/*', 'storage/logs/*', 'review-packets'] as $entry) {
             $this->assertStringContainsString($entry, $ignore);
         }
 
-        $packager = file_get_contents(base_path('scripts/package_task006_handoff.php'))
-            .file_get_contents(base_path('scripts/Support/HandoffPathPolicy.php'));
-        foreach (['public/build', 'bootstrap/cache', 'storage/framework/(?:cache|sessions|testing|views)', 'browser-profiles?', 'database-volumes?'] as $entry) {
-            $this->assertStringContainsString($entry, $packager);
+        $policy = file_get_contents(base_path('scripts/Support/HandoffPathPolicy.php'));
+        foreach (['public/build', 'bootstrap/cache', 'storage/framework/(?:cache|sessions|testing|views)', 'browser-profiles?', 'database-volumes?', '.env.example', 'REVIEW_HANDOFF'] as $entry) {
+            $this->assertStringContainsString($entry, $policy);
         }
     }
 
@@ -44,13 +43,28 @@ class FoundationCorrectionsTest extends TestCase
         $this->assertStringNotContainsString('input[type="checkbox"]', $login);
     }
 
-    public function test_task004_manifest_hash_uses_the_recomputed_value(): void
+    public function test_current_canonical_validation_contract_uses_live_repository_paths(): void
     {
-        $path = base_path('review-packets/TASK_004_REVIEW_HANDOFF/SHA256SUMS.txt');
+        foreach ([
+            'README.md',
+            'SECURITY.md',
+            'composer.lock',
+            'package-lock.json',
+            '.github/workflows/core-ci.yml',
+            'docs/development/TESTING_AND_QUALITY_GATES.md',
+            'docs/development/GITHUB_ACTIONS_EVIDENCE_MODEL.md',
+        ] as $path) {
+            $this->assertFileExists(base_path($path), "Current canonical file missing: {$path}");
+        }
 
-        $this->assertSame(
-            '896E800B2810EBB789E875B3A227C0B402DBB12B2218D2EA8DCA386E41925108',
-            strtoupper(hash_file('sha256', $path)),
-        );
+        $testing = file_get_contents(base_path('docs/development/TESTING_AND_QUALITY_GATES.md'));
+        $evidence = file_get_contents(base_path('docs/development/GITHUB_ACTIONS_EVIDENCE_MODEL.md'));
+        $this->assertStringContainsString('Core CI / PHP quality and tests', $testing);
+        $this->assertStringContainsString('Core CI / Repository secret scan', $testing);
+        $this->assertStringContainsString('artifacts/ci-core/', $evidence);
+        $this->assertStringContainsString('commit SHA', $evidence);
+        $this->assertStringContainsString('run ID', $evidence);
+
+        $this->assertFileDoesNotExist(base_path('review-packets/TASK_004_REVIEW_HANDOFF/SHA256SUMS.txt'));
     }
 }
