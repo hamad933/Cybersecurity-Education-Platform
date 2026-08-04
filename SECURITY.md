@@ -1,6 +1,6 @@
 # Security policy
 
-Report suspected vulnerabilities through a private disclosure to the designated repository owner or through a GitHub repository security advisory when that channel is available and explicitly authorized. Do not place credentials, session material, private source content, database dumps, or usable exploit details in an issue or pull-request discussion.
+Report suspected vulnerabilities privately to the designated repository owner or through a GitHub repository security advisory when that channel is available and explicitly authorized. Do not place credentials, session material, private source content, database dumps, or usable exploit details in an issue or pull-request discussion.
 
 GitHub Private Vulnerability Reporting for external researchers is not treated as an applicable setting while this repository remains private. If repository visibility is later changed to public through a separately authorized decision, enabling Private Vulnerability Reporting may then be evaluated and recorded as a separate settings change.
 
