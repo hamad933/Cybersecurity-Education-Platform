@@ -34,7 +34,7 @@ class RepositorySafetyTest extends TestCase
     }
 
     #[Test]
-    public function obsolete_review_archives_are_not_required_and_remain_excluded_from_canonical_source(): void
+    public function generated_review_archives_remain_excluded_while_canonical_packaging_sources_are_preserved(): void
     {
         $gitignore = file_get_contents(base_path('.gitignore'));
         $dockerignore = file_get_contents(base_path('.dockerignore'));
@@ -49,9 +49,16 @@ class RepositorySafetyTest extends TestCase
             'review-packets/TASK_004_REVIEW_HANDOFF/HANDOFF_MANIFEST.tsv',
             'review-packets/TASK_004_REVIEW_HANDOFF/SHA256SUMS.txt',
             'review-packets/TASK_006_REVIEW_HANDOFF/MANIFEST.sha256',
-            'scripts/package_task006_handoff.php',
         ] as $obsolete) {
             $this->assertFileDoesNotExist(base_path($obsolete), "Obsolete pre-migration path was recreated: {$obsolete}");
+        }
+
+        foreach ([
+            'scripts/package_task006_handoff.php',
+            'scripts/Support/HandoffPathPolicy.php',
+        ] as $canonicalSource) {
+            $this->assertFileExists(base_path($canonicalSource), "Canonical packaging source missing: {$canonicalSource}");
+            $this->assertGreaterThan(0, filesize(base_path($canonicalSource)), "Canonical packaging source is empty: {$canonicalSource}");
         }
     }
 
