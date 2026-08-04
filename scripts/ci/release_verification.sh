@@ -32,7 +32,19 @@ run_gate() {
 
 run_gate release-image-build compose build --pull app queue
 run_gate release-services-start compose up -d postgres app queue
-run_gate release-service-health bash -o pipefail -c '
+run_gate release-container-liveness bash -o pipefail -c '
+  for i in $(seq 1 60); do
+    services="$(docker compose --env-file "'"$RELEASE_ENV_FILE"'" -f compose.release.yaml ps --services --filter status=running)"
+    if grep -qx app <<<"$services" && grep -qx postgres <<<"$services" && grep -qx queue <<<"$services"; then
+      exit 0
+    fi
+    sleep 2
+  done
+  docker compose --env-file "'"$RELEASE_ENV_FILE"'" -f compose.release.yaml ps
+  exit 1
+'
+run_gate fresh-release-migrations compose exec -T app php artisan migrate:fresh --seed --force
+run_gate release-http-readiness bash -o pipefail -c '
   for i in $(seq 1 60); do
     curl --fail --silent --show-error "'"$APP_URL"'/health/live" > /dev/null && exit 0
     sleep 2
@@ -40,7 +52,6 @@ run_gate release-service-health bash -o pipefail -c '
   docker compose --env-file "'"$RELEASE_ENV_FILE"'" -f compose.release.yaml ps
   exit 1
 '
-run_gate fresh-release-migrations compose exec -T app php artisan migrate:fresh --seed --force
 run_gate synthetic-release-owner compose exec -T -e TASK010_BROWSER_PASSWORD="$BROWSER_PASSWORD" app php artisan platform:release-gate-owner
 run_gate release-readiness bash -o pipefail -c 'docker compose --env-file "'"$RELEASE_ENV_FILE"'" -f compose.release.yaml exec -T app php artisan platform:release-check --json | tee "'"$EVIDENCE_DIR"'/release-health-result.json"'
 
