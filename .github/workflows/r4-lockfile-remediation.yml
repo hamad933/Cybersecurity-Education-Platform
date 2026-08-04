@@ -100,7 +100,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node -e "const p=require('./package.json'); if (p.overrides?.['brace-expansion'] !== '5.0.9') process.exit(1)"
+          node -e "const p=require('./package.json'); if (p.name !== 'cybersecurity-education-platform' || p.overrides?.['brace-expansion'] !== '5.0.9') process.exit(1)"
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
           npm audit fix --package-lock-only --ignore-scripts --no-fund
           npm ci --ignore-scripts --no-audit --no-fund
@@ -115,6 +115,9 @@ jobs:
 
           node <<'NODE'
           const lock = JSON.parse(require('fs').readFileSync('package-lock.json', 'utf8'));
+          if (lock.name !== 'cybersecurity-education-platform' || lock.packages?.['']?.name !== 'cybersecurity-education-platform') {
+            throw new Error('Root package identity is not deterministic');
+          }
           const versions = Object.fromEntries(
             ['brace-expansion', 'minimatch', 'postcss', 'undici'].map((name) => {
               const entry = lock.packages[`node_modules/${name}`];
@@ -198,14 +201,14 @@ jobs:
 
           test -s composer.lock
           test -s package-lock.json
-          ! git diff --quiet -- composer.lock
+          git diff --quiet -- composer.lock
           ! git diff --quiet -- package-lock.json
 
-          unexpected="$(git status --porcelain=v1 | awk '{print $2}' | grep -Ev '^(composer\.lock|package-lock\.json)$' || true)"
+          unexpected="$(git status --porcelain=v1 | awk '{print $2}' | grep -Ev '^(package-lock\.json)$' || true)"
           test -z "${unexpected}"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add composer.lock package-lock.json
-          git commit -m "chore(deps): remediate R4 dependency advisories"
+          git add package-lock.json
+          git commit -m "chore(deps): stabilize generated npm lockfile identity"
           git push origin "HEAD:${TARGET_BRANCH}"
