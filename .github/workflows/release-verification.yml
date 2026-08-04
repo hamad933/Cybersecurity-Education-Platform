@@ -1,0 +1,212 @@
+name: Release and Browser Verification
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - main
+      - 'chore/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-verification-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  RELEASE_IMAGE: cybersecurity-education-platform:${{ github.sha }}
+  APP_PORT: '8081'
+
+jobs:
+  release-runtime:
+    name: Containerized release verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Generate ephemeral release credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_KEY="base64:$(openssl rand -base64 32 | tr -d '\n')"
+          DB_PASSWORD="$(openssl rand -hex 32)"
+          BROWSER_PASSWORD="$(openssl rand -base64 36 | tr -d '\n')"
+          echo "::add-mask::${APP_KEY}"
+          echo "::add-mask::${DB_PASSWORD}"
+          echo "::add-mask::${BROWSER_PASSWORD}"
+          ENV_FILE="${RUNNER_TEMP}/cep-release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.env"
+          {
+            printf 'APP_KEY=%s\n' "$APP_KEY"
+            printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
+            printf 'APP_PORT=%s\n' "$APP_PORT"
+            printf 'RELEASE_IMAGE=%s\n' "$RELEASE_IMAGE"
+          } > "$ENV_FILE"
+          chmod 600 "$ENV_FILE"
+          echo "RELEASE_ENV_FILE=$ENV_FILE" >> "$GITHUB_ENV"
+          echo "BROWSER_PASSWORD=$BROWSER_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Run containerized release gates
+        shell: bash
+        env:
+          EVIDENCE_DIR: evidence/release
+          APP_URL: http://127.0.0.1:8081
+        run: bash scripts/ci/release_verification.sh
+
+      - name: Finalize release evidence
+        if: always()
+        shell: bash
+        run: bash scripts/ci/finalize_evidence.sh evidence/release
+
+      - name: Upload release evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Cybersecurity-Education-Platform-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-release-verification
+          path: evidence/release
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Clean release runtime
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          if [[ -n "${RELEASE_ENV_FILE:-}" && -f "$RELEASE_ENV_FILE" ]]; then
+            docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml down --volumes --remove-orphans
+            shred -u "$RELEASE_ENV_FILE" 2>/dev/null || rm -f "$RELEASE_ENV_FILE"
+          fi
+          docker image rm "$RELEASE_IMAGE" 2>/dev/null || true
+
+  browser-evidence:
+    name: Real Chromium browser evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Generate ephemeral browser environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_KEY="base64:$(openssl rand -base64 32 | tr -d '\n')"
+          DB_PASSWORD="$(openssl rand -hex 32)"
+          BROWSER_PASSWORD="$(openssl rand -base64 36 | tr -d '\n')"
+          echo "::add-mask::${APP_KEY}"
+          echo "::add-mask::${DB_PASSWORD}"
+          echo "::add-mask::${BROWSER_PASSWORD}"
+          ENV_FILE="${RUNNER_TEMP}/cep-browser-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.env"
+          {
+            printf 'APP_KEY=%s\n' "$APP_KEY"
+            printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
+            printf 'APP_PORT=%s\n' "$APP_PORT"
+            printf 'RELEASE_IMAGE=%s-browser\n' "$RELEASE_IMAGE"
+          } > "$ENV_FILE"
+          chmod 600 "$ENV_FILE"
+          echo "RELEASE_ENV_FILE=$ENV_FILE" >> "$GITHUB_ENV"
+          echo "BROWSER_PASSWORD=$BROWSER_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Start actual release application
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/browser
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml up -d --build postgres app queue
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml exec -T app php artisan migrate:fresh --seed --force
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml exec -T -e TASK010_BROWSER_PASSWORD="$BROWSER_PASSWORD" app php artisan platform:release-gate-owner > evidence/browser/owner-preparation.json
+          for i in $(seq 1 60); do
+            curl --fail --silent http://127.0.0.1:8081/health/live > /dev/null && break
+            [[ "$i" -lt 60 ]] || exit 1
+            sleep 2
+          done
+
+      - name: Capture real Chromium evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host \
+            -v "$PWD:/repo" \
+            -w /repo \
+            -e BASE_URL=http://127.0.0.1:8081 \
+            -e BROWSER_EMAIL=task010-browser@example.test \
+            -e BROWSER_PASSWORD="$BROWSER_PASSWORD" \
+            -e EVIDENCE_DIR=evidence/browser \
+            mcr.microsoft.com/playwright:v1.55.0-noble \
+            bash -lc 'set -euo pipefail; CHROMIUM_PATH="$(find /ms-playwright -type f \( -name chrome -o -name chromium \) | head -n 1)"; test -x "$CHROMIUM_PATH"; export CHROMIUM_PATH; node scripts/ci/browser_evidence.mjs'
+
+      - name: Capture sanitized browser runtime logs
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p evidence/browser
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml ps --format json > evidence/browser/container-health.json 2>/dev/null || true
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml logs --no-color --since 30m app queue postgres 2>/dev/null \
+            | sed -e "s/${BROWSER_PASSWORD}/[REDACTED]/g" \
+                  -E 's/(APP_KEY|DB_PASSWORD|TASK010_BROWSER_PASSWORD|BROWSER_PASSWORD)=([^[:space:]]+)/\1=[REDACTED]/g; s/(Cookie|Set-Cookie|Authorization):[^[:space:]]+/\1:[REDACTED]/g' \
+            > evidence/browser/runtime-sanitized.log || true
+
+      - name: Finalize browser evidence
+        if: always()
+        shell: bash
+        run: bash scripts/ci/finalize_evidence.sh evidence/browser
+
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Cybersecurity-Education-Platform-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-browser-evidence
+          path: evidence/browser
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Clean browser runtime
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          if [[ -n "${RELEASE_ENV_FILE:-}" && -f "$RELEASE_ENV_FILE" ]]; then
+            docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml down --volumes --remove-orphans
+            shred -u "$RELEASE_ENV_FILE" 2>/dev/null || rm -f "$RELEASE_ENV_FILE"
+          fi
+          docker image prune --force >/dev/null 2>&1 || true
+
+  required-release-summary:
+    name: Required release gate summary
+    if: always()
+    needs: [release-runtime, browser-evidence]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Create truthful release aggregate
+        shell: bash
+        env:
+          RELEASE_RESULT: ${{ needs.release-runtime.result }}
+          BROWSER_RESULT: ${{ needs.browser-evidence.result }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/release-summary
+          overall=PASS
+          [[ "$RELEASE_RESULT" == success ]] || overall=FAIL
+          [[ "$BROWSER_RESULT" == success ]] || overall=FAIL
+          jq -n --arg status "$overall" --arg release "$RELEASE_RESULT" --arg browser "$BROWSER_RESULT" \
+            '{schema:"cep.gate-summary.v1",suite:"release-and-browser",status:$status,jobs:{containerized_release:$release,real_chromium_browser:$browser}}' \
+            > evidence/release-summary/gate-summary.json
+          bash scripts/ci/finalize_evidence.sh evidence/release-summary
+          [[ "$overall" == PASS ]]
+
+      - name: Upload release aggregate
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Cybersecurity-Education-Platform-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-release-summary
+          path: evidence/release-summary
+          if-no-files-found: error
+          retention-days: 14
