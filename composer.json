@@ -63,13 +63,16 @@
         ],
         "test": [
             "@php artisan config:clear --ansi",
-            "@php artisan test --testsuite=Unit,Feature"
+            "@php vendor/bin/phpunit --testsuite=Unit,Feature --fail-on-empty-test-suite"
         ],
         "test:integration": [
-            "@php artisan test --testsuite=Integration"
+            "@php vendor/bin/phpunit --testsuite=Integration --fail-on-empty-test-suite"
         ],
         "test:architecture": [
-            "@php artisan test --testsuite=Architecture"
+            "@php vendor/bin/phpunit --testsuite=Architecture --fail-on-empty-test-suite"
+        ],
+        "test:repository-safety": [
+            "@php vendor/bin/phpunit --testsuite=\"Repository Safety\" --fail-on-empty-test-suite"
         ],
         "security": [
             "composer audit --locked",
@@ -91,6 +94,7 @@
             "@test",
             "@test:integration",
             "@test:architecture",
+            "@test:repository-safety",
             "@security",
             "@compose:validate",
             "@build"
