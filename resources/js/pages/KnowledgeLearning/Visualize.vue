@@ -32,9 +32,7 @@ const activeView = ref<'Tree' | 'Graph'>('Tree');
 const selectView = (viewName: string) => {
   if (viewName === 'Tree' || viewName === 'Graph') activeView.value = viewName;
 };
-const capabilities = computed(() =>
-  props.graph.nodes.filter((node) => node.kind === 'capability'),
-);
+const capabilities = computed(() => props.graph.nodes.filter((node) => node.kind === 'capability'));
 const unitNode = computed(
   () => props.graph.nodes.find((node) => node.kind === 'knowledge_unit') ?? null,
 );
@@ -53,9 +51,7 @@ const unitNode = computed(
               :key="viewName"
               type="button"
               class="focus-ring rounded px-3 py-2"
-              :class="
-                activeView === viewName ? 'bg-cyan-400/10 text-cyan-200' : 'text-slate-400'
-              "
+              :class="activeView === viewName ? 'bg-cyan-400/10 text-cyan-200' : 'text-slate-400'"
               @click="selectView(viewName)"
             >
               <bdi dir="ltr">{{ viewName }}</bdi>
@@ -216,7 +212,9 @@ const unitNode = computed(
           </section>
 
           <section class="mt-6 border-t border-slate-800 pt-5 text-sm">
-            <p>العقد: <bdi dir="ltr" class="font-mono">{{ graph.nodes.length }}</bdi></p>
+            <p>
+              العقد: <bdi dir="ltr" class="font-mono">{{ graph.nodes.length }}</bdi>
+            </p>
             <p class="mt-2">
               العلاقات: <bdi dir="ltr" class="font-mono">{{ graph.edges.length }}</bdi>
             </p>

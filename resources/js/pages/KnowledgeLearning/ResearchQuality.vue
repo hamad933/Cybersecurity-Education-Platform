@@ -75,9 +75,7 @@ defineProps<{
               </Link>
             </li>
           </ul>
-          <p v-else class="mt-4 text-sm leading-7 text-slate-500">
-            لا توجد Source Records محفوظة.
-          </p>
+          <p v-else class="mt-4 text-sm leading-7 text-slate-500">لا توجد Source Records محفوظة.</p>
         </aside>
 
         <main class="min-w-0 rounded-xl border border-slate-800 bg-slate-900/35 p-5 sm:p-7">
@@ -127,9 +125,7 @@ defineProps<{
                       dir="ltr"
                       class="font-mono text-xs"
                       :class="
-                        claim.assessment === 'supported'
-                          ? 'text-emerald-300'
-                          : 'text-amber-300'
+                        claim.assessment === 'supported' ? 'text-emerald-300' : 'text-amber-300'
                       "
                     >
                       {{ claim.assessment }}
@@ -165,9 +161,7 @@ defineProps<{
           <div v-else class="grid min-h-[420px] place-items-center text-center">
             <div>
               <h1 class="font-bold text-slate-300">لا يوجد عمل جودة معرفة حالي.</h1>
-              <p class="mt-2 text-sm text-slate-500">
-                لا توجد مصادر مخزنة، ولن تُنشأ سجلات وهمية.
-              </p>
+              <p class="mt-2 text-sm text-slate-500">لا توجد مصادر مخزنة، ولن تُنشأ سجلات وهمية.</p>
             </div>
           </div>
         </main>

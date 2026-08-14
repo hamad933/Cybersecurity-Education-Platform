@@ -178,11 +178,7 @@ const moveBlock = (index: number, delta: number) => {
           <h2 class="text-xs font-bold tracking-wide text-slate-400">بنية المكتبة</h2>
           <div v-if="structure.length" class="mt-4 space-y-5">
             <section v-for="group in structure" :key="group.capability_id ?? 'unplaced'">
-              <bdi
-                v-if="group.capability_id"
-                dir="ltr"
-                class="font-mono text-xs text-cyan-300"
-              >
+              <bdi v-if="group.capability_id" dir="ltr" class="font-mono text-xs text-cyan-300">
                 {{ group.capability_id }}
               </bdi>
               <p v-else class="text-xs text-amber-300">غير موضوع في Capability حاليًا</p>
@@ -308,7 +304,7 @@ const moveBlock = (index: number, delta: number) => {
                   v-if="technicalTypes.has(block.type)"
                   dir="ltr"
                   class="mt-3 overflow-x-auto whitespace-pre-wrap text-left font-mono text-sm leading-6 text-slate-200"
-                >{{ block.body }}</pre>
+                  >{{ block.body }}</pre>
                 <p v-else class="mt-3 whitespace-pre-wrap leading-8 text-slate-200">
                   {{ block.body }}
                 </p>

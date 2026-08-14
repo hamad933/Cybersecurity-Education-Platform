@@ -133,9 +133,7 @@ defineProps<{
                       dir="ltr"
                       class="font-mono"
                       :class="
-                        item.latest_outcome === 'correct'
-                          ? 'text-emerald-300'
-                          : 'text-amber-300'
+                        item.latest_outcome === 'correct' ? 'text-emerald-300' : 'text-amber-300'
                       "
                     >
                       {{ item.latest_outcome ?? 'NO_ATTEMPT' }}
