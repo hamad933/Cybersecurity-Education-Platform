@@ -61,9 +61,7 @@ const routeRegistrationSummary = computed(
       <div class="cep-context-stack">
         <section aria-labelledby="route-registration-title">
           <p class="cep-kicker">حالة الربط</p>
-          <h2 id="route-registration-title" class="cep-context-title">
-            تسجيل مسارات المجالات
-          </h2>
+          <h2 id="route-registration-title" class="cep-context-title">تسجيل مسارات المجالات</h2>
           <p class="cep-context-copy">
             قراءة مباشرة من مسارات Laravel المسجلة حاليًا، وليست مؤشرًا على اكتمال المنتج أو
             جاهزيته.
@@ -71,21 +69,15 @@ const routeRegistrationSummary = computed(
           <dl class="cep-fact-list">
             <div class="cep-fact-list__row">
               <dt>مداخل المجالات المسجلة</dt>
-              <dd>
-                <TechnicalText :value="routeRegistrationSummary" />
-              </dd>
+              <dd><TechnicalText :value="routeRegistrationSummary" /></dd>
             </div>
             <div class="cep-fact-list__row">
               <dt>بيئة التطبيق</dt>
-              <dd>
-                <TechnicalText :value="page.props.environment.name" />
-              </dd>
+              <dd><TechnicalText :value="page.props.environment.name" /></dd>
             </div>
             <div class="cep-fact-list__row">
               <dt>ملف التشغيل</dt>
-              <dd>
-                <TechnicalText :value="page.props.environment.profile" />
-              </dd>
+              <dd><TechnicalText :value="page.props.environment.profile" /></dd>
             </div>
           </dl>
         </section>
