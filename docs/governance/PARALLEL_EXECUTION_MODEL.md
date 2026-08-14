@@ -148,11 +148,42 @@ resources/js/layouts/**
 resources/js/components/shared/**
 resources/css/** global tokens
 bootstrap/app.php route-registration infrastructure
+routes/web.php
 shared navigation composition
 shared i18n/RTL utilities
 ```
 
 Exact paths may be refined by the Shared Foundation PR, but ownership must remain singular.
+
+### Parallel-safe workspace route files
+
+`routes/web.php` loads workspace route files mechanically. Each workspace file has exactly one owner:
+
+```text
+routes/workspaces/today.php
+→ CEP-BUILD-001-W01
+→ feat/cep-shared-foundation
+
+routes/workspaces/knowledge-learning.php
+→ CEP-BUILD-001-W02
+→ feat/cep-knowledge-learning
+
+routes/workspaces/simulation-enterprise.php
+→ CEP-BUILD-001-W03
+→ feat/cep-simulation-enterprise
+
+routes/workspaces/progress-evidence.php
+→ CEP-BUILD-001-W04
+→ feat/cep-progress-evidence
+
+routes/workspaces/system-operations.php
+→ CEP-BUILD-001-W05
+→ feat/cep-system-operations
+```
+
+Builders modify only their assigned route file. They must not edit another Builder's route file or the shared loader in `routes/web.php`.
+
+The existing root/dashboard behavior is temporarily preserved from `routes/workspaces/today.php` until W01 replaces it with the approved Today workspace. Existing Release Center endpoints are preserved in `routes/workspaces/system-operations.php` as `REFACTOR_FOR_REUSE` inputs for W05. Legacy `/vs001`, `/vs002`, `/vs003` routes remain in `routes/web.php` as reference/reuse surfaces and are not the target product IA.
 
 ### Domain-local paths
 
@@ -161,7 +192,7 @@ Each domain should prefer dedicated namespaces such as:
 ```text
 app/Modules/<OwnedModule>/**
 resources/js/pages/<Domain>/**
-routes/<domain>.php
+routes/workspaces/<assigned-workspace>.php
 tests/Feature/<Domain>/**
 tests/Integration/<Domain>/**
 ```
