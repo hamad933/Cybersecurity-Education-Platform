@@ -104,7 +104,7 @@ class ModuleBoundaryTest extends TestCase
             'Curriculum' => ['curriculum_placements'],
             'Enterprise' => ['enterprise_baseline_revisions', 'improvement_proposals'],
             'Simulator' => ['simulator_rule_revisions', 'scenario_revisions', 'scenario_runs', 'decision_traces', 'replay_records', 'vs003_telemetry_dataset_revisions', 'vs003_investigation_cases', 'vs003_investigation_alerts', 'vs003_triage_records'],
-            'Evidence' => ['evidence_records', 'evidence_decisions', 'imported_evidence_records', 'vs003_custody_events', 'vs003_containment_proposals', 'vs003_control_revisions', 'vs003_verification_replays'],
+            'Evidence' => ['evidence_records', 'evidence_decisions', 'imported_evidence_records', 'vs003_custody_events', 'vs003_containment_proposals', 'vs003_control_revisions', 'vs003_verification_replays', 'evidence_candidates', 'governed_evidence', 'governed_evidence_revisions', 'evidence_review_requests', 'evidence_reviews', 'evidence_review_findings', 'evidence_review_decisions', 'evidence_mastery_evaluations', 'evidence_mastery_states', 'evidence_mastery_state_decisions', 'evidence_mastery_state_evidence', 'evidence_portfolios', 'evidence_portfolio_items'],
             'Learning' => ['micro_practices', 'practice_attempts', 'mastery_rule_revisions', 'mastery_states', 'review_triggers'],
             'ManualAiBridge' => ['prompt_packages', 'prompt_package_revisions', 'imported_ai_results', 'ai_proposal_decisions'],
         ];
