@@ -207,7 +207,7 @@ return new class extends Migration
         DB::statement("ALTER TABLE simulation_runs ADD CONSTRAINT sim_run_lifecycle_check CHECK (lifecycle IN ('PREPARING','READY','RUNNING','PAUSED','COMPLETED','STOPPED','FAILED'))");
         DB::statement("ALTER TABLE simulation_runs ADD CONSTRAINT sim_run_definition_check CHECK ((run_type = 'Scenario Run' AND scenario_definition_id IS NOT NULL AND standalone_lab_definition_id IS NULL) OR (run_type = 'Standalone Lab Run' AND scenario_definition_id IS NULL AND standalone_lab_definition_id IS NOT NULL))");
         DB::statement("ALTER TABLE simulation_run_results ADD CONSTRAINT sim_result_outcome_check CHECK (outcome IN ('ACHIEVED','PARTIAL','NOT_ACHIEVED','INCONCLUSIVE','NOT_EVALUATED'))");
-        DB::statement("ALTER TABLE simulation_run_results ADD CONSTRAINT sim_result_score_check CHECK (score IS NULL OR (score >= 0 AND score <= 100))");
+        DB::statement('ALTER TABLE simulation_run_results ADD CONSTRAINT sim_result_score_check CHECK (score IS NULL OR (score >= 0 AND score <= 100))');
         DB::statement("ALTER TABLE simulation_candidate_evidence_handoffs ADD CONSTRAINT sim_handoff_status_check CHECK (status IN ('READY_FOR_INTAKE','HANDED_OFF'))");
 
         DB::unprepared(<<<'SQL'
