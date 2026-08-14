@@ -369,7 +369,7 @@ final class SimulationEnterpriseService
      */
     public function sealResult(string $runId, string $outcome, string $summaryAr, ?float $score = null, array $artifacts = []): array
     {
-        if (! in_array($outcome, self::OUTCOMES, true)) {
+        if (in_array($outcome, self::OUTCOMES, true) === false) {
             throw new InvalidArgumentException('Unsupported Result outcome.');
         }
         if ($score !== null && ($score < 0 || $score > 100)) {
@@ -378,7 +378,7 @@ final class SimulationEnterpriseService
 
         return DB::transaction(function () use ($runId, $outcome, $summaryAr, $score, $artifacts): array {
             $run = DB::table('simulation_runs')->where('id', $runId)->lockForUpdate()->first();
-            if ($run === null || ! in_array((string) $run->lifecycle, ['COMPLETED', 'STOPPED', 'FAILED'], true)) {
+            if ($run === null || in_array((string) $run->lifecycle, ['COMPLETED', 'STOPPED', 'FAILED'], true) === false) {
                 throw new DomainException('Result can be sealed only for a terminal Run.');
             }
             if (DB::table('simulation_run_results')->where('run_id', $runId)->exists()) {
@@ -475,7 +475,7 @@ final class SimulationEnterpriseService
      */
     private function insertRun(string $runType, array $lineage, int $seed, array $executionPolicies, ?string $actorId, ?string $scenarioDefinitionId, ?string $labDefinitionId, string $definitionDigest): array
     {
-        if (! in_array($runType, self::RUN_TYPES, true)) {
+        if (in_array($runType, self::RUN_TYPES, true) === false) {
             throw new InvalidArgumentException('Unsupported Run type.');
         }
         $id = (string) Str::uuid7();
@@ -579,7 +579,7 @@ final class SimulationEnterpriseService
     /** @return array<string,mixed> */
     private function transitionLocked(string $runId, string $from, string $to, string $eventType): array
     {
-        if (! in_array($to, self::TRANSITIONS[$from] ?? [], true)) {
+        if (in_array($to, self::TRANSITIONS[$from] ?? [], true) === false) {
             throw new DomainException("Invalid Run lifecycle transition: {$from} -> {$to}.");
         }
         $run = $this->requireRow('simulation_runs', $runId);
@@ -656,7 +656,7 @@ final class SimulationEnterpriseService
         if (is_array($value)) {
             return $value;
         }
-        if (! is_string($value) || $value === '') {
+        if (is_string($value) === false || $value === '') {
             return [];
         }
         $decoded = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
@@ -671,7 +671,7 @@ final class SimulationEnterpriseService
 
     private function canonicalize(mixed $value): mixed
     {
-        if (! is_array($value)) {
+        if (is_array($value) === false) {
             return $value;
         }
         if (array_is_list($value)) {
