@@ -16,6 +16,7 @@ final class SystemOperationsState
         private readonly ReleaseReadiness $releaseReadiness,
         private readonly AuditChainVerifier $auditChain,
     ) {
+        // Constructor uses property promotion only.
     }
 
     /** @return array<string, mixed> */
