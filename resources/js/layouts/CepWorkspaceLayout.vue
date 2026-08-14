@@ -50,6 +50,7 @@ const hasRight = computed(() => Boolean(slots.right));
 
       <div
         class="cep-workspace-grid"
+        dir="ltr"
         :class="{
           'cep-workspace-grid--without-left': !hasLeft && hasRight,
           'cep-workspace-grid--without-right': hasLeft && !hasRight,
@@ -60,12 +61,19 @@ const hasRight = computed(() => Boolean(slots.right));
           v-if="hasLeft"
           class="cep-structure-panel"
           data-cep-region="left"
+          dir="rtl"
           aria-label="البنية"
         >
           <slot name="left" />
         </aside>
 
-        <main id="main-content" class="cep-primary-surface" data-cep-region="center" tabindex="-1">
+        <main
+          id="main-content"
+          class="cep-primary-surface"
+          data-cep-region="center"
+          dir="rtl"
+          tabindex="-1"
+        >
           <slot />
         </main>
 

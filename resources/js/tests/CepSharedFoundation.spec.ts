@@ -40,7 +40,7 @@ describe('CEP shared foundation', () => {
     expect(wrapper.find('[aria-current="page"]').text()).toBe('المعرفة والتعلّم');
   });
 
-  it('keeps the shell RTL and does not clone center identity into permanent regions', () => {
+  it('keeps Arabic content RTL while fixing the physical workspace axis left-to-right', () => {
     const wrapper = mount(CepWorkspaceLayout, {
       props: { activeDestination: 'today' },
       slots: {
@@ -50,12 +50,21 @@ describe('CEP shared foundation', () => {
       },
     });
 
+    const grid = wrapper.find('.cep-workspace-grid');
+    const left = wrapper.find('[data-cep-region="left"]');
+    const center = wrapper.find('[data-cep-region="center"]');
+    const right = wrapper.find('[data-cep-region="right"]');
+
     expect(wrapper.attributes('dir')).toBe('rtl');
+    expect(grid.attributes('dir')).toBe('ltr');
+    expect(left.attributes('dir')).toBe('rtl');
+    expect(center.attributes('dir')).toBe('rtl');
+    expect(right.attributes('dir')).toBe('rtl');
     expect(wrapper.find('.skip-link').attributes('href')).toBe('#main-content');
-    expect(wrapper.find('#main-content').attributes('tabindex')).toBe('-1');
-    expect(wrapper.find('[data-cep-region="left"]').text()).toBe('بنية فريدة');
-    expect(wrapper.find('[data-cep-region="center"]').text()).toBe('عنوان العمل الفريد');
-    expect(wrapper.find('[data-cep-region="right"]').text()).toBe('سياق فريد');
+    expect(center.attributes('tabindex')).toBe('-1');
+    expect(left.text()).toBe('بنية فريدة');
+    expect(center.text()).toBe('عنوان العمل الفريد');
+    expect(right.text()).toBe('سياق فريد');
     expect(wrapper.text().match(/عنوان العمل الفريد/g) ?? []).toHaveLength(1);
     expect(wrapper.find('[data-cep-region="bottom"]').exists()).toBe(false);
   });

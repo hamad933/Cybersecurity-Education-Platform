@@ -34,12 +34,7 @@ const page = usePage<SharedProps>();
 
       <div v-if="page.props.auth.owner" class="cep-session">
         <span class="cep-session__owner">{{ page.props.auth.owner.display_name }}</span>
-        <Link
-          href="/logout"
-          method="post"
-          as="button"
-          class="cep-session__action focus-ring"
-        >
+        <Link href="/logout" method="post" as="button" class="cep-session__action focus-ring">
           تسجيل الخروج
         </Link>
       </div>

@@ -5,7 +5,7 @@ withDefaults(defineProps<{ label?: string }>(), {
 </script>
 
 <template>
-  <aside class="cep-context-panel" data-cep-region="right" :aria-label="label">
+  <aside class="cep-context-panel" data-cep-region="right" dir="rtl" :aria-label="label">
     <slot />
   </aside>
 </template>
