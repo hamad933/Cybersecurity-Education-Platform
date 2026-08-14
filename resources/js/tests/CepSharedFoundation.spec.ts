@@ -1,6 +1,3 @@
-import { Buffer } from 'node:buffer';
-import { execFileSync } from 'node:child_process';
-
 import { mount } from '@vue/test-utils';
 
 import CepGlobalNavigation from '../components/cep/CepGlobalNavigation.vue';
@@ -94,15 +91,5 @@ describe('CEP shared foundation', () => {
 
     expect(wrapper.find('[data-cep-region="bottom"]').exists()).toBe(true);
     expect(wrapper.text()).toContain('تشخيص مؤقت');
-  });
-
-  it('prints the repository formatter output for Today during remediation', () => {
-    const formatted = execFileSync(
-      'node_modules/.bin/prettier',
-      ['resources/js/pages/Today/Index.vue'],
-      { encoding: 'utf8' },
-    );
-
-    console.log(`W01_PRETTIER_TODAY_BASE64=${Buffer.from(formatted).toString('base64')}`);
   });
 });
