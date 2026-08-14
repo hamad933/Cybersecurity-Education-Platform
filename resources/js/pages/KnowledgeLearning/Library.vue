@@ -303,9 +303,9 @@ const moveBlock = (index: number, delta: number) => {
                 <pre
                   v-if="technicalTypes.has(block.type)"
                   dir="ltr"
-                  class="mt-3 overflow-x-auto whitespace-pre-wrap text-left font-mono text-sm leading-6 text-slate-200"
+                  class="mt-3 overflow-x-auto text-left font-mono text-sm leading-6 whitespace-pre-wrap text-slate-200"
                   >{{ block.body }}</pre>
-                <p v-else class="mt-3 whitespace-pre-wrap leading-8 text-slate-200">
+                <p v-else class="mt-3 leading-8 whitespace-pre-wrap text-slate-200">
                   {{ block.body }}
                 </p>
               </article>
@@ -368,7 +368,7 @@ const moveBlock = (index: number, delta: number) => {
               <bdi
                 v-if="active?.revision?.authority_baseline_id"
                 dir="ltr"
-                class="mt-2 block break-all font-mono text-xs text-slate-300"
+                class="mt-2 block font-mono text-xs break-all text-slate-300"
               >
                 {{ active.revision.authority_baseline_id }}
               </bdi>

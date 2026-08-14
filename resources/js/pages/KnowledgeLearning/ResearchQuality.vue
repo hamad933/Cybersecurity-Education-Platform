@@ -75,7 +75,7 @@ defineProps<{
               </Link>
             </li>
           </ul>
-          <p v-else class="mt-4 text-sm leading-7 text-slate-500">لا توجد Source Records محفوظة.</p>
+          <p v-else class="mt-4 text-sm leading-7 text-slate-500">لا توجد Source Records محفوظ�.</p>
         </aside>
 
         <main class="min-w-0 rounded-xl border border-slate-800 bg-slate-900/35 p-5 sm:p-7">
@@ -180,14 +180,14 @@ defineProps<{
                 target="_blank"
                 rel="noreferrer"
                 dir="ltr"
-                class="focus-ring mt-2 block break-all text-left text-xs text-cyan-300 underline"
+                class="focus-ring mt-2 block text-left text-xs break-all text-cyan-300 underline"
               >
                 {{ quality.active_source.exact_url }}
               </a>
               <bdi
                 v-else-if="quality.active_source.relative_path"
                 dir="ltr"
-                class="mt-2 block break-all font-mono text-xs text-slate-300"
+                class="mt-2 block font-mono text-xs break-all text-slate-300"
               >
                 {{ quality.active_source.relative_path }}
               </bdi>
@@ -195,7 +195,7 @@ defineProps<{
             </section>
             <section>
               <p class="text-xs text-slate-500">Integrity digest</p>
-              <bdi dir="ltr" class="mt-2 block break-all font-mono text-[10px] text-slate-400">
+              <bdi dir="ltr" class="mt-2 block font-mono text-[10px] break-all text-slate-400">
                 sha256:{{ quality.active_source.sha256 }}
               </bdi>
             </section>
