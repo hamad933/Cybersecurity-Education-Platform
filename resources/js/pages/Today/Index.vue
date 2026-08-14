@@ -71,15 +71,21 @@ const routeRegistrationSummary = computed(
           <dl class="cep-fact-list">
             <div class="cep-fact-list__row">
               <dt>مداخل المجالات المسجلة</dt>
-              <dd><TechnicalText :value="routeRegistrationSummary" /></dd>
+              <dd>
+                <TechnicalText :value="routeRegistrationSummary" />
+              </dd>
             </div>
             <div class="cep-fact-list__row">
               <dt>بيئة التطبيق</dt>
-              <dd><TechnicalText :value="page.props.environment.name" /></dd>
+              <dd>
+                <TechnicalText :value="page.props.environment.name" />
+              </dd>
             </div>
             <div class="cep-fact-list__row">
               <dt>ملف التشغيل</dt>
-              <dd><TechnicalText :value="page.props.environment.profile" /></dd>
+              <dd>
+                <TechnicalText :value="page.props.environment.profile" />
+              </dd>
             </div>
           </dl>
         </section>
