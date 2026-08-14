@@ -24,7 +24,12 @@ type EnterpriseItem = {
   description_ar?: string | null;
   definition: JsonMap;
   is_fixture: boolean;
-  digital_twin_revision?: { id: string; revision: number; digest: string; topology: JsonMap } | null;
+  digital_twin_revision?: {
+    id: string;
+    revision: number;
+    digest: string;
+    topology: JsonMap;
+  } | null;
   baseline?: { id: string; revision: number; digest: string; state: JsonMap } | null;
 };
 type ScenarioItem = {
@@ -122,14 +127,16 @@ const handoffClaim = ref(
   'مرشح دليل مشتق من نتيجة المحاكاة المختومة؛ يخضع لاحقًا لعملية Intake في Progress & Evidence.',
 );
 
-const records = computed<Array<EnterpriseItem | ScenarioItem | LabItem | RunItem | ResultItem>>(() => {
-  if (props.section === 'enterprise') return props.enterprises;
-  if (props.section === 'scenarios') return props.scenarios;
-  if (props.section === 'labs') return props.labs;
-  if (props.section === 'runs') return props.runs;
-  if (props.section === 'results') return props.results;
-  return [];
-});
+const records = computed<Array<EnterpriseItem | ScenarioItem | LabItem | RunItem | ResultItem>>(
+  () => {
+    if (props.section === 'enterprise') return props.enterprises;
+    if (props.section === 'scenarios') return props.scenarios;
+    if (props.section === 'labs') return props.labs;
+    if (props.section === 'runs') return props.runs;
+    if (props.section === 'results') return props.results;
+    return [];
+  },
+);
 
 watch(
   records,
