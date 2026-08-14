@@ -41,7 +41,7 @@ A UI workstream must connect to real Laravel/Inertia application routes and real
 - One deployable Laravel modular monolith for V1.
 - Vue 3 + TypeScript + Inertia in the same deployable application.
 - PostgreSQL is the primary database.
-- Local-first, private, single-owner product unless a later owner decision changes it.
+- Local-first, single-owner product. Public repository visibility is code visibility only and does not authorize public registration, SaaS, multi-tenancy, public or cloud deployment, automatic AI providers, external simulation execution, production security connectors, or other runtime expansion.
 - Manual AI Bridge remains manual-only; no provider API, credentials, polling, embeddings, or autonomous publication.
 - No real offensive execution connectors, SSH/WinRM/cloud execution, VM/hypervisor orchestration, or production security connectors in V1.
 - Published/history-sensitive truth is revisioned or immutable; never overwrite accepted evidence, review decisions, run results, audit truth, or published revisions in place.
