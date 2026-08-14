@@ -15,7 +15,8 @@ final class SystemOperationsState
         private readonly FoundationHealth $health,
         private readonly ReleaseReadiness $releaseReadiness,
         private readonly AuditChainVerifier $auditChain,
-    ) {}
+    ) {
+    }
 
     /** @return array<string, mixed> */
     public function forSurface(string $surface, string $actorId): array
