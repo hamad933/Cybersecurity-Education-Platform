@@ -6,8 +6,9 @@ use App\Modules\Curriculum\Models\CurriculumPlacement;
 
 final class CurriculumKnowledgeService
 {
-    /** @param list<string> $knowledgeUnitIds
-     *  @return list<array<string, mixed>>
+    /**
+     * @param  list<string>  $knowledgeUnitIds
+     * @return list<array<string, mixed>>
      */
     public function placements(array $knowledgeUnitIds): array
     {
@@ -21,13 +22,17 @@ final class CurriculumKnowledgeService
             ->orderBy('knowledge_unit_id')
             ->orderByDesc('revision')
             ->get()
-            ->map(fn (CurriculumPlacement $placement): array => [
-                'id' => (string) $placement->id,
-                'capability_id' => (string) $placement->capability_id,
-                'knowledge_unit_id' => (string) $placement->knowledge_unit_id,
-                'revision' => (int) $placement->revision,
-                'lifecycle' => is_array($placement->lifecycle) ? $placement->lifecycle : [],
-            ])
+            ->map(static function (CurriculumPlacement $placement): array {
+                $lifecycle = $placement->getAttribute('lifecycle');
+
+                return [
+                    'id' => (string) $placement->id,
+                    'capability_id' => (string) $placement->capability_id,
+                    'knowledge_unit_id' => (string) $placement->knowledge_unit_id,
+                    'revision' => (int) $placement->revision,
+                    'lifecycle' => is_array($lifecycle) ? $lifecycle : [],
+                ];
+            })
             ->values()
             ->all();
     }

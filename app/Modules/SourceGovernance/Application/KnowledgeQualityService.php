@@ -8,8 +8,9 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class KnowledgeQualityService
 {
-    /** @param list<string> $claimIds
-     *  @return list<array<string, mixed>>
+    /**
+     * @param  list<string>  $claimIds
+     * @return list<array<string, mixed>>
      */
     public function sourcesForClaims(array $claimIds): array
     {
@@ -17,11 +18,16 @@ final class KnowledgeQualityService
             return [];
         }
 
-        return $this->sourceQuery($claimIds)->get()->map(fn (SourceRecord $source): array => $this->source($source, $claimIds))->values()->all();
+        return $this->sourceQuery($claimIds)
+            ->get()
+            ->map(fn (SourceRecord $source): array => $this->source($source, $claimIds))
+            ->values()
+            ->all();
     }
 
-    /** @param list<string> $canonicalClaimIds
-     *  @return array<string, mixed>
+    /**
+     * @param  list<string>  $canonicalClaimIds
+     * @return array<string, mixed>
      */
     public function workspace(?string $requestedSourceId, array $canonicalClaimIds): array
     {
@@ -35,16 +41,31 @@ final class KnowledgeQualityService
 
         $active = null;
         if ($requestedSourceId !== null) {
-            $active = collect($sources)->firstWhere('id', $requestedSourceId);
+            foreach ($sources as $source) {
+                if (($source['id'] ?? null) === $requestedSourceId) {
+                    $active = $source;
+                    break;
+                }
+            }
         }
-        if (! is_array($active) && $canonicalClaimIds !== []) {
-            $active = collect($sources)->first(
-                fn (array $source): bool => collect($source['claims'])->contains(
-                    fn (array $claim): bool => $claim['used_by_active_revision'] === true,
-                ),
-            );
+
+        if ($active === null && $canonicalClaimIds !== []) {
+            foreach ($sources as $source) {
+                $claims = $source['claims'] ?? [];
+                if (! is_array($claims)) {
+                    continue;
+                }
+
+                foreach ($claims as $claim) {
+                    if (is_array($claim) && ($claim['used_by_active_revision'] ?? false) === true) {
+                        $active = $source;
+                        break 2;
+                    }
+                }
+            }
         }
-        if (! is_array($active)) {
+
+        if ($active === null) {
             $active = $sources[0] ?? null;
         }
 
@@ -56,7 +77,10 @@ final class KnowledgeQualityService
         ];
     }
 
-    /** @param list<string> $claimIds */
+    /**
+     * @param  list<string>  $claimIds
+     * @return Builder<SourceRecord>
+     */
     private function sourceQuery(array $claimIds): Builder
     {
         return SourceRecord::query()
@@ -65,11 +89,14 @@ final class KnowledgeQualityService
             ->orderBy('title');
     }
 
-    /** @param list<string> $canonicalClaimIds
-     *  @return array<string, mixed>
+    /**
+     * @param  list<string>  $canonicalClaimIds
+     * @return array<string, mixed>
      */
     private function source(SourceRecord $source, array $canonicalClaimIds): array
     {
+        $metadata = $source->getAttribute('metadata');
+
         return [
             'id' => (string) $source->id,
             'authority_class' => (string) $source->authority_class,
@@ -78,7 +105,7 @@ final class KnowledgeQualityService
             'relative_path' => $source->relative_path !== null ? (string) $source->relative_path : null,
             'sha256' => (string) $source->sha256,
             'review_status' => (string) $source->review_status,
-            'metadata' => is_array($source->metadata) ? $source->metadata : [],
+            'metadata' => is_array($metadata) ? $metadata : [],
             'claims' => $source->claims->map(fn (SourceClaim $claim): array => [
                 'id' => (string) $claim->id,
                 'claim_id' => (string) $claim->claim_id,

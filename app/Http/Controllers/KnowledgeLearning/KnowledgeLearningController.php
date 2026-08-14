@@ -4,8 +4,6 @@ namespace App\Http\Controllers\KnowledgeLearning;
 
 use App\Application\KnowledgeLearning\KnowledgeLearningWorkspace;
 use App\Http\Controllers\Controller;
-use App\Modules\Knowledge\Models\LessonRevision;
-use App\Modules\Knowledge\Publication\LessonRevisionWorkflow;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -48,7 +46,7 @@ final class KnowledgeLearningController extends Controller
         ));
     }
 
-    public function updateRevision(Request $request, LessonRevisionWorkflow $workflow, LessonRevision $revision): RedirectResponse
+    public function updateRevision(Request $request, KnowledgeLearningWorkspace $workspace, string $revision): RedirectResponse
     {
         $validated = $request->validate([
             'lock_version' => ['required', 'integer', 'min:1'],
@@ -61,8 +59,8 @@ final class KnowledgeLearningController extends Controller
         ]);
 
         try {
-            $workflow->updateDraft(
-                (string) $revision->id,
+            $workspace->updateRevision(
+                $revision,
                 (int) $validated['lock_version'],
                 $validated['blocks'],
                 $validated['citations'],
@@ -75,17 +73,17 @@ final class KnowledgeLearningController extends Controller
         return back()->with('status', 'تم حفظ التغييرات في المسودة القانونية بالقفل التفاؤلي.');
     }
 
-    public function restoreRevision(Request $request, LessonRevisionWorkflow $workflow, LessonRevision $revision): RedirectResponse
+    public function restoreRevision(Request $request, KnowledgeLearningWorkspace $workspace, string $revision): RedirectResponse
     {
         try {
-            $draft = $workflow->restoreAsDraft((string) $revision->id, (string) $request->user()->id);
+            $draft = $workspace->restoreRevision($revision, (string) $request->user()->id);
         } catch (LogicException $exception) {
             return back()->withErrors(['revision' => $exception->getMessage()]);
         }
 
         return redirect()->route('cep.knowledge.library', [
-            'object' => $draft->knowledge_unit_id,
-            'revision' => $draft->id,
+            'object' => $draft['knowledge_unit_id'],
+            'revision' => $draft['id'],
         ])->with('status', 'أُنشئت مسودة جديدة من النسخة المنشورة دون تعديل التاريخ المنشور.');
     }
 

@@ -9,12 +9,25 @@ use App\Modules\SourceGovernance\Application\KnowledgeQualityService;
 
 final class KnowledgeLearningWorkspace
 {
+    private readonly KnowledgeLibraryService $knowledge;
+
+    private readonly CurriculumKnowledgeService $curriculum;
+
+    private readonly KnowledgeJourneyService $journey;
+
+    private readonly KnowledgeQualityService $quality;
+
     public function __construct(
-        private readonly KnowledgeLibraryService $knowledge,
-        private readonly CurriculumKnowledgeService $curriculum,
-        private readonly KnowledgeJourneyService $journey,
-        private readonly KnowledgeQualityService $quality,
-    ) {}
+        KnowledgeLibraryService $knowledge,
+        CurriculumKnowledgeService $curriculum,
+        KnowledgeJourneyService $journey,
+        KnowledgeQualityService $quality,
+    ) {
+        $this->knowledge = $knowledge;
+        $this->curriculum = $curriculum;
+        $this->journey = $journey;
+        $this->quality = $quality;
+    }
 
     /** @return array<string, mixed> */
     public function library(?string $requestedUnitId, ?string $requestedRevisionId): array
@@ -157,36 +170,84 @@ final class KnowledgeLearningWorkspace
         ];
     }
 
-    /** @param list<array<string, mixed>> $catalog
-     *  @param list<array<string, mixed>> $placements
-     *  @return list<array<string, mixed>>
+    /**
+     * @param  array<mixed>  $blocks
+     * @param  array<mixed>  $citations
+     */
+    public function updateRevision(string $revisionId, int $expectedLockVersion, array $blocks, array $citations, string $actorId): void
+    {
+        $this->knowledge->updateRevision($revisionId, $expectedLockVersion, $blocks, $citations, $actorId);
+    }
+
+    /** @return array{id: string, knowledge_unit_id: string} */
+    public function restoreRevision(string $revisionId, string $actorId): array
+    {
+        return $this->knowledge->restoreRevision($revisionId, $actorId);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $catalog
+     * @param  list<array<string, mixed>>  $placements
+     * @return list<array<string, mixed>>
      */
     private function structure(array $catalog, array $placements): array
     {
-        $catalogById = collect($catalog)->keyBy('id');
-        $groups = collect($placements)
-            ->groupBy('capability_id')
-            ->map(function ($items, string $capabilityId) use ($catalogById): array {
-                $unitIds = collect($items)->pluck('knowledge_unit_id')->unique()->values();
-
-                return [
-                    'capability_id' => $capabilityId,
-                    'items' => $unitIds->map(fn (string $unitId): ?array => $catalogById->get($unitId))->filter()->values()->all(),
-                ];
-            })
-            ->values();
-
-        $placedIds = collect($placements)->pluck('knowledge_unit_id')->unique();
-        $unplaced = collect($catalog)->reject(fn (array $item): bool => $placedIds->contains($item['id']))->values()->all();
-        if ($unplaced !== []) {
-            $groups->push(['capability_id' => null, 'items' => $unplaced]);
+        $catalogById = [];
+        foreach ($catalog as $item) {
+            $id = $item['id'] ?? null;
+            if (is_string($id)) {
+                $catalogById[$id] = $item;
+            }
         }
 
-        return $groups->all();
+        /** @var array<string, array<string, true>> $unitIdsByCapability */
+        $unitIdsByCapability = [];
+        /** @var array<string, true> $placedIds */
+        $placedIds = [];
+
+        foreach ($placements as $placement) {
+            $capabilityId = $placement['capability_id'] ?? null;
+            $unitId = $placement['knowledge_unit_id'] ?? null;
+            if (! is_string($capabilityId) || ! is_string($unitId)) {
+                continue;
+            }
+
+            $unitIdsByCapability[$capabilityId][$unitId] = true;
+            $placedIds[$unitId] = true;
+        }
+
+        $groups = [];
+        foreach ($unitIdsByCapability as $capabilityId => $unitIds) {
+            $items = [];
+            foreach (array_keys($unitIds) as $unitId) {
+                if (isset($catalogById[$unitId])) {
+                    $items[] = $catalogById[$unitId];
+                }
+            }
+
+            $groups[] = [
+                'capability_id' => $capabilityId,
+                'items' => $items,
+            ];
+        }
+
+        $unplaced = [];
+        foreach ($catalog as $item) {
+            $id = $item['id'] ?? null;
+            if (is_string($id) && ! isset($placedIds[$id])) {
+                $unplaced[] = $item;
+            }
+        }
+        if ($unplaced !== []) {
+            $groups[] = ['capability_id' => null, 'items' => $unplaced];
+        }
+
+        return $groups;
     }
 
-    /** @param array<string, mixed>|null $active
-     *  @return list<string>
+    /**
+     * @param  array<string, mixed>|null  $active
+     * @return list<string>
      */
     private function activeCitations(?array $active): array
     {
@@ -202,12 +263,25 @@ final class KnowledgeLearningWorkspace
             return 0;
         }
 
-        $resolved = collect($this->quality->sourcesForClaims($citations))
-            ->flatMap(fn (array $source) => $source['claims'])
-            ->pluck('claim_id')
-            ->unique()
-            ->count();
+        $resolvedClaimIds = [];
+        foreach ($this->quality->sourcesForClaims($citations) as $source) {
+            $claims = $source['claims'] ?? [];
+            if (! is_array($claims)) {
+                continue;
+            }
 
-        return max(0, count(array_unique($citations)) - $resolved);
+            foreach ($claims as $claim) {
+                if (! is_array($claim)) {
+                    continue;
+                }
+
+                $claimId = $claim['claim_id'] ?? null;
+                if (is_string($claimId)) {
+                    $resolvedClaimIds[$claimId] = true;
+                }
+            }
+        }
+
+        return max(0, count(array_unique($citations)) - count($resolvedClaimIds));
     }
 }

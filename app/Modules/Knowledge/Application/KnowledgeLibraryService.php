@@ -4,10 +4,18 @@ namespace App\Modules\Knowledge\Application;
 
 use App\Modules\Knowledge\Models\KnowledgeUnit;
 use App\Modules\Knowledge\Models\LessonRevision;
-use Illuminate\Support\Collection;
+use App\Modules\Knowledge\Publication\LessonRevisionWorkflow;
+use DateTimeInterface;
 
 final class KnowledgeLibraryService
 {
+    private readonly LessonRevisionWorkflow $workflow;
+
+    public function __construct(LessonRevisionWorkflow $workflow)
+    {
+        $this->workflow = $workflow;
+    }
+
     /** @return list<array<string, mixed>> */
     public function catalog(): array
     {
@@ -15,9 +23,8 @@ final class KnowledgeLibraryService
         $revisionGroups = $this->revisionGroups($units->pluck('id')->all());
 
         return $units->map(function (KnowledgeUnit $unit) use ($revisionGroups): array {
-            /** @var Collection<int, LessonRevision>|null $revisions */
-            $revisions = $revisionGroups->get((string) $unit->id);
-            $latest = $revisions?->first();
+            $revisions = $revisionGroups[(string) $unit->id] ?? [];
+            $latest = $revisions[0] ?? null;
 
             return [
                 'id' => (string) $unit->id,
@@ -68,37 +75,68 @@ final class KnowledgeLibraryService
             $selected = $revisions->first();
         }
 
-        return [
-            'id' => (string) $unit->id,
-            'title_ar' => (string) $unit->title_ar,
-            'title_en' => (string) $unit->title_en,
-            'revision' => $selected instanceof LessonRevision ? $this->revision($selected) : null,
-            'revisions' => $revisions->map(fn (LessonRevision $revision): array => [
+        $revisionItems = [];
+        foreach ($revisions as $revision) {
+            $revisionItems[] = [
                 'id' => (string) $revision->id,
                 'revision' => (int) $revision->revision,
                 'state' => (string) $revision->state,
                 'lock_version' => (int) $revision->lock_version,
                 'derived_from_revision_id' => $revision->derived_from_revision_id !== null ? (string) $revision->derived_from_revision_id : null,
-                'published_at' => $revision->published_at?->toIso8601String(),
-                'updated_at' => $revision->updated_at?->toIso8601String(),
-            ])->values()->all(),
+                'published_at' => $this->dateTimeValue($revision->getAttribute('published_at')),
+                'updated_at' => $this->dateTimeValue($revision->getAttribute('updated_at')),
+            ];
+        }
+
+        return [
+            'id' => (string) $unit->id,
+            'title_ar' => (string) $unit->title_ar,
+            'title_en' => (string) $unit->title_en,
+            'revision' => $selected instanceof LessonRevision ? $this->revision($selected) : null,
+            'revisions' => $revisionItems,
         ];
     }
 
-    /** @param list<string> $unitIds
-     *  @return Collection<string, Collection<int, LessonRevision>>
+    /**
+     * @param  array<mixed>  $blocks
+     * @param  array<mixed>  $citations
      */
-    private function revisionGroups(array $unitIds): Collection
+    public function updateRevision(string $revisionId, int $expectedLockVersion, array $blocks, array $citations, string $actorId): void
+    {
+        $this->workflow->updateDraft($revisionId, $expectedLockVersion, $blocks, $citations, $actorId);
+    }
+
+    /** @return array{id: string, knowledge_unit_id: string} */
+    public function restoreRevision(string $revisionId, string $actorId): array
+    {
+        $draft = $this->workflow->restoreAsDraft($revisionId, $actorId);
+
+        return [
+            'id' => (string) $draft->id,
+            'knowledge_unit_id' => (string) $draft->knowledge_unit_id,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $unitIds
+     * @return array<string, list<LessonRevision>>
+     */
+    private function revisionGroups(array $unitIds): array
     {
         if ($unitIds === []) {
-            return collect();
+            return [];
         }
 
-        return LessonRevision::query()
+        /** @var array<string, list<LessonRevision>> $groups */
+        $groups = [];
+        foreach (LessonRevision::query()
             ->whereIn('knowledge_unit_id', $unitIds)
             ->orderByDesc('revision')
-            ->get()
-            ->groupBy('knowledge_unit_id');
+            ->get() as $revision) {
+            $groups[(string) $revision->knowledge_unit_id][] = $revision;
+        }
+
+        return $groups;
     }
 
     /** @return array<string, mixed> */
@@ -114,9 +152,14 @@ final class KnowledgeLibraryService
             'authority_baseline_id' => $revision->authority_baseline_id !== null ? (string) $revision->authority_baseline_id : null,
             'content_digest' => (string) $revision->content_digest,
             'derived_from_revision_id' => $revision->derived_from_revision_id !== null ? (string) $revision->derived_from_revision_id : null,
-            'published_at' => $revision->published_at?->toIso8601String(),
-            'updated_at' => $revision->updated_at?->toIso8601String(),
+            'published_at' => $this->dateTimeValue($revision->getAttribute('published_at')),
+            'updated_at' => $this->dateTimeValue($revision->getAttribute('updated_at')),
             'editable' => $revision->state === 'draft',
         ];
+    }
+
+    private function dateTimeValue(mixed $value): ?string
+    {
+        return $value instanceof DateTimeInterface ? $value->format(DATE_ATOM) : null;
     }
 }
