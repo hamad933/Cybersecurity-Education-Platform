@@ -1,30 +1,108 @@
-# Cybersecurity Learning and Operations Simulation Platform
+# Cybersecurity Education Platform — CEP
 
-This repository contains the canonical private source for the bounded local-first V1 runtime: one authenticated owner, the shared platform foundation, VS-001, VS-002, VS-003, and the integrated Release Center. The application remains an Arabic-first Laravel modular monolith with Vue/Inertia and PostgreSQL.
+This private repository is the canonical codebase for the real CEP application. The target product is governed by the owner-approved CEP product architecture and the owner-approved `CEP-VIS-001-FINAL` Visual & Interaction Contract retained in Google Drive. Legacy VS-001/VS-002/VS-003 pages and task artifacts remain reuse candidates and evidence; they are not the target information architecture.
 
-## Runtime and scope
+## Product implementation direction
 
-Exact supported versions are controlled by `docs/development/TECHNOLOGY_VERSION_DECISION.md`, `composer.lock`, and `package-lock.json`. The V1 runtime provides deterministic educational simulations, governed knowledge/evidence workflows, safe package boundaries, local search and queue processing, audit chaining, backup staging, and an isolated restore drill.
+CEP remains:
 
-It does **not** provide production security operations, live attack execution, production connectors, automatic AI-provider integration, Google Drive integration, multi-tenant SaaS behavior, or complete curriculum/runtime convergence.
+- local-first;
+- private and single-owner for the current roadmap;
+- Arabic-first with correct mixed RTL/LTR behavior;
+- one Laravel modular monolith;
+- Vue 3 + TypeScript + Inertia in the same deployable application;
+- PostgreSQL-backed;
+- governed by real application state and tests, not static prototypes.
+
+Current accepted product/visual identifiers supplied by the Controller are:
+
+- `CEP v0.3.1` preserved product architecture baseline;
+- `CEP-PRD-001-A01 — APPROVED`;
+- `CEP-PRD-001-A02 — APPROVED`;
+- `CEP-PRD-001-A03 — APPROVED`;
+- `CEP-VIS-001-FINAL — APPROVED — CEP-DEC-027`.
+
+The canonical accepted documents remain in Drive; they are not duplicated here.
+
+## Real-app rule
+
+Implementation completion requires runnable Laravel/Inertia behavior, domain/application state, PostgreSQL-backed behavior where applicable, automated tests, and GitHub Actions evidence.
+
+Image mockups, disconnected HTML demos, screenshot reconstructions, fake-only dashboards, and prototype-only flows are not implementation completion evidence.
+
+## Parallel build model
+
+The active real-application program uses:
+
+```text
+main
+└── build/cep-v1-integration
+    ├── feat/cep-shared-foundation
+    ├── feat/cep-knowledge-learning
+    ├── feat/cep-simulation-enterprise
+    ├── feat/cep-progress-evidence
+    └── feat/cep-system-operations
+```
+
+Read `AGENTS.md`, `CONTRIBUTING.md`, and `docs/governance/PARALLEL_EXECUTION_MODEL.md` before making changes. Builder pull requests target `build/cep-v1-integration`; only a Controller-authorized integration PR targets `main`.
+
+## V1 safety boundaries
+
+CEP V1 does **not** require or authorize:
+
+- production security operations;
+- live attack execution;
+- SSH/WinRM/cloud execution connectors;
+- VM/hypervisor/Kubernetes orchestration;
+- automatic AI-provider integration;
+- multi-tenant SaaS behavior.
+
+The Manual AI Bridge remains manual-only. Simulation remains internal high-fidelity simulation unless a later owner decision changes the roadmap.
+
+## Local start
+
+Exact supported versions are controlled by `docs/development/TECHNOLOGY_VERSION_DECISION.md`, `composer.lock`, and `package-lock.json`.
+
+```text
+copy .env.example .env
+php artisan key:generate
+# replace local PostgreSQL placeholders in .env
+composer setup
+php artisan owner:create
+composer start
+```
+
+Docker operation requires locally generated secrets. Do not commit `.env` or runtime credentials.
 
 ## Quality gates
 
-`composer quality` remains the repository-controlled local command contract. Authoritative remote verification is defined by:
+`composer quality` is the repository-controlled local diagnostic command chain. Authoritative remote evidence is produced by:
 
-- `.github/workflows/core-ci.yml`
-- `.github/workflows/release-verification.yml`
-- `docs/development/GITHUB_ACTIONS_EVIDENCE_MODEL.md`
+- `.github/workflows/core-ci.yml`;
+- `.github/workflows/release-verification.yml`;
+- `docs/development/GITHUB_ACTIONS_EVIDENCE_MODEL.md`.
 
-The workflows use GitHub-hosted runners, locked repository dependencies, PostgreSQL 18.4, the release Compose topology, real Chromium, structured evidence artifacts, and truthful failure propagation. No production deployment is configured.
+Required remote gates cover PHP, frontend, PostgreSQL integration/architecture tests, Compose validation, repository secret scanning, containerized release verification, and real Chromium browser evidence. No production deployment workflow is authorized.
 
-## Current status
+## Legacy reuse
 
-- Three-slice V1 runtime and Release Center: **implemented local release candidate**.
-- Canonical GitHub source baseline: commit `f257283de4a83054312d979d462c5de1d848bcb0` on `main` before CEP-GH-001 changes.
-- Historical Task-010 browser result: **`BLOCKED_BROWSER_UNAVAILABLE`**, preserved unchanged in its historical records.
-- Remote GitHub automation: introduced for owner review by CEP-GH-001; it is not accepted merely because workflow files exist.
-- Production readiness and deployment authorization: **not granted**.
-- Broader curriculum/runtime convergence, production connectors, automatic AI, and Google Drive integration: future bounded work only.
+Existing modules, services, routes, migrations, tests, and vertical-slice behavior may be classified as:
 
-Repository governance and the exact recommended `main` Ruleset are documented in `docs/governance/GITHUB_GOVERNANCE_AND_RULESET.md`.
+```text
+REUSE_AS_IS
+REFACTOR_FOR_REUSE
+REFERENCE_ONLY
+REJECT
+```
+
+Do not preserve a legacy route, page, workflow, status model, or ownership boundary merely because it already exists.
+
+## Governance
+
+- `AGENTS.md` — canonical execution contract.
+- `CONTRIBUTING.md` — branch, PR, evidence, and safety rules.
+- `docs/governance/PARALLEL_EXECUTION_MODEL.md` — parallel Builder ownership and integration model.
+- `docs/governance/GITHUB_GOVERNANCE_AND_RULESET.md` — GitHub settings and `main` protection recommendation.
+- `docs/development/TESTING_AND_QUALITY_GATES.md` — command/check contract.
+
+No Builder may self-approve, merge, release, deploy, or update canonical Drive state.
