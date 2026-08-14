@@ -24,12 +24,7 @@ type EnterpriseItem = {
   description_ar?: string | null;
   definition: JsonMap;
   is_fixture: boolean;
-  digital_twin_revision?: {
-    id: string;
-    revision: number;
-    digest: string;
-    topology: JsonMap;
-  } | null;
+  digital_twin_revision?: { id: string; revision: number; digest: string; topology: JsonMap } | null;
   baseline?: { id: string; revision: number; digest: string; state: JsonMap } | null;
 };
 type ScenarioItem = {
@@ -127,16 +122,14 @@ const handoffClaim = ref(
   'مرشح دليل مشتق من نتيجة المحاكاة المختومة؛ يخضع لاحقًا لعملية Intake في Progress & Evidence.',
 );
 
-const records = computed<Array<EnterpriseItem | ScenarioItem | LabItem | RunItem | ResultItem>>(
-  () => {
-    if (props.section === 'enterprise') return props.enterprises;
-    if (props.section === 'scenarios') return props.scenarios;
-    if (props.section === 'labs') return props.labs;
-    if (props.section === 'runs') return props.runs;
-    if (props.section === 'results') return props.results;
-    return [];
-  },
-);
+const records = computed<Array<EnterpriseItem | ScenarioItem | LabItem | RunItem | ResultItem>>(() => {
+  if (props.section === 'enterprise') return props.enterprises;
+  if (props.section === 'scenarios') return props.scenarios;
+  if (props.section === 'labs') return props.labs;
+  if (props.section === 'runs') return props.runs;
+  if (props.section === 'results') return props.results;
+  return [];
+});
 
 watch(
   records,
@@ -320,11 +313,6 @@ function createHandoff(): void {
             >{{ item.label }}</Link
           >
         </nav>
-        <div class="boundary-note">
-          <strong>V1</strong>
-          <span>Internal High-Fidelity Simulation</span>
-          <small>لا يوجد Runtime خارجي أو Provider Connector.</small>
-        </div>
       </aside>
 
       <main class="center-surface">
@@ -498,6 +486,11 @@ function createHandoff(): void {
       </main>
 
       <aside class="right-context" aria-label="السياق الفريد">
+        <div class="boundary-note">
+          <strong>V1</strong>
+          <span>Internal High-Fidelity Simulation</span>
+          <small>لا يوجد Runtime خارجي أو Provider Connector.</small>
+        </div>
         <template v-if="selectedEnterprise">
           <h2>سياق المؤسسة</h2>
           <p>
@@ -737,7 +730,7 @@ h3 {
   color: #fff;
 }
 .boundary-note {
-  margin-top: 28px;
+  margin: 0 0 18px;
   padding: 12px;
   border: 1px solid #263a4e;
   border-radius: 8px;
