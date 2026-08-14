@@ -4,40 +4,112 @@ import { computed, ref, watch } from 'vue';
 
 type NavigationItem = { key: string; label: string; href: string };
 type JsonMap = Record<string, unknown>;
-type EventItem = { sequence: number; event_type: string; payload: JsonMap; occurred_at: string };
-type SnapshotItem = { id: string; sequence: number; event_sequence: number; state_digest: string; captured_at: string };
+type EventItem = {
+  sequence: number;
+  event_type: string;
+  payload: JsonMap;
+  occurred_at: string;
+};
+type SnapshotItem = {
+  id: string;
+  sequence: number;
+  event_sequence: number;
+  state_digest: string;
+  captured_at: string;
+};
 type EnterpriseItem = {
-    id: string; slug: string; name_ar: string; description_ar?: string | null; definition: JsonMap; is_fixture: boolean;
-    digital_twin_revision?: { id: string; revision: number; digest: string; topology: JsonMap } | null;
-    baseline?: { id: string; revision: number; digest: string; state: JsonMap } | null;
+  id: string;
+  slug: string;
+  name_ar: string;
+  description_ar?: string | null;
+  definition: JsonMap;
+  is_fixture: boolean;
+  digital_twin_revision?: { id: string; revision: number; digest: string; topology: JsonMap } | null;
+  baseline?: { id: string; revision: number; digest: string; state: JsonMap } | null;
 };
 type ScenarioItem = {
-    id: string; slug: string; title_ar: string; revision: number; baseline_id: string; digest: string;
-    orchestration: JsonMap; validation: JsonMap;
-    lab_module_references: Array<{ reference_id: string; module_key: string; ordinal: number; policy: JsonMap; lab_definition_id: string; lab_title_ar: string }>;
+  id: string;
+  slug: string;
+  title_ar: string;
+  revision: number;
+  baseline_id: string;
+  digest: string;
+  orchestration: JsonMap;
+  validation: JsonMap;
+  lab_module_references: Array<{
+    reference_id: string;
+    module_key: string;
+    ordinal: number;
+    policy: JsonMap;
+    lab_definition_id: string;
+    lab_title_ar: string;
+  }>;
 };
-type LabItem = { id: string; slug: string; title_ar: string; revision: number; baseline_id: string; digest: string; configuration: JsonMap; validation: JsonMap };
-type RuntimeState = JsonMap & { engine?: string; trace_digest?: string; telemetry?: Record<string, unknown>; validation?: Record<string, unknown> };
+type LabItem = {
+  id: string;
+  slug: string;
+  title_ar: string;
+  revision: number;
+  baseline_id: string;
+  digest: string;
+  configuration: JsonMap;
+  validation: JsonMap;
+};
+type RuntimeState = JsonMap & {
+  engine?: string;
+  trace_digest?: string;
+  telemetry?: Record<string, unknown>;
+  validation?: Record<string, unknown>;
+};
 type RunItem = {
-    id: string; run_type: string; lifecycle: string; definition_title_ar: string; enterprise_id: string; digital_twin_revision_id: string; baseline_id: string;
-    scenario_definition_id?: string | null; standalone_lab_definition_id?: string | null; seed: number; execution_policies: JsonMap; runtime_state: RuntimeState;
-    input_digest: string; available_actions: string[]; events: EventItem[]; snapshots: SnapshotItem[]; result_id?: string | null;
+  id: string;
+  run_type: string;
+  lifecycle: string;
+  definition_title_ar: string;
+  enterprise_id: string;
+  digital_twin_revision_id: string;
+  baseline_id: string;
+  scenario_definition_id?: string | null;
+  standalone_lab_definition_id?: string | null;
+  seed: number;
+  execution_policies: JsonMap;
+  runtime_state: RuntimeState;
+  input_digest: string;
+  available_actions: string[];
+  events: EventItem[];
+  snapshots: SnapshotItem[];
+  result_id?: string | null;
 };
 type ResultItem = {
-    id: string; run_id: string; run_type: string; run_lifecycle: string; outcome: string; score?: number | null; summary_ar: string;
-    sealed_payload: JsonMap; replay_timeline: EventItem[]; artifacts: unknown[]; sealed_at: string;
-    candidate_evidence_handoff?: { id: string; status: string; candidate_manifest: JsonMap; intake_contract_ref?: string | null } | null;
+  id: string;
+  run_id: string;
+  run_type: string;
+  run_lifecycle: string;
+  outcome: string;
+  score?: number | null;
+  summary_ar: string;
+  sealed_payload: JsonMap;
+  replay_timeline: EventItem[];
+  artifacts: unknown[];
+  sealed_at: string;
+  candidate_evidence_handoff?: {
+    id: string;
+    status: string;
+    candidate_manifest: JsonMap;
+    intake_contract_ref?: string | null;
+  } | null;
 };
+type PostPayload = Parameters<typeof router.post>[1];
 
 const props = defineProps<{
-    section: string;
-    navigation: NavigationItem[];
-    enterprises: EnterpriseItem[];
-    scenarios: ScenarioItem[];
-    labs: LabItem[];
-    runs: RunItem[];
-    results: ResultItem[];
-    outcomes: string[];
+  section: string;
+  navigation: NavigationItem[];
+  enterprises: EnterpriseItem[];
+  scenarios: ScenarioItem[];
+  labs: LabItem[];
+  runs: RunItem[];
+  results: ResultItem[];
+  outcomes: string[];
 }>();
 
 const selectedId = ref<string | null>(null);
@@ -46,292 +118,234 @@ const mode = ref('GUIDED');
 const resultOutcome = ref('NOT_EVALUATED');
 const resultSummary = ref('Ù„Ù… ÙŠÙØ·Ø¨Ù‘Ù‚ ØªÙ‚ÙŠÙŠÙ… Ù†Ù‡Ø§Ø¦ÙŠ Ø¨Ø¹Ø¯Ø› ØªÙ… Ø®ØªÙ… Ø§Ù„Ø­Ù‚Ø§Ø¦Ù‚ Ø§Ù„ØªØ´ØºÙŠÙ„ÙŠØ© ÙƒÙ…Ø§ Ù‡ÙŠ.');
 const resultScore = ref<number | null>(null);
-const handoffClaim = ref('Ù…Ø±Ø´Ø­ Ø¯Ù„ÙŠÙ„ Ù…Ø´ØªÙ‚ Ù…Ù† Ù†ØªÙŠØ¬Ø© Ø§Ù„Ù…Ø­Ø§ÙƒØ§Ø© Ø§Ù„Ù…Ø®ØªÙˆÙ…Ø©Ø› ÙŠØ®Ø¶Ø¹ Ù„Ø§Ø­Ù‚Ù‹Ø§ Ù„Ø¹Ù…Ù„ÙŠØ© Intake ÙÙŠ Progress & Evidence.');
+const handoffClaim = ref(
+  'Ù…Ø±Ø´Ø­ Ø¯Ù„ÙŠÙ„ Ù…Ø´ØªÙ‚ Ù…Ù† Ù†ØªÙŠØ¬Ø© Ø§Ù„Ù…Ø­Ø§ÙƒØ§Ø© Ø§Ù„Ù…Ø®ØªÙˆÙ…Ø©Ø› ÙŠØ®Ø¶Ø¹ Ù„Ø§Ø­Ù‚Ù‹Ø§ Ù„Ø¹Ù…Ù„ÙŠØ© Intake ÙÙŠ Progress & Evidence.',
+);
 
 const records = computed<Array<EnterpriseItem | ScenarioItem | LabItem | RunItem | ResultItem>>(() => {
-    if (props.section === 'enterprise') return props.enterprises;
-    if (props.section === 'scenarios') return props.scenarios;
-    if (props.section === 'labs') return props.labs;
-    if (props.section === 'runs') return props.runs;
-    if (props.section === 'results') return props.results;
-    return [];
+  if (props.section === 'enterprise') return props.enterprises;
+  if (props.section === 'scenarios') return props.scenarios;
+  if (props.section === 'labs') return props.labs;
+  if (props.section === 'runs') return props.runs;
+  if (props.section === 'results') return props.results;
+  return [];
 });
 
-watch(records, (items) => {
+watch(
+  records,
+  (items) => {
     if (items.length === 0) {
-        selectedId.value = null;
-        return;
+      selectedId.value = null;
+      return;
     }
     if (!selectedId.value || !items.some((item) => item.id === selectedId.value)) {
-        selectedId.value = items[0].id;
+      selectedId.value = items[0].id;
     }
-}, { immediate: true });
+  },
+  { immediate: true },
+);
 
-const selected = computed(() => records.value.find((item) => item.id === selectedId.value) ?? null);
-const selectedEnterprise = computed(() => props.section === 'enterprise' ? selected.value as EnterpriseItem | null : null);
-const selectedScenario = computed(() => props.section === 'scenarios' ? selected.value as ScenarioItem | null : null);
-const selectedLab = computed(() => props.section === 'labs' ? selected.value as LabItem | null : null);
-const selectedRun = computed(() => props.section === 'runs' ? selected.value as RunItem | null : null);
-const selectedResult = computed(() => props.section === 'results' ? selected.value as ResultItem | null : null);
+const selectedEnterprise = computed(() => {
+  if (props.section !== 'enterprise') return null;
+  return props.enterprises.find((item) => item.id === selectedId.value) ?? null;
+});
+const selectedScenario = computed(() => {
+  if (props.section !== 'scenarios') return null;
+  return props.scenarios.find((item) => item.id === selectedId.value) ?? null;
+});
+const selectedLab = computed(() => {
+  if (props.section !== 'labs') return null;
+  return props.labs.find((item) => item.id === selectedId.value) ?? null;
+});
+const selectedRun = computed(() => {
+  if (props.section !== 'runs') return null;
+  return props.runs.find((item) => item.id === selectedId.value) ?? null;
+});
+const selectedResult = computed(() => {
+  if (props.section !== 'results') return null;
+  return props.results.find((item) => item.id === selectedId.value) ?? null;
+});
 
-const pageTitle = computed(() => ({
-    enterprise: 'Ø§Ù„Ù…Ø¤Ø³Ø³Ø© ÙˆØ§Ù„Ù†Ø³Ø®Ø© Ø§Ù„Ø±Ù‚Ù…ÙŠØ©',
-    scenarios: 'Ø§Ù„Ø³ÙŠÙ†Ø§Ø±ÙŠÙˆÙ‡Ø§Øª',
-    labs: 'Ø§Ù„Ù…Ø®ØªØ¨Ø±Ø§Øª',
-    runs: 'Ø§Ù„ØªØ´ØºÙŠÙ„Ø§Øª',
-    results: 'Ø§Ù„Ù†ØªØ§Ø¦Ø¬ ÙˆØ¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø¹Ø±Ø¶',
-}[props.section] ?? 'Ø§Ù„Ù…Ø­Ø§ÙƒØ§Ø© ÙˆØ§Ù„Ù…Ø¤Ø³Ø³Ø©'));
+const pageTitle = computed(
+  () =>
+    ({
+      enterprise: 'Ø§Ù„Ù…Ø¤Ø³Ø³Ø© ÙˆØ§Ù„Ù†Ø³Ø®Ø© Ø§Ù„Ø±Ù‚Ù…ÙŠØ©',
+      scenarios: 'Ø§Ù„Ø³ÙŠÙ†Ø§Ø±ÙŠÙˆÙ‡Ø§Øª',
+      labs: 'Ø§Ù„Ù…Ø®ØªØ¨Ø±Ø§Øª',
+      runs: 'Ø§Ù„ØªØ´ØºÙŠÙ„Ø§Øª',
+      results: 'Ø§Ù„Ù†ØªØ§Ø¦Ø¬ ÙˆØ¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø¹Ø±Ø¶',
+    })[props.section] ?? 'Ø§Ù„Ù…Ø­Ø§ÙƒØ§Ø© ÙˆØ§Ù„Ù…Ø¤Ø³Ø³Ø©',
+);
 
 const jsonText = (value: unknown) => JSON.stringify(value ?? {}, null, 2);
-const hasKeys = (value: unknown) => typeof value === 'object' && value !== null && Object.keys(value as object).length > 0;
-const runTypeLabel = (value: string) => value === 'Scenario Run' ? 'Scenario Run' : 'Standalone Lab Run';
+const hasKeys = (value: unknown) =>
+  typeof value === 'object' && value !== null && Object.keys(value).length > 0;
+const runTypeLabel = (value: string) =>
+  value === 'Scenario Run' ? 'Scenario Run' : 'Standalone Lab Run';
 
-function post(path: string, data: Record<string, unknown> = {}): void {
-    router.post(path, data, { preserveScroll: true });
+function post(path: string, data?: PostPayload): void {
+  router.post(path, data, { preserveScroll: true });
 }
 
 function prepareScenario(id: string): void {
-    post(`/simulation/scenarios/${id}/runs`, { seed: seed.value, mode: mode.value });
+  post(`/simulation/scenarios/${id}/runs`, { seed: seed.value, mode: mode.value });
 }
 
 function prepareLab(id: string): void {
-    post(`/simulation/labs/${id}/runs`, { seed: seed.value, mode: mode.value });
+  post(`/simulation/labs/${id}/runs`, { seed: seed.value, mode: mode.value });
 }
 
 function runAction(run: RunItem, action: string): void {
-    post(`/simulation/runs/${run.id}/${action}`);
+  post(`/simulation/runs/${run.id}/${action}`);
 }
 
 function sealSelectedRun(): void {
-    if (!selectedRun.value) return;
-    post(`/simulation/runs/${selectedRun.value.id}/result`, {
-        outcome: resultOutcome.value,
-        summary_ar: resultSummary.value,
-        score: resultScore.value,
-    });
+  if (!selectedRun.value) return;
+  post(`/simulation/runs/${selectedRun.value.id}/result`, {
+    outcome: resultOutcome.value,
+    summary_ar: resultSummary.value,
+    score: resultScore.value,
+  });
 }
 
 function createHandoff(): void {
-    if (!selectedResult.value) return;
-    post(`/simulation/results/${selectedResult.value.id}/candidate-evidence-handoff`, {
-        claim_ar: handoffClaim.value,
-        artifact_refs: [],
-        intake_contract_ref: 'progress-evidence-intake:v1',
-    });
+  if (!selectedResult.value) return;
+  post(`/simulation/results/${selectedResult.value.id}/candidate-evidence-handoff`, {
+    claim_ar: handoffClaim.value,
+    artifact_refs: [],
+    intake_contract_ref: 'progress-evidence-intake:v1',
+  });
 }
 </script>
 
 <template>
-    <Head :title="`CEP â€” ${pageTitle}`" />
-    <div class="workspace" dir="rtl">
-        <header class="topbar">
-            <div>
-                <p class="eyebrow">Simulation &amp; Enterprise</p>
-                <h1>{{ pageTitle }}</h1>
-                <p class="subtitle">ØªÙ†ÙÙŠØ° Ø¯Ø§Ø®Ù„ÙŠ Ø¹Ø§Ù„ÙŠ Ø§Ù„Ø¯Ù‚Ø© Ù‚Ø§Ø¦Ù… Ø¹Ù„Ù‰ Ø§Ù„Ø­Ø§Ù„Ø© ÙˆØ§Ù„Ø³Ø¨Ø¨ÙŠØ© ÙˆØ§Ù„Ø£Ø­Ø¯Ø§Ø« ÙˆØ§Ù„Ù€ Telemetry ÙˆØ§Ù„ØªØ­Ù‚Ù‚.</p>
-            </div>
-            <div v-if="section === 'scenarios' || section === 'labs'" class="prepare-tools" aria-label="Ø£Ø¯ÙˆØ§Øª Ø§Ù„ØªÙ‡ÙŠØ¦Ø©">
-                <label>Seed <input v-model.number="seed" class="technical input-small" type="number" min="0" /></label>
-                <label>Mode
-                    <select v-model="mode">
-                        <option>GUIDED</option><option>UNGUIDED</option><option>SOLO</option><option>TEAM</option><option>ROLE_BASED</option>
-                    </select>
-                </label>
-            </div>
-            <div v-else-if="section === 'runs' && selectedRun" class="run-actions" aria-label="Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª Ø§Ù„ØªØ´ØºÙŠÙ„ Ø§Ù„Ø­Ø§Ù„ÙŠØ©">
-                <button v-if="selectedRun.available_actions.includes('ready')" type="button" @click="runAction(selectedRun, 'ready')">Ø§Ø¹ØªÙ…Ø§Ø¯ Ø§Ù„Ø¬Ø§Ù‡Ø²ÙŠØ©</button>
-                <button v-if="selectedRun.available_actions.includes('start')" type="button" @click="runAction(selectedRun, 'start')">Ø¨Ø¯Ø¡</button>
-                <button v-if="selectedRun.available_actions.includes('pause')" type="button" @click="runAction(selectedRun, 'pause')">Ø¥ÙŠÙ‚Ø§Ù Ù…Ø¤Ù‚Øª</button>
-                <button v-if="selectedRun.available_actions.includes('resume')" type="button" @click="runAction(selectedRun, 'resume')">Ø§Ø³ØªØ¦Ù†Ø§Ù</button>
-                <button v-if="selectedRun.available_actions.includes('complete')" type="button" @click="runAction(selectedRun, 'complete')">Ø¥ÙƒÙ…Ø§Ù„ Ø§Ù„Ù…Ø­Ø§ÙƒØ§Ø© Ø§Ù„Ø¯Ø§Ø®Ù„ÙŠØ©</button>
-                <button v-if="selectedRun.available_actions.includes('snapshot')" type="button" @click="runAction(selectedRun, 'snapshot')">Ø­ÙØ¸ Snapshot</button>
-                <button v-if="selectedRun.available_actions.includes('stop')" class="button-muted" type="button" @click="runAction(selectedRun, 'stop')">Ø¥ÙŠÙ‚Ø§Ù</button>
-            </div>
-        </header>
+  <Head :title="`CEP â€” ${pageTitle}`" />
+  <div class="workspace" dir="rtl">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Simulation &amp; Enterprise</p>
+        <h1>{{ pageTitle }}</h1>
+        <p class="subtitle">
+          ØªÙ†ÙÙŠØ° Ø¯Ø§Ø®Ù„ÙŠ Ø¹Ø§Ù„ÙŠ Ø§Ù„Ø¯Ù‚Ø© Ù‚Ø§Ø¦Ù… Ø¹Ù„Ù‰ Ø§Ù„Ø­Ø§Ù„Ø© ÙˆØ§Ù„Ø³Ø¨Ø¨ÙŠØ© ÙˆØ§Ù„Ø£Ø­Ø¯Ø§Ø« ÙˆØ§Ù„Ù€ Telemetry ÙˆØ§Ù„ØªØ­Ù‚Ù‚.
+        </p>
+      </div>
+      <div
+        v-if="section === 'scenarios' || section === 'labs'"
+        class="prepare-tools"
+        aria-label="Ø£Ø¯ÙˆØ§Øª Ø§Ù„ØªÙ‡ÙŠØ¦Ø©"
+      >
+        <label
+          >Seed
+          <input v-model.number="seed" class="technical input-small" type="number" min="0"
+        /></label>
+        <label
+          >Mode
+          <select v-model="mode">
+            <option>GUIDED</option>
+            <option>UNGUIDED</option>
+            <option>SOLO</option>
+            <option>TEAM</option>
+            <option>ROLE_BASED</option>
+          </select>
+        </label>
+      </div>
+      <div
+        v-else-if="section === 'runs' && selectedRun"
+        class="run-actions"
+        aria-label="Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª Ø§Ù„ØªØ´ØºÙŠÙ„ Ø§Ù„Ø­Ø§Ù„ÙŠØ©"
+      >
+        <button
+          v-if="selectedRun.available_actions.includes('ready')"
+          type="button"
+          @click="runAction(selectedRun, 'ready')"
+          >Ø§Ø¹ØªÙ…Ø§Ø¯ Ø§Ù„Ø¬Ø§Ù‡Ø²ÙŠØ©</button
+        >
+        <button
+          v-if="selectedRun.available_actions.includes('start')"
+          type="button"
+          @click="runAction(selectedRun, 'start')"
+          >Ø¨Ø¯Ø¡</button
+        >
+        <button
+          v-if="selectedRun.available_actions.includes('pause')"
+          type="button"
+          @click="runAction(selectedRun, 'pause')"
+          >Ø¥ÙŠÙ‚Ø§Ù Ù…Ø¤Ù‚Øª</button
+        >
+        <button
+          v-if="selectedRun.available_actions.includes('resume')"
+          type="button"
+          @click="runAction(selectedRun, 'resume')"
+          >Ø§Ø³ØªØ¦Ù†Ø§Ù</button
+        >
+        <button
+          v-if="selectedRun.available_actions.includes('complete')"
+          type="button"
+          @click="runAction(selectedRun, 'complete')"
+          >Ø¥ÙƒÙ…Ø§Ù„ Ø§Ù„Ù…Ø­Ø§ÙƒØ§Ø© Ø§Ù„Ø¯Ø§Ø®Ù„ÙŠØ©</button
+        >
+        <button
+          v-if="selectedRun.available_actions.includes('snapshot')"
+          type="button"
+          @click="runAction(selectedRun, 'snapshot')"
+          >Ø­ÙØ¸ Snapshot</button
+        >
+        <button
+          v-if="selectedRun.available_actions.includes('stop')"
+          class="button-muted"
+          type="button"
+          @click="runAction(selectedRun, 'stop')"
+          >Ø¥ÙŠÙ‚Ø§Ù</button
+        >
+      </div>
+    </header>
 
-        <div class="body-grid">
-            <aside class="left-rail" aria-label="Ø¨Ù†ÙŠØ© Ø§Ù„Ù…Ø­Ø§ÙƒØ§Ø© ÙˆØ§Ù„Ù…Ø¤Ø³Ø³Ø©">
-                <p class="rail-title">Ø§Ù„Ù…Ø­Ø§ÙƒØ§Ø© ÙˆØ§Ù„Ù…Ø¤Ø³Ø³Ø©</p>
-                <nav>
-                    <Link
-                        v-for="item in navigation"
-                        :key="item.key"
-                        :href="item.href"
-                        class="nav-link"
-                        :class="{ active: item.key === section }"
-                    >{{ item.label }}</Link>
-                </nav>
-                <div class="boundary-note">
-                    <strong>V1</strong>
-                    <span>Internal High-Fidelity Simulation</span>
-                    <small>Ù„Ø§ ÙŠÙˆØ¬Ø¯ Runtime Ø®Ø§Ø±Ø¬ÙŠ Ø£Ùˆ Provider Connector.</small>
-                </div>
-            </aside>
-
-            <main class="center-surface">
-                <div v-if="records.length === 0" class="empty-state">
-                    <h2>Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¨ÙŠØ§Ù†Ø§Øª Ù…Ø­ÙÙˆØ¸Ø© Ø¨Ø¹Ø¯</h2>
-                    <p>Ù‡Ø°Ù‡ Ø§Ù„ÙˆØ§Ø¬Ù‡Ø© ØªÙ‚Ø±Ø£ Ø§Ù„Ø­Ø§Ù„Ø© Ø§Ù„ÙØ¹Ù„ÙŠØ© Ù…Ù† PostgreSQL. Ù„Ù… ØªÙÙ†Ø´Ø£ ØªØ¹Ø±ÙŠÙØ§Øª Ù…Ù†Ø´ÙˆØ±Ø© ÙÙŠ Ù‡Ø°Ø§ Ø§Ù„Ù†Ø·Ø§Ù‚ Ø¨Ø¹Ø¯.</p>
-                </div>
-
-                <template v-if="section === 'enterprise'">
-                    <article v-for="enterprise in enterprises" :key="enterprise.id" class="record-card" :class="{ selected: selectedId === enterprise.id }" @click="selectedId = enterprise.id">
-                        <div class="record-heading">
-                            <div><span v-if="enterprise.is_fixture" class="fixture-badge">Ø¨ÙŠØ§Ù†Ø§Øª ØªØ¬Ø±ÙŠØ¨ÙŠØ©</span><h2>{{ enterprise.name_ar }}</h2></div>
-                            <span class="technical slug">{{ enterprise.slug }}</span>
-                        </div>
-                        <div class="causal-strip">
-                            <span>Enterprise</span><b>â†</b><span>Digital Twin Revision {{ enterprise.digital_twin_revision?.revision ?? 'â€”' }}</span><b>â†</b><span>Baseline {{ enterprise.baseline?.revision ?? 'â€”' }}</span>
-                        </div>
-                        <section class="topology-card">
-                            <h3>Ø§Ù„Ø­Ø§Ù„Ø© Ø§Ù„Ø¨Ù†ÙŠÙˆÙŠØ© Ø§Ù„Ù…Ø«Ø¨ØªØ©</h3>
-                            <pre class="technical">{{ jsonText(enterprise.digital_twin_revision?.topology ?? {}) }}</pre>
-                        </section>
-                        <section class="state-card">
-                            <h3>Baseline State</h3>
-                            <pre class="technical">{{ jsonText(enterprise.baseline?.state ?? {}) }}</pre>
-                        </section>
-                    </article>
-                </template>
-
-                <template v-else-if="section === 'scenarios'">
-                    <article v-for="scenario in scenarios" :key="scenario.id" class="record-card" :class="{ selected: selectedId === scenario.id }" @click="selectedId = scenario.id">
-                        <div class="record-heading"><h2>{{ scenario.title_ar }}</h2><span class="technical">Revision {{ scenario.revision }}</span></div>
-                        <p class="technical id-line">{{ scenario.slug }}</p>
-                        <h3>Lab Module References</h3>
-                        <div v-if="scenario.lab_module_references.length" class="module-list">
-                            <div v-for="module in scenario.lab_module_references" :key="module.reference_id" class="module-row">
-                                <span>{{ module.lab_title_ar }}</span><code>{{ module.module_key }}</code><small>Reference â†’ Lab Definition</small>
-                            </div>
-                        </div>
-                        <p v-else class="muted">Ù„Ø§ ØªÙˆØ¬Ø¯ Lab Module References Ù„Ù‡Ø°Ø§ Ø§Ù„Ø³ÙŠÙ†Ø§Ø±ÙŠÙˆ.</p>
-                        <button type="button" @click.stop="prepareScenario(scenario.id)">Prepare Scenario Run</button>
-                    </article>
-                </template>
-
-                <template v-else-if="section === 'labs'">
-                    <article v-for="lab in labs" :key="lab.id" class="record-card" :class="{ selected: selectedId === lab.id }" @click="selectedId = lab.id">
-                        <div class="record-heading"><h2>{{ lab.title_ar }}</h2><span class="technical">Revision {{ lab.revision }}</span></div>
-                        <p class="technical id-line">{{ lab.slug }}</p>
-                        <h3>ØªØ¹Ø±ÙŠÙ Ø§Ù„Ù…Ø®ØªØ¨Ø±</h3>
-                        <pre class="technical">{{ jsonText(lab.configuration) }}</pre>
-                        <button type="button" @click.stop="prepareLab(lab.id)">Prepare Standalone Lab Run</button>
-                    </article>
-                </template>
-
-                <template v-else-if="section === 'runs'">
-                    <article v-for="run in runs" :key="run.id" class="record-card run-card" :class="{ selected: selectedId === run.id }" @click="selectedId = run.id">
-                        <div class="record-heading">
-                            <div><h2>{{ run.definition_title_ar }}</h2><p class="technical id-line">{{ run.id }}</p></div>
-                            <div class="status-stack"><span class="technical run-type">{{ runTypeLabel(run.run_type) }}</span><strong class="technical lifecycle">{{ run.lifecycle }}</strong></div>
-                        </div>
-                        <div class="runtime-facts">
-                            <span>Seed <b class="technical">{{ run.seed }}</b></span>
-                            <span>Events <b>{{ run.events.length }}</b></span>
-                            <span>Snapshots <b>{{ run.snapshots.length }}</b></span>
-                        </div>
-                        <div v-if="run.runtime_state.telemetry && hasKeys(run.runtime_state.telemetry)" class="telemetry-grid">
-                            <div v-for="(value, key) in run.runtime_state.telemetry" :key="String(key)"><small class="technical">{{ key }}</small><strong class="technical">{{ value }}</strong></div>
-                        </div>
-                    </article>
-                </template>
-
-                <template v-else-if="section === 'results'">
-                    <article v-for="result in results" :key="result.id" class="record-card result-card" :class="{ selected: selectedId === result.id }" @click="selectedId = result.id">
-                        <div class="record-heading">
-                            <div><h2>Ù†ØªÙŠØ¬Ø© ØªØ´ØºÙŠÙ„ Ù…Ø®ØªÙˆÙ…Ø©</h2><p class="technical id-line">Run {{ result.run_id }}</p></div>
-                            <div class="status-stack"><span class="technical">{{ runTypeLabel(result.run_type) }}</span><strong class="technical outcome">{{ result.outcome }}</strong></div>
-                        </div>
-                        <div class="runtime-facts"><span>Run Lifecycle <b class="technical">{{ result.run_lifecycle }}</b></span><span>Score <b class="technical">{{ result.score ?? 'â€”' }}</b></span><span>Sealed <b class="technical">{{ result.sealed_at }}</b></span></div>
-                        <h3>Event-Semantic Replay Timeline</h3>
-                        <ol class="timeline">
-                            <li v-for="event in result.replay_timeline" :key="event.sequence"><code>{{ event.sequence }}</code><strong class="technical">{{ event.event_type }}</strong><span>{{ event.occurred_at }}</span></li>
-                        </ol>
-                    </article>
-                </template>
-            </main>
-
-            <aside class="right-context" aria-label="Ø§Ù„Ø³ÙŠØ§Ù‚ Ø§Ù„ÙØ±ÙŠØ¯">
-                <template v-if="selectedEnterprise">
-                    <h2>Ø³ÙŠØ§Ù‚ Ø§Ù„Ù…Ø¤Ø³Ø³Ø©</h2>
-                    <p>{{ selectedEnterprise.description_ar || 'ØªØ¹Ø±ÙŠÙ Ù…Ø­Ø§ÙƒØ§Ø© Ù…Ø¤Ø³Ø³ÙŠØ© Ø¯Ø§Ø®Ù„ÙŠØ© Ù…Ø«Ø¨ØªØ© ÙˆÙ‚Ø§Ø¨Ù„Ø© Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„ØªÙ†ÙÙŠØ°.' }}</p>
-                    <h3>Ø®ØµØ§Ø¦Øµ Ø§Ù„ØªØ¹Ø±ÙŠÙ</h3><pre class="technical">{{ jsonText(selectedEnterprise.definition) }}</pre>
-                    <h3>Ø³Ù„Ø§Ù…Ø© Ø§Ù„Ù†Ø³Ø®</h3><p>Digital Twin ÙˆBaseline Ù…Ø«Ø¨ØªØ§Ù† Ø¨ÙˆØ§Ø³Ø·Ø© digestsØŒ ÙˆÙ„Ø§ ÙŠØªÙ… Ø§Ø´ØªÙ‚Ø§Ù‚Ù‡Ù…Ø§ Ù…Ù† Ø­Ø§Ù„Ø© Run Ø§Ù„Ù…ØªØºÙŠØ±Ø©.</p>
-                </template>
-                <template v-else-if="selectedScenario">
-                    <h2>ØªØ¹Ø±ÙŠÙ Ø§Ù„Ø³ÙŠÙ†Ø§Ø±ÙŠÙˆ</h2>
-                    <h3>Orchestration</h3><pre class="technical">{{ jsonText(selectedScenario.orchestration) }}</pre>
-                    <h3>Validation</h3><pre class="technical">{{ jsonText(selectedScenario.validation) }}</pre>
-                    <p class="context-rule">Scenario Ù‡Ùˆ ÙƒØ§Ø¦Ù† orchestration Ù…Ø³ØªÙ‚Ù„Ø› Ù…Ø±Ø¬Ø¹ Lab Ù„Ø§ ÙŠØªØ­ÙˆÙ„ Ø¥Ù„Ù‰ Standalone Lab Run Ø¯Ø§Ø®Ù„ Scenario Run.</p>
-                </template>
-                <template v-else-if="selectedLab">
-                    <h2>Ø³ÙŠØ§Ù‚ Ø§Ù„Ù…Ø®ØªØ¨Ø±</h2>
-                    <h3>Validation</h3><pre class="technical">{{ jsonText(selectedLab.validation) }}</pre>
-                    <h3>Ù…Ø±Ø¬Ø¹ Baseline</h3><code class="technical wrap">{{ selectedLab.baseline_id }}</code>
-                    <h3>Digest</h3><code class="technical wrap">{{ selectedLab.digest }}</code>
-                </template>
-                <template v-else-if="selectedRun">
-                    <h2>Ø³ÙŠØ§Ù‚ Ø§Ù„ØªØ´ØºÙŠÙ„</h2>
-                    <h3>Lineage Ø§Ù„Ù…Ø«Ø¨Øª</h3>
-                    <dl><dt>Digital Twin Revision</dt><dd class="technical">{{ selectedRun.digital_twin_revision_id }}</dd><dt>Baseline</dt><dd class="technical">{{ selectedRun.baseline_id }}</dd><dt>Input Digest</dt><dd class="technical">{{ selectedRun.input_digest }}</dd></dl>
-                    <h3>Execution Policies</h3><pre class="technical">{{ jsonText(selectedRun.execution_policies) }}</pre>
-                    <form v-if="['COMPLETED','STOPPED','FAILED'].includes(selectedRun.lifecycle) && !selectedRun.result_id" class="action-form" @submit.prevent="sealSelectedRun">
-                        <h3>Ø®ØªÙ… Result</h3>
-                        <label>Outcome<select v-model="resultOutcome"><option v-for="outcome in outcomes" :key="outcome">{{ outcome }}</option></select></label>
-                        <label>Ø§Ù„ØªÙØ³ÙŠØ±<textarea v-model="resultSummary" rows="4" /></label>
-                        <label>Score<input v-model.number="resultScore" type="number" min="0" max="100" step="0.01" /></label>
-                        <button type="submit">Ø®ØªÙ… Ø§Ù„Ù†ØªÙŠØ¬Ø© Ø§Ù„ØªØ§Ø±ÙŠØ®ÙŠØ©</button>
-                    </form>
-                    <p v-else-if="selectedRun.result_id" class="sealed-note">Ù„Ù‡Ø°Ø§ Ø§Ù„ØªØ´ØºÙŠÙ„ Result Ù…Ø®ØªÙˆÙ… Ø¨Ø§Ù„ÙØ¹Ù„Ø› Ù„Ø§ ÙŠÙ…ÙƒÙ† Ø¥Ø¹Ø§Ø¯Ø© ÙƒØªØ§Ø¨Ø© Ø§Ù„ØªØ§Ø±ÙŠØ®.</p>
-                </template>
-                <template v-else-if="selectedResult">
-                    <h2>Ø§Ù„ØªÙØ³ÙŠØ± ÙˆØ­Ø¯Ù‘ Evidence</h2>
-                    <p>{{ selectedResult.summary_ar }}</p>
-                    <h3>Candidate Evidence Handoff</h3>
-                    <div v-if="selectedResult.candidate_evidence_handoff" class="handoff-state">
-                        <strong class="technical">{{ selectedResult.candidate_evidence_handoff.status }}</strong>
-                        <p>ØªÙ… Ø¥Ù†Ø´Ø§Ø¡ Handoff ÙÙ‚Ø·. Ù‚Ø¨ÙˆÙ„ Evidence ÙˆØ§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø© ÙˆMastery Ù„ÙŠØ³Øª Ù…Ù„ÙƒÙ‹Ø§ Ù„Ù€ Simulation &amp; Enterprise.</p>
-                    </div>
-                    <form v-else class="action-form" @submit.prevent="createHandoff">
-                        <label>Candidate claim<textarea v-model="handoffClaim" rows="5" /></label>
-                        <button type="submit">Prepare Candidate Evidence Handoff</button>
-                    </form>
-                </template>
-                <p v-else class="muted">Ø§Ø®ØªØ± Ø³Ø¬Ù„Ù‹Ø§ Ù…Ù† Ø³Ø·Ø­ Ø§Ù„Ø¹Ù…Ù„ Ù„Ø¹Ø±Ø¶ Ø³ÙŠØ§Ù‚Ù‡ Ø¯ÙˆÙ† ØªÙƒØ±Ø§Ø± Ø§Ù„Ø­Ù‚Ø§Ø¦Ù‚ Ø§Ù„Ø£Ø³Ø§Ø³ÙŠØ©.</p>
-            </aside>
+    <div class="body-grid">
+      <aside class="left-rail" aria-label="Ø¨Ù†ÙŠØ© Ø§Ù„Ù…Ø­Ø§ÙƒØ§Ø© ÙˆØ§Ù„Ù…Ø¤Ø³Ø³Ø©">
+        <p class="rail-title">Ø§Ù„Ù…Ø­Ø§ÙƒØ§Ø© ÙˆØ§Ù„Ù…Ø¤Ø³Ø³Ø©</p>
+        <nav>
+          <Link
+            v-for="item in navigation"
+            :key="item.key"
+            :href="item.href"
+            class="nav-link"
+            :class="{ active: item.key === section }"
+            >{{ item.label }}</Link
+          >
+        </nav>
+        <div class="boundary-note">
+          <strong>V1</strong>
+          <span>Internal High-Fidelity Simulation</span>
+          <small>Ù„Ø§ ÙŠÙˆØ¬Ø¯ Runtime Ø®Ø§Ø±Ø¬ÙŠ Ø£Ùˆ Provider Connector.</small>
         </div>
+      </aside>
 
-        <details v-if="section === 'runs' && selectedRun" class="bottom-workspace">
-            <summary>Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„ Ø§Ù„Ø¹Ù…ÙŠÙ‚Ø© Ø§Ù„Ù…Ø¤Ù‚ØªØ© â€” Timeline / Snapshots</summary>
-            <div class="bottom-grid">
-                <section><h3>Event Timeline</h3><ol class="timeline"><li v-for="event in selectedRun.events" :key="event.sequence"><code>{{ event.sequence }}</code><strong class="technical">{{ event.event_type }}</strong><pre class="technical">{{ jsonText(event.payload) }}</pre></li></ol></section>
-                <section><h3>Runtime Snapshots</h3><div v-for="snapshot in selectedRun.snapshots" :key="snapshot.id" class="snapshot-row"><strong>Snapshot {{ snapshot.sequence }}</strong><code class="technical wrap">{{ snapshot.state_digest }}</code></div></section>
-            </div>
-        </details>
-        <details v-else-if="section === 'results' && selectedResult" class="bottom-workspace">
-            <summary>Ù…Ø³Ø§Ø­Ø© Replay Ø§Ù„Ø¹Ù…ÙŠÙ‚Ø© Ø§Ù„Ù…Ø¤Ù‚ØªØ© â€” Artifacts / Frozen Payload</summary>
-            <div class="bottom-grid"><section><h3>Artifacts</h3><pre class="technical">{{ jsonText(selectedResult.artifacts) }}</pre></section><section><h3>Frozen Result Payload</h3><pre class="technical">{{ jsonText(selectedResult.sealed_payload) }}</pre></section></div>
-        </details>
-    </div>
-</template>
-
-<style scoped>
-.workspace { min-height: 100vh; background: #0b1118; color: #e7edf4; font-family: Inter, "Noto Sans Arabic", system-ui, sans-serif; }
-.topbar { min-height: 108px; padding: 24px 28px; border-bottom: 1px solid #263240; display: flex; align-items: center; justify-content: space-between; gap: 28px; background: #101923; }
-.eyebrow { margin: 0 0 5px; direction: ltr; text-align: right; color: #8da2b8; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
-h1, h2, h3, p { margin-top: 0; } h1 { margin-bottom: 6px; font-size: 25px; } h2 { font-size: 18px; margin-bottom: 10px; } h3 { font-size: 13px; color: #b6c5d5; margin: 18px 0 8px; }
-.subtitle { margin: 0; color: #9fb0c2; max-width: 780px; }
-.body-grid { display: grid; grid-template-columns: 190px minmax(0, 1fr) 310px; min-height: calc(100vh - 108px); }
-.left-rail, .right-context { background: #0e161f; padding: 22px 18px; }
-.left-rail { border-left: 1px solid #263240; } .right-context { border-right: 1px solid #263240; }
-.rail-title { color: #8da2b8; font-size: 12px; margin-bottom: 16px; }.nav-link { display: block; padding: 10px 12px; margin-bottom: 4px; border-radius: 8px; color: #c4d0dc; text-decoration: none; border: 1px solid transparent; }.nav-link.active { background: #172433; border-color: #36506a; color: #fff; }
-.boundary-note { margin-top: 28px; padding: 12px; border: 1px solid #263a4e; border-radius: 8px; display: grid; gap: 5px; color: #aebdcb; }.boundary-note strong, .boundary-note span { direction: ltr; unicode-bidi: isolate; }.boundary-note small { line-height: 1.7; }
-.center-surface { padding: 24px; overflow: auto; }.record-card { border: 1px solid #263746; background: #111b25; border-radius: 12px; padding: 18px; margin-bottom: 14px; cursor: pointer; }.record-card.selected { border-color: #57789a; box-shadow: 0 0 0 1px #314d67 inset; }.record-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }.record-heading h2 { margin-bottom: 4px; }.slug, .id-line { color: #8397aa; font-size: 12px; }.fixture-badge { display: inline-block; margin-bottom: 7px; font-size: 11px; color: #d6c79a; border: 1px solid #6d6040; border-radius: 999px; padding: 2px 8px; }
-.causal-strip { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; direction: ltr; unicode-bidi: isolate; margin: 14px 0; font-size: 12px; color: #afc0d0; }.topology-card, .state-card { border-top: 1px solid #243443; }.module-list { display: grid; gap: 8px; }.module-row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; background: #0d151e; padding: 10px; border-radius: 8px; }.module-row code, .module-row small { direction: ltr; unicode-bidi: isolate; }
-button { border: 1px solid #486681; border-radius: 8px; padding: 9px 12px; background: #1a3146; color: #f1f6fb; cursor: pointer; font: inherit; } button:hover { background: #22405a; }.button-muted { background: transparent; border-color: #534f55; }.prepare-tools, .run-actions { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }.prepare-tools label { display: grid; gap: 5px; color: #9fb0c2; font-size: 12px; }
-input, select, textarea { border: 1px solid #34485b; border-radius: 7px; background: #0b141d; color: #eef4fa; padding: 8px; font: inherit; }.input-small { width: 120px; }.action-form { display: grid; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #263746; }.action-form label { display: grid; gap: 5px; color: #aebdcb; font-size: 12px; }
-pre { margin: 7px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; background: #091018; border: 1px solid #202f3c; border-radius: 8px; padding: 10px; color: #b9cada; font-size: 11px; line-height: 1.55; }.technical { direction: ltr; unicode-bidi: isolate; text-align: left; }.wrap { overflow-wrap: anywhere; white-space: normal; }.right-context { overflow: auto; }.right-context p { color: #aebdcb; line-height: 1.75; font-size: 13px; }.right-context dl { margin: 0; }.right-context dt { color: #8397aa; font-size: 11px; margin-top: 10px; }.right-context dd { margin: 3px 0 0; font-size: 11px; overflow-wrap: anywhere; }.context-rule, .sealed-note, .handoff-state { border: 1px solid #33475a; border-radius: 8px; padding: 11px; background: #111d28; }.handoff-state strong { display: block; margin-bottom: 8px; }
-.status-stack { display: grid; justify-items: end; gap: 6px; }.run-type { color: #9fb1c4; font-size: 11px; }.lifecycle, .outcome { border: 1px solid #526b84; border-radius: 999px; padding: 4px 9px; font-size: 11px; }.runtime-facts { display: flex; flex-wrap: wrap; gap: 16px; padding-top: 12px; margin-top: 12px; border-top: 1px solid #243443; color: #8fa2b4; font-size: 12px; }.runtime-facts b { color: #dce8f2; margin-inline-start: 4px; }.telemetry-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-top: 12px; }.telemetry-grid div { background: #0c151e; padding: 9px; border-radius: 7px; display: grid; gap: 5px; }.telemetry-grid small { color: #8095a8; }.timeline { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }.timeline li { display: grid; grid-template-columns: 38px minmax(130px, auto) 1fr; gap: 10px; align-items: start; border-right: 2px solid #36516b; padding: 8px 10px; background: #0d161f; font-size: 11px; }.timeline li span { color: #71869a; direction: ltr; text-align: left; }
-.bottom-workspace { border-top: 1px solid #263240; background: #0a121a; padding: 0 28px; }.bottom-workspace summary { cursor: pointer; padding: 15px 0; color: #b7c6d5; }.bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding-bottom: 22px; }.snapshot-row { display: grid; gap: 5px; padding: 10px; border-bottom: 1px solid #263240; }.empty-state { max-width: 700px; margin: 60px auto; text-align: center; border: 1px dashed #354a5d; border-radius: 12px; padding: 30px; color: #9fb0c2; }.empty-state code { direction: ltr; unicode-bidi: isolate; display: inline-block; margin-top: 10px; }.muted { color: #71869a; }
-@media (max-width: 1100px) { .body-grid { grid-template-columns: 160px minmax(0, 1fr); }.right-context { grid-column: 1 / -1; border-right: 0; border-top: 1px solid #263240; }.topbar { align-items: flex-start; flex-direction: column; }.bottom-grid { grid-template-columns: 1fr; } }
-</style>
+      <main class="center-surface">
+        <div v-if="records.length === 0" class="empty-state">
+          <h2>Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¨ÙŠØ§Ù†Ø§Øª Ù…Ø­ÙÙˆØ¸Ø© Ø¨Ø¹Ø¯</h2>
+          <p>Ù‡Ø°Ù‡ Ø§Ù„ÙˆØ§Ø¬Ù‡Ø© ØªÙ‚Ø±Ø£ Ø§Ù„Ø­Ø§Ù„Ø© Ø§Ù„ÙØ¹Ù„ÙŠØ© Ù…Ù† PostgreSQL. Ù„Ù… ØªÙÙ†Ø´Ø£ ØªØ¹Ø±ÙŠÙØ§Øª Ù…Ù†-6b6,v*H6`vbˆ6aö,6)È6)öa6a¶-ö)ö`ˆ6*6.v+ËÜ‚ˆÙ]‚‚ˆ[\]H‹ZYHœÙXİ[ÛˆOOH	Ù[\œš\ÙIÈ‚ˆ\XÛBˆ‹Y›ÜH™[\œš\ÙH[ˆ[\œš\Ù\È‚ˆšÙ^OH™[\œš\ÙKšY‚ˆÛ\ÜÏHœ™XÛÜ™XØ\™‚ˆ˜Û\ÜÏHÈÙ[XİYˆÙ[XİYYOOH[\œš\ÙKšYH‚ˆÛXÚÏHœÙ[XİYYH[\œš\ÙKšY‚ˆ‚ˆ]ˆÛ\ÜÏHœ™XÛÜ™ZXY[™È‚ˆ]‚ˆÜ[ˆ‹ZYH™[\œš\ÙKš\×Ùš^\™HˆÛ\ÜÏH™š^\™KX˜YÙH¶*6b¶)öa¶)ö*ˆ6*¶+6,vb¶*6b¶*OÜÜ[‚ˆŞÈ[\œš\ÙK›˜[YWØ\ˆ_OÚ‚ˆÙ]‚ˆÜ[ˆÛ\ÜÏHXÚšXØ[ÛYÈŞÈ[\œš\ÙKœÛYÈ_OÜÜ[‚ˆÙ]‚ˆ]ˆÛ\ÜÏH˜Ø]\Ø[\İš\‚ˆÜ[‘[\œš\ÙOÜÜ[¸¡¤Ø‚ˆÜ[‘YÚ][Ú[ˆ™]š\Ú[ÛˆŞÈ[\œš\ÙK™YÚ][İÚ[—Ü™]š\Ú[ÛËœ™]š\Ú[ÛˆÏÈ	ø %	È_OÜÜ[‚ˆ¸¡¤ØÜ[˜\Ù[[™HŞÈ[\œš\ÙK˜˜\Ù[[™OËœ™]š\Ú[ÛˆÏÈ	ø %	È_OÜÜ[‚ˆÙ]‚ˆÙXİ[ÛˆÛ\ÜÏHÜÛÙŞKXØ\™‚ˆÏ¶)öa6+v)öa6*H6)öa6*6a¶b¶b6b¶*H6)öa6av*ö*6*¶*OÚÏ‚ˆ™HÛ\ÜÏHXÚšXØ[ŞÈœÛÛ•^
+[\œš\ÙK™YÚ][İÚ[—Ü™]š\Ú[ÛËÜÛÙŞHÏÈßJH_OÜ™O‚ˆÜÙXİ[Û‚ˆÙXİ[ÛˆÛ\ÜÏHœİ]KXØ\™‚ˆÏ˜\Ù[[™Hİ]OÚÏ‚ˆ™HÛ\ÜÏHXÚšXØ[ŞÈœÛÛ•^
+[\œš\ÙK˜˜\Ù[[™OËœİ]HÏÈßJH_OÜ™O‚ˆÜÙXİ[Û‚ˆØ\XÛO‚ˆİ[\]O‚‚ˆ[\]H‹Y[ÙKZYHœÙXİ[ÛˆOOH	ÜØÙ[˜\š[ÜÉÈ‚ˆ\XÛBˆ‹Y›ÜHœØÙ[˜\š[È[ˆØÙ[˜\š[ÜÈ‚ˆšÙ^OHœØÙ[˜\š[ËšY‚ˆÛ\ÜÏHœ™XÛÜ™XØ\™‚ˆ˜Û\ÜÏHÈÙ[XİYˆÙ[XİYYOOHØÙ[˜\š[ËšYH‚ˆÛXÚÏHœÙ[XİYYHØÙ[˜\š[ËšY‚ˆ‚ˆ]ˆÛ\ÜÏHœ™XÛÜ™ZXY[™È‚ˆŞÈØÙ[˜\š[Ë]WØ\ˆ_OÚ‚ˆÜ[ˆÛ\ÜÏHXÚšXØ[”™]š\Ú[ÛˆŞÈØÙ[˜\š[Ëœ™]š\Ú[Ûˆ_OÜÜ[‚ˆÙ]‚ˆÛ\ÜÏHXÚšXØ[Y[[™HŞÈØÙ[˜\š[ËœÛYÈ_OÜ‚ˆÏ“Xˆ[Ù[H™Y™\™[˜Ù\ÏÚÏ‚ˆ]ˆ‹ZYHœØÙ[˜\š[Ë›X—Û[Ù[WÜ™Y™\™[˜Ù\Ë›[™İˆÛ\ÜÏH›[Ù[K[\İ‚ˆ]‚ˆ‹Y›ÜH›[Ù[H[ˆØÙ[˜\š[Ë›X—Û[Ù[WÜ™Y™\™[˜Ù\È‚ˆšÙ^OH›[Ù[Kœ™Y™\™[˜ÙWÚY‚ˆÛ\ÜÏH›[Ù[K\›İÈ‚ˆ‚ˆÜ[ŞÈ[Ù[K›X—İ]WØ\ˆ_OÜÜ[ÛÙOŞÈ[Ù[K›[Ù[WÚÙ^H_OØÛÙBˆÛX[”™Y™\™[˜ÙH8¡¤ˆXˆYš[š][ÛÜÛX[‚ˆÙ]‚ˆÙ]‚ˆ‹Y[ÙHÛ\ÜÏH›]]Y¶a6)È6*¶b6+6+ÈXˆ[Ù[H™Y™\™[˜Ù\È6a6aö,6)È6)öa6,öb¶a¶)ö,vb¶bÜ‚ˆ]Ûˆ\OH˜]ÛˆˆÛXÚËœİÜHœ™\\™TØÙ[˜\š[ÊØÙ[˜\š[ËšY
+H‚ˆ™\\™HØÙ[˜\š[È[‚ˆØ]Û‚ˆØ\XÛO‚ˆİ[\]O‚‚ˆ[\]H‹Y[ÙKZYHœÙXİ[ÛˆOOH	ÛXœÉÈ‚ˆ\XÛBˆ‹Y›ÜH›Xˆ[ˆXœÈ‚ˆšÙ^OH›X‹šY‚ˆÛ\ÜÏHœ™XÛÜ™XØ\™‚ˆ˜Û\ÜÏHÈÙ[XİYˆÙ[XİYYOOHX‹šYH‚ˆÛXÚÏHœÙ[XİYYHX‹šY‚ˆ‚ˆ]ˆÛ\ÜÏHœ™XÛÜ™ZXY[™È‚ˆŞÈX‹]WØ\ˆ_OÚ‚ˆÜ[ˆÛ\ÜÏHXÚšXØ[”™]š\Ú[ÛˆŞÈX‹œ™]š\Ú[Ûˆ_OÜÜ[‚ˆÙ]‚ˆÛ\ÜÏHXÚšXØ[Y[[™HŞÈX‹œÛYÈ_OÜ‚ˆÏ¶*¶.v,vb¶`H6)öa6av+¶*¶*6,OÚÏ‚ˆ™HÛ\ÜÏHXÚšXØ[ŞÈœÛÛ•^
+X‹˜ÛÛ™šYİ\˜][ÛŠH_OÜ™O‚ˆ]Ûˆ\OH˜]ÛˆˆÛXÚËœİÜHœ™\\™SXŠX‹šY
+H‚ˆ™\\™Hİ[™[Û™HXˆ[‚ˆØ]Û‚ˆØ\XÛO‚ˆİ[\]O‚‚ˆ[\]H‹Y[ÙKZYHœÙXİ[ÛˆOOH	Ü[œÉÈ‚ˆ\XÛBˆ‹Y›ÜHœ[ˆ[ˆ[œÈ‚ˆšÙ^OHœ[‹šY‚ˆÛ\ÜÏHœ™XÛÜ™XØ\™[‹XØ\™‚ˆ˜Û\ÜÏHÈÙ[XİYˆÙ[XİYYOOH[‹šYH‚ˆÛXÚÏHœÙ[XİYYH[‹šY‚ˆ‚ˆ]ˆÛ\ÜÏHœ™XÛÜ™ZXY[™È‚ˆ]‚ˆŞÈ[‹™Yš[š][Û—İ]WØ\ˆ_OÚ‚ˆÛ\ÜÏHXÚšXØ[Y[[™HŞÈ[‹šY_OÜ‚ˆÙ]‚ˆ]ˆÛ\ÜÏHœİ]\Ë\İXÚÈ‚ˆÜ[ˆÛ\ÜÏHXÚšXØ[[‹]\HŞÈ[•\SX™[
+[‹œ[—İ\JH_OÜÜ[‚ˆİ›Û™ÈÛ\ÜÏHXÚšXØ[Y™XŞXÛHŞÈ[‹›Y™XŞXÛH_OÜİ›Û™Ï‚ˆÙ]‚ˆÙ]‚ˆ]ˆÛ\ÜÏHœ[[YKY˜XİÈ‚ˆÜ[”ÙYYˆÛ\ÜÏHXÚšXØ[ŞÈ[‹œÙYY_OØÜÜ[‚ˆÜ[‘]™[ÈŞÈ[‹™]™[Ë›[™İ_OØÜÜ[‚ˆÜ[”Û˜\ÚİÈŞÈ[‹œÛ˜\ÚİË›[™İ_OØÜÜ[‚ˆÙ]‚ˆ]‚ˆ‹ZYHœ[‹œ[[YWÜİ]K[[Y]H	‰ˆ\ÒÙ^\Ê[‹œ[[YWÜİ]K[[Y]JH‚ˆÛ\ÜÏH[[Y]KYÜšY‚ˆ‚ˆ]ˆ‹Y›ÜHŠ˜[YKÙ^JH[ˆ[‹œ[[YWÜİ]K[[Y]HˆšÙ^OH”İš[™ÊÙ^JH‚ˆÛX[Û\ÜÏHXÚšXØ[ŞÈÙ^H_OÜÛX[ˆİ›Û™ÈÛ\ÜÏHXÚšXØ[ŞÈ˜[YH_OÜİ›Û™Ï‚ˆÙ]‚ˆÙ]‚ˆØ\XÛO‚ˆİ[\]O‚‚ˆ[\]H‹Y[ÙKZYHœÙXİ[ÛˆOOH	Ü™\İ[ÉÈ‚ˆ\XÛBˆ‹Y›ÜHœ™\İ[[ˆ™\İ[È‚ˆšÙ^OHœ™\İ[šY‚ˆÛ\ÜÏHœ™XÛÜ™XØ\™™\İ[XØ\™‚ˆ˜Û\ÜÏHÈÙ[XİYˆÙ[XİYYOOH™\İ[šYH‚ˆÛXÚÏHœÙ[XİYYH™\İ[šY‚ˆ‚ˆ]ˆÛ\ÜÏHœ™XÛÜ™ZXY[™È‚ˆ]‚ˆ¶a¶*¶b¶+6*H6*¶-6.¶b¶a6av+¶*¶b6av*OÚ‚ˆÛ\ÜÏHXÚšXØ[Y[[™H”[ˆŞÈ™\İ[œ[—ÚY_OÜ‚ˆÙ]‚ˆ]ˆÛ\ÜÏHœİ]\Ë\İXÚÈ‚ˆÜ[ˆÛ\ÜÏHXÚšXØ[ŞÈ[•\SX™[
+™\İ[œ[—İ\JH_OÜÜ[‚ˆİ›Û™ÈÛ\ÜÏHXÚšXØ[İ]ÛÛYHŞÈ™\İ[›İ]ÛÛYH_OÜİ›Û™Ï‚ˆÙ]‚ˆÙ]‚ˆ]ˆÛ\ÜÏHœ[[YKY˜XİÈ‚ˆÜ[”[ˆY™XŞXÛHˆÛ\ÜÏHXÚšXØ[ŞÈ™\İ[œ[—ÛY™XŞXÛH_OØÜÜ[‚ˆÜ[”ØÛÜ™HˆÛ\ÜÏHXÚšXØ[ŞÈ™\İ[œØÛÜ™HÏÈ	ø %	È_OØÜÜ[‚ˆÜ[”ÙX[YˆÛ\ÜÏHXÚšXØ[ŞÈ™\İ[œÙX[YØ]_OØÜÜ[‚ˆÙ]‚ˆÏ‘]™[TÙ[X[XÈ™\^H[Y[[™OÚÏ‚ˆÛÛ\ÜÏH[Y[[™H‚ˆH‹Y›ÜH™]™[[ˆ™\İ[œ™\^Wİ[Y[[™HˆšÙ^OH™]™[œÙ\]Y[˜ÙH‚ˆÛÙOŞÈ]™[œÙ\]Y[˜ÙH_OØÛÙBˆİ›Û™ÈÛ\ÜÏHXÚšXØ[ŞÈ]™[™]™[İ\H_OÜİ›Û™ÂˆÜ[ŞÈ]™[›ØØİ\œ™YØ]_OÜÜ[‚ˆÛO‚ˆÛÛ‚ˆØ\XÛO‚ˆİ[\]O‚ˆÛXZ[‚‚ˆ\ÚYHÛ\ÜÏHœšYÚXÛÛ^ˆ\šXK[X™[H¶)öa6,öb¶)ö`ˆ6)öa6`v,vb¶+È‚ˆ[\]H‹ZYHœÙ[XİY[\œš\ÙH‚ˆ¶,öb¶)ö`ˆ6)öa6av)6,ö,ö*OÚ‚ˆ‚ˆŞÂˆÙ[XİY[\œš\ÙK™\ØÜš\[Û—Ø\ˆˆ	ö*¶.v,vb¶`H6av+v)ö`ö)ö*H6av)6,ö,öb¶*H6+ö)ö+¶a6b¶*H6av*ö*6*¶*H6b6`¶)ö*6a6*H6a6)v.v)ö+ö*H6)öa6*¶a¶`vb¶,‰Âˆ_BˆÜ‚ˆÏ¶+¶-v)ö)¶-H6)öa6*¶.v,vb¶`OÚÏ‚ˆ™HÛ\ÜÏHXÚšXØ[ŞÈœÛÛ•^
+Ù[XİY[\œš\ÙK™Yš[š][ÛŠH_OÜ™O‚ˆÏ¶,öa6)öav*H6)öa6a¶,ö+ÚÏ‚ˆ‘YÚ][Ú[ˆ6b˜\Ù[[™H6av*ö*6*¶)öaˆ6*6b6)ö,ö-ö*HYÙ\İö#6b6a6)È6b¶*¶aH6)ö-6*¶`¶)ö`¶aöav)È6avaˆ6+v)öa6*H[ˆ6)öa6av*¶.¶b¶,v*KÜ‚ˆİ[\]O‚ˆ[\]H‹Y[ÙKZYHœÙ[XİYØÙ[˜\š[È‚ˆ¶*¶.v,vb¶`H6)öa6,öb¶a¶)ö,vb¶bÚ‚ˆÏ“Ü˜Ú\İ˜][ÛÚÏ‚ˆ™HÛ\ÜÏHXÚšXØ[ŞÈœÛÛ•^
+Ù[XİYØÙ[˜\š[Ë›Ü˜Ú\İ˜][ÛŠH_OÜ™O‚ˆÏ•˜[Y][ÛÚÏ‚ˆ™HÛ\ÜÏHXÚšXØ[ŞÈœÛÛ•^
+Ù[XİYØÙ[˜\š[Ë˜[Y][ÛŠH_OÜ™O‚ˆÛ\ÜÏH˜ÛÛ^\[H‚ˆØÙ[˜\š[È6aöb6`ö)ö)¶aˆÜ˜Ú\İ˜][Ûˆ6av,ö*¶`¶a6&È6av,v+6.HXˆ6a6)È6b¶*¶+vb6a6)va6bHİ[™[Û™HXˆ[ˆ6+ö)ö+¶aˆØÙ[˜\š[È[‹‚ˆÜ‚ˆİ[\]O‚ˆ[\]H‹Y[ÙKZYHœÙ[XİYXˆ‚ˆ¶,öb¶)ö`ˆ6)öa6av+¶*¶*6,OÚ‚ˆÏ•˜[Y][ÛÚÏ‚ˆ™HÛ\ÜÏHXÚšXØ[ŞÈœÛÛ•^
+Ù[XİYX‹˜[Y][ÛŠH_OÜ™O‚ˆÏ¶av,v+6.H˜\Ù[[™OÚÏ‚ˆÛÙHÛ\ÜÏHXÚšXØ[Ü˜\ŞÈÙ[XİYX‹˜˜\Ù[[™WÚY_OØÛÙO‚ˆÏ‘YÙ\İÚÏ‚ˆÛÙHÛ\ÜÏHXÚšXØ[Ü˜\ŞÈÙ[XİYX‹™YÙ\İ_OØÛÙO‚ˆİ[\]O‚ˆ[\]H‹Y[ÙKZYHœÙ[XİY[ˆ‚ˆ¶,öb¶)ö`ˆ6)öa6*¶-6.¶b¶aÚ‚ˆÏ“[™XYÙH6)öa6av*ö*6*ÚÏ‚ˆ‚ˆ‘YÚ][Ú[ˆ™]š\Ú[ÛÙ‚ˆÛ\ÜÏHXÚšXØ[ŞÈÙ[XİY[‹™YÚ][İÚ[—Ü™]š\Ú[Û—ÚY_OÙ‚ˆ˜\Ù[[™OÙ‚ˆÛ\ÜÏHXÚšXØ[ŞÈÙ[XİY[‹˜˜\Ù[[™WÚY_OÙ‚ˆ’[œ]YÙ\İÙ‚ˆÛ\ÜÏHXÚšXØ[ŞÈÙ[XİY[‹š[œ]ÙYÙ\İ_OÙ‚ˆÙ‚ˆÏ‘^Xİ][ÛˆÛXÚY\ÏÚÏ‚ˆ™HÛ\ÜÏHXÚšXØ[ŞÈœÛÛ•^
+Ù[XİY[‹™^Xİ][Û—ÜÛXÚY\ÊH_OÜ™O‚ˆ›Ü›Bˆ‹ZYH‚ˆÉĞÓÓTUQ	Ë	ÔÕÔQ	Ë	ÑRSQ	×Kš[˜ÛY\ÊÙ[XİY[‹›Y™XŞXÛJH	‰‚ˆ\Ù[XİY[‹œ™\İ[ÚYˆ‚ˆÛ\ÜÏH˜Xİ[Û‹Y›Ü›H‚ˆİX›Z]œ™]™[HœÙX[Ù[XİY[ˆ‚ˆ‚ˆÏ¶+¶*¶aH™\İ[ÚÏ‚ˆX™[ˆ“İ]ÛÛYBˆÙ[Xİ‹[[Ù[Hœ™\İ[İ]ÛÛYH‚ˆÜ[Ûˆ‹Y›ÜH›İ]ÛÛYH[ˆİ]ÛÛY\ÈˆšÙ^OH›İ]ÛÛYHŞÈİ]ÛÛYH_OÛÜ[Û‚ˆÜÙ[Xİ‚ˆÛX™[‚ˆX™[ˆ¶)öa6*¶`v,öb¶,Bˆ^\™XH‹[[Ù[Hœ™\İ[İ[[X\Hˆ›İÜÏHˆÏ‚ˆÛX™[‚ˆX™[ˆ”ØÛÜ™Bˆ[œ]‹[[Ù[›[X™\Hœ™\İ[ØÛÜ™Hˆ\OH›[X™\ˆˆZ[HŒˆX^HŒLˆİ\HŒŒHˆÏ‚ˆÛX™[‚ˆ]Ûˆ\OHœİX›Z]¶+¶*¶aH6)öa6a¶*¶b¶+6*H6)öa6*¶)ö,vb¶+¶b¶*OØ]Û‚ˆÙ›Ü›O‚ˆ‹Y[ÙKZYHœÙ[XİY[‹œ™\İ[ÚYˆÛ\ÜÏHœÙX[Y[›İH‚ˆ6a6aö,6)È6)öa6*¶-6.¶b¶a™\İ[6av+¶*¶b6aH6*6)öa6`v.va6&È6a6)È6b¶av`öaˆ6)v.v)ö+ö*H6`ö*¶)ö*6*H6)öa6*¶)ö,vb¶+‹‚ˆÜ‚ˆİ[\]O‚ˆ[\]H‹Y[ÙKZYHœÙ[XİY™\İ[‚ˆ¶)öa6*¶`v,öb¶,H6b6+v+ödH]šY[˜ÙOÚ‚ˆŞÈÙ[XİY™\İ[œİ[[X\WØ\ˆ_OÜ‚ˆÏØ[™Y]H]šY[˜ÙH[™Ù™ÚÏ‚ˆ]ˆ‹ZYHœÙ[XİY™\İ[˜Ø[™Y]WÙ]šY[˜ÙWÚ[™Ù™ˆˆÛ\ÜÏHš[™Ù™‹\İ]H‚ˆİ›Û™ÈÛ\ÜÏHXÚšXØ[ŞÈÙ[XİY™\İ[˜Ø[™Y]WÙ]šY[˜ÙWÚ[™Ù™‹œİ]\È_OÜİ›Û™Ï‚ˆ‚ˆ6*¶aH6)va¶-6)ö(H[™Ù™ˆ6`v`¶-Ëˆ6`¶*6b6a]šY[˜ÙH6b6)öa6av,v)ö+6.v*H6bX\İ\H6a6b¶,ö*ˆ6ava6`öbö)È6a6`Ú[][][Ûˆ	˜[\Âˆ[\œš\ÙK‚ˆÜ‚ˆÙ]‚ˆ›Ü›H‹Y[ÙHÛ\ÜÏH˜Xİ[Û‹Y›Ü›HˆİX›Z]œ™]™[H˜Ü™X]R[™Ù™ˆ‚ˆX™[ˆØ[™Y]HÛZ[Bˆ^\™XH‹[[Ù[Hš[™Ù™ÛZ[Hˆ›İÜÏHHˆÏ‚ˆÛX™[‚ˆ]Ûˆ\OHœİX›Z]”™\\™HØ[™Y]H]šY[˜ÙH[™Ù™Ø]Û‚ˆÙ›Ü›O‚ˆİ[\]O‚ˆ‹Y[ÙHÛ\ÜÏH›]]Y¶)ö+¶*¶,H6,ö+6a6bö)È6avaˆ6,ö-ö+H6)öa6.vava6a6.v,v-ˆ6,öb¶)ö`¶aÈ6+öb6aˆ6*¶`ö,v)ö,H6)öa6+v`¶)ö)¶`ˆ6)öa6(ö,ö)ö,öb¶*KÜ‚ˆØ\ÚYO‚ˆÙ]‚‚ˆ]Z[È‹ZYHœÙXİ[ÛˆOOH	Ü[œÉÈ	‰ˆÙ[XİY[ˆˆÛ\ÜÏH˜›İÛK]ÛÜšÜÜXÙH‚ˆİ[[X\O¶av,ö)ö+v*H6)öa6.vava6)öa6.vavb¶`¶*H6)öa6av)6`¶*¶*H8 %[Y[[™HÈÛ˜\ÚİÏÜİ[[X\O‚ˆ]ˆÛ\ÜÏH˜›İÛKYÜšY‚ˆÙXİ[Û‚ˆÏ‘]™[[Y[[™OÚÏ‚ˆÛÛ\ÜÏH[Y[[™H‚ˆH‹Y›ÜH™]™[[ˆÙ[XİY[‹™]™[ÈˆšÙ^OH™]™[œÙ\]Y[˜ÙH‚ˆÛÙOŞÈ]™[œÙ\]Y[˜ÙH_OØÛÙBˆİ›Û™ÈÛ\ÜÏHXÚšXØ[ŞÈ]™[™]™[İ\H_OÜİ›Û™Ï‚ˆ™HÛ\ÜÏHXÚšXØ[ŞÈœÛÛ•^
+]™[œ^[ØY
+H_OÜ™O‚ˆÛO‚ˆÛÛ‚ˆÜÙXİ[Û‚ˆÙXİ[Û‚ˆÏ”[[YHÛ˜\ÚİÏÚÏ‚ˆ]ˆ‹Y›ÜHœÛ˜\Úİ[ˆÙ[XİY[‹œÛ˜\ÚİÈˆšÙ^OHœÛ˜\ÚİšYˆÛ\ÜÏHœÛ˜\Úİ\›İÈ‚ˆİ›Û™Ï”Û˜\ÚİŞÈÛ˜\ÚİœÙ\]Y[˜ÙH_OÜİ›Û™Ï‚ˆÛÙHÛ\ÜÏHXÚšXØ[Ü˜\ŞÈÛ˜\Úİœİ]WÙYÙ\İ_OØÛÙO‚ˆÙ]‚ˆÜÙXİ[Û‚ˆÙ]‚ˆÙ]Z[Ï‚ˆ]Z[È‹Y[ÙKZYHœÙXİ[ÛˆOOH	Ü™\İ[ÉÈ	‰ˆÙ[XİY™\İ[ˆÛ\ÜÏH˜›İÛK]ÛÜšÜÜXÙH‚ˆİ[[X\O¶av,ö)ö+v*H™\^H6)öa6.vavb¶`¶*H6)öa6av)6`¶*¶*H8 %\Y˜XİÈÈœ›Ş™[ˆ^[ØYÜİ[[X\O‚ˆ]ˆÛ\ÜÏH˜›İÛKYÜšY‚ˆÙXİ[Û‚ˆÏ\Y˜XİÏÚÏ‚ˆ™HÛ\ÜÏHXÚšXØ[ŞÈœÛÛ•^
+Ù[XİY™\İ[˜\Y˜XİÊH_OÜ™O‚ˆÜÙXİ[Û‚ˆÙXİ[Û‚ˆÏ‘œ›Ş™[ˆ™\İ[^[ØYÚÏ‚ˆ™HÛ\ÜÏHXÚšXØ[ŞÈœÛÛ•^
+Ù[XİY™\İ[œÙX[YÜ^[ØY
+H_OÜ™O‚ˆÜÙXİ[Û‚ˆÙ]‚ˆÙ]Z[Ï‚ˆÙ]‚İ[\]O‚‚İ[HØÛÜY‚‹ÛÜšÜÜXÙHÂˆZ[‹ZZYÚˆLšÂˆ˜XÚÙÜ›İ[™ˆÌŒLLNÂˆÛÛÜˆÙMÙYÂˆ›ÛY˜[Z[Nˆ[\‹	Ó›İÈØ[œÈ\˜XšXÉËŞ\İ[K]ZKØ[œË\Ù\šYÂŸB‹Ü˜\ˆÂˆZ[‹ZZYÚˆLÂˆY[™ÎˆÂˆ›Ü™\‹X›İÛNˆ\ÛÛYÌŒÌÂˆ\Ü^Nˆ›^Âˆ[YÛ‹Z][\ÎˆÙ[\Âˆ\İYKXÛÛ[ˆÜXÙKX™]ÙY[ÂˆØ\ˆÂˆ˜XÚÙÜ›İ[™ˆÌLNLŒÎÂŸB‹™^YXœ›İÈÂˆX\™Ú[ˆ\Âˆ\™Xİ[ÛˆÂˆ^X[YÛˆšYÚÂˆÛÛÜˆÎL˜Âˆ›Û\Ú^™NˆLœÂˆ]\‹\ÜXÚ[™ÎˆŒ[NÂˆ^]˜[œÙ›Ü›Nˆ\\˜Ø\ÙNÂŸBšKš‹šËœÂˆX\™Ú[‹]ÜˆÂŸBšHÂˆX\™Ú[‹X›İÛNˆœÂˆ›Û\Ú^™Nˆ\ÂŸBšˆÂˆ›Û\Ú^™NˆNÂˆX\™Ú[‹X›İÛNˆLÂŸBšÈÂˆ›Û\Ú^™NˆLÜÂˆÛÛÜˆØ˜ÍYNÂˆX\™Ú[ˆNÂŸB‹œİX]HÂˆX\™Ú[ˆÂˆÛÛÜˆÎY˜ŒÌÂˆX^]ÚYˆÎÂŸB‹˜›ÙKYÜšYÂˆ\Ü^NˆÜšYÂˆÜšY][\]KXÛÛ[[œÎˆNLZ[›X^
+YœŠHÌLÂˆZ[‹ZZYÚˆØ[ÊLšHL
+NÂŸB‹›Y\˜Z[‹œšYÚXÛÛ^Âˆ˜XÚÙÜ›İ[™ˆÌLMŒYÂˆY[™ÎˆŒœNÂŸB‹›Y\˜Z[Âˆ›Ü™\‹[Yˆ\ÛÛYÌŒÌÂŸB‹œšYÚXÛÛ^Âˆ›Ü™\‹\šYÚˆ\ÛÛYÌŒÌÂŸB‹œ˜Z[]]HÂˆÛÛÜˆÎL˜Âˆ›Û\Ú^™NˆLœÂˆX\™Ú[‹X›İÛNˆMœÂŸB‹›˜]‹[[šÈÂˆ\Ü^Nˆ›ØÚÎÂˆY[™ÎˆLLœÂˆX\™Ú[‹X›İÛNˆÂˆ›Ü™\‹\˜Y]\ÎˆÂˆÛÛÜˆØÍÎÂˆ^YXÛÜ˜][Ûˆ›Û™NÂˆ›Ü™\ˆ\ÛÛY˜[œÜ\™[ÂŸB‹›˜]‹[[šË˜Xİ]™HÂˆ˜XÚÙÜ›İ[™ˆÌMÌÌÎÂˆ›Ü™\‹XÛÛÜˆÌÍL˜NÂˆÛÛÜˆÙ™™ÂŸB‹˜›İ[™\K[›İHÂˆX\™Ú[‹]ÜˆÂˆY[™ÎˆLœÂˆ›Ü™\ˆ\ÛÛYÌŒØMNÂˆ›Ü™\‹\˜Y]\ÎˆÂˆ\Ü^NˆÜšYÂˆØ\ˆ\ÂˆÛÛÜˆØYX™ØÂŸB‹˜›İ[™\K[›İHİ›Û™Ë‹˜›İ[™\K[›İHÜ[ˆÂˆ\™Xİ[ÛˆÂˆ[šXÛÙKXšYNˆ\ÛÛ]NÂŸB‹˜›İ[™\K[›İHÛX[Âˆ[™KZZYÚˆKÎÂŸB‹˜Ù[\‹\İ\™˜XÙHÂˆY[™ÎˆÂˆİ™\™›İÎˆ]]ÎÂŸB‹œ™XÛÜ™XØ\™Âˆ›Ü™\ˆ\ÛÛYÌŒÍÍÂˆ˜XÚÙÜ›İ[™ˆÌLLXŒNÂˆ›Ü™\‹\˜Y]\ÎˆLœÂˆY[™ÎˆNÂˆX\™Ú[‹X›İÛNˆMÂˆİ\œÛÜˆÚ[\ÂŸB‹œ™XÛÜ™XØ\™œÙ[XİYÂˆ›Ü™\‹XÛÛÜˆÍMÍÎXNÂˆ›Ş\ÚYİÎˆ\ÌÌMÈ[œÙ]ÂŸB‹œ™XÛÜ™ZXY[™ÈÂˆ\Ü^Nˆ›^Âˆ[YÛ‹Z][\Îˆ›^\İ\Âˆ\İYKXÛÛ[ˆÜXÙKX™]ÙY[ÂˆØ\ˆŒÂŸB‹œ™XÛÜ™ZXY[™ÈˆÂˆX\™Ú[‹X›İÛNˆÂŸB‹œÛYË‹šY[[™HÂˆÛÛÜˆÎÎMØXNÂˆ›Û\Ú^™NˆLœÂŸB‹™š^\™KX˜YÙHÂˆ\Ü^Nˆ[›[™KX›ØÚÎÂˆX\™Ú[‹X›İÛNˆÜÂˆ›Û\Ú^™NˆL\ÂˆÛÛÜˆÙ˜ÍÎXNÂˆ›Ü™\ˆ\ÛÛYÍ™ŒÂˆ›Ü™\‹\˜Y]\ÎˆNN\ÂˆY[™ÎˆœÂŸB‹˜Ø]\Ø[\İš\Âˆ\Ü^Nˆ›^ÂˆØ\ˆ\Âˆ›^]Ü˜\ˆÜ˜\Âˆ[YÛ‹Z][\ÎˆÙ[\Âˆ\™Xİ[ÛˆÂˆ[šXÛÙKXšYNˆ\ÛÛ]NÂˆX\™Ú[ˆMÂˆ›Û\Ú^™NˆLœÂˆÛÛÜˆØY˜ÌÂŸB‹ÜÛÙŞKXØ\™‹œİ]KXØ\™Âˆ›Ü™\‹]Üˆ\ÛÛYÌÍÎÂŸB‹›[Ù[K[\İÂˆ\Ü^NˆÜšYÂˆØ\ˆÂŸB‹›[Ù[K\›İÈÂˆ\Ü^NˆÜšYÂˆÜšY][\]KXÛÛ[[œÎˆYœˆ]]È]]ÎÂˆØ\ˆLœÂˆ[YÛ‹Z][\ÎˆÙ[\Âˆ˜XÚÙÜ›İ[™ˆÌMLYNÂˆY[™ÎˆLÂˆ›Ü™\‹\˜Y]\ÎˆÂŸB‹›[Ù[K\›İÈÛÙK‹›[Ù[K\›İÈÛX[Âˆ\™Xİ[ÛˆÂˆ[šXÛÙKXšYNˆ\ÛÛ]NÂŸB˜]ÛˆÂˆ›Ü™\ˆ\ÛÛYÍNÂˆ›Ü™\‹\˜Y]\ÎˆÂˆY[™Îˆ\LœÂˆ˜XÚÙÜ›İ[™ˆÌXLÌMÂˆÛÛÜˆÙŒY™˜Âˆİ\œÛÜˆÚ[\Âˆ›Ûˆ[š\š]ÂŸB˜]Ûšİ™\ˆÂˆ˜XÚÙÜ›İ[™ˆÌŒXNÂŸB‹˜]Û‹[]]YÂˆ˜XÚÙÜ›İ[™ˆ˜[œÜ\™[Âˆ›Ü™\‹XÛÛÜˆÍLÍMNÂŸB‹œ™\\™K]ÛÛË‹œ[‹XXİ[ÛœÈÂˆ\Ü^Nˆ›^Âˆ[YÛ‹Z][\Îˆ[™ÂˆØ\ˆLÂˆ›^]Ü˜\ˆÜ˜\ÂŸB‹œ™\\™K]ÛÛÈX™[Âˆ\Ü^NˆÜšYÂˆØ\ˆ\ÂˆÛÛÜˆÎY˜ŒÌÂˆ›Û\Ú^™NˆLœÂŸBš[œ]œÙ[Xİ^\™XHÂˆ›Ü™\ˆ\ÛÛYÌÍXÂˆ›Ü™\‹\˜Y]\ÎˆÜÂˆ˜XÚÙÜ›İ[™ˆÌŒMYÂˆÛÛÜˆÙYY˜NÂˆY[™ÎˆÂˆ›Ûˆ[š\š]ÂŸB‹š[œ]\ÛX[ÂˆÚYˆLŒÂŸB‹˜Xİ[Û‹Y›Ü›HÂˆ\Ü^NˆÜšYÂˆØ\ˆLÂˆX\™Ú[‹]ÜˆMœÂˆY[™Ë]ÜˆMÂˆ›Ü™\‹]Üˆ\ÛÛYÌŒÍÍÂŸB‹˜Xİ[Û‹Y›Ü›HX™[Âˆ\Ü^NˆÜšYÂˆØ\ˆ\ÂˆÛÛÜˆØYX™ØÂˆ›Û\Ú^™NˆLœÂŸBœ™HÂˆX\™Ú[ˆÜÂˆÚ]K\ÜXÙNˆ™K]Ü˜\Âˆİ™\™›İË]Ü˜\ˆ[]Ú\™NÂˆ˜XÚÙÜ›İ[™ˆÌLLNÂˆ›Ü™\ˆ\ÛÛYÌŒ™ŒØÎÂˆ›Ü™\‹\˜Y]\ÎˆÂˆY[™ÎˆLÂˆÛÛÜˆØXØYNÂˆ›Û\Ú^™NˆL\Âˆ[™KZZYÚˆKMNÂŸB‹XÚšXØ[Âˆ\™Xİ[ÛˆÂˆ[šXÛÙKXšYNˆ\ÛÛ]NÂˆ^X[YÛˆYÂŸB‹Ü˜\Âˆİ™\™›İË]Ü˜\ˆ[]Ú\™NÂˆÚ]K\ÜXÙNˆ›Ü›X[ÂŸB‹œšYÚXÛÛ^Âˆİ™\™›İÎˆ]]ÎÂŸB‹œšYÚXÛÛ^ÂˆÛÛÜˆØYX™ØÂˆ[™KZZYÚˆKÍNÂˆ›Û\Ú^™NˆLÜÂŸB‹œšYÚXÛÛ^ÂˆX\™Ú[ˆÂŸB‹œšYÚXÛÛ^ÂˆÛÛÜˆÎÎMØXNÂˆ›Û\Ú^™NˆL\ÂˆX\™Ú[‹]ÜˆLÂŸB‹œšYÚXÛÛ^ÂˆX\™Ú[ˆÜÂˆ›Û\Ú^™NˆL\Âˆİ™\™›İË]Ü˜\ˆ[]Ú\™NÂŸB‹˜ÛÛ^\[K‹œÙX[Y[›İK‹š[™Ù™‹\İ]HÂˆ›Ü™\ˆ\ÛÛYÌÌÍÍXNÂˆ›Ü™\‹\˜Y]\ÎˆÂˆY[™ÎˆL\Âˆ˜XÚÙÜ›İ[™ˆÌLLYÂŸB‹š[™Ù™‹\İ]Hİ›Û™ÈÂˆ\Ü^Nˆ›ØÚÎÂˆX\™Ú[‹X›İÛNˆÂŸB‹œİ]\Ë\İXÚÈÂˆ\Ü^NˆÜšYÂˆ\İYKZ][\Îˆ[™ÂˆØ\ˆœÂŸB‹œ[‹]\HÂˆÛÛÜˆÎY˜ŒXÍÂˆ›Û\Ú^™NˆL\ÂŸB‹›Y™XŞXÛK‹›İ]ÛÛYHÂˆ›Ü™\ˆ\ÛÛYÍL˜Âˆ›Ü™\‹\˜Y]\ÎˆNN\ÂˆY[™Îˆ\Âˆ›Û\Ú^™NˆL\ÂŸB‹œ[[YKY˜XİÈÂˆ\Ü^Nˆ›^Âˆ›^]Ü˜\ˆÜ˜\ÂˆØ\ˆMœÂˆY[™Ë]ÜˆLœÂˆX\™Ú[‹]ÜˆLœÂˆ›Ü™\‹]Üˆ\ÛÛYÌÍÎÂˆÛÛÜˆÎ˜L˜Âˆ›Û\Ú^™NˆLœÂŸB‹œ[[YKY˜XİÈˆÂˆÛÛÜˆÙÙNŒÂˆX\™Ú[‹Z[›[™K\İ\ˆÂŸB‹[[Y]KYÜšYÂˆ\Ü^NˆÜšYÂˆÜšY][\]KXÛÛ[[œÎˆ™\X]
+]]ËYš]Z[›X^
+LÌYœŠJNÂˆØ\ˆÂˆX\™Ú[‹]ÜˆLœÂŸB‹[[Y]KYÜšY]ˆÂˆ˜XÚÙÜ›İ[™ˆÌÌMLYNÂˆY[™Îˆ\Âˆ›Ü™\‹\˜Y]\ÎˆÜÂˆ\Ü^NˆÜšYÂˆØ\ˆ\ÂŸB‹[[Y]KYÜšYÛX[ÂˆÛÛÜˆÎMXNÂŸB‹[Y[[™HÂˆX\™Ú[ˆÂˆY[™ÎˆÂˆ\İ\İ[Nˆ›Û™NÂˆ\Ü^NˆÜšYÂˆØ\ˆÜÂŸB‹[Y[[™HHÂˆ\Ü^NˆÜšYÂˆÜšY][\]KXÛÛ[[œÎˆÎZ[›X^
+LÌ]]ÊHYœÂˆØ\ˆLÂˆ[YÛ‹Z][\Îˆİ\Âˆ›Ü™\‹\šYÚˆœÛÛYÌÍLM˜ÂˆY[™ÎˆLÂˆ˜XÚÙÜ›İ[™ˆÌMŒYÂˆ›Û\Ú^™NˆL\ÂŸB‹[Y[[™HHÜ[ˆÂˆÛÛÜˆÍÌNXNÂˆ\™Xİ[ÛˆÂˆ^X[YÛˆYÂŸB‹˜›İÛK]ÛÜšÜÜXÙHÂˆ›Ü™\‹]Üˆ\ÛÛYÌŒÌÂˆ˜XÚÙÜ›İ[™ˆÌLLŒXNÂˆY[™ÎˆÂŸB‹˜›İÛK]ÛÜšÜÜXÙHİ[[X\HÂˆİ\œÛÜˆÚ[\ÂˆY[™ÎˆM\ÂˆÛÛÜˆØØÍ™NÂŸB‹˜›İÛKYÜšYÂˆ\Ü^NˆÜšYÂˆÜšY][\]KXÛÛ[[œÎˆYœˆYœÂˆØ\ˆNÂˆY[™ËX›İÛNˆŒœÂŸB‹œÛ˜\Úİ\›İÈÂˆ\Ü^NˆÜšYÂˆØ\ˆ\ÂˆY[™ÎˆLÂˆ›Ü™\‹X›İÛNˆ\ÛÛYÌŒÌÂŸB‹™[\K\İ]HÂˆX^]ÚYˆÌÂˆX\™Ú[ˆŒ]]ÎÂˆ^X[YÛˆÙ[\Âˆ›Ü™\ˆ\\ÚYÌÍMMYÂˆ›Ü™\‹\˜Y]\ÎˆLœÂˆY[™ÎˆÌÂˆÛÛÜˆÎY˜ŒÌÂŸB‹™[\K\İ]HÛÙHÂˆ\™Xİ[ÛˆÂˆ[šXÛÙKXšYNˆ\ÛÛ]NÂˆ\Ü^Nˆ[›[™KX›ØÚÎÂˆX\™Ú[‹]ÜˆLÂŸB‹›]]YÂˆÛÛÜˆÍÌNXNÂŸBYYXH
+X^]ÚYˆLL
+HÂˆ˜›ÙKYÜšYÂˆÜšY][\]KXÛÛ[[œÎˆMŒZ[›X^
+YœŠNÂˆBˆœšYÚXÛÛ^ÂˆÜšYXÛÛ[[ˆHÈLNÂˆ›Ü™\‹\šYÚˆÂˆ›Ü™\‹]Üˆ\ÛÛYÌŒÌÂˆBˆÜ˜\ˆÂˆ[YÛ‹Z][\Îˆ›^\İ\Âˆ›^Y\™Xİ[ÛˆÛÛ[[ÂˆBˆ˜›İÛKYÜšYÂˆÜšY][\]KXÛÛ[[œÎˆYœÂˆBŸBÜİ[O‚
