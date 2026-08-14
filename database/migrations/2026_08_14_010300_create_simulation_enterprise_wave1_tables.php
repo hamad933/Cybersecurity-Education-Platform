@@ -5,8 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     public function up(): void
     {
         Schema::create('simulation_enterprises', function (Blueprint $table): void {
@@ -211,7 +210,7 @@ return new class extends Migration
         DB::statement("ALTER TABLE simulation_candidate_evidence_handoffs ADD CONSTRAINT sim_handoff_status_check CHECK (status IN ('READY_FOR_INTAKE','HANDED_OFF'))");
 
         DB::unprepared(<<<'SQL'
-CREATE FUNCTION prevent_simulation_run_result_mutation() RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION prevent_simulation_run_result_mutation() RETURNS trigger AS $$
 BEGIN
     RAISE EXCEPTION 'sealed simulation run results are immutable' USING ERRCODE = '55000';
 END;
