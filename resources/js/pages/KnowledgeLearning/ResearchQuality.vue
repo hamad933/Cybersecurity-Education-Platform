@@ -75,7 +75,7 @@ defineProps<{
               </Link>
             </li>
           </ul>
-          <p v-else class="mt-4 text-sm leading-7 text-slate-500">لا توجد Source Records محفوظ�.</p>
+          <p v-else class="mt-4 text-sm leading-7 text-slate-500">لا توجد Source Records محفوظة.</p>
         </aside>
 
         <main class="min-w-0 rounded-xl border border-slate-800 bg-slate-900/35 p-5 sm:p-7">
