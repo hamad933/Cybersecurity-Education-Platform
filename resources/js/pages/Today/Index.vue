@@ -16,8 +16,7 @@ const props = defineProps<{
 
 const page = usePage<SharedProps>();
 const routeRegistrationSummary = computed(
-  () =>
-    `${props.orchestration.registeredDomainEntries}/${props.orchestration.expectedDomainEntries}`,
+  () => `${props.orchestration.registeredDomainEntries}/${props.orchestration.expectedDomainEntries}`,
 );
 </script>
 
