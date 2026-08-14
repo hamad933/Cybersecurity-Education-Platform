@@ -201,7 +201,7 @@ final class SystemOperationsState
     /** @return array<string, int> */
     private function statusCounts(string $table, string $column): array
     {
-        if (! $this->tableAvailable($table)) {
+        if ($this->tableAvailable($table) === false) {
             return [];
         }
 
@@ -220,7 +220,7 @@ final class SystemOperationsState
      */
     private function rows(string $table, array $columns, string $orderColumn, int $limit): array
     {
-        if (! $this->tableAvailable($table)) {
+        if ($this->tableAvailable($table) === false) {
             return [];
         }
 
@@ -237,7 +237,7 @@ final class SystemOperationsState
      */
     private function actorRows(string $table, string $actorId, array $columns, string $orderColumn, int $limit): array
     {
-        if (! $this->tableAvailable($table)) {
+        if ($this->tableAvailable($table) === false) {
             return [];
         }
 
