@@ -12,6 +12,7 @@ use stdClass;
 final class SimulationEnterpriseService
 {
     public const RUN_STANDALONE_LAB = 'Standalone Lab Run';
+
     public const RUN_SCENARIO = 'Scenario Run';
 
     /** @var list<string> */
@@ -34,7 +35,10 @@ final class SimulationEnterpriseService
         'FAILED' => [],
     ];
 
-    /** @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $definition
+     * @return array<string, mixed>
+     */
     public function createEnterprise(string $slug, string $nameAr, array $definition, ?string $actorId = null, bool $isFixture = false): array
     {
         $id = (string) Str::uuid7();
@@ -55,7 +59,11 @@ final class SimulationEnterpriseService
         return $this->row('simulation_enterprises', $id);
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $topology
+     * @param  array<string, mixed>  $behaviorModel
+     * @return array<string, mixed>
+     */
     public function publishDigitalTwinRevision(string $enterpriseId, array $topology, array $behaviorModel, ?string $actorId = null): array
     {
         $this->requireRow('simulation_enterprises', $enterpriseId);
@@ -80,7 +88,10 @@ final class SimulationEnterpriseService
         return $this->row('simulation_digital_twin_revisions', $id);
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $state
+     * @return array<string, mixed>
+     */
     public function publishBaseline(string $enterpriseId, string $digitalTwinRevisionId, array $state, ?string $actorId = null): array
     {
         $twin = $this->requireRow('simulation_digital_twin_revisions', $digitalTwinRevisionId);
@@ -107,7 +118,11 @@ final class SimulationEnterpriseService
         return $this->row('simulation_baselines', $id);
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $orchestration
+     * @param  array<string, mixed>  $validation
+     * @return array<string, mixed>
+     */
     public function publishScenario(string $enterpriseId, string $baselineId, string $slug, string $titleAr, array $orchestration, array $validation = [], ?string $actorId = null): array
     {
         $baseline = $this->requirePublishedBaseline($enterpriseId, $baselineId);
@@ -134,7 +149,11 @@ final class SimulationEnterpriseService
         return $this->row('simulation_scenario_definitions', $id);
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $configuration
+     * @param  array<string, mixed>  $validation
+     * @return array<string, mixed>
+     */
     public function publishLab(string $enterpriseId, string $baselineId, string $slug, string $titleAr, array $configuration, array $validation = [], ?string $actorId = null): array
     {
         $baseline = $this->requirePublishedBaseline($enterpriseId, $baselineId);
@@ -161,7 +180,10 @@ final class SimulationEnterpriseService
         return $this->row('simulation_lab_definitions', $id);
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $policy
+     * @return array<string, mixed>
+     */
     public function attachLabModule(string $scenarioDefinitionId, string $labDefinitionId, string $moduleKey, array $policy = []): array
     {
         $scenario = $this->requireRow('simulation_scenario_definitions', $scenarioDefinitionId);
@@ -189,7 +211,10 @@ final class SimulationEnterpriseService
         return $this->row('simulation_scenario_lab_references', $id);
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $executionPolicies
+     * @return array<string, mixed>
+     */
     public function prepareScenarioRun(string $scenarioDefinitionId, int $seed, array $executionPolicies = [], ?string $actorId = null): array
     {
         return DB::transaction(function () use ($scenarioDefinitionId, $seed, $executionPolicies, $actorId): array {
@@ -214,7 +239,10 @@ final class SimulationEnterpriseService
         });
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $executionPolicies
+     * @return array<string, mixed>
+     */
     public function prepareStandaloneLabRun(string $labDefinitionId, int $seed, array $executionPolicies = [], ?string $actorId = null): array
     {
         return DB::transaction(function () use ($labDefinitionId, $seed, $executionPolicies, $actorId): array {
@@ -335,7 +363,10 @@ final class SimulationEnterpriseService
         return $this->row('simulation_runtime_snapshots', $id);
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param  list<mixed>  $artifacts
+     * @return array<string, mixed>
+     */
     public function sealResult(string $runId, string $outcome, string $summaryAr, ?float $score = null, array $artifacts = []): array
     {
         if (! in_array($outcome, self::OUTCOMES, true)) {
@@ -399,7 +430,10 @@ final class SimulationEnterpriseService
         });
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $candidateManifest
+     * @return array<string, mixed>
+     */
     public function createCandidateEvidenceHandoff(string $resultId, array $candidateManifest, ?string $intakeContractRef = null): array
     {
         $result = $this->requireRow('simulation_run_results', $resultId);
@@ -434,7 +468,11 @@ final class SimulationEnterpriseService
         };
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param  array<string, string>  $lineage
+     * @param  array<string, mixed>  $executionPolicies
+     * @return array<string, mixed>
+     */
     private function insertRun(string $runType, array $lineage, int $seed, array $executionPolicies, ?string $actorId, ?string $scenarioDefinitionId, ?string $labDefinitionId, string $definitionDigest): array
     {
         if (! in_array($runType, self::RUN_TYPES, true)) {
@@ -566,7 +604,10 @@ final class SimulationEnterpriseService
         return $this->row('simulation_runs', $runId);
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
     private function appendEvent(string $runId, string $eventType, array $payload): array
     {
         $sequence = (int) DB::table('simulation_run_events')->where('run_id', $runId)->max('sequence') + 1;
@@ -603,6 +644,7 @@ final class SimulationEnterpriseService
         return $row;
     }
 
+    /** @param array<mixed> $value */
     private function json(array $value): string
     {
         return json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
