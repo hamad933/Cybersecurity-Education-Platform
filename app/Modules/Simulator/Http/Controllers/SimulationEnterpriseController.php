@@ -13,7 +13,12 @@ use stdClass;
 
 final class SimulationEnterpriseController extends Controller
 {
-    public function __construct(private readonly SimulationEnterpriseService $simulation) {}
+    private readonly SimulationEnterpriseService $simulation;
+
+    public function __construct(SimulationEnterpriseService $simulation)
+    {
+        $this->simulation = $simulation;
+    }
 
     public function index(): Response
     {
@@ -341,7 +346,7 @@ final class SimulationEnterpriseController extends Controller
         if (is_array($value)) {
             return $value;
         }
-        if (! is_string($value) || $value === '') {
+        if (is_string($value) === false || $value === '') {
             return [];
         }
         $decoded = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
@@ -355,7 +360,7 @@ final class SimulationEnterpriseController extends Controller
         if (is_array($value)) {
             return array_is_list($value) ? $value : [];
         }
-        if (! is_string($value) || $value === '') {
+        if (is_string($value) === false || $value === '') {
             return [];
         }
         $decoded = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
