@@ -15,7 +15,6 @@ Route::middleware('auth')
         Route::get('/portfolio', [ProgressEvidenceController::class, 'portfolio'])->name('portfolio');
 
         Route::post('/intake', [ProgressEvidenceController::class, 'intake'])->name('intake');
-        Route::patch('/candidates/{candidate}', [ProgressEvidenceController::class, 'updateCandidate'])->name('candidates.update');
         Route::post('/candidates/{candidate}/admit', [ProgressEvidenceController::class, 'admitCandidate'])->name('candidates.admit');
         Route::post('/evidence/{evidence}/revisions', [ProgressEvidenceController::class, 'createRevision'])->name('evidence.revisions.store');
         Route::post('/evidence/{evidence}/lifecycle', [ProgressEvidenceController::class, 'transitionLifecycle'])->name('evidence.lifecycle');
