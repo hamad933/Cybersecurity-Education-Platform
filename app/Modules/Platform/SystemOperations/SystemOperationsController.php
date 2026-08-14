@@ -1,0 +1,63 @@
+<?php
+
+namespace App\Modules\Platform\SystemOperations;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+
+final class SystemOperationsController extends Controller
+{
+    public function __construct(private readonly SystemOperationsState $state) {}
+
+    public function health(Request $request): Response
+    {
+        return $this->render($request, 'health');
+    }
+
+    public function processing(Request $request): Response
+    {
+        return $this->render($request, 'processing');
+    }
+
+    public function validation(Request $request): Response
+    {
+        return $this->render($request, 'validation');
+    }
+
+    public function aiBridge(Request $request): Response
+    {
+        return $this->render($request, 'ai-bridge');
+    }
+
+    public function backups(Request $request): Response
+    {
+        return $this->render($request, 'backups');
+    }
+
+    public function audit(Request $request): Response
+    {
+        return $this->render($request, 'audit');
+    }
+
+    public function releases(Request $request): Response
+    {
+        return $this->render($request, 'releases');
+    }
+
+    public function configuration(Request $request): Response
+    {
+        return $this->render($request, 'configuration');
+    }
+
+    private function render(Request $request, string $surface): Response
+    {
+        $actorId = (string) $request->user()->getAuthIdentifier();
+
+        return Inertia::render('SystemOperations/Workspace', [
+            'surface' => $surface,
+            'state' => $this->state->forSurface($surface, $actorId),
+        ]);
+    }
+}
