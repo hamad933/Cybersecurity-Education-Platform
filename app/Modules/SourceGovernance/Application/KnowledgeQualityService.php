@@ -37,6 +37,13 @@ final class KnowledgeQualityService
         if ($requestedSourceId !== null) {
             $active = collect($sources)->firstWhere('id', $requestedSourceId);
         }
+        if (! is_array($active) && $canonicalClaimIds !== []) {
+            $active = collect($sources)->first(
+                fn (array $source): bool => collect($source['claims'])->contains(
+                    fn (array $claim): bool => $claim['used_by_active_revision'] === true,
+                ),
+            );
+        }
         if (! is_array($active)) {
             $active = $sources[0] ?? null;
         }

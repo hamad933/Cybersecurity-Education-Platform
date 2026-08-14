@@ -82,6 +82,9 @@ const form = useForm({
 });
 
 const revisionKey = computed(() => props.active?.revision?.id ?? 'none');
+const historicalRevisions = computed(() =>
+  (props.active?.revisions ?? []).filter((revision) => revision.id !== props.active?.revision?.id),
+);
 watch(revisionKey, () => {
   form.lock_version = props.active?.revision?.lock_version ?? 1;
   form.blocks = props.active?.revision?.blocks.map((block) => ({ ...block })) ?? [];
@@ -292,7 +295,7 @@ const moveBlock = (index: number, delta: number) => {
           </div>
 
           <ol v-else class="mt-5 space-y-3">
-            <li v-for="revision in active?.revisions ?? []" :key="revision.id">
+            <li v-for="revision in historicalRevisions" :key="revision.id">
               <Link
                 :href="`/knowledge?object=${encodeURIComponent(active?.id ?? '')}&revision=${encodeURIComponent(revision.id)}`"
                 class="focus-ring block rounded-lg border border-slate-800 p-3 hover:border-slate-600"
@@ -303,6 +306,7 @@ const moveBlock = (index: number, delta: number) => {
                 </div>
               </Link>
             </li>
+            <li v-if="!historicalRevisions.length" class="text-sm leading-7 text-slate-500">لا توجد مراجعات تاريخية أخرى لهذا الكائن.</li>
           </ol>
         </aside>
       </div>

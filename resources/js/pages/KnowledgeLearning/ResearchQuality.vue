@@ -24,7 +24,7 @@ type Source = {
   claims: Claim[];
 };
 
-const props = defineProps<{
+defineProps<{
   catalog: CatalogItem[];
   active: {
     id: string;
@@ -144,7 +144,7 @@ const props = defineProps<{
           </div>
 
           <div class="mt-6 rounded-lg border border-rose-900/60 bg-rose-950/15 p-3 text-xs leading-6 text-rose-100">
-            هذا المجال لا يستورد Evidence Decisions ولا Mastery States، ولا يصدر أحكام A03.
+            هذا المجال لا يستورد <bdi dir="ltr">Evidence Decisions</bdi> ولا <bdi dir="ltr">Mastery States</bdi>، ولا يصدر أحكام <bdi dir="ltr">A03</bdi>.
           </div>
         </aside>
       </div>

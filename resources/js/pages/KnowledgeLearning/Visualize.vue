@@ -58,7 +58,7 @@ const unitNode = computed(() => props.graph.nodes.find((node) => node.kind === '
 
       <div class="mt-4 grid min-h-[700px] gap-4 xl:grid-cols-[260px_minmax(0,1fr)_280px]">
         <aside class="rounded-xl border border-slate-800 bg-slate-900/50 p-4" aria-label="الخريطة والنطاق">
-          <h2 class="text-xs font-bold text-slate-400">MAP — نطاق محفوظ</h2>
+          <h2 class="text-xs font-bold text-slate-400"><bdi dir="ltr">MAP</bdi><span> — نطاق محفوظ</span></h2>
           <div class="mt-3 rounded-lg border border-dashed border-slate-700 p-3">
             <p class="text-sm font-bold">لا توجد Map محفوظة في نموذج Wave 1 الحالي.</p>
             <p class="mt-2 text-xs leading-6 text-slate-500">المشهد الحالي تمثيل مباشر للعلاقات persisted ولا يُسوَّق على أنه Map محفوظ.</p>
@@ -81,30 +81,28 @@ const unitNode = computed(() => props.graph.nodes.find((node) => node.kind === '
 
         <main class="min-w-0 rounded-xl border border-slate-800 bg-slate-900/35 p-5 sm:p-7">
           <header v-if="active" class="border-b border-slate-800 pb-5">
-            <p class="text-xs font-bold text-cyan-300">VIEW = {{ activeView }}</p>
+            <p class="text-xs font-bold text-cyan-300"><bdi dir="ltr">VIEW</bdi> = <bdi dir="ltr">{{ activeView }}</bdi></p>
             <h1 class="mt-2 text-2xl font-black">{{ active.title_ar }}</h1>
             <bdi dir="ltr" class="mt-2 block font-mono text-sm text-cyan-200">{{ active.id }}</bdi>
           </header>
 
           <section v-if="active && graph.nodes.length" class="mt-8">
-            <div v-if="activeView === 'Tree'" class="space-y-5">
-              <article v-for="capability in capabilities" :key="capability.id" class="flex flex-col items-center gap-3">
-                <div class="rounded-xl border border-indigo-700/70 bg-indigo-950/30 px-5 py-3 text-center">
-                  <p class="text-xs text-slate-500">Capability</p>
+            <div v-if="activeView === 'Tree'" class="flex min-h-80 flex-col items-center justify-center gap-4">
+              <div v-if="capabilities.length" class="flex flex-wrap justify-center gap-3">
+                <article
+                  v-for="capability in capabilities"
+                  :key="capability.id"
+                  class="rounded-xl border border-indigo-700/70 bg-indigo-950/30 px-5 py-3 text-center"
+                >
+                  <p class="text-xs text-slate-500"><bdi dir="ltr">Capability</bdi></p>
                   <bdi dir="ltr" class="mt-1 block font-mono text-sm text-indigo-200">{{ capability.technical_label }}</bdi>
-                </div>
-                <div class="h-8 w-px bg-slate-700" aria-hidden="true"></div>
-                <div v-if="unitNode" class="rounded-xl border border-cyan-600 bg-cyan-950/25 px-6 py-4 text-center">
-                  <p class="font-bold">{{ unitNode.label }}</p>
-                  <bdi dir="ltr" class="mt-1 block font-mono text-xs text-cyan-200">{{ unitNode.technical_label }}</bdi>
-                </div>
-              </article>
-              <div v-if="!capabilities.length && unitNode" class="grid min-h-72 place-items-center">
-                <div class="rounded-xl border border-cyan-700 px-6 py-4 text-center">
-                  <p class="font-bold">{{ unitNode.label }}</p>
-                  <bdi dir="ltr" class="mt-1 block font-mono text-xs text-cyan-200">{{ unitNode.technical_label }}</bdi>
-                  <p class="mt-3 text-xs text-slate-500">لا يوجد Curriculum Placement محفوظ لهذه الوحدة.</p>
-                </div>
+                </article>
+              </div>
+              <div v-if="capabilities.length" class="h-8 w-px bg-slate-700" aria-hidden="true"></div>
+              <div v-if="unitNode" class="rounded-xl border border-cyan-600 bg-cyan-950/25 px-6 py-4 text-center">
+                <p class="font-bold">{{ unitNode.label }}</p>
+                <bdi dir="ltr" class="mt-1 block font-mono text-xs text-cyan-200">{{ unitNode.technical_label }}</bdi>
+                <p v-if="!capabilities.length" class="mt-3 text-xs text-slate-500">لا يوجد <bdi dir="ltr">Curriculum Placement</bdi> محفوظ لهذه الوحدة.</p>
               </div>
             </div>
 
@@ -129,7 +127,7 @@ const unitNode = computed(() => props.graph.nodes.find((node) => node.kind === '
         </main>
 
         <aside class="rounded-xl border border-slate-800 bg-slate-900/50 p-4" aria-label="سياق التصوّر">
-          <h2 class="text-xs font-bold text-slate-500">OVERLAY — طبقة تحليلية</h2>
+          <h2 class="text-xs font-bold text-slate-500"><bdi dir="ltr">OVERLAY</bdi><span> — طبقة تحليلية</span></h2>
           <p v-if="overlay.active" class="mt-3 text-sm">{{ overlay.active }}</p>
           <p v-else class="mt-3 text-sm leading-7 text-slate-400">لا توجد طبقة تحليلية فعالة أو مصرّح بها ضمن بيانات W02 الحالية.</p>
 

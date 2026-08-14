@@ -19,7 +19,9 @@ final class KnowledgeJourneyService
             ->where('knowledge_unit_id', $knowledgeUnitId)
             ->orderBy('practice_id')
             ->orderByDesc('revision')
-            ->get();
+            ->get()
+            ->unique('practice_id')
+            ->values();
 
         if ($practices->isEmpty()) {
             return ['items' => [], 'activity' => $this->activitySummary(0, 0, null)];

@@ -26,7 +26,7 @@ type JourneyItem = {
   latest_activity_at: string | null;
 };
 
-const props = defineProps<{
+defineProps<{
   catalog: CatalogItem[];
   active: ActiveUnit | null;
   journey: {

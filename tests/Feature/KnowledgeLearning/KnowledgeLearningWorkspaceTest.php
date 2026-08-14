@@ -147,13 +147,21 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
     public function learn_uses_real_practice_activity_without_loading_mastery_truth(): void
     {
         $unit = $this->knowledgeUnit();
-        $practice = MicroPractice::query()->create([
+        MicroPractice::query()->create([
             'practice_id' => 'PRACTICE-W02-001',
             'revision' => 1,
             'capability_id' => 'CAP-W02-001',
             'knowledge_unit_id' => $unit->id,
-            'definition' => ['kind' => 'synthetic-test-fixture'],
-            'digest' => hash('sha256', 'practice'),
+            'definition' => ['kind' => 'synthetic-test-fixture-v1'],
+            'digest' => hash('sha256', 'practice-v1'),
+        ]);
+        $practice = MicroPractice::query()->create([
+            'practice_id' => 'PRACTICE-W02-001',
+            'revision' => 2,
+            'capability_id' => 'CAP-W02-001',
+            'knowledge_unit_id' => $unit->id,
+            'definition' => ['kind' => 'synthetic-test-fixture-v2'],
+            'digest' => hash('sha256', 'practice-v2'),
         ]);
         PracticeAttempt::query()->create([
             'micro_practice_id' => $practice->id,
@@ -170,7 +178,9 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('journey.activity.attempt_count', 1)
                 ->where('journey.activity.completed_practice_count', 1)
+                ->has('journey.items', 1)
                 ->where('journey.items.0.practice_id', 'PRACTICE-W02-001')
+                ->where('journey.items.0.revision', 2)
                 ->missing('mastery')
                 ->missing('mastery_state'));
     }
