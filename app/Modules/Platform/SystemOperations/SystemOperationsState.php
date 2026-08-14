@@ -217,7 +217,7 @@ final class SystemOperationsState
     }
 
     /** @param list<string> $columns
-     *  @return list<array<string, mixed>>
+     * @return list<array<string, mixed>>
      */
     private function rows(string $table, array $columns, string $orderColumn, int $limit): array
     {
@@ -234,7 +234,7 @@ final class SystemOperationsState
     }
 
     /** @param list<string> $columns
-     *  @return list<array<string, mixed>>
+     * @return list<array<string, mixed>>
      */
     private function actorRows(string $table, string $actorId, array $columns, string $orderColumn, int $limit): array
     {
@@ -257,9 +257,9 @@ final class SystemOperationsState
     }
 
     /** @template T
-     *  @param callable(): T $operation
-     *  @param T $fallback
-     *  @return T
+     * @param  callable(): T  $operation
+     * @param  T  $fallback
+     * @return T
      */
     private function safe(callable $operation, mixed $fallback): mixed
     {
