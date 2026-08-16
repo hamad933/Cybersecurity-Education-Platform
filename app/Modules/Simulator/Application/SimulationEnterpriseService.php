@@ -2,6 +2,8 @@
 
 namespace App\Modules\Simulator\Application;
 
+use App\Modules\Enterprise\Application\SimulationEnterpriseState;
+use App\Modules\Enterprise\Application\SimulationEnterpriseStateReader;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -35,88 +37,9 @@ final class SimulationEnterpriseService
         'FAILED' => [],
     ];
 
-    /**
-     * @param  array<string, mixed>  $definition
-     * @return array<string, mixed>
-     */
-    public function createEnterprise(string $slug, string $nameAr, array $definition, ?string $actorId = null, bool $isFixture = false): array
-    {
-        $id = (string) Str::uuid7();
-        $now = now();
-        DB::table('simulation_enterprises')->insert([
-            'id' => $id,
-            'slug' => $slug,
-            'name_ar' => $nameAr,
-            'name_en' => null,
-            'description_ar' => null,
-            'definition' => $this->json($definition),
-            'is_fixture' => $isFixture,
-            'created_by' => $actorId,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
-        return $this->row('simulation_enterprises', $id);
-    }
-
-    /**
-     * @param  array<string, mixed>  $topology
-     * @param  array<string, mixed>  $behaviorModel
-     * @return array<string, mixed>
-     */
-    public function publishDigitalTwinRevision(string $enterpriseId, array $topology, array $behaviorModel, ?string $actorId = null): array
-    {
-        $this->requireRow('simulation_enterprises', $enterpriseId);
-        $revision = (int) DB::table('simulation_digital_twin_revisions')->where('enterprise_id', $enterpriseId)->max('revision') + 1;
-        $id = (string) Str::uuid7();
-        $now = now();
-        $digest = $this->digest(['topology' => $topology, 'behavior_model' => $behaviorModel]);
-        DB::table('simulation_digital_twin_revisions')->insert([
-            'id' => $id,
-            'enterprise_id' => $enterpriseId,
-            'revision' => $revision,
-            'status' => 'PUBLISHED',
-            'topology' => $this->json($topology),
-            'behavior_model' => $this->json($behaviorModel),
-            'digest' => $digest,
-            'published_at' => $now,
-            'created_by' => $actorId,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
-        return $this->row('simulation_digital_twin_revisions', $id);
-    }
-
-    /**
-     * @param  array<string, mixed>  $state
-     * @return array<string, mixed>
-     */
-    public function publishBaseline(string $enterpriseId, string $digitalTwinRevisionId, array $state, ?string $actorId = null): array
-    {
-        $twin = $this->requireRow('simulation_digital_twin_revisions', $digitalTwinRevisionId);
-        if ((string) $twin->enterprise_id !== $enterpriseId || (string) $twin->status !== 'PUBLISHED') {
-            throw new LogicException('Baseline must pin a published Digital Twin Revision from the same Enterprise.');
-        }
-        $revision = (int) DB::table('simulation_baselines')->where('enterprise_id', $enterpriseId)->max('revision') + 1;
-        $id = (string) Str::uuid7();
-        $now = now();
-        DB::table('simulation_baselines')->insert([
-            'id' => $id,
-            'enterprise_id' => $enterpriseId,
-            'digital_twin_revision_id' => $digitalTwinRevisionId,
-            'revision' => $revision,
-            'status' => 'PUBLISHED',
-            'state' => $this->json($state),
-            'digest' => $this->digest($state),
-            'published_at' => $now,
-            'created_by' => $actorId,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
-        return $this->row('simulation_baselines', $id);
-    }
+    public function __construct(
+        private readonly SimulationEnterpriseStateReader $enterpriseState,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $orchestration
@@ -125,7 +48,7 @@ final class SimulationEnterpriseService
      */
     public function publishScenario(string $enterpriseId, string $baselineId, string $slug, string $titleAr, array $orchestration, array $validation = [], ?string $actorId = null): array
     {
-        $baseline = $this->requirePublishedBaseline($enterpriseId, $baselineId);
+        $enterpriseState = $this->requirePublishedBaseline($enterpriseId, $baselineId);
         $revision = (int) DB::table('simulation_scenario_definitions')->where('slug', $slug)->max('revision') + 1;
         $id = (string) Str::uuid7();
         $now = now();
@@ -140,7 +63,11 @@ final class SimulationEnterpriseService
             'status' => 'PUBLISHED',
             'orchestration' => $this->json($orchestration),
             'validation' => $this->json($validation),
-            'digest' => $this->digest(['baseline' => $baseline->digest, 'orchestration' => $orchestration, 'validation' => $validation]),
+            'digest' => $this->digest([
+                'baseline' => $enterpriseState->baseline['digest'],
+                'orchestration' => $orchestration,
+                'validation' => $validation,
+            ]),
             'created_by' => $actorId,
             'created_at' => $now,
             'updated_at' => $now,
@@ -156,7 +83,7 @@ final class SimulationEnterpriseService
      */
     public function publishLab(string $enterpriseId, string $baselineId, string $slug, string $titleAr, array $configuration, array $validation = [], ?string $actorId = null): array
     {
-        $baseline = $this->requirePublishedBaseline($enterpriseId, $baselineId);
+        $enterpriseState = $this->requirePublishedBaseline($enterpriseId, $baselineId);
         $revision = (int) DB::table('simulation_lab_definitions')->where('slug', $slug)->max('revision') + 1;
         $id = (string) Str::uuid7();
         $now = now();
@@ -171,7 +98,11 @@ final class SimulationEnterpriseService
             'status' => 'PUBLISHED',
             'configuration' => $this->json($configuration),
             'validation' => $this->json($validation),
-            'digest' => $this->digest(['baseline' => $baseline->digest, 'configuration' => $configuration, 'validation' => $validation]),
+            'digest' => $this->digest([
+                'baseline' => $enterpriseState->baseline['digest'],
+                'configuration' => $configuration,
+                'validation' => $validation,
+            ]),
             'created_by' => $actorId,
             'created_at' => $now,
             'updated_at' => $now,
@@ -300,15 +231,23 @@ final class SimulationEnterpriseService
             if ($run === null || (string) $run->lifecycle !== 'RUNNING') {
                 throw new DomainException('Internal simulation can complete only a RUNNING Run.');
             }
-            $baseline = $this->requireRow('simulation_baselines', (string) $run->baseline_id);
-            $twin = $this->requireRow('simulation_digital_twin_revisions', (string) $run->digital_twin_revision_id);
+
+            $enterpriseState = $this->enterpriseState->findForSimulation(
+                (string) $run->enterprise_id,
+                (string) $run->digital_twin_revision_id,
+                (string) $run->baseline_id,
+            );
+            if ($enterpriseState === null) {
+                throw new DomainException('Run lineage references missing Enterprise-owned state.');
+            }
+
             $traceBase = [
                 'engine' => 'INTERNAL_HIGH_FIDELITY_V1',
                 'run_type' => (string) $run->run_type,
                 'seed' => (int) $run->seed,
                 'input_digest' => (string) $run->input_digest,
-                'baseline_digest' => (string) $baseline->digest,
-                'digital_twin_digest' => (string) $twin->digest,
+                'baseline_digest' => (string) $enterpriseState->baseline['digest'],
+                'digital_twin_digest' => (string) $enterpriseState->digitalTwinRevision['digest'],
             ];
             $traceDigest = $this->digest($traceBase);
             $numeric = (int) sprintf('%u', crc32($traceDigest));
@@ -525,27 +464,32 @@ final class SimulationEnterpriseService
     /** @return array<string,string> */
     private function lineage(string $enterpriseId, string $baselineId): array
     {
-        $baseline = $this->requirePublishedBaseline($enterpriseId, $baselineId);
-        $twin = $this->requireRow('simulation_digital_twin_revisions', (string) $baseline->digital_twin_revision_id);
-        if ((string) $twin->status !== 'PUBLISHED') {
+        $enterpriseState = $this->requirePublishedBaseline($enterpriseId, $baselineId);
+        if ((string) ($enterpriseState->digitalTwinRevision['status'] ?? '') !== 'PUBLISHED') {
             throw new LogicException('Run lineage requires a published Digital Twin Revision.');
         }
 
         return [
             'enterprise_id' => $enterpriseId,
-            'digital_twin_revision_id' => (string) $twin->id,
-            'baseline_id' => (string) $baseline->id,
+            'digital_twin_revision_id' => (string) $enterpriseState->digitalTwinRevision['id'],
+            'baseline_id' => (string) $enterpriseState->baseline['id'],
         ];
     }
 
-    private function requirePublishedBaseline(string $enterpriseId, string $baselineId): stdClass
-    {
-        $baseline = $this->requireRow('simulation_baselines', $baselineId);
-        if ((string) $baseline->enterprise_id !== $enterpriseId || (string) $baseline->status !== 'PUBLISHED') {
+    private function requirePublishedBaseline(
+        string $enterpriseId,
+        string $baselineId,
+    ): SimulationEnterpriseState {
+        $enterpriseState = $this->enterpriseState->findPublishedBaselineForSimulation(
+            $enterpriseId,
+            $baselineId,
+        );
+
+        if ($enterpriseState === null) {
             throw new LogicException('Definition must pin a published Baseline from the same Enterprise.');
         }
 
-        return $baseline;
+        return $enterpriseState;
     }
 
     private function instantiateLabModule(string $runId, stdClass $reference): void

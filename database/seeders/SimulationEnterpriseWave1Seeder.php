@@ -2,31 +2,32 @@
 
 namespace Database\Seeders;
 
+use App\Modules\Enterprise\Application\SimulationEnterpriseFixtureWriter;
 use App\Modules\Simulator\Application\SimulationEnterpriseService;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 final class SimulationEnterpriseWave1Seeder extends Seeder
 {
     public function run(): void
     {
-        if (DB::table('simulation_enterprises')->where('slug', 'cep-wave1-internal-enterprise')->exists()) {
+        /** @var SimulationEnterpriseFixtureWriter $enterpriseFixtures */
+        $enterpriseFixtures = app(SimulationEnterpriseFixtureWriter::class);
+
+        if ($enterpriseFixtures->hasFixture('cep-wave1-internal-enterprise')) {
             return;
         }
 
         /** @var SimulationEnterpriseService $simulation */
         $simulation = app(SimulationEnterpriseService::class);
-        $enterprise = $simulation->createEnterprise(
+        $enterprise = $enterpriseFixtures->createEnterprise(
             'cep-wave1-internal-enterprise',
             'بيئة CEP الداخلية التجريبية',
             [
                 'purpose' => 'SYNTHETIC_WAVE1_FIXTURE',
                 'zones' => ['USER_EDGE', 'APPLICATION', 'IDENTITY', 'DATA'],
             ],
-            null,
-            true,
         );
-        $twin = $simulation->publishDigitalTwinRevision((string) $enterprise['id'], [
+        $twin = $enterpriseFixtures->publishDigitalTwinRevision((string) $enterprise['id'], [
             'nodes' => [
                 ['id' => 'EDGE-01', 'kind' => 'gateway'],
                 ['id' => 'APP-01', 'kind' => 'application'],
@@ -40,11 +41,15 @@ final class SimulationEnterpriseWave1Seeder extends Seeder
             'authentication' => 'SIMULATED_POLICY_ENGINE',
             'telemetry' => 'INTERNAL_EVENT_STREAM',
         ]);
-        $baseline = $simulation->publishBaseline((string) $enterprise['id'], (string) $twin['id'], [
-            'identity_policy' => ['mfa_required' => true],
-            'application_state' => ['maintenance' => false],
-            'telemetry_state' => ['collection' => 'enabled'],
-        ]);
+        $baseline = $enterpriseFixtures->publishBaseline(
+            (string) $enterprise['id'],
+            (string) $twin['id'],
+            [
+                'identity_policy' => ['mfa_required' => true],
+                'application_state' => ['maintenance' => false],
+                'telemetry_state' => ['collection' => 'enabled'],
+            ],
+        );
         $lab = $simulation->publishLab(
             (string) $enterprise['id'],
             (string) $baseline['id'],

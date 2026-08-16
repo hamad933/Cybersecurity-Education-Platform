@@ -3,6 +3,8 @@
 namespace App\Modules\Simulator\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Enterprise\Application\SimulationEnterpriseState;
+use App\Modules\Enterprise\Application\SimulationEnterpriseStateReader;
 use App\Modules\Simulator\Application\SimulationEnterpriseService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,9 +17,14 @@ final class SimulationEnterpriseController extends Controller
 {
     private readonly SimulationEnterpriseService $simulation;
 
-    public function __construct(SimulationEnterpriseService $simulation)
-    {
+    private readonly SimulationEnterpriseStateReader $enterpriseState;
+
+    public function __construct(
+        SimulationEnterpriseService $simulation,
+        SimulationEnterpriseStateReader $enterpriseState,
+    ) {
         $this->simulation = $simulation;
+        $this->enterpriseState = $enterpriseState;
     }
 
     public function index(): Response
@@ -189,31 +196,35 @@ final class SimulationEnterpriseController extends Controller
     /** @return list<array<string,mixed>> */
     private function enterprises(): array
     {
-        return DB::table('simulation_enterprises')->orderBy('name_ar')->get()->map(function (stdClass $enterprise): array {
-            $twin = DB::table('simulation_digital_twin_revisions')->where('enterprise_id', $enterprise->id)->where('status', 'PUBLISHED')->orderByDesc('revision')->first();
-            $baseline = DB::table('simulation_baselines')->where('enterprise_id', $enterprise->id)->where('status', 'PUBLISHED')->orderByDesc('revision')->first();
+        return array_map(
+            static function (SimulationEnterpriseState $state): array {
+                $enterprise = $state->enterprise;
+                $digitalTwinRevision = $state->digitalTwinRevision;
+                $baseline = $state->baseline;
 
-            return [
-                'id' => (string) $enterprise->id,
-                'slug' => (string) $enterprise->slug,
-                'name_ar' => (string) $enterprise->name_ar,
-                'description_ar' => $enterprise->description_ar,
-                'definition' => $this->decode($enterprise->definition),
-                'is_fixture' => (bool) $enterprise->is_fixture,
-                'digital_twin_revision' => $twin === null ? null : [
-                    'id' => (string) $twin->id,
-                    'revision' => (int) $twin->revision,
-                    'digest' => (string) $twin->digest,
-                    'topology' => $this->decode($twin->topology),
-                ],
-                'baseline' => $baseline === null ? null : [
-                    'id' => (string) $baseline->id,
-                    'revision' => (int) $baseline->revision,
-                    'digest' => (string) $baseline->digest,
-                    'state' => $this->decode($baseline->state),
-                ],
-            ];
-        })->all();
+                return [
+                    'id' => (string) $enterprise['id'],
+                    'slug' => (string) $enterprise['slug'],
+                    'name_ar' => (string) $enterprise['name_ar'],
+                    'description_ar' => $enterprise['description_ar'] ?? null,
+                    'definition' => $enterprise['definition'] ?? [],
+                    'is_fixture' => (bool) ($enterprise['is_fixture'] ?? false),
+                    'digital_twin_revision' => $digitalTwinRevision === [] ? null : [
+                        'id' => (string) $digitalTwinRevision['id'],
+                        'revision' => (int) $digitalTwinRevision['revision'],
+                        'digest' => (string) $digitalTwinRevision['digest'],
+                        'topology' => $digitalTwinRevision['topology'] ?? [],
+                    ],
+                    'baseline' => $baseline === [] ? null : [
+                        'id' => (string) $baseline['id'],
+                        'revision' => (int) $baseline['revision'],
+                        'digest' => (string) $baseline['digest'],
+                        'state' => $baseline['state'] ?? [],
+                    ],
+                ];
+            },
+            $this->enterpriseState->listForSimulationWorkspace(),
+        );
     }
 
     /** @return list<array<string,mixed>> */
