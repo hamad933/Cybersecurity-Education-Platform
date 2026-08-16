@@ -245,8 +245,6 @@ const submitRevision = (mode: 'manual' | 'auto') => {
     onSuccess: () => {
       form.lock_version = props.active?.revision?.lock_version ?? form.lock_version;
       lastSnapshot = currentSnapshot();
-      undoStack.value = [];
-      redoStack.value = [];
       removeRecovery();
       autosaveState.value = 'saved';
     },
@@ -380,7 +378,8 @@ const loadComparison = async () => {
   compareLoading.value = true;
   compareError.value = '';
   try {
-    const url = `/knowledge?object=${encodeURIComponent(props.active.id)}&revision=${encodeURIComponent(compareRevisionId.value)}`;
+    const url =
+      `/knowledge?object=${encodeURIComponent(props.active.id)}&revision=${encodeURIComponent(compareRevisionId.value)}`;
     const response = await window.fetch(url, {
       credentials: 'same-origin',
       headers: {
@@ -885,7 +884,9 @@ const loadComparison = async () => {
         class="mt-4 rounded-xl border border-slate-800 bg-slate-900/30 p-4"
         aria-label="مقارنة المراجعات"
       >
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+        <div
+          class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3"
+        >
           <div>
             <h2 class="font-bold">مقارنة مراجعتين دون تعديل السجل المنشور</h2>
             <p class="mt-1 text-xs text-slate-500">
@@ -924,7 +925,10 @@ const loadComparison = async () => {
               <bdi v-if="row.current" dir="ltr" class="font-mono text-[11px] text-cyan-300">
                 {{ row.current.type }}
               </bdi>
-              <p v-if="row.current" class="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-300">
+              <p
+                v-if="row.current"
+                class="mt-2 text-sm leading-7 whitespace-pre-wrap text-slate-300"
+              >
                 {{ row.current.body }}
               </p>
               <p v-else class="text-xs text-slate-600">لا توجد كتلة مقابلة.</p>
@@ -933,7 +937,10 @@ const loadComparison = async () => {
               <bdi v-if="row.compared" dir="ltr" class="font-mono text-[11px] text-indigo-300">
                 {{ row.compared.type }}
               </bdi>
-              <p v-if="row.compared" class="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-300">
+              <p
+                v-if="row.compared"
+                class="mt-2 text-sm leading-7 whitespace-pre-wrap text-slate-300"
+              >
                 {{ row.compared.body }}
               </p>
               <p v-else class="text-xs text-slate-600">لا توجد كتلة مقابلة.</p>
