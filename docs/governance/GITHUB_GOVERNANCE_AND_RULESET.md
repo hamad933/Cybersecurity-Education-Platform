@@ -1,14 +1,21 @@
 # GitHub governance and recommended Ruleset
 
-Status: **repository-controlled recommendation; GitHub repository settings are not claimed as applied until verified in the GitHub UI or API**.
+Status: **repository-controlled recommendation; GitHub repository settings are not claimed as applied until directly verified in the GitHub UI or API**.
+
+## Repository visibility and product authority
+
+The GitHub repository is public. Public repository visibility governs source-code visibility only; it does not authorize public CEP registration, SaaS, multi-tenancy, public or cloud deployment, automatic AI providers, external simulation execution, production security connectors, or any broader runtime authority.
+
+Repository-native governance remains binding even when equivalent GitHub platform enforcement is absent or has not been verified. Do not describe `main`, the integration branch, required reviews, status checks, or a Ruleset as platform-enforced unless the current GitHub state has been directly verified.
 
 ## Canonical workflow
 
-- `main` is the protected canonical branch. No implementation commit is pushed directly to it.
+- `main` is the canonical branch. Direct implementation pushes to it are not authorized.
 - Work begins from an exact approved commit on a dedicated branch. Branch names use `type/short-purpose`, such as `chore/github-automation-foundation`.
 - Pull requests remain draft until all required gates execute. A skipped, cancelled, timed-out, blocked, or incomplete gate is not a pass.
 - Commits use Conventional Commit prefixes: `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `build`, `ci`, or `revert`. Each commit must be bounded, reviewable, and history-preserving.
 - Generated evidence is never committed. GitHub Actions artifacts are the runtime evidence authority.
+- During the parallel build program, Builders must not write directly to `build/cep-v1-integration`; Controller-authorized PR integration is required.
 
 ## Evidence naming and truthfulness
 
@@ -31,28 +38,33 @@ A required job fails when its gate fails. `continue-on-error` is not used to rei
 
 ## Single-owner review model
 
-This repository is currently a private, user-owned, single-owner repository. The sole recorded Code Owner is `@hamad933`, who is also the author of owner-created pull requests. GitHub does not permit pull-request authors to approve their own pull requests.
+This repository is currently a public, user-owned, single-owner repository. The sole recorded Code Owner is `@hamad933`, who is also the author of owner-created pull requests. GitHub does not permit pull-request authors to approve their own pull requests.
 
 Therefore, while the repository remains single-owner:
 
-- a pull request is required before `main` changes;
-- required approving reviews are set to `0` / disabled;
-- required Code Owner review is disabled;
+- a pull request is required by repository governance before `main` changes;
+- required approving reviews are set to `0` / disabled in the recommended Ruleset;
+- required Code Owner review is disabled in the recommended Ruleset;
 - dismissal of stale approvals is disabled because no approval is required;
 - approval from someone other than the last pusher is disabled;
 - `CODEOWNERS` remains as an ownership and future-governance record, not as an impossible merge prerequisite.
 
 If a second qualified maintainer with write access is added later, one required approval and Code Owner review may be enabled through a separately authorized governance change after confirming that the reviewer can satisfy the rule without bypass.
 
-## Ruleset availability prerequisite
+## Ruleset verification and enforcement state
 
-Rulesets for private repositories require a GitHub plan that supports private-repository Rulesets, such as GitHub Pro, GitHub Team, or GitHub Enterprise Cloud.
+GitHub Rulesets and branch protection are external platform settings. The presence of this document does not activate either mechanism.
 
-Before claiming activation, the owner must verify that **Settings → Rules → Rulesets** is available for this private repository. If the Rulesets interface is unavailable, do not claim `CEP-GH-001-G02` as passed, do not weaken the required checks, and stop at:
+Before claiming platform enforcement, verify directly in the GitHub API or **Settings → Rules → Rulesets** that an **Active** Ruleset applies to `main` and matches the approved configuration below. Also verify the branch's effective protection state and required-check names against completed workflow runs.
 
-`CEP-GH-001-G02-B01 — BLOCKED_GITHUB_PLAN_OR_FEATURE_AVAILABILITY`
+If no applicable Active Ruleset is returned, branch protection is disabled, or the setting cannot be verified, do not claim enforcement. Keep the bounded operational override in force:
 
-Any plan upgrade or alternative protection mechanism requires a separate owner decision.
+- no direct push or merge to `main`;
+- no direct Builder write to `build/cep-v1-integration`;
+- Controller-authorized PR integration only;
+- required CI results remain truthful and must not be weakened to compensate for missing platform enforcement.
+
+Creation or activation of the Ruleset is an owner/platform action and must be verified after the setting is saved.
 
 ## Recommended Ruleset for `main`
 
@@ -87,22 +99,22 @@ For an exceptional recovery action, the repository owner may temporarily alter o
 
 ## Security reporting alignment
 
-While the repository remains private, GitHub Private Vulnerability Reporting for external researchers is not treated as an applicable repository setting. Security concerns must be disclosed privately to the repository owner or handled through a GitHub repository security advisory when available and authorized. Credentials, session material, private source content, database dumps, and usable exploit details must never be posted in public issues or pull-request discussions.
+The repository is public, but vulnerability handling remains private. Security concerns must be disclosed privately to the repository owner or handled through a GitHub repository security advisory when available and authorized. Credentials, session material, private uploaded source content, database dumps, and usable exploit details must never be posted in public issues or pull-request discussions.
 
-If the repository is later made public through a separately authorized decision, enabling GitHub Private Vulnerability Reporting may then be evaluated and recorded as a separate settings change.
+GitHub Private Vulnerability Reporting may be evaluated for this public repository as a separate owner/platform setting. Do not claim it is enabled until its current state has been directly verified.
 
-## One-time owner UI action
+## Owner/platform action
 
-1. Verify the current GitHub plan exposes **Settings → Rules → Rulesets** for this private repository.
-2. Create `main-canonical-protection` with the exact settings above and save it as **Active**.
+1. Verify the current Rulesets API or **Settings → Rules → Rulesets** state for this public repository.
+2. If `main-canonical-protection` is absent or inactive, create or activate it with the exact settings above.
 3. Verify the eight required-check names against completed workflow runs before relying on the Ruleset.
-4. Keep repository visibility private.
-5. Do not claim Private Vulnerability Reporting is enabled or required while the repository remains private.
+4. Verify effective `main` protection after activation; do not infer protection from repository documentation.
+5. Treat Private Vulnerability Reporting as a separate optional security setting and verify it independently before making any claim about its state.
 
 These settings are not represented as applied until verified in GitHub after activation.
 
 ## Rollback
 
-Before merge, close the draft pull request and delete its branch if the proposed foundation is rejected. After a later authorized squash or rebase integration, revert the resulting integration commit or commits through a new pull request; never rewrite `main`.
+Before merge, close the draft pull request and delete its branch if the proposed governance remediation is rejected. After a later authorized squash or rebase integration, revert the resulting integration commit or commits through a new pull request; never rewrite `main`.
 
-Repository settings are rolled back independently through the Ruleset UI and must not be represented as code rollback.
+Repository settings are rolled back independently through the Ruleset UI or API and must not be represented as code rollback.

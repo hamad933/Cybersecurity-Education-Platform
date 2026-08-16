@@ -11,8 +11,12 @@ class RepositorySafetyTest extends TestCase
     public function canonical_governance_and_validation_documents_define_current_evidence_boundaries(): void
     {
         foreach ([
+            'AGENTS.md',
+            'CONTRIBUTING.md',
             'README.md',
             'SECURITY.md',
+            'docs/governance/PARALLEL_EXECUTION_MODEL.md',
+            'docs/governance/GITHUB_GOVERNANCE_AND_RULESET.md',
             'docs/development/TESTING_AND_QUALITY_GATES.md',
             'docs/development/GITHUB_ACTIONS_EVIDENCE_MODEL.md',
             '.github/workflows/core-ci.yml',
@@ -21,9 +25,24 @@ class RepositorySafetyTest extends TestCase
             $this->assertGreaterThan(0, filesize(base_path($path)), "Canonical governance source is empty: {$path}");
         }
 
+        $agents = file_get_contents(base_path('AGENTS.md'));
+        $contributing = file_get_contents(base_path('CONTRIBUTING.md'));
+        $readme = file_get_contents(base_path('README.md'));
         $security = file_get_contents(base_path('SECURITY.md'));
+        $githubGovernance = file_get_contents(base_path('docs/governance/GITHUB_GOVERNANCE_AND_RULESET.md'));
         $testing = file_get_contents(base_path('docs/development/TESTING_AND_QUALITY_GATES.md'));
         $evidence = file_get_contents(base_path('docs/development/GITHUB_ACTIONS_EVIDENCE_MODEL.md'));
+
+        $this->assertStringContainsString('canonical repository execution governance', $agents);
+        $this->assertStringContainsString('This public code repository', $contributing);
+        $this->assertStringContainsString('This public GitHub repository', $readme);
+        $this->assertStringContainsString('The GitHub repository is public', $githubGovernance);
+        $this->assertStringContainsString('This repository is public', $security);
+
+        $visibilityGovernance = implode("\n", [$agents, $contributing, $readme, $security, $githubGovernance]);
+        foreach (['This private repository', 'repository remains private', 'Keep repository visibility private'] as $stalePrivateAssumption) {
+            $this->assertStringNotContainsString($stalePrivateAssumption, $visibilityGovernance);
+        }
 
         foreach (['Report suspected vulnerabilities privately', 'Do not place credentials', 'Rotate and revoke any value accidentally disclosed'] as $invariant) {
             $this->assertStringContainsString($invariant, $security);
@@ -45,7 +64,6 @@ class RepositorySafetyTest extends TestCase
         $this->assertStringContainsString('review-packets', $dockerignore);
 
         foreach ([
-            'AGENTS.md',
             'review-packets/TASK_004_REVIEW_HANDOFF/HANDOFF_MANIFEST.tsv',
             'review-packets/TASK_004_REVIEW_HANDOFF/SHA256SUMS.txt',
             'review-packets/TASK_006_REVIEW_HANDOFF/MANIFEST.sha256',

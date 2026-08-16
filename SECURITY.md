@@ -2,11 +2,11 @@
 
 Report suspected vulnerabilities privately to the designated repository owner or through a GitHub repository security advisory when that channel is available and explicitly authorized. Do not place credentials, session material, private source content, database dumps, or usable exploit details in an issue or pull-request discussion.
 
-GitHub Private Vulnerability Reporting for external researchers is not treated as an applicable setting while this repository remains private. If repository visibility is later changed to public through a separately authorized decision, enabling Private Vulnerability Reporting may then be evaluated and recorded as a separate settings change.
+This repository is public. GitHub Private Vulnerability Reporting is a separate repository setting and must not be claimed as enabled unless directly verified in GitHub. Public source visibility does not make public issues or pull-request discussions an acceptable vulnerability-disclosure channel.
 
 ## Current boundary
 
-The bounded V1 runtime is a private, local-first, single-owner learning and simulation platform. It includes authenticated VS-001, VS-002, VS-003, the Release Center, safe import/package controls, database queue processing, tamper-evident audit chaining, and backup/restore verification. Simulated evidence remains visibly `SIMULATED` and does not authorize real-system claims.
+The bounded V1 runtime is local-first and single-owner. Public repository visibility does not authorize public product registration, SaaS, multi-tenancy, public or cloud deployment, external simulation execution, automatic AI providers, production security connectors, or any other runtime expansion. Simulated evidence remains visibly `SIMULATED` and does not authorize real-system claims.
 
 There is no public registration, multi-tenant SaaS mode, production connector, live target execution, automatic AI provider, production deployment, or Google Drive integration. A future phase must not infer authorization for those capabilities from this repository.
 

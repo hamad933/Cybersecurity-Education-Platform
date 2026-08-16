@@ -1,13 +1,13 @@
 # Cybersecurity Education Platform — CEP
 
-This private repository is the canonical codebase for the real CEP application. The target product is governed by the owner-approved CEP product architecture and the owner-approved `CEP-VIS-001-FINAL` Visual & Interaction Contract retained in Google Drive. Legacy VS-001/VS-002/VS-003 pages and task artifacts remain reuse candidates and evidence; they are not the target information architecture.
+This public GitHub repository is the canonical codebase for the real CEP application. Repository visibility exposes source code only; it does not authorize public CEP registration, SaaS, multi-tenancy, public or cloud deployment, automatic AI providers, external simulation execution, production security connectors, or any broader runtime authority. The target product is governed by the owner-approved CEP product architecture and the owner-approved `CEP-VIS-001-FINAL` Visual & Interaction Contract retained in Google Drive. Legacy VS-001/VS-002/VS-003 pages and task artifacts remain reuse candidates and evidence; they are not the target information architecture.
 
 ## Product implementation direction
 
 CEP remains:
 
 - local-first;
-- private and single-owner for the current roadmap;
+- single-owner for the current roadmap;
 - Arabic-first with correct mixed RTL/LTR behavior;
 - one Laravel modular monolith;
 - Vue 3 + TypeScript + Inertia in the same deployable application;
