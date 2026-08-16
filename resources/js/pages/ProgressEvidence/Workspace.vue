@@ -448,6 +448,7 @@ function removePortfolioItem(): void {
           >
             <span>
               <strong>{{ item.title }}</strong>
+              <small>{{ item.evidence_claim }}</small>
               <small>
                 Revision {{ item.current_revision_number }} · {{ item.revisions.length }} sealed
                 revision(s)
@@ -543,7 +544,6 @@ function removePortfolioItem(): void {
         <template v-if="surface === 'evidence' && selectedEvidence">
           <p class="eyebrow">Sealed Revision History</p>
           <h2>السجل غير القابل لإعادة الكتابة</h2>
-          <p>{{ selectedEvidence.evidence_claim }}</p>
           <ol>
             <li v-for="item in selectedEvidence.revisions" :key="item.id">
               <bdi>R{{ item.revision }}</bdi> — {{ item.revision_reason }}
