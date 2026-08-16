@@ -44,7 +44,10 @@ final class ProgressEvidenceService
 
     private const FRESHNESS = ['CURRENT', 'REVALIDATION_REQUIRED'];
 
-    /** @param array<string, mixed> $handoff */
+    /**
+     * @param array<string, mixed> $handoff
+     * @return array<string, mixed>
+     */
     public function intakeCandidate(string $subjectId, string $submittedBy, array $handoff): array
     {
         foreach ([
@@ -131,6 +134,7 @@ final class ProgressEvidenceService
         return $this->candidate($id);
     }
 
+    /** @return array<string, mixed> */
     public function transitionCandidate(string $candidateId, string $actorId, string $state): array
     {
         if (! array_key_exists($state, self::CANDIDATE_TRANSITIONS) || $state === 'ADMITTED') {
@@ -247,7 +251,10 @@ final class ProgressEvidenceService
         });
     }
 
-    /** @param array<string, mixed> $data */
+    /**
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
     public function createRevision(string $evidenceId, string $actorId, array $data): array
     {
         return DB::transaction(function () use ($evidenceId, $actorId, $data): array {
@@ -352,7 +359,10 @@ final class ProgressEvidenceService
         });
     }
 
-    /** @param array<string, mixed> $data */
+    /**
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
     public function requestReview(string $evidenceId, string $actorId, array $data = []): array
     {
         return DB::transaction(function () use ($evidenceId, $actorId, $data): array {
@@ -424,6 +434,7 @@ final class ProgressEvidenceService
         });
     }
 
+    /** @return array<string, mixed> */
     public function admitReviewRequest(string $requestId, string $reviewerId): array
     {
         return DB::transaction(function () use ($requestId, $reviewerId): array {
@@ -480,7 +491,10 @@ final class ProgressEvidenceService
         });
     }
 
-    /** @param list<string> $supportingRevisionIds */
+    /**
+     * @param list<string> $supportingRevisionIds
+     * @return array<string, mixed>
+     */
     public function recordFinding(
         string $reviewId,
         string $actorId,
@@ -551,6 +565,7 @@ final class ProgressEvidenceService
         });
     }
 
+    /** @return array<string, mixed> */
     public function recordReviewDecision(
         string $reviewId,
         string $actorId,
@@ -627,6 +642,7 @@ final class ProgressEvidenceService
      * @param list<string> $reviewDecisionIds
      * @param list<string> $supportingRevisionIds
      * @param list<string> $contradictingRevisionIds
+     * @return array<string, mixed>
      */
     public function evaluateMastery(
         string $subjectId,
@@ -817,7 +833,11 @@ final class ProgressEvidenceService
         });
     }
 
-    /** @param array<string, mixed> $filters @param array<string, mixed> $annotations */
+    /**
+     * @param array<string, mixed> $filters
+     * @param array<string, mixed> $annotations
+     * @return array<string, mixed>
+     */
     public function createPortfolio(
         string $actorId,
         string $name,
@@ -1167,7 +1187,10 @@ final class ProgressEvidenceService
         }
     }
 
-    /** @param list<string> $json */
+    /**
+     * @param list<string> $json
+     * @return array<string, mixed>
+     */
     private function row(string $table, string $id, array $json = []): array
     {
         $row = DB::table($table)->where('id', $id)->first();
@@ -1178,6 +1201,7 @@ final class ProgressEvidenceService
         return $this->array($row, $json);
     }
 
+    /** @return array<string, mixed> */
     private function revision(string $evidenceId, int $revision): array
     {
         $row = DB::table('governed_evidence_revisions')
@@ -1192,7 +1216,10 @@ final class ProgressEvidenceService
         return $this->array($row, ['facts', 'selected_material_refs', 'criterion_scope']);
     }
 
-    /** @param list<string> $json */
+    /**
+     * @param list<string> $json
+     * @return array<string, mixed>
+     */
     private function array(object $row, array $json = []): array
     {
         $out = (array) $row;
