@@ -115,10 +115,31 @@ class ModuleBoundaryTest extends TestCase
                 continue;
             }
             preg_match_all('/DB::table\\([\'\"]([^\'\"]+)/', $source, $tables);
-            foreach ($tables[1] as $table) {
-                $this->assertContains($table, $ownership[$owner[1]], "Cross-module write to {$table}");
+            foreach ($tables[1] as $tableReference) {
+                $table = $this->normalizeRawTableReference($tableReference);
+                $this->assertContains($table, $ownership[$owner[1]], "Cross-module write to {$tableReference}");
             }
         }
+    }
+
+    #[Test]
+    public function raw_table_aliases_are_normalized_before_exact_ownership_comparison(): void
+    {
+        $evidenceOwnership = ['governed_evidence_revisions'];
+
+        foreach ([
+            'governed_evidence_revisions as r',
+            'governed_evidence_revisions AS r',
+            'governed_evidence_revisions   As   revision',
+        ] as $tableReference) {
+            $table = $this->normalizeRawTableReference($tableReference);
+            $this->assertSame('governed_evidence_revisions', $table);
+            $this->assertContains($table, $evidenceOwnership);
+        }
+
+        $foreignTable = $this->normalizeRawTableReference('scenario_runs as r');
+        $this->assertSame('scenario_runs', $foreignTable);
+        $this->assertNotContains($foreignTable, $evidenceOwnership);
     }
 
     #[Test]
@@ -166,6 +187,15 @@ class ModuleBoundaryTest extends TestCase
                 $this->assertContains($this->namespaceToId[$namespace], $registered);
             }
         }
+    }
+
+    private function normalizeRawTableReference(string $tableReference): string
+    {
+        if (preg_match('/^([A-Za-z_][A-Za-z0-9_]*)[ \t]+as[ \t]+[A-Za-z_][A-Za-z0-9_]*\z/i', $tableReference, $alias) === 1) {
+            return $alias[1];
+        }
+
+        return $tableReference;
     }
 
     private function activeModuleDirectories(): array
