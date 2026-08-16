@@ -60,7 +60,10 @@ const edgeRows = computed(() =>
       <header class="border-b border-slate-800 pb-4">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <KnowledgeTabs active="visualize" :object-id="active?.id" />
-          <div class="flex items-center gap-1 rounded-lg bg-slate-900 p-1 text-xs" aria-label="أنماط التصوّر">
+          <div
+            class="flex items-center gap-1 rounded-lg bg-slate-900 p-1 text-xs"
+            aria-label="أنماط التصوّر"
+          >
             <button
               v-for="viewName in views"
               :key="viewName"
@@ -131,7 +134,11 @@ const edgeRows = computed(() =>
                   </bdi>
                 </article>
               </div>
-              <div v-if="capabilities.length" class="h-8 w-px bg-slate-700" aria-hidden="true"></div>
+              <div
+                v-if="capabilities.length"
+                class="h-8 w-px bg-slate-700"
+                aria-hidden="true"
+              ></div>
               <div
                 v-if="unitNode"
                 class="rounded-xl border border-cyan-600 bg-cyan-950/25 px-6 py-4 text-center"
@@ -213,7 +220,9 @@ const edgeRows = computed(() =>
                     <bdi dir="ltr" class="block font-mono text-slate-300">
                       {{ edge.fromNode?.technical_label ?? edge.from }}
                     </bdi>
-                    <bdi dir="ltr" class="my-1 block font-mono text-amber-300">→ {{ edge.type }} →</bdi>
+                    <bdi dir="ltr" class="my-1 block font-mono text-amber-300">
+                      → {{ edge.type }} →
+                    </bdi>
                     <bdi dir="ltr" class="block font-mono text-slate-300">
                       {{ edge.toNode?.technical_label ?? edge.to }}
                     </bdi>
@@ -251,7 +260,10 @@ const edgeRows = computed(() =>
                   </bdi>
                 </article>
               </div>
-              <div v-if="edgeRows.length" class="mt-4 flex flex-wrap justify-center gap-2 border-t border-slate-800 pt-4">
+              <div
+                v-if="edgeRows.length"
+                class="mt-4 flex flex-wrap justify-center gap-2 border-t border-slate-800 pt-4"
+              >
                 <bdi
                   v-for="edge in edgeRows"
                   :key="edge.id"
@@ -285,7 +297,11 @@ const edgeRows = computed(() =>
               {{ map.id }}
             </bdi>
             <p class="mt-2 text-sm leading-7 text-slate-400">
-              {{ map.saved ? 'النطاق الحالي مرتبط بخريطة محفوظة.' : 'المشهد الحالي مشتق من العلاقات المحفوظة دون ادعاء وجود Map محفوظة.' }}
+              {{
+                map.saved
+                  ? 'النطاق الحالي مرتبط بخريطة محفوظة.'
+                  : 'المشهد الحالي مشتق من العلاقات المحفوظة دون ادعاء وجود Map محفوظة.'
+              }}
             </p>
             <bdi dir="ltr" class="mt-2 block font-mono text-[10px] text-slate-600">
               {{ map.state }}
