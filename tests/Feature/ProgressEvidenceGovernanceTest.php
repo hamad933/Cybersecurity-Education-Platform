@@ -27,7 +27,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        if (! Route::has('cep.progress.index')) {
+        if (!Route::has('cep.progress.index')) {
             require base_path('routes/workspaces/progress-evidence.php');
         }
         $this->owner = app(CreateOwner::class)->execute(
@@ -381,8 +381,8 @@ class ProgressEvidenceGovernanceTest extends TestCase
     #[Test]
     public function cross_actor_evidence_and_decision_provenance_is_rejected(): void
     {
-        $other = $this->secondOwner();
-        $otherReviewed = $this->reviewedEvidenceFor($other, 'ACCEPT', [
+        $otherActorId = (string) Str::uuid();
+        $otherReviewed = $this->reviewedEvidenceForActor($otherActorId, 'ACCEPT', [
             'source_id' => 'fixture:other-owner',
             'source_digest' => hash('sha256', 'other-owner-source'),
         ]);
@@ -562,8 +562,8 @@ class ProgressEvidenceGovernanceTest extends TestCase
                 ->component('ProgressEvidence/Workspace')
                 ->where('surface', 'reviews'));
 
-        $other = $this->secondOwner();
-        $otherCandidate = $this->service->intakeCandidate($other->id, $other->id, $this->handoff([
+        $otherActorId = (string) Str::uuid();
+        $otherCandidate = $this->service->intakeCandidate($otherActorId, $otherActorId, $this->handoff([
             'source_id' => 'fixture:owned-by-other',
             'source_digest' => hash('sha256', 'owned-by-other'),
         ]));
@@ -679,29 +679,29 @@ class ProgressEvidenceGovernanceTest extends TestCase
     /** @return array{evidence: array<string, mixed>, revision: array<string, mixed>, decision: array<string, mixed>} */
     private function reviewedEvidence(string $decision = 'ACCEPT', array $overrides = []): array
     {
-        return $this->reviewedEvidenceFor($this->owner, $decision, $overrides);
+        return $this->reviewedEvidenceForActor($this->owner->id, $decision, $overrides);
     }
 
     /** @return array{evidence: array<string, mixed>, revision: array<string, mixed>, decision: array<string, mixed>} */
-    private function reviewedEvidenceFor(OwnerAccount $owner, string $decision, array $overrides = []): array
+    private function reviewedEvidenceForActor(string $actorId, string $decision, array $overrides = []): array
     {
-        $candidate = $this->service->intakeCandidate($owner->id, $owner->id, $this->handoff($overrides));
-        $candidate = $this->service->transitionCandidate($candidate['id'], $owner->id, 'PREPARED');
-        $candidate = $this->service->transitionCandidate($candidate['id'], $owner->id, 'SUBMITTED_FOR_INTAKE');
-        $bundle = $this->service->admitCandidate($candidate['id'], $owner->id);
-        $request = $this->service->requestReview($bundle['evidence']['id'], $owner->id);
-        $review = $this->service->admitReviewRequest($request['id'], $owner->id);
+        $candidate = $this->service->intakeCandidate($actorId, $actorId, $this->handoff($overrides));
+        $candidate = $this->service->transitionCandidate($candidate['id'], $actorId, 'PREPARED');
+        $candidate = $this->service->transitionCandidate($candidate['id'], $actorId, 'SUBMITTED_FOR_INTAKE');
+        $bundle = $this->service->admitCandidate($candidate['id'], $actorId);
+        $request = $this->service->requestReview($bundle['evidence']['id'], $actorId);
+        $review = $this->service->admitReviewRequest($request['id'], $actorId);
         $finding = in_array($decision, ['ACCEPT', 'ACCEPT_WITH_LIMITATIONS'], true) ? 'SATISFIED' : 'NOT_SATISFIED';
         $this->service->recordFinding(
             $review['id'],
-            $owner->id,
+            $actorId,
             'CRIT-INPUT-VALIDATION',
             $finding,
             'Synthetic governed finding over the pinned Evidence Revision.',
         );
         $reviewDecision = $this->service->recordReviewDecision(
             $review['id'],
-            $owner->id,
+            $actorId,
             $decision,
             'Synthetic governed Review Decision for W04 A03 behavior.',
         );
@@ -733,16 +733,6 @@ class ProgressEvidenceGovernanceTest extends TestCase
             [$reviewed['revision']['id']],
             [],
             $rationale,
-        );
-    }
-
-    private function secondOwner(): OwnerAccount
-    {
-        return app(CreateOwner::class)->execute(
-            'Other owner',
-            'other-'.Str::lower(Str::random(8)).'@example.test',
-            'Other!Pass9',
-            (string) Str::uuid7(),
         );
     }
 

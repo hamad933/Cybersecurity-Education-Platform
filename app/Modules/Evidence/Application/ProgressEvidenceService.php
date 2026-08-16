@@ -2,6 +2,7 @@
 
 namespace App\Modules\Evidence\Application;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -61,7 +62,7 @@ final class ProgressEvidenceService
             'title',
             'summary',
         ] as $key) {
-            if (! isset($handoff[$key]) || trim((string) $handoff[$key]) === '') {
+            if (!isset($handoff[$key]) || trim((string) $handoff[$key]) === '') {
                 throw new InvalidArgumentException("Missing source handoff field: {$key}.");
             }
         }
@@ -137,7 +138,7 @@ final class ProgressEvidenceService
     /** @return array<string, mixed> */
     public function transitionCandidate(string $candidateId, string $actorId, string $state): array
     {
-        if (! array_key_exists($state, self::CANDIDATE_TRANSITIONS) || $state === 'ADMITTED') {
+        if (!array_key_exists($state, self::CANDIDATE_TRANSITIONS) || $state === 'ADMITTED') {
             throw new InvalidArgumentException('Invalid Candidate Evidence transition target.');
         }
 
@@ -150,7 +151,7 @@ final class ProgressEvidenceService
             }
 
             $allowed = self::CANDIDATE_TRANSITIONS[$candidate->state] ?? null;
-            if ($allowed === null || ! in_array($state, $allowed, true)) {
+            if ($allowed === null || !in_array($state, $allowed, true)) {
                 throw new LogicException("Illegal Candidate Evidence transition: {$candidate->state} -> {$state}.");
             }
 
@@ -270,7 +271,7 @@ final class ProgressEvidenceService
                 ->where('revision', $evidence->current_revision_number)
                 ->first();
 
-            if (! $current) {
+            if (!$current) {
                 throw new LogicException('Current Evidence Revision is missing.');
             }
 
@@ -336,7 +337,7 @@ final class ProgressEvidenceService
 
     public function transitionLifecycle(string $evidenceId, string $actorId, string $state): void
     {
-        if (! in_array($state, ['ACTIVE', 'WITHDRAWN', 'SUPERSEDED'], true)) {
+        if (!in_array($state, ['ACTIVE', 'WITHDRAWN', 'SUPERSEDED'], true)) {
             throw new InvalidArgumentException('Invalid Evidence lifecycle.');
         }
 
@@ -378,7 +379,7 @@ final class ProgressEvidenceService
                 ->where('revision', $evidence->current_revision_number)
                 ->first();
 
-            if (! $revision) {
+            if (!$revision) {
                 throw new LogicException('Current Evidence Revision is missing.');
             }
 
@@ -503,7 +504,7 @@ final class ProgressEvidenceService
         string $statement,
         array $supportingRevisionIds = [],
     ): array {
-        if (! in_array($finding, self::FINDINGS, true)) {
+        if (!in_array($finding, self::FINDINGS, true)) {
             throw new InvalidArgumentException('Invalid Review Finding.');
         }
 
@@ -519,13 +520,13 @@ final class ProgressEvidenceService
             if ($review->reviewer_id !== $actorId) {
                 throw new LogicException('Review is outside reviewer boundary.');
             }
-            if (! in_array($review->status, ['IN_REVIEW', 'READY_FOR_DECISION'], true)) {
+            if (!in_array($review->status, ['IN_REVIEW', 'READY_FOR_DECISION'], true)) {
                 throw new LogicException('Review is not open for Findings.');
             }
 
             $criterion = $this->text($criterion, 120, 'Criterion key');
             $criteria = $this->decode($review->criterion_refs);
-            if (! in_array($criterion, $criteria, true)) {
+            if (!in_array($criterion, $criteria, true)) {
                 throw new LogicException('Finding criterion is outside the pinned Review criterion scope.');
             }
 
@@ -572,7 +573,7 @@ final class ProgressEvidenceService
         string $decision,
         string $rationale,
     ): array {
-        if (! in_array($decision, self::DECISIONS, true)) {
+        if (!in_array($decision, self::DECISIONS, true)) {
             throw new InvalidArgumentException('Invalid Review Decision.');
         }
 
@@ -592,7 +593,7 @@ final class ProgressEvidenceService
             }
 
             $request = DB::table('evidence_review_requests')->where('id', $review->review_request_id)->first();
-            if (! $request) {
+            if (!$request) {
                 throw new LogicException('Review Request is missing.');
             }
 
@@ -659,7 +660,7 @@ final class ProgressEvidenceService
         if ($subjectId !== $evaluatorId) {
             throw new LogicException('Mastery evaluation is outside the authenticated actor boundary.');
         }
-        if (! in_array($judgment, self::JUDGMENTS, true) || ! in_array($freshness, self::FRESHNESS, true)) {
+        if (!in_array($judgment, self::JUDGMENTS, true) || !in_array($freshness, self::FRESHNESS, true)) {
             throw new InvalidArgumentException('Invalid Mastery dimensions.');
         }
 
@@ -692,7 +693,7 @@ final class ProgressEvidenceService
                 )
                 ->first();
 
-            if (! $row) {
+            if (!$row) {
                 throw new LogicException('Unknown Evidence Revision reference.');
             }
             if ($row->subject_actor_id !== $subjectId || $row->capability_id !== $capabilityId) {
@@ -719,7 +720,7 @@ final class ProgressEvidenceService
                 )
                 ->first();
 
-            if (! $row) {
+            if (!$row) {
                 throw new LogicException('Unknown Review Decision reference.');
             }
             if ($row->subject_actor_id !== $subjectId || $row->capability_id !== $capabilityId) {
@@ -728,13 +729,13 @@ final class ProgressEvidenceService
             if ($row->effective_review_decision_id !== $row->id) {
                 throw new LogicException('Superseded Review Decisions cannot be used as effective Mastery provenance.');
             }
-            if (! isset($revisionRows[$row->evidence_revision_id])) {
+            if (!isset($revisionRows[$row->evidence_revision_id])) {
                 throw new LogicException('Every Review Decision must reference an Evidence Revision explicitly included in the Mastery evaluation.');
             }
         }
 
         foreach ($revisionRows as $revisionId => $row) {
-            if (! in_array($row->effective_review_decision_id, $decisions, true)) {
+            if (!in_array($row->effective_review_decision_id, $decisions, true)) {
                 throw new LogicException("Evidence Revision {$revisionId} is missing its exact effective Review Decision provenance.");
             }
         }
@@ -757,11 +758,9 @@ final class ProgressEvidenceService
                 $body['subject_actor_id'].'|'.$body['target_id'],
             ]);
 
-            $prior = DB::table('evidence_mastery_states')
-                ->where('subject_actor_id', $body['subject_actor_id'])
-                ->where('target_type', 'CAPABILITY')
-                ->where('target_id', $body['target_id'])
-                ->orderByDesc('evaluated_at')
+            $prior = $this->masteryChainTips($body['subject_actor_id'])
+                ->where('current.target_type', 'CAPABILITY')
+                ->where('current.target_id', $body['target_id'])
                 ->lockForUpdate()
                 ->first();
             $evaluationId = (string) Str::uuid7();
@@ -874,15 +873,13 @@ final class ProgressEvidenceService
         $portfolio = DB::table('evidence_portfolios')->where('id', $portfolioId)->first();
         $evidence = DB::table('governed_evidence')->where('id', $evidenceId)->first();
 
-        if (! $portfolio || $portfolio->owner_actor_id !== $actorId || ! $evidence || $evidence->subject_actor_id !== $actorId) {
+        if (!$portfolio || $portfolio->owner_actor_id !== $actorId || !$evidence || $evidence->subject_actor_id !== $actorId) {
             throw new LogicException('Portfolio boundary mismatch.');
         }
 
-        $mastery = DB::table('evidence_mastery_states')
-            ->where('subject_actor_id', $actorId)
-            ->where('target_type', 'CAPABILITY')
-            ->where('target_id', $evidence->capability_id)
-            ->orderByDesc('evaluated_at')
+        $mastery = $this->masteryChainTips($actorId)
+            ->where('current.target_type', 'CAPABILITY')
+            ->where('current.target_id', $evidence->capability_id)
             ->first();
         $existing = DB::table('evidence_portfolio_items')
             ->where('portfolio_id', $portfolioId)
@@ -914,7 +911,7 @@ final class ProgressEvidenceService
     public function removeEvidenceFromPortfolio(string $portfolioId, string $evidenceId, string $actorId): void
     {
         $portfolio = DB::table('evidence_portfolios')->where('id', $portfolioId)->first();
-        if (! $portfolio || $portfolio->owner_actor_id !== $actorId) {
+        if (!$portfolio || $portfolio->owner_actor_id !== $actorId) {
             throw new LogicException('Portfolio boundary mismatch.');
         }
 
@@ -1021,16 +1018,23 @@ final class ProgressEvidenceService
                 'contradicting_evidence_revision_ids',
             ]))
             ->all();
-        $mastery = [];
-        $seen = [];
-
-        foreach ($history as $state) {
-            $key = $state['target_type'].':'.$state['target_id'];
-            if (! isset($seen[$key])) {
-                $mastery[] = $state;
-                $seen[$key] = true;
-            }
-        }
+        $mastery = $this->masteryChainTips($actorId)
+            ->join('evidence_mastery_evaluations as v', 'v.id', '=', 'current.evaluation_id')
+            ->select(
+                'current.*',
+                'v.review_decision_ids',
+                'v.supporting_evidence_revision_ids',
+                'v.contradicting_evidence_revision_ids',
+                'v.rationale',
+                'v.content_digest',
+            )
+            ->get()
+            ->map(fn ($row) => $this->array($row, [
+                'review_decision_ids',
+                'supporting_evidence_revision_ids',
+                'contradicting_evidence_revision_ids',
+            ]))
+            ->all();
 
         $portfolios = DB::table('evidence_portfolios')
             ->where('owner_actor_id', $actorId)
@@ -1114,7 +1118,7 @@ final class ProgressEvidenceService
         bool $sameCapability,
     ): void {
         $reviewEvidence = DB::table('governed_evidence')->where('id', $reviewEvidenceId)->first();
-        if (! $reviewEvidence || $reviewEvidence->subject_actor_id !== $actorId) {
+        if (!$reviewEvidence || $reviewEvidence->subject_actor_id !== $actorId) {
             throw new LogicException('Review Evidence boundary mismatch.');
         }
 
@@ -1125,7 +1129,7 @@ final class ProgressEvidenceService
                 ->select('e.subject_actor_id', 'e.capability_id')
                 ->first();
 
-            if (! $row) {
+            if (!$row) {
                 throw new LogicException('Unknown Evidence Revision reference.');
             }
             if ($row->subject_actor_id !== $actorId || ($sameCapability && $row->capability_id !== $reviewEvidence->capability_id)) {
@@ -1141,6 +1145,17 @@ final class ProgressEvidenceService
             ->where('evidence_id', $evidence->id)
             ->where('revision', $evidence->current_revision_number)
             ->exists();
+    }
+
+    private function masteryChainTips(string $subjectId): Builder
+    {
+        return DB::table('evidence_mastery_states as current')
+            ->where('current.subject_actor_id', $subjectId)
+            ->whereNotExists(function (Builder $query): void {
+                $query->selectRaw('1')
+                    ->from('evidence_mastery_states as successor')
+                    ->whereColumn('successor.previous_state_id', 'current.id');
+            });
     }
 
     /** @return array<string, mixed> */
@@ -1159,7 +1174,7 @@ final class ProgressEvidenceService
             )
             ->first();
 
-        if (! $row) {
+        if (!$row) {
             throw new LogicException('Mastery State missing.');
         }
 
@@ -1173,7 +1188,7 @@ final class ProgressEvidenceService
     private function lock(string $table, string $id): object
     {
         $row = DB::table($table)->where('id', $id)->lockForUpdate()->first();
-        if (! $row) {
+        if (!$row) {
             throw new InvalidArgumentException("{$table} record not found.");
         }
 
@@ -1194,7 +1209,7 @@ final class ProgressEvidenceService
     private function row(string $table, string $id, array $json = []): array
     {
         $row = DB::table($table)->where('id', $id)->first();
-        if (! $row) {
+        if (!$row) {
             throw new InvalidArgumentException("{$table} record not found.");
         }
 
@@ -1209,7 +1224,7 @@ final class ProgressEvidenceService
             ->where('revision', $revision)
             ->first();
 
-        if (! $row) {
+        if (!$row) {
             throw new LogicException('Evidence Revision missing.');
         }
 
@@ -1245,7 +1260,7 @@ final class ProgressEvidenceService
     /** @return list<string> */
     private function stringList(mixed $value, string $name, bool $required = false): array
     {
-        if (! is_array($value)) {
+        if (!is_array($value)) {
             if ($required) {
                 throw new InvalidArgumentException("{$name} must be a non-empty array.");
             }
@@ -1255,7 +1270,7 @@ final class ProgressEvidenceService
 
         $normalized = [];
         foreach ($value as $entry) {
-            if (! is_string($entry) || trim($entry) === '') {
+            if (!is_string($entry) || trim($entry) === '') {
                 throw new InvalidArgumentException("{$name} contains an invalid reference.");
             }
             $normalized[] = trim($entry);
@@ -1284,7 +1299,7 @@ final class ProgressEvidenceService
     private function sourceDigest(string $value): string
     {
         $digest = strtolower(trim($value));
-        if (! preg_match('/^[a-f0-9]{64}$/', $digest)) {
+        if (!preg_match('/^[a-f0-9]{64}$/', $digest)) {
             throw new InvalidArgumentException('Source digest must be SHA-256 hex.');
         }
 
