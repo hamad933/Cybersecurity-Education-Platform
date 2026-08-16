@@ -76,6 +76,9 @@ return new class extends Migration
             $table->timestampsTz();
             $table->unique(['evidence_id', 'revision'], 'governed_evidence_revision_unique');
             $table->foreign('evidence_id')->references('id')->on('governed_evidence')->restrictOnDelete();
+        });
+
+        Schema::table('governed_evidence_revisions', function (Blueprint $table): void {
             $table->foreign('previous_revision_id')->references('id')->on('governed_evidence_revisions')->restrictOnDelete();
         });
 
