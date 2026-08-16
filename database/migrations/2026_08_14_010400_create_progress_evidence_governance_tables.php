@@ -150,8 +150,11 @@ return new class extends Migration
             $table->foreign('review_id')->references('id')->on('evidence_reviews')->restrictOnDelete();
             $table->foreign('evidence_id')->references('id')->on('governed_evidence')->restrictOnDelete();
             $table->foreign('evidence_revision_id')->references('id')->on('governed_evidence_revisions')->restrictOnDelete();
-            $table->foreign('supersedes_decision_id')->references('id')->on('evidence_review_decisions')->restrictOnDelete();
             $table->index(['evidence_id', 'review_scope_key', 'decided_at'], 'evidence_review_decision_scope_idx');
+        });
+
+        Schema::table('evidence_review_decisions', function (Blueprint $table): void {
+            $table->foreign('supersedes_decision_id')->references('id')->on('evidence_review_decisions')->restrictOnDelete();
         });
 
         Schema::table('governed_evidence', function (Blueprint $table): void {
@@ -195,8 +198,11 @@ return new class extends Migration
             $table->timestampTz('evaluated_at');
             $table->timestampsTz();
             $table->foreign('evaluation_id')->references('id')->on('evidence_mastery_evaluations')->restrictOnDelete();
-            $table->foreign('previous_state_id')->references('id')->on('evidence_mastery_states')->restrictOnDelete();
             $table->index(['subject_actor_id', 'target_type', 'target_id', 'evaluated_at'], 'evidence_mastery_state_history_idx');
+        });
+
+        Schema::table('evidence_mastery_states', function (Blueprint $table): void {
+            $table->foreign('previous_state_id')->references('id')->on('evidence_mastery_states')->restrictOnDelete();
         });
 
         Schema::create('evidence_mastery_state_decisions', function (Blueprint $table): void {
