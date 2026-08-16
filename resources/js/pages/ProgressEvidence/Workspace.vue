@@ -359,7 +359,8 @@ function removePortfolioItem(): void {
           <button
             class="action-button"
             :disabled="
-              !selectedReview || !['IN_REVIEW', 'READY_FOR_DECISION'].includes(selectedReview.status)
+              !selectedReview ||
+              !['IN_REVIEW', 'READY_FOR_DECISION'].includes(selectedReview.status)
             "
             @click="openFinding"
           >
@@ -700,7 +701,9 @@ function removePortfolioItem(): void {
       <form
         v-else-if="panel === 'portfolio'"
         class="form-grid"
-        @submit.prevent="portfolioForm.post('/progress/portfolio', { onSuccess: () => (panel = null) })"
+        @submit.prevent="
+          portfolioForm.post('/progress/portfolio', { onSuccess: () => (panel = null) })
+        "
       >
         <label>اسم العرض<input v-model="portfolioForm.name" required /></label>
         <label>View Scope<input v-model="portfolioForm.view_scope" /></label>
