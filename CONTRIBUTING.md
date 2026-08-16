@@ -1,6 +1,6 @@
 # Contributing
 
-This private repository uses review-first, evidence-backed changes. Respect the root `AGENTS.md`, the active Controller-issued Workstream Contract, approved scope, module ownership, historical decision records, and stop gates.
+This public code repository uses review-first, evidence-backed changes. Repository visibility is code visibility only; it does not broaden CEP product, deployment, runtime, connector, or data-sharing authority. Respect the root `AGENTS.md`, the active Controller-issued Workstream Contract, approved scope, module ownership, historical decision records, and stop gates.
 
 ## Mandatory reading
 
