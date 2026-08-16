@@ -378,8 +378,7 @@ const loadComparison = async () => {
   compareLoading.value = true;
   compareError.value = '';
   try {
-    const url =
-      `/knowledge?object=${encodeURIComponent(props.active.id)}&revision=${encodeURIComponent(compareRevisionId.value)}`;
+    const url = `/knowledge?object=${encodeURIComponent(props.active.id)}&revision=${encodeURIComponent(compareRevisionId.value)}`;
     const response = await window.fetch(url, {
       credentials: 'same-origin',
       headers: {
@@ -726,8 +725,7 @@ const loadComparison = async () => {
                   v-if="technicalTypes.has(block.type)"
                   dir="ltr"
                   class="mt-3 overflow-x-auto text-left font-mono text-sm leading-6 whitespace-pre-wrap text-slate-200"
-                  >{{ block.body }}</pre
-                >
+                  >{{ block.body }}</pre>
                 <p v-else class="mt-3 leading-8 whitespace-pre-wrap text-slate-200">
                   {{ block.body }}
                 </p>

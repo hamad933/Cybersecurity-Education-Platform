@@ -36,9 +36,9 @@ const selectView = (viewName: ViewMode) => {
 };
 const capabilities = computed(() => props.graph.nodes.filter((node) => node.kind === 'capability'));
 const orderedCapabilities = computed(() =>
-  capabilities.value.slice().sort((left, right) =>
-    left.technical_label.localeCompare(right.technical_label, 'en'),
-  ),
+  capabilities.value
+    .slice()
+    .sort((left, right) => left.technical_label.localeCompare(right.technical_label, 'en')),
 );
 const unitNode = computed(
   () => props.graph.nodes.find((node) => node.kind === 'knowledge_unit') ?? null,
