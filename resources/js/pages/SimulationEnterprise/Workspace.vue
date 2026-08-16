@@ -445,10 +445,7 @@ function createHandoff(): void {
               v-if="run.runtime_state.telemetry && hasKeys(run.runtime_state.telemetry)"
               class="telemetry-grid"
             >
-              <div
-                v-for="(value, key) in run.runtime_state.telemetry"
-                :key="String(key)"
-              >
+              <div v-for="(value, key) in run.runtime_state.telemetry" :key="String(key)">
                 <small class="technical">{{ key }}</small
                 ><strong class="technical">{{ value }}</strong>
               </div>
@@ -568,13 +565,7 @@ function createHandoff(): void {
             </label>
             <label
               >Score
-              <input
-                v-model.number="resultScore"
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-              />
+              <input v-model.number="resultScore" type="number" min="0" max="100" step="0.01" />
             </label>
             <button type="submit">ختم النتيجة التاريخية</button>
           </form>
@@ -622,21 +613,14 @@ function createHandoff(): void {
         </section>
         <section>
           <h3>Runtime Snapshots</h3>
-          <div
-            v-for="snapshot in selectedRun.snapshots"
-            :key="snapshot.id"
-            class="snapshot-row"
-          >
+          <div v-for="snapshot in selectedRun.snapshots" :key="snapshot.id" class="snapshot-row">
             <strong>Snapshot {{ snapshot.sequence }}</strong>
             <code class="technical wrap">{{ snapshot.state_digest }}</code>
           </div>
         </section>
       </div>
     </details>
-    <details
-      v-else-if="section === 'results' && selectedResult"
-      class="bottom-workspace"
-    >
+    <details v-else-if="section === 'results' && selectedResult" class="bottom-workspace">
       <summary>مساحة Replay العميقة المؤقتة — Artifacts / Frozen Payload</summary>
       <div class="bottom-grid">
         <section>
