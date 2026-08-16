@@ -102,8 +102,8 @@ class ModuleBoundaryTest extends TestCase
             'SourceGovernance' => ['source_records', 'source_claims', 'source_imports'],
             'Knowledge' => ['knowledge_units', 'lesson_revisions'],
             'Curriculum' => ['curriculum_placements'],
-            'Enterprise' => ['enterprise_baseline_revisions', 'improvement_proposals'],
-            'Simulator' => ['simulator_rule_revisions', 'scenario_revisions', 'scenario_runs', 'decision_traces', 'replay_records', 'vs003_telemetry_dataset_revisions', 'vs003_investigation_cases', 'vs003_investigation_alerts', 'vs003_triage_records'],
+            'Enterprise' => ['enterprise_baseline_revisions', 'improvement_proposals', 'simulation_enterprises', 'simulation_digital_twin_revisions', 'simulation_baselines'],
+            'Simulator' => ['simulator_rule_revisions', 'scenario_revisions', 'scenario_runs', 'decision_traces', 'replay_records', 'vs003_telemetry_dataset_revisions', 'vs003_investigation_cases', 'vs003_investigation_alerts', 'vs003_triage_records', 'simulation_scenario_definitions', 'simulation_lab_definitions', 'simulation_scenario_lab_references', 'simulation_runs', 'simulation_run_lab_module_instances', 'simulation_run_events', 'simulation_runtime_snapshots', 'simulation_run_results', 'simulation_candidate_evidence_handoffs'],
             'Evidence' => ['evidence_records', 'evidence_decisions', 'imported_evidence_records', 'vs003_custody_events', 'vs003_containment_proposals', 'vs003_control_revisions', 'vs003_verification_replays', 'evidence_candidates', 'governed_evidence', 'governed_evidence_revisions', 'evidence_review_requests', 'evidence_reviews', 'evidence_review_findings', 'evidence_review_decisions', 'evidence_mastery_evaluations', 'evidence_mastery_states', 'evidence_mastery_state_decisions', 'evidence_mastery_state_evidence', 'evidence_portfolios', 'evidence_portfolio_items'],
             'Learning' => ['micro_practices', 'practice_attempts', 'mastery_rule_revisions', 'mastery_states', 'review_triggers'],
             'ManualAiBridge' => ['prompt_packages', 'prompt_package_revisions', 'imported_ai_results', 'ai_proposal_decisions'],
@@ -115,10 +115,31 @@ class ModuleBoundaryTest extends TestCase
                 continue;
             }
             preg_match_all('/DB::table\\([\'\"]([^\'\"]+)/', $source, $tables);
-            foreach ($tables[1] as $table) {
-                $this->assertContains($table, $ownership[$owner[1]], "Cross-module write to {$table}");
+            foreach ($tables[1] as $tableReference) {
+                $table = $this->normalizeRawTableReference($tableReference);
+                $this->assertContains($table, $ownership[$owner[1]], "Cross-module write to {$tableReference}");
             }
         }
+    }
+
+    #[Test]
+    public function raw_table_aliases_are_normalized_before_exact_ownership_comparison(): void
+    {
+        $evidenceOwnership = ['governed_evidence_revisions'];
+
+        foreach ([
+            'governed_evidence_revisions as r',
+            'governed_evidence_revisions AS r',
+            'governed_evidence_revisions   As   revision',
+        ] as $tableReference) {
+            $table = $this->normalizeRawTableReference($tableReference);
+            $this->assertSame('governed_evidence_revisions', $table);
+            $this->assertContains($table, $evidenceOwnership);
+        }
+
+        $foreignTable = $this->normalizeRawTableReference('scenario_runs as r');
+        $this->assertSame('scenario_runs', $foreignTable);
+        $this->assertNotContains($foreignTable, $evidenceOwnership);
     }
 
     #[Test]
@@ -166,6 +187,15 @@ class ModuleBoundaryTest extends TestCase
                 $this->assertContains($this->namespaceToId[$namespace], $registered);
             }
         }
+    }
+
+    private function normalizeRawTableReference(string $tableReference): string
+    {
+        if (preg_match('/^([A-Za-z_][A-Za-z0-9_]*)[ \t]+as[ \t]+[A-Za-z_][A-Za-z0-9_]*\z/i', $tableReference, $alias) === 1) {
+            return $alias[1];
+        }
+
+        return $tableReference;
     }
 
     private function activeModuleDirectories(): array
