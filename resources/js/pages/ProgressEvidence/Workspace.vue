@@ -99,14 +99,7 @@ type Portfolio = {
 
 type Surface = 'evidence' | 'reviews' | 'mastery' | 'portfolio';
 type Panel =
-  | 'intake'
-  | 'revision'
-  | 'finding'
-  | 'decision'
-  | 'mastery'
-  | 'portfolio'
-  | 'portfolio-add'
-  | null;
+  'intake' | 'revision' | 'finding' | 'decision' | 'mastery' | 'portfolio' | 'portfolio-add' | null;
 
 const props = defineProps<{
   surface: Surface;
@@ -505,7 +498,9 @@ function removePortfolioItem(): void {
             :class="{ selected: item.id === masteryId }"
             @click="masteryId = item.id"
           >
-            <strong><bdi>{{ item.target_id }}</bdi></strong>
+            <strong
+              ><bdi>{{ item.target_id }}</bdi></strong
+            >
             <span class="dimensions">
               <bdi>{{ item.judgment }}</bdi>
               <bdi>{{ item.freshness_status }}</bdi>
@@ -532,7 +527,10 @@ function removePortfolioItem(): void {
               :key="entry.id"
               class="portfolio-item"
               :class="{ selected: entry.id === portfolioItemId }"
-              @click.stop="portfolioId = item.id; portfolioItemId = entry.id"
+              @click.stop="
+                portfolioId = item.id;
+                portfolioItemId = entry.id;
+              "
             >
               <strong>{{ entry.title }}</strong>
               <bdi>{{ entry.current_revision_id }}</bdi>
@@ -563,13 +561,21 @@ function removePortfolioItem(): void {
         </template>
         <template v-else-if="surface === 'reviews' && selectedReview">
           <p class="eyebrow">Reviewer Authority</p>
-          <p>Reviewer: <bdi>{{ selectedReview.reviewer_id }}</bdi></p>
-          <p>Revision: <bdi>{{ selectedReview.evidence_revision_id }}</bdi></p>
-          <p>Scope: <bdi>{{ selectedReview.review_scope_key }}</bdi></p>
+          <p>
+            Reviewer: <bdi>{{ selectedReview.reviewer_id }}</bdi>
+          </p>
+          <p>
+            Revision: <bdi>{{ selectedReview.evidence_revision_id }}</bdi>
+          </p>
+          <p>
+            Scope: <bdi>{{ selectedReview.review_scope_key }}</bdi>
+          </p>
         </template>
         <template v-else-if="surface === 'mastery' && selectedMastery">
           <p class="eyebrow">Mastery Provenance</p>
-          <p>Policy: <bdi>{{ selectedMastery.policy_revision_id }}</bdi></p>
+          <p>
+            Policy: <bdi>{{ selectedMastery.policy_revision_id }}</bdi>
+          </p>
           <p>History: {{ selectedMasteryHistory.length }} state(s)</p>
           <p>Decisions: {{ selectedMastery.review_decision_ids.length }}</p>
           <p>Supporting: {{ selectedMastery.supporting_evidence_revision_ids.length }}</p>
@@ -578,7 +584,9 @@ function removePortfolioItem(): void {
         <template v-else-if="surface === 'portfolio' && selectedPortfolio">
           <p class="eyebrow">View Configuration</p>
           <p>Scope: {{ selectedPortfolio.view_scope || 'غير مقيّد' }}</p>
-          <p>Grouping: <bdi>{{ selectedPortfolio.grouping }}</bdi></p>
+          <p>
+            Grouping: <bdi>{{ selectedPortfolio.grouping }}</bdi>
+          </p>
         </template>
       </aside>
     </div>
@@ -605,9 +613,13 @@ function removePortfolioItem(): void {
           Selected Material<input v-model="intake.selected_material_refs[0]" dir="ltr" required />
         </label>
         <label>Capability ID<input v-model="intake.capability_id" dir="ltr" required /></label>
-        <label class="wide">Evidence Claim<textarea v-model="intake.evidence_claim" required /></label>
+        <label class="wide"
+          >Evidence Claim<textarea v-model="intake.evidence_claim" required />
+        </label>
         <label>Criterion Ref<input v-model="intake.criterion_scope[0]" dir="ltr" required /></label>
-        <label>Governed Purpose<input v-model="intake.governed_purpose" dir="ltr" required /></label>
+        <label
+          >Governed Purpose<input v-model="intake.governed_purpose" dir="ltr" required
+        /></label>
         <label>العنوان<input v-model="intake.title" required /></label>
         <label>الملخص<textarea v-model="intake.summary" required /></label>
         <button class="primary-button">إنشاء Candidate في RECEIVED</button>
