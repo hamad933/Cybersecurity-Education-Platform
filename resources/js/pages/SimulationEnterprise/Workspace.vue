@@ -242,8 +242,7 @@ function createHandoff(): void {
         aria-label="أدوات التهيئة"
       >
         <label
-          >Seed
-          <input v-model.number="seed" class="technical input-small" type="number" min="0"
+          >Seed <input v-model.number="seed" class="technical input-small" type="number" min="0"
         /></label>
         <label
           >Mode
@@ -265,45 +264,52 @@ function createHandoff(): void {
           v-if="selectedRun.available_actions.includes('ready')"
           type="button"
           @click="runAction(selectedRun, 'ready')"
-          >اعتماد الجاهزية</button
         >
+          اعتماد الجاهزية
+        </button>
         <button
           v-if="selectedRun.available_actions.includes('start')"
           type="button"
           @click="runAction(selectedRun, 'start')"
-          >بدء</button
         >
+          بدء
+        </button>
         <button
           v-if="selectedRun.available_actions.includes('pause')"
           type="button"
           @click="runAction(selectedRun, 'pause')"
-          >إيقاف مؤقت</button
         >
+          إيقاف مؤقت
+        </button>
         <button
           v-if="selectedRun.available_actions.includes('resume')"
           type="button"
           @click="runAction(selectedRun, 'resume')"
-          >استئناف</button
         >
+          استئناف
+        </button>
         <button
           v-if="selectedRun.available_actions.includes('complete')"
           type="button"
           @click="runAction(selectedRun, 'complete')"
-          >إكمال المحاكاة الداخلية</button
         >
+          إكمال المحاكاة الداخلية
+        </button>
         <button
           v-if="selectedRun.available_actions.includes('snapshot')"
           type="button"
           @click="runAction(selectedRun, 'snapshot')"
-          >حفظ Snapshot</button
         >
+          حفظ Snapshot
+        </button>
         <button
           v-if="selectedRun.available_actions.includes('stop')"
           class="button-muted"
           type="button"
           @click="runAction(selectedRun, 'stop')"
-          >إيقاف</button
         >
+          إيقاف
+        </button>
       </div>
     </header>
 
@@ -349,8 +355,7 @@ function createHandoff(): void {
             <div class="causal-strip">
               <span>Enterprise</span><b>←</b
               ><span
-                >Digital Twin Revision
-                {{ enterprise.digital_twin_revision?.revision ?? '—' }}</span
+                >Digital Twin Revision {{ enterprise.digital_twin_revision?.revision ?? '—' }}</span
               ><b>←</b><span>Baseline {{ enterprise.baseline?.revision ?? '—' }}</span>
             </div>
             <section class="topology-card">
@@ -386,7 +391,8 @@ function createHandoff(): void {
                 :key="module.reference_id"
                 class="module-row"
               >
-                <span>{{ module.lab_title_ar }}</span><code>{{ module.module_key }}</code
+                <span>{{ module.lab_title_ar }}</span
+                ><code>{{ module.module_key }}</code
                 ><small>Reference → Lab Definition</small>
               </div>
             </div>
@@ -437,9 +443,15 @@ function createHandoff(): void {
               </div>
             </div>
             <div class="runtime-facts">
-              <span>Seed <b class="technical">{{ run.seed }}</b></span>
-              <span>Events <b>{{ run.events.length }}</b></span>
-              <span>Snapshots <b>{{ run.snapshots.length }}</b></span>
+              <span
+                >Seed <b class="technical">{{ run.seed }}</b></span
+              >
+              <span
+                >Events <b>{{ run.events.length }}</b></span
+              >
+              <span
+                >Snapshots <b>{{ run.snapshots.length }}</b></span
+              >
             </div>
             <div
               v-if="run.runtime_state.telemetry && hasKeys(run.runtime_state.telemetry)"
@@ -475,8 +487,12 @@ function createHandoff(): void {
               <span
                 >Run Lifecycle <b class="technical">{{ result.run_lifecycle }}</b></span
               >
-              <span>Score <b class="technical">{{ result.score ?? '—' }}</b></span>
-              <span>Sealed <b class="technical">{{ result.sealed_at }}</b></span>
+              <span
+                >Score <b class="technical">{{ result.score ?? '—' }}</b></span
+              >
+              <span
+                >Sealed <b class="technical">{{ result.sealed_at }}</b></span
+              >
             </div>
             <h3>Event-Semantic Replay Timeline</h3>
             <ol class="timeline">
@@ -641,7 +657,7 @@ function createHandoff(): void {
   min-height: 100vh;
   background: #0b1118;
   color: #e7edf4;
-  font-family: Inter, "Noto Sans Arabic", system-ui, sans-serif;
+  font-family: Inter, 'Noto Sans Arabic', system-ui, sans-serif;
 }
 .topbar {
   min-height: 108px;
