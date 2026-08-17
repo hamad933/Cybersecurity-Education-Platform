@@ -1140,14 +1140,8 @@ const loadComparison = async () => {
                   depth {{ row.current.depth }}
                 </bdi>
               </div>
-              <p
-                v-if="row.current"
-                class="mt-2 text-sm leading-7 whitespace-pre-wrap text-slate-300"
-              >
-                <template
-                  v-for="(token, tokenIndex) in inlineTokens(row.current.body)"
-                  :key="tokenIndex"
-                >
+              <p v-if="row.current" class="mt-2 text-sm leading-7 whitespace-pre-wrap text-slate-300">
+                <template v-for="(token, tokenIndex) in inlineTokens(row.current.body)" :key="tokenIndex">
                   <strong v-if="token.kind === 'strong'">{{ token.text }}</strong>
                   <em v-else-if="token.kind === 'emphasis'">{{ token.text }}</em>
                   <code
@@ -1183,14 +1177,8 @@ const loadComparison = async () => {
                   depth {{ row.compared.depth }}
                 </bdi>
               </div>
-              <p
-                v-if="row.compared"
-                class="mt-2 text-sm leading-7 whitespace-pre-wrap text-slate-300"
-              >
-                <template
-                  v-for="(token, tokenIndex) in inlineTokens(row.compared.body)"
-                  :key="tokenIndex"
-                >
+              <p v-if="row.compared" class="mt-2 text-sm leading-7 whitespace-pre-wrap text-slate-300">
+                <template v-for="(token, tokenIndex) in inlineTokens(row.compared.body)" :key="tokenIndex">
                   <strong v-if="token.kind === 'strong'">{{ token.text }}</strong>
                   <em v-else-if="token.kind === 'emphasis'">{{ token.text }}</em>
                   <code
