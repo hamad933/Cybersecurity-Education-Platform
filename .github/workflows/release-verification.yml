@@ -116,8 +116,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p evidence/browser
-          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml up -d --build postgres app
-          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml up -d --no-deps queue
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml up -d --build postgres app queue
           docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml exec -T app php artisan migrate:fresh --seed --force
           docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml exec -T -e TASK010_BROWSER_PASSWORD="$BROWSER_PASSWORD" app php artisan platform:release-gate-owner > evidence/browser/owner-preparation.json
           for i in $(seq 1 60); do

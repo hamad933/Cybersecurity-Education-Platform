@@ -1,5 +1,4 @@
 import { spawn } from 'node:child_process';
-import { once } from 'node:events';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -282,11 +281,7 @@ try {
   }, null, 2) + '\n');
   throw error;
 } finally {
-  if (chromium && chromium.exitCode === null) {
-    const exited = once(chromium, 'exit');
-    chromium.kill('SIGTERM');
-    await exited;
-  }
+  chromium?.kill('SIGTERM');
   await writeFile(join(evidenceDir, 'chromium-sanitized.log'), browserLog.join('').replaceAll(password, '[REDACTED]'));
   await rm(profileDir, { recursive: true, force: true });
 }
