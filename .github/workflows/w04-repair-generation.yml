@@ -6,13 +6,16 @@ on:
       - feat/cep-progress-evidence
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  generate:
+  generate-and-commit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: feat/cep-progress-evidence
+          fetch-depth: 0
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -21,12 +24,12 @@ jobs:
           tools: composer:v2
           coverage: none
 
-      - name: Generate minimal Composer repair
+      - name: Repair Composer and Pint gates
         shell: bash
         run: |
           set -euo pipefail
           composer update league/commonmark --with-all-dependencies --minimal-changes --no-interaction --prefer-dist
-          composer audit --locked --format=json > w04-composer-audit.json
+          composer audit --locked
           composer install --no-interaction --prefer-dist
           vendor/bin/pint app/Modules/Evidence/Application/ProgressEvidenceService.php tests/Feature/ProgressEvidenceGovernanceTest.php
           vendor/bin/pint --test app/Modules/Evidence/Application/ProgressEvidenceService.php tests/Feature/ProgressEvidenceGovernanceTest.php
@@ -34,22 +37,20 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24.18.0'
           cache: npm
 
-      - name: Probe minimal npm repair
+      - name: Repair npm audit gate
         shell: bash
         run: |
-          set +e
-          npm update nanoid --package-lock-only > w04-npm-update.log 2>&1
-          npm_update_status=$?
-          npm view nanoid versions --json > w04-nanoid-versions.json 2> w04-nanoid-view-error.log
-          npm audit --package-lock-only --audit-level=high --json > w04-npm-audit.json 2>&1
-          npm_audit_status=$?
-          printf 'npm_update_status=%s\nnpm_audit_status=%s\n' "$npm_update_status" "$npm_audit_status" > w04-npm-status.txt
-          exit 0
+          set -euo pipefail
+          npm install --global npm@11.16.0
+          npm --version
+          npm update nanoid --package-lock-only
+          npm audit --package-lock-only --audit-level=high
+          node -e "const fs=require('fs'); const l=JSON.parse(fs.readFileSync('package-lock.json','utf8')); if(l.packages?.['node_modules/nanoid']?.version!=='3.3.18') throw new Error('nanoid lock repair did not resolve to 3.3.18');"
 
-      - name: Make deterministic Chromium cleanup repair
+      - name: Repair deterministic Chromium cleanup
         shell: python
         run: |
           from pathlib import Path
@@ -62,20 +63,23 @@ jobs:
               raise SystemExit('expected Chromium cleanup block not found')
           path.write_text(text.replace(old, new, 1))
 
-      - name: Upload exact generated repairs
-        uses: actions/upload-artifact@v4
-        with:
-          name: w04-repair-generation-${{ github.sha }}
-          if-no-files-found: error
-          path: |
-            composer.lock
-            package-lock.json
-            app/Modules/Evidence/Application/ProgressEvidenceService.php
-            tests/Feature/ProgressEvidenceGovernanceTest.php
-            scripts/ci/browser_evidence.mjs
-            w04-composer-audit.json
-            w04-npm-update.log
-            w04-nanoid-versions.json
-            w04-nanoid-view-error.log
-            w04-npm-audit.json
-            w04-npm-status.txt
+      - name: Verify bounded diff and commit repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          test -z "$(git diff --name-only -- package.json)"
+          mapfile -t changed < <(git diff --name-only | sort)
+          printf 'Changed files before helper removal:\n%s\n' "${changed[*]}"
+          for path in "${changed[@]}"; do
+            case "$path" in
+              composer.lock|package-lock.json|app/Modules/Evidence/Application/ProgressEvidenceService.php|tests/Feature/ProgressEvidenceGovernanceTest.php|scripts/ci/browser_evidence.mjs) ;;
+              *) echo "Unexpected generated change: $path" >&2; exit 1 ;;
+            esac
+          done
+          rm .github/workflows/w04-repair-generation.yml
+          git add composer.lock package-lock.json app/Modules/Evidence/Application/ProgressEvidenceService.php tests/Feature/ProgressEvidenceGovernanceTest.php scripts/ci/browser_evidence.mjs .github/workflows/w04-repair-generation.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(w04): close remaining verification blockers'
+          git push origin HEAD:feat/cep-progress-evidence
