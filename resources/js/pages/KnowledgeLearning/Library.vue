@@ -437,7 +437,6 @@ const outdentBlock = (index: number) => {
   const block = form.blocks[index];
   const parent = parentIndex(form.blocks, index);
   if (!block || block.depth === 0 || parent === null) return;
-
   const end = subtreeEnd(form.blocks, index);
   const parentEnd = subtreeEnd(form.blocks, parent);
   const segment = form.blocks
@@ -546,7 +545,8 @@ const loadComparison = async () => {
   compareLoading.value = true;
   compareError.value = '';
   try {
-    const url = `/knowledge?object=${encodeURIComponent(props.active.id)}&revision=${encodeURIComponent(compareRevisionId.value)}`;
+    const url =
+      `/knowledge?object=${encodeURIComponent(props.active.id)}&revision=${encodeURIComponent(compareRevisionId.value)}`;
     const response = await window.fetch(url, {
       credentials: 'same-origin',
       headers: {
@@ -914,9 +914,13 @@ const loadComparison = async () => {
                   v-if="technicalTypes.has(block.type)"
                   dir="ltr"
                   class="mt-3 overflow-x-auto text-left font-mono text-sm leading-6 whitespace-pre-wrap text-slate-200"
-                  >{{ block.body }}</pre>
+                  >{{ block.body }}</pre
+                >
                 <p v-else class="mt-3 leading-8 whitespace-pre-wrap text-slate-200">
-                  <template v-for="(token, tokenIndex) in inlineTokens(block.body)" :key="tokenIndex">
+                  <template
+                    v-for="(token, tokenIndex) in inlineTokens(block.body)"
+                    :key="tokenIndex"
+                  >
                     <strong v-if="token.kind === 'strong'">{{ token.text }}</strong>
                     <em v-else-if="token.kind === 'emphasis'">{{ token.text }}</em>
                     <code
@@ -1140,8 +1144,14 @@ const loadComparison = async () => {
                   depth {{ row.current.depth }}
                 </bdi>
               </div>
-              <p v-if="row.current" class="mt-2 text-sm leading-7 whitespace-pre-wrap text-slate-300">
-                <template v-for="(token, tokenIndex) in inlineTokens(row.current.body)" :key="tokenIndex">
+              <p
+                v-if="row.current"
+                class="mt-2 text-sm leading-7 whitespace-pre-wrap text-slate-300"
+              >
+                <template
+                  v-for="(token, tokenIndex) in inlineTokens(row.current.body)"
+                  :key="tokenIndex"
+                >
                   <strong v-if="token.kind === 'strong'">{{ token.text }}</strong>
                   <em v-else-if="token.kind === 'emphasis'">{{ token.text }}</em>
                   <code
@@ -1177,8 +1187,14 @@ const loadComparison = async () => {
                   depth {{ row.compared.depth }}
                 </bdi>
               </div>
-              <p v-if="row.compared" class="mt-2 text-sm leading-7 whitespace-pre-wrap text-slate-300">
-                <template v-for="(token, tokenIndex) in inlineTokens(row.compared.body)" :key="tokenIndex">
+              <p
+                v-if="row.compared"
+                class="mt-2 text-sm leading-7 whitespace-pre-wrap text-slate-300"
+              >
+                <template
+                  v-for="(token, tokenIndex) in inlineTokens(row.compared.body)"
+                  :key="tokenIndex"
+                >
                   <strong v-if="token.kind === 'strong'">{{ token.text }}</strong>
                   <em v-else-if="token.kind === 'emphasis'">{{ token.text }}</em>
                   <code
