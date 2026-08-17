@@ -498,8 +498,7 @@ const removeCitation = (citation: string) => {
 };
 
 const inlineTokens = (body: string): InlineToken[] => {
-  const pattern =
-    /(\*\*[^*\n]+\*\*|_[^_\n]+_|`[^`\n]+`|\[[^\]\n]+\]\(https:\/\/[^)\s]+\))/g;
+  const pattern = /(\*\*[^*\n]+\*\*|_[^_\n]+_|`[^`\n]+`|\[[^\]\n]+\]\(https:\/\/[^)\s]+\))/g;
   const tokens: InlineToken[] = [];
   let offset = 0;
 
