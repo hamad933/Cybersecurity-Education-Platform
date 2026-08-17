@@ -910,11 +910,13 @@ const loadComparison = async () => {
                     depth {{ structuralDepth(block) }}
                   </bdi>
                 </div>
+                <!-- prettier-ignore -->
                 <pre
                   v-if="technicalTypes.has(block.type)"
                   dir="ltr"
                   class="mt-3 overflow-x-auto text-left font-mono text-sm leading-6 whitespace-pre-wrap text-slate-200"
                   >{{ block.body }}</pre>
+                <!-- prettier-ignore -->
                 <p v-else class="mt-3 leading-8 whitespace-pre-wrap text-slate-200">
                   <template
                     v-for="(token, tokenIndex) in inlineTokens(block.body)"
@@ -1143,6 +1145,7 @@ const loadComparison = async () => {
                   depth {{ row.current.depth }}
                 </bdi>
               </div>
+              <!-- prettier-ignore -->
               <p
                 v-if="row.current"
                 class="mt-2 text-sm leading-7 whitespace-pre-wrap text-slate-300"
@@ -1186,6 +1189,7 @@ const loadComparison = async () => {
                   depth {{ row.compared.depth }}
                 </bdi>
               </div>
+              <!-- prettier-ignore -->
               <p
                 v-if="row.compared"
                 class="mt-2 text-sm leading-7 whitespace-pre-wrap text-slate-300"
