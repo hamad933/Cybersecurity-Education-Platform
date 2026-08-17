@@ -8,6 +8,12 @@ on:
       - 'build/**'
       - 'chore/**'
   workflow_dispatch:
+    inputs:
+      route_profiles:
+        description: 'Comma-separated browser route profiles to verify'
+        required: false
+        default: 'BASELINE,LEGACY,W01'
+        type: string
 
 permissions:
   contents: read
@@ -86,6 +92,8 @@ jobs:
     name: Real Chromium browser evidence
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    env:
+      BROWSER_ROUTE_PROFILES: ${{ inputs.route_profiles || 'BASELINE,LEGACY,W01' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -111,44 +119,203 @@ jobs:
           echo "RELEASE_ENV_FILE=$ENV_FILE" >> "$GITHUB_ENV"
           echo "BROWSER_PASSWORD=$BROWSER_PASSWORD" >> "$GITHUB_ENV"
 
-      - name: Start actual release application
+      - name: Validate browser route profiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/ci/browser_evidence.mjs
+          rm -rf evidence/profile-validation
+          BROWSER_ROUTE_PROFILES="$BROWSER_ROUTE_PROFILES" \
+            EVIDENCE_DIR=evidence/profile-validation \
+            node scripts/ci/browser_evidence.mjs --validate-profiles
+          jq -e '.status == "PASS" and .productAssurance == "NOT ESTABLISHED"' \
+            evidence/profile-validation/route-profile-validation.json > /dev/null
+
+      - name: Initialize browser evidence state
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p evidence/browser
-          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml up -d --build postgres app queue
-          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml exec -T app php artisan migrate:fresh --seed --force
-          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml exec -T -e TASK010_BROWSER_PASSWORD="$BROWSER_PASSWORD" app php artisan platform:release-gate-owner > evidence/browser/owner-preparation.json
-          for i in $(seq 1 60); do
-            curl --fail --silent http://127.0.0.1:8081/health/live > /dev/null && break
-            [[ "$i" -lt 60 ]] || exit 1
-            sleep 2
-          done
+          jq -n '{schema:"cep.browser-startup-state.v1",status:"NOT_STARTED",verification:"NOT VERIFIED",phase:"not-started",exit_code:null,reason:null}' \
+            > evidence/browser/startup-state.json
+          jq -n '{schema:"cep.browser-attempt-state.v1",attempted:false,status:"NOT_STARTED",verification:"NOT VERIFIED",reason:null,exit_code:null}' \
+            > evidence/browser/browser-state.json
 
-      - name: Capture real Chromium evidence
+      - name: Exercise controlled pre-browser diagnostic path
         shell: bash
         run: |
           set -euo pipefail
+          probe_dir=evidence/browser/controlled-pre-browser-failure
+          mkdir -p "$probe_dir"
+          set +e
+          ( exit 42 )
+          probe_code=$?
+          set -e
+          [[ "$probe_code" -eq 42 ]]
+          jq -n --argjson exit_code "$probe_code" \
+            '{schema:"cep.browser-startup-state.v1",status:"FAIL",verification:"FAIL",phase:"controlled-pre-browser-probe",exit_code:$exit_code,reason:"controlled-pre-browser-failure"}' \
+            > "$probe_dir/startup-state.json"
+          jq -n '{schema:"cep.browser-attempt-state.v1",attempted:false,status:"SKIPPED",verification:"NOT VERIFIED",reason:"startup-failed-before-browser",exit_code:null}' \
+            > "$probe_dir/browser-state.json"
+          daemon_reachable=false
+          if docker info > /dev/null 2>&1; then daemon_reachable=true; fi
+          jq -n \
+            --arg docker "$(docker --version)" \
+            --arg compose "$(docker compose version)" \
+            --argjson daemon_reachable "$daemon_reachable" \
+            '{schema:"cep.browser-runtime-health.v1",docker:$docker,compose:$compose,daemon_reachable:$daemon_reachable,containers_started:false}' \
+            > "$probe_dir/runtime-health.json"
+          printf '%s\n' 'Controlled failure injected before application startup; Chromium intentionally skipped.' \
+            > "$probe_dir/runtime-sanitized.log"
+          jq -n \
+            --argjson exit_code "$probe_code" \
+            '{schema:"cep.browser-diagnostic-summary.v1",status:"FAIL",startup:"FAIL",browser:"SKIPPED",browser_verification:"NOT VERIFIED",reason:"controlled-pre-browser-failure",exit_code:$exit_code}' \
+            > "$probe_dir/diagnostic-summary.json"
+          test -s "$probe_dir/startup-state.json"
+          test -s "$probe_dir/browser-state.json"
+          test -s "$probe_dir/runtime-health.json"
+          test -s "$probe_dir/runtime-sanitized.log"
+          test -s "$probe_dir/diagnostic-summary.json"
+          jq -e '.status == "FAIL" and .exit_code == 42' "$probe_dir/startup-state.json" > /dev/null
+          jq -e '.status == "SKIPPED" and .verification == "NOT VERIFIED" and .attempted == false' "$probe_dir/browser-state.json" > /dev/null
+
+      - name: Start actual release application
+        id: browser-start
+        shell: bash
+        run: |
+          set -eEuo pipefail
+          mkdir -p evidence/browser
+          phase=compose-app-start
+          record_startup() {
+            local status="$1"
+            local phase_name="$2"
+            local code="$3"
+            local reason="$4"
+            jq -n \
+              --arg status "$status" \
+              --arg phase "$phase_name" \
+              --argjson exit_code "$code" \
+              --arg reason "$reason" \
+              '{schema:"cep.browser-startup-state.v1",status:$status,verification:$status,phase:$phase,exit_code:$exit_code,reason:(if $reason == "" then null else $reason end),sequence:["postgres+app --build","queue --no-deps","migrate:fresh --seed","release-gate-owner","health/live"]}' \
+              > evidence/browser/startup-state.json
+          }
+          trap 'code=$?; record_startup "FAIL" "$phase" "$code" "startup-command-failed"; exit "$code"' ERR
+
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml up -d --build postgres app
+          phase=compose-queue-start
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml up -d --no-deps queue
+          phase=migrate-fresh-seed
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml exec -T app php artisan migrate:fresh --seed --force
+          phase=owner-preparation
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml exec -T -e TASK010_BROWSER_PASSWORD="$BROWSER_PASSWORD" app php artisan platform:release-gate-owner > evidence/browser/owner-preparation.json
+          phase=http-readiness
+          for i in $(seq 1 60); do
+            curl --fail --silent http://127.0.0.1:8081/health/live > /dev/null && break
+            [[ "$i" -lt 60 ]] || return_code=1
+            if [[ "${return_code:-0}" -ne 0 ]]; then false; fi
+            sleep 2
+          done
+          trap - ERR
+          record_startup "PASS" "ready" 0 ""
+
+      - name: Capture real Chromium evidence
+        id: browser-capture
+        shell: bash
+        run: |
+          set -eEuo pipefail
+          record_browser() {
+            local attempted="$1"
+            local status="$2"
+            local verification="$3"
+            local reason="$4"
+            local code="$5"
+            jq -n \
+              --argjson attempted "$attempted" \
+              --arg status "$status" \
+              --arg verification "$verification" \
+              --arg reason "$reason" \
+              --argjson exit_code "$code" \
+              '{schema:"cep.browser-attempt-state.v1",attempted:$attempted,status:$status,verification:$verification,reason:(if $reason == "" then null else $reason end),exit_code:$exit_code}' \
+              > evidence/browser/browser-state.json
+          }
+          record_browser true "RUNNING" "NOT VERIFIED" "browser-capture-in-progress" 0
+          trap 'code=$?; record_browser true "FAIL" "FAIL" "browser-capture-command-failed" "$code"; exit "$code"' ERR
           docker run --rm --network host \
             -v "$PWD:/repo" \
             -w /repo \
             -e BASE_URL=http://127.0.0.1:8081 \
             -e BROWSER_EMAIL=task010-browser@example.test \
             -e BROWSER_PASSWORD="$BROWSER_PASSWORD" \
+            -e BROWSER_ROUTE_PROFILES="$BROWSER_ROUTE_PROFILES" \
             -e EVIDENCE_DIR=evidence/browser \
             mcr.microsoft.com/playwright:v1.55.0-noble \
             bash -lc 'set -euo pipefail; CHROMIUM_PATH="$(find /ms-playwright -type f \( -name chrome -o -name chromium \) | head -n 1)"; test -x "$CHROMIUM_PATH"; export CHROMIUM_PATH; node scripts/ci/browser_evidence.mjs'
+          trap - ERR
+          record_browser true "PASS" "GENERIC ROUTE VERIFIED" "" 0
 
-      - name: Capture sanitized browser runtime logs
+      - name: Capture sanitized browser runtime diagnostics
         if: always()
         shell: bash
+        env:
+          START_OUTCOME: ${{ steps.browser-start.outcome }}
+          BROWSER_OUTCOME: ${{ steps.browser-capture.outcome }}
         run: |
+          set +e
           mkdir -p evidence/browser
-          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml ps --format json > evidence/browser/container-health.json 2>/dev/null || true
-          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml logs --no-color --since 30m app queue postgres 2>/dev/null \
-            | sed -e "s/${BROWSER_PASSWORD}/[REDACTED]/g" \
-                  -E 's/(APP_KEY|DB_PASSWORD|TASK010_BROWSER_PASSWORD|BROWSER_PASSWORD)=([^[:space:]]+)/\1=[REDACTED]/g; s/(Cookie|Set-Cookie|Authorization):[^[:space:]]+/\1:[REDACTED]/g' \
-            > evidence/browser/runtime-sanitized.log || true
+
+          if [[ ! -s evidence/browser/startup-state.json ]]; then
+            jq -n '{schema:"cep.browser-startup-state.v1",status:"SKIPPED",verification:"NOT VERIFIED",phase:"not-reached",exit_code:null,reason:"workflow-failed-before-startup-state"}' \
+              > evidence/browser/startup-state.json
+          fi
+
+          if [[ "$START_OUTCOME" != "success" && "$BROWSER_OUTCOME" == "skipped" ]]; then
+            jq -n '{schema:"cep.browser-attempt-state.v1",attempted:false,status:"SKIPPED",verification:"NOT VERIFIED",reason:"startup-failed-before-browser",exit_code:null}' \
+              > evidence/browser/browser-state.json
+          elif [[ ! -s evidence/browser/browser-state.json ]]; then
+            jq -n '{schema:"cep.browser-attempt-state.v1",attempted:false,status:"SKIPPED",verification:"NOT VERIFIED",reason:"browser-state-unavailable",exit_code:null}' \
+              > evidence/browser/browser-state.json
+          fi
+
+          if [[ -n "${RELEASE_ENV_FILE:-}" && -f "$RELEASE_ENV_FILE" ]]; then
+            docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml ps --format json > evidence/browser/container-health.json 2>/dev/null || true
+            raw_log="${RUNNER_TEMP}/cep-browser-runtime-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.log"
+            docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml logs --no-color --since 30m app queue postgres > "$raw_log" 2>/dev/null || true
+            if [[ -n "${BROWSER_PASSWORD:-}" ]]; then
+              sed -e "s|${BROWSER_PASSWORD}|[REDACTED]|g" "$raw_log" \
+                | sed -E 's/(APP_KEY|DB_PASSWORD|TASK010_BROWSER_PASSWORD|BROWSER_PASSWORD)=([^[:space:]]+)/\1=[REDACTED]/g; s/(Cookie|Set-Cookie|Authorization):[^[:space:]]+/\1:[REDACTED]/g' \
+                > evidence/browser/runtime-sanitized.log
+            else
+              sed -E 's/(APP_KEY|DB_PASSWORD|TASK010_BROWSER_PASSWORD|BROWSER_PASSWORD)=([^[:space:]]+)/\1=[REDACTED]/g; s/(Cookie|Set-Cookie|Authorization):[^[:space:]]+/\1:[REDACTED]/g' "$raw_log" \
+                > evidence/browser/runtime-sanitized.log
+            fi
+            rm -f "$raw_log"
+          else
+            jq -n '{schema:"cep.browser-runtime-health.v1",status:"UNAVAILABLE",reason:"release-environment-file-unavailable"}' \
+              > evidence/browser/container-health.json
+            printf '%s\n' 'Runtime logs unavailable because the release environment was not initialized.' > evidence/browser/runtime-sanitized.log
+          fi
+
+          if [[ ! -s evidence/browser/container-health.json ]]; then
+            jq -n '{schema:"cep.browser-runtime-health.v1",status:"UNAVAILABLE",reason:"compose-ps-produced-no-data"}' \
+              > evidence/browser/container-health.json
+          fi
+          if [[ ! -s evidence/browser/runtime-sanitized.log ]]; then
+            printf '%s\n' 'No container runtime log lines were available.' > evidence/browser/runtime-sanitized.log
+          fi
+
+          startup_status="$(jq -r '.status // "UNKNOWN"' evidence/browser/startup-state.json 2>/dev/null || printf UNKNOWN)"
+          browser_status="$(jq -r '.status // "UNKNOWN"' evidence/browser/browser-state.json 2>/dev/null || printf UNKNOWN)"
+          browser_verification="$(jq -r '.verification // "NOT VERIFIED"' evidence/browser/browser-state.json 2>/dev/null || printf 'NOT VERIFIED')"
+          jq -n \
+            --arg startup_outcome "$START_OUTCOME" \
+            --arg browser_outcome "$BROWSER_OUTCOME" \
+            --arg startup_status "$startup_status" \
+            --arg browser_status "$browser_status" \
+            --arg browser_verification "$browser_verification" \
+            --argjson health_bytes "$(wc -c < evidence/browser/container-health.json)" \
+            --argjson log_bytes "$(wc -c < evidence/browser/runtime-sanitized.log)" \
+            '{schema:"cep.browser-diagnostic-summary.v1",startup_step_outcome:$startup_outcome,browser_step_outcome:$browser_outcome,startup_status:$startup_status,browser_status:$browser_status,browser_verification:$browser_verification,container_health_bytes:$health_bytes,runtime_log_bytes:$log_bytes}' \
+            > evidence/browser/diagnostic-summary.json
 
       - name: Finalize browser evidence
         if: always()
