@@ -914,8 +914,7 @@ const loadComparison = async () => {
                   v-if="technicalTypes.has(block.type)"
                   dir="ltr"
                   class="mt-3 overflow-x-auto text-left font-mono text-sm leading-6 whitespace-pre-wrap text-slate-200"
-                  >{{ block.body }}</pre
-                >
+                  >{{ block.body }}</pre>
                 <p v-else class="mt-3 leading-8 whitespace-pre-wrap text-slate-200">
                   <template
                     v-for="(token, tokenIndex) in inlineTokens(block.body)"
@@ -927,16 +926,14 @@ const loadComparison = async () => {
                       v-else-if="token.kind === 'code'"
                       dir="ltr"
                       class="rounded bg-slate-800 px-1 font-mono text-[0.92em]"
-                      >{{ token.text }}</code
-                    >
+                      >{{ token.text }}</code>
                     <a
                       v-else-if="token.kind === 'link' && token.href"
                       :href="token.href"
                       target="_blank"
                       rel="noopener noreferrer"
                       class="text-cyan-300 underline decoration-cyan-700 underline-offset-4"
-                      >{{ token.text }}</a
-                    >
+                      >{{ token.text }}</a>
                     <span v-else>{{ token.text }}</span>
                   </template>
                 </p>
@@ -1158,16 +1155,14 @@ const loadComparison = async () => {
                     v-else-if="token.kind === 'code'"
                     dir="ltr"
                     class="rounded bg-slate-800 px-1 font-mono text-[0.92em]"
-                    >{{ token.text }}</code
-                  >
+                    >{{ token.text }}</code>
                   <a
                     v-else-if="token.kind === 'link' && token.href"
                     :href="token.href"
                     target="_blank"
                     rel="noopener noreferrer"
                     class="text-cyan-300 underline decoration-cyan-700 underline-offset-4"
-                    >{{ token.text }}</a
-                  >
+                    >{{ token.text }}</a>
                   <span v-else>{{ token.text }}</span>
                 </template>
               </p>
@@ -1201,16 +1196,14 @@ const loadComparison = async () => {
                     v-else-if="token.kind === 'code'"
                     dir="ltr"
                     class="rounded bg-slate-800 px-1 font-mono text-[0.92em]"
-                    >{{ token.text }}</code
-                  >
+                    >{{ token.text }}</code>
                   <a
                     v-else-if="token.kind === 'link' && token.href"
                     :href="token.href"
                     target="_blank"
                     rel="noopener noreferrer"
                     class="text-cyan-300 underline decoration-cyan-700 underline-offset-4"
-                    >{{ token.text }}</a
-                  >
+                    >{{ token.text }}</a>
                   <span v-else>{{ token.text }}</span>
                 </template>
               </p>
