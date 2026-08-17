@@ -915,8 +915,7 @@ const loadComparison = async () => {
                   v-if="technicalTypes.has(block.type)"
                   dir="ltr"
                   class="mt-3 overflow-x-auto text-left font-mono text-sm leading-6 whitespace-pre-wrap text-slate-200"
-                  >{{ block.body }}</pre
-                >
+                  >{{ block.body }}</pre>
                 <p v-else class="mt-3 leading-8 whitespace-pre-wrap text-slate-200">
                   <template
                     v-for="(token, tokenIndex) in inlineTokens(block.body)"
