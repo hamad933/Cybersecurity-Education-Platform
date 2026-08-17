@@ -546,8 +546,7 @@ const loadComparison = async () => {
   compareLoading.value = true;
   compareError.value = '';
   try {
-    const url =
-      `/knowledge?object=${encodeURIComponent(props.active.id)}&revision=${encodeURIComponent(compareRevisionId.value)}`;
+    const url = `/knowledge?object=${encodeURIComponent(props.active.id)}&revision=${encodeURIComponent(compareRevisionId.value)}`;
     const response = await window.fetch(url, {
       credentials: 'same-origin',
       headers: {
