@@ -1,0 +1,81 @@
+name: W04 Repair Generation
+
+on:
+  push:
+    branches:
+      - feat/cep-progress-evidence
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          tools: composer:v2
+          coverage: none
+
+      - name: Generate minimal Composer repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          composer update league/commonmark --with-all-dependencies --minimal-changes --no-interaction --prefer-dist
+          composer audit --locked --format=json > w04-composer-audit.json
+          composer install --no-interaction --prefer-dist
+          vendor/bin/pint app/Modules/Evidence/Application/ProgressEvidenceService.php tests/Feature/ProgressEvidenceGovernanceTest.php
+          vendor/bin/pint --test app/Modules/Evidence/Application/ProgressEvidenceService.php tests/Feature/ProgressEvidenceGovernanceTest.php
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Probe minimal npm repair
+        shell: bash
+        run: |
+          set +e
+          npm update nanoid --package-lock-only > w04-npm-update.log 2>&1
+          npm_update_status=$?
+          npm view nanoid versions --json > w04-nanoid-versions.json 2> w04-nanoid-view-error.log
+          npm audit --package-lock-only --audit-level=high --json > w04-npm-audit.json 2>&1
+          npm_audit_status=$?
+          printf 'npm_update_status=%s\nnpm_audit_status=%s\n' "$npm_update_status" "$npm_audit_status" > w04-npm-status.txt
+          exit 0
+
+      - name: Make deterministic Chromium cleanup repair
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('scripts/ci/browser_evidence.mjs')
+          text = path.read_text()
+          text = text.replace("import { spawn } from 'node:child_process';\n", "import { spawn } from 'node:child_process';\nimport { once } from 'node:events';\n", 1)
+          old = """} finally {\n  chromium?.kill('SIGTERM');\n  await writeFile(join(evidenceDir, 'chromium-sanitized.log'), browserLog.join('').replaceAll(password, '[REDACTED]'));\n  await rm(profileDir, { recursive: true, force: true });\n}\n"""
+          new = """} finally {\n  if (chromium && chromium.exitCode === null) {\n    const exited = once(chromium, 'exit');\n    chromium.kill('SIGTERM');\n    await exited;\n  }\n  await writeFile(join(evidenceDir, 'chromium-sanitized.log'), browserLog.join('').replaceAll(password, '[REDACTED]'));\n  await rm(profileDir, { recursive: true, force: true });\n}\n"""
+          if old not in text:
+              raise SystemExit('expected Chromium cleanup block not found')
+          path.write_text(text.replace(old, new, 1))
+
+      - name: Upload exact generated repairs
+        uses: actions/upload-artifact@v4
+        with:
+          name: w04-repair-generation-${{ github.sha }}
+          if-no-files-found: error
+          path: |
+            composer.lock
+            package-lock.json
+            app/Modules/Evidence/Application/ProgressEvidenceService.php
+            tests/Feature/ProgressEvidenceGovernanceTest.php
+            scripts/ci/browser_evidence.mjs
+            w04-composer-audit.json
+            w04-npm-update.log
+            w04-nanoid-versions.json
+            w04-nanoid-view-error.log
+            w04-npm-audit.json
+            w04-npm-status.txt
