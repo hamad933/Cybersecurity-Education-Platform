@@ -245,7 +245,10 @@ final class KnowledgeLearningWorkspace
         return $groups;
     }
 
-    /** @param array<string, mixed>|null $active */
+    /**
+     * @param  array<string, mixed>|null  $active
+     * @return array<string, mixed>|null
+     */
     private function withStructuralDepth(?array $active): ?array
     {
         if ($active === null) {

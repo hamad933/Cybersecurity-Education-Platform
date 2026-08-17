@@ -131,7 +131,7 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
         ])->assertRedirect()->assertSessionHasNoErrors();
 
         $draft->refresh();
-        $this->assertSame($nested, $draft->blockList());
+        $this->assertEquals($nested, $draft->blockList());
 
         $this->actingAs($this->owner)->get("/knowledge?object={$unit->id}&revision={$draft->id}")
             ->assertOk()
@@ -156,7 +156,7 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
 
         $draft->refresh();
         $this->assertSame(3, $draft->lock_version);
-        $this->assertSame($outdented, $draft->blockList());
+        $this->assertEquals($outdented, $draft->blockList());
     }
 
     #[Test]
@@ -185,7 +185,7 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
 
         $draft->refresh();
         $this->assertSame(1, $draft->lock_version);
-        $this->assertSame([
+        $this->assertEquals([
             ['type' => 'paragraph', 'body' => 'محتوى اختبار حقيقي من قاعدة البيانات.', 'depth' => 0],
         ], $draft->blockList());
     }
@@ -242,7 +242,7 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
 
         $published->refresh();
         $this->assertSame('published', $published->state);
-        $this->assertSame($publishedBlocks, $published->blockList());
+        $this->assertEquals($publishedBlocks, $published->blockList());
         $this->assertDatabaseHas('lesson_revisions', [
             'knowledge_unit_id' => $unit->id,
             'revision' => 2,
@@ -253,7 +253,7 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
             ->where('knowledge_unit_id', $unit->id)
             ->where('revision', 2)
             ->firstOrFail();
-        $this->assertSame($publishedBlocks, $restored->blockList());
+        $this->assertEquals($publishedBlocks, $restored->blockList());
         $this->assertDatabaseCount('lesson_revisions', 2);
     }
 
@@ -390,7 +390,7 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
         $this->assertStringContainsString('depth: item.depth - 1', $library);
         $this->assertStringContainsString('safeHttpsUrl', $library);
         $this->assertStringNotContainsString('v-html', $library);
-        $this->assertStringNotContainsString("block.body = lines.map", $library);
+        $this->assertStringNotContainsString('block.body = lines.map', $library);
         $this->assertStringContainsString('مسار قانوني مستقل', $visualize);
         $this->assertStringNotContainsString('orderedCapabilities', $visualize);
 
