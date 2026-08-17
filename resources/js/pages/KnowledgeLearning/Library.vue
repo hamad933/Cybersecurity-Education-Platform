@@ -926,14 +926,16 @@ const loadComparison = async () => {
                       v-else-if="token.kind === 'code'"
                       dir="ltr"
                       class="rounded bg-slate-800 px-1 font-mono text-[0.92em]"
-                      >{{ token.text }}</code>
+                      >{{ token.text }}</code
+                    >
                     <a
                       v-else-if="token.kind === 'link' && token.href"
                       :href="token.href"
                       target="_blank"
                       rel="noopener noreferrer"
                       class="text-cyan-300 underline decoration-cyan-700 underline-offset-4"
-                      >{{ token.text }}</a>
+                      >{{ token.text }}</a
+                    >
                     <span v-else>{{ token.text }}</span>
                   </template>
                 </p>
@@ -1155,14 +1157,16 @@ const loadComparison = async () => {
                     v-else-if="token.kind === 'code'"
                     dir="ltr"
                     class="rounded bg-slate-800 px-1 font-mono text-[0.92em]"
-                    >{{ token.text }}</code>
+                    >{{ token.text }}</code
+                  >
                   <a
                     v-else-if="token.kind === 'link' && token.href"
                     :href="token.href"
                     target="_blank"
                     rel="noopener noreferrer"
                     class="text-cyan-300 underline decoration-cyan-700 underline-offset-4"
-                    >{{ token.text }}</a>
+                    >{{ token.text }}</a
+                  >
                   <span v-else>{{ token.text }}</span>
                 </template>
               </p>
@@ -1196,14 +1200,16 @@ const loadComparison = async () => {
                     v-else-if="token.kind === 'code'"
                     dir="ltr"
                     class="rounded bg-slate-800 px-1 font-mono text-[0.92em]"
-                    >{{ token.text }}</code>
+                    >{{ token.text }}</code
+                  >
                   <a
                     v-else-if="token.kind === 'link' && token.href"
                     :href="token.href"
                     target="_blank"
                     rel="noopener noreferrer"
                     class="text-cyan-300 underline decoration-cyan-700 underline-offset-4"
-                    >{{ token.text }}</a>
+                    >{{ token.text }}</a
+                  >
                   <span v-else>{{ token.text }}</span>
                 </template>
               </p>
