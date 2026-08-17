@@ -437,6 +437,7 @@ const outdentBlock = (index: number) => {
   const block = form.blocks[index];
   const parent = parentIndex(form.blocks, index);
   if (!block || block.depth === 0 || parent === null) return;
+
   const end = subtreeEnd(form.blocks, index);
   const parentEnd = subtreeEnd(form.blocks, parent);
   const segment = form.blocks
