@@ -23,7 +23,7 @@ let chromium;
 let profileDir;
 let routeProfiles;
 let selectedProfiles = [];
-let selectedRoutes = [];
+let selectedRoutes;
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -42,7 +42,7 @@ async function loadRouteProfiles() {
   try {
     parsed = JSON.parse(await readFile(routeProfilePath, 'utf8'));
   } catch (error) {
-    throw new Error(`Unable to parse route profile file ${routeProfilePath}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Unable to parse route profile file ${routeProfilePath}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Route profile document must be a JSON object.');
   if (parsed.schema !== 'cep.browser-route-profiles.v1') throw new Error(`Unsupported route profile schema: ${JSON.stringify(parsed.schema)}`);
