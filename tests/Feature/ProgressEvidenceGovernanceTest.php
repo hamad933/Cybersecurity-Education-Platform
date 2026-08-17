@@ -27,7 +27,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        if (!Route::has('cep.progress.index')) {
+        if (! Route::has('cep.progress.index')) {
             require base_path('routes/workspaces/progress-evidence.php');
         }
         $this->owner = app(CreateOwner::class)->execute(
@@ -714,7 +714,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
     }
 
     /**
-     * @param array{evidence: array<string, mixed>, revision: array<string, mixed>, decision: array<string, mixed>} $reviewed
+     * @param  array{evidence: array<string, mixed>, revision: array<string, mixed>, decision: array<string, mixed>}  $reviewed
      */
     private function evaluateFromReviewed(
         array $reviewed,

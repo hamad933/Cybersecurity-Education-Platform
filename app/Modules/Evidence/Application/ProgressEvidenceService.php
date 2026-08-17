@@ -46,7 +46,7 @@ final class ProgressEvidenceService
     private const FRESHNESS = ['CURRENT', 'REVALIDATION_REQUIRED'];
 
     /**
-     * @param array<string, mixed> $handoff
+     * @param  array<string, mixed>  $handoff
      * @return array<string, mixed>
      */
     public function intakeCandidate(string $subjectId, string $submittedBy, array $handoff): array
@@ -62,7 +62,7 @@ final class ProgressEvidenceService
             'title',
             'summary',
         ] as $key) {
-            if (!isset($handoff[$key]) || trim((string) $handoff[$key]) === '') {
+            if (! isset($handoff[$key]) || trim((string) $handoff[$key]) === '') {
                 throw new InvalidArgumentException("Missing source handoff field: {$key}.");
             }
         }
@@ -138,7 +138,7 @@ final class ProgressEvidenceService
     /** @return array<string, mixed> */
     public function transitionCandidate(string $candidateId, string $actorId, string $state): array
     {
-        if (!array_key_exists($state, self::CANDIDATE_TRANSITIONS) || $state === 'ADMITTED') {
+        if (! array_key_exists($state, self::CANDIDATE_TRANSITIONS) || $state === 'ADMITTED') {
             throw new InvalidArgumentException('Invalid Candidate Evidence transition target.');
         }
 
@@ -151,7 +151,7 @@ final class ProgressEvidenceService
             }
 
             $allowed = self::CANDIDATE_TRANSITIONS[$candidate->state] ?? null;
-            if ($allowed === null || !in_array($state, $allowed, true)) {
+            if ($allowed === null || ! in_array($state, $allowed, true)) {
                 throw new LogicException("Illegal Candidate Evidence transition: {$candidate->state} -> {$state}.");
             }
 
@@ -253,7 +253,7 @@ final class ProgressEvidenceService
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
     public function createRevision(string $evidenceId, string $actorId, array $data): array
@@ -271,7 +271,7 @@ final class ProgressEvidenceService
                 ->where('revision', $evidence->current_revision_number)
                 ->first();
 
-            if (!$current) {
+            if (! $current) {
                 throw new LogicException('Current Evidence Revision is missing.');
             }
 
@@ -337,7 +337,7 @@ final class ProgressEvidenceService
 
     public function transitionLifecycle(string $evidenceId, string $actorId, string $state): void
     {
-        if (!in_array($state, ['ACTIVE', 'WITHDRAWN', 'SUPERSEDED'], true)) {
+        if (! in_array($state, ['ACTIVE', 'WITHDRAWN', 'SUPERSEDED'], true)) {
             throw new InvalidArgumentException('Invalid Evidence lifecycle.');
         }
 
@@ -361,7 +361,7 @@ final class ProgressEvidenceService
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
     public function requestReview(string $evidenceId, string $actorId, array $data = []): array
@@ -379,7 +379,7 @@ final class ProgressEvidenceService
                 ->where('revision', $evidence->current_revision_number)
                 ->first();
 
-            if (!$revision) {
+            if (! $revision) {
                 throw new LogicException('Current Evidence Revision is missing.');
             }
 
@@ -493,7 +493,7 @@ final class ProgressEvidenceService
     }
 
     /**
-     * @param list<string> $supportingRevisionIds
+     * @param  list<string>  $supportingRevisionIds
      * @return array<string, mixed>
      */
     public function recordFinding(
@@ -504,7 +504,7 @@ final class ProgressEvidenceService
         string $statement,
         array $supportingRevisionIds = [],
     ): array {
-        if (!in_array($finding, self::FINDINGS, true)) {
+        if (! in_array($finding, self::FINDINGS, true)) {
             throw new InvalidArgumentException('Invalid Review Finding.');
         }
 
@@ -520,13 +520,13 @@ final class ProgressEvidenceService
             if ($review->reviewer_id !== $actorId) {
                 throw new LogicException('Review is outside reviewer boundary.');
             }
-            if (!in_array($review->status, ['IN_REVIEW', 'READY_FOR_DECISION'], true)) {
+            if (! in_array($review->status, ['IN_REVIEW', 'READY_FOR_DECISION'], true)) {
                 throw new LogicException('Review is not open for Findings.');
             }
 
             $criterion = $this->text($criterion, 120, 'Criterion key');
             $criteria = $this->decode($review->criterion_refs);
-            if (!in_array($criterion, $criteria, true)) {
+            if (! in_array($criterion, $criteria, true)) {
                 throw new LogicException('Finding criterion is outside the pinned Review criterion scope.');
             }
 
@@ -573,7 +573,7 @@ final class ProgressEvidenceService
         string $decision,
         string $rationale,
     ): array {
-        if (!in_array($decision, self::DECISIONS, true)) {
+        if (! in_array($decision, self::DECISIONS, true)) {
             throw new InvalidArgumentException('Invalid Review Decision.');
         }
 
@@ -593,7 +593,7 @@ final class ProgressEvidenceService
             }
 
             $request = DB::table('evidence_review_requests')->where('id', $review->review_request_id)->first();
-            if (!$request) {
+            if (! $request) {
                 throw new LogicException('Review Request is missing.');
             }
 
@@ -640,9 +640,9 @@ final class ProgressEvidenceService
     }
 
     /**
-     * @param list<string> $reviewDecisionIds
-     * @param list<string> $supportingRevisionIds
-     * @param list<string> $contradictingRevisionIds
+     * @param  list<string>  $reviewDecisionIds
+     * @param  list<string>  $supportingRevisionIds
+     * @param  list<string>  $contradictingRevisionIds
      * @return array<string, mixed>
      */
     public function evaluateMastery(
@@ -660,7 +660,7 @@ final class ProgressEvidenceService
         if ($subjectId !== $evaluatorId) {
             throw new LogicException('Mastery evaluation is outside the authenticated actor boundary.');
         }
-        if (!in_array($judgment, self::JUDGMENTS, true) || !in_array($freshness, self::FRESHNESS, true)) {
+        if (! in_array($judgment, self::JUDGMENTS, true) || ! in_array($freshness, self::FRESHNESS, true)) {
             throw new InvalidArgumentException('Invalid Mastery dimensions.');
         }
 
@@ -693,7 +693,7 @@ final class ProgressEvidenceService
                 )
                 ->first();
 
-            if (!$row) {
+            if (! $row) {
                 throw new LogicException('Unknown Evidence Revision reference.');
             }
             if ($row->subject_actor_id !== $subjectId || $row->capability_id !== $capabilityId) {
@@ -720,7 +720,7 @@ final class ProgressEvidenceService
                 )
                 ->first();
 
-            if (!$row) {
+            if (! $row) {
                 throw new LogicException('Unknown Review Decision reference.');
             }
             if ($row->subject_actor_id !== $subjectId || $row->capability_id !== $capabilityId) {
@@ -729,13 +729,13 @@ final class ProgressEvidenceService
             if ($row->effective_review_decision_id !== $row->id) {
                 throw new LogicException('Superseded Review Decisions cannot be used as effective Mastery provenance.');
             }
-            if (!isset($revisionRows[$row->evidence_revision_id])) {
+            if (! isset($revisionRows[$row->evidence_revision_id])) {
                 throw new LogicException('Every Review Decision must reference an Evidence Revision explicitly included in the Mastery evaluation.');
             }
         }
 
         foreach ($revisionRows as $revisionId => $row) {
-            if (!in_array($row->effective_review_decision_id, $decisions, true)) {
+            if (! in_array($row->effective_review_decision_id, $decisions, true)) {
                 throw new LogicException("Evidence Revision {$revisionId} is missing its exact effective Review Decision provenance.");
             }
         }
@@ -833,8 +833,8 @@ final class ProgressEvidenceService
     }
 
     /**
-     * @param array<string, mixed> $filters
-     * @param array<string, mixed> $annotations
+     * @param  array<string, mixed>  $filters
+     * @param  array<string, mixed>  $annotations
      * @return array<string, mixed>
      */
     public function createPortfolio(
@@ -873,7 +873,7 @@ final class ProgressEvidenceService
         $portfolio = DB::table('evidence_portfolios')->where('id', $portfolioId)->first();
         $evidence = DB::table('governed_evidence')->where('id', $evidenceId)->first();
 
-        if (!$portfolio || $portfolio->owner_actor_id !== $actorId || !$evidence || $evidence->subject_actor_id !== $actorId) {
+        if (! $portfolio || $portfolio->owner_actor_id !== $actorId || ! $evidence || $evidence->subject_actor_id !== $actorId) {
             throw new LogicException('Portfolio boundary mismatch.');
         }
 
@@ -911,7 +911,7 @@ final class ProgressEvidenceService
     public function removeEvidenceFromPortfolio(string $portfolioId, string $evidenceId, string $actorId): void
     {
         $portfolio = DB::table('evidence_portfolios')->where('id', $portfolioId)->first();
-        if (!$portfolio || $portfolio->owner_actor_id !== $actorId) {
+        if (! $portfolio || $portfolio->owner_actor_id !== $actorId) {
             throw new LogicException('Portfolio boundary mismatch.');
         }
 
@@ -1118,7 +1118,7 @@ final class ProgressEvidenceService
         bool $sameCapability,
     ): void {
         $reviewEvidence = DB::table('governed_evidence')->where('id', $reviewEvidenceId)->first();
-        if (!$reviewEvidence || $reviewEvidence->subject_actor_id !== $actorId) {
+        if (! $reviewEvidence || $reviewEvidence->subject_actor_id !== $actorId) {
             throw new LogicException('Review Evidence boundary mismatch.');
         }
 
@@ -1129,7 +1129,7 @@ final class ProgressEvidenceService
                 ->select('e.subject_actor_id', 'e.capability_id')
                 ->first();
 
-            if (!$row) {
+            if (! $row) {
                 throw new LogicException('Unknown Evidence Revision reference.');
             }
             if ($row->subject_actor_id !== $actorId || ($sameCapability && $row->capability_id !== $reviewEvidence->capability_id)) {
@@ -1174,7 +1174,7 @@ final class ProgressEvidenceService
             )
             ->first();
 
-        if (!$row) {
+        if (! $row) {
             throw new LogicException('Mastery State missing.');
         }
 
@@ -1188,7 +1188,7 @@ final class ProgressEvidenceService
     private function lock(string $table, string $id): object
     {
         $row = DB::table($table)->where('id', $id)->lockForUpdate()->first();
-        if (!$row) {
+        if (! $row) {
             throw new InvalidArgumentException("{$table} record not found.");
         }
 
@@ -1203,13 +1203,13 @@ final class ProgressEvidenceService
     }
 
     /**
-     * @param list<string> $json
+     * @param  list<string>  $json
      * @return array<string, mixed>
      */
     private function row(string $table, string $id, array $json = []): array
     {
         $row = DB::table($table)->where('id', $id)->first();
-        if (!$row) {
+        if (! $row) {
             throw new InvalidArgumentException("{$table} record not found.");
         }
 
@@ -1224,7 +1224,7 @@ final class ProgressEvidenceService
             ->where('revision', $revision)
             ->first();
 
-        if (!$row) {
+        if (! $row) {
             throw new LogicException('Evidence Revision missing.');
         }
 
@@ -1232,7 +1232,7 @@ final class ProgressEvidenceService
     }
 
     /**
-     * @param list<string> $json
+     * @param  list<string>  $json
      * @return array<string, mixed>
      */
     private function array(object $row, array $json = []): array
@@ -1260,7 +1260,7 @@ final class ProgressEvidenceService
     /** @return list<string> */
     private function stringList(mixed $value, string $name, bool $required = false): array
     {
-        if (!is_array($value)) {
+        if (! is_array($value)) {
             if ($required) {
                 throw new InvalidArgumentException("{$name} must be a non-empty array.");
             }
@@ -1270,7 +1270,7 @@ final class ProgressEvidenceService
 
         $normalized = [];
         foreach ($value as $entry) {
-            if (!is_string($entry) || trim($entry) === '') {
+            if (! is_string($entry) || trim($entry) === '') {
                 throw new InvalidArgumentException("{$name} contains an invalid reference.");
             }
             $normalized[] = trim($entry);
@@ -1299,7 +1299,7 @@ final class ProgressEvidenceService
     private function sourceDigest(string $value): string
     {
         $digest = strtolower(trim($value));
-        if (!preg_match('/^[a-f0-9]{64}$/', $digest)) {
+        if (! preg_match('/^[a-f0-9]{64}$/', $digest)) {
             throw new InvalidArgumentException('Source digest must be SHA-256 hex.');
         }
 
