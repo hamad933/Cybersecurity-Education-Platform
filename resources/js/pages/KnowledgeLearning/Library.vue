@@ -578,6 +578,7 @@ const loadComparison = async () => {
 <!-- prettier-ignore -->
 <template>
   <Head title="المعرفة والتعلّم — المكتبة" />
+  <!-- prettier-ignore -->
   <div dir="rtl" class="min-h-screen bg-slate-950 text-slate-100">
     <div class="mx-auto max-w-[1600px] px-4 py-5 sm:px-6">
       <header class="border-b border-slate-800 pb-4">
