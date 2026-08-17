@@ -29,17 +29,15 @@ const props = defineProps<{
   graph: { nodes: Node[]; edges: Edge[]; source: string };
 }>();
 
-const views: ViewMode[] = ['Tree', 'Path', 'Graph', 'Canvas'];
+const supportedViews: ViewMode[] = ['Tree', 'Path', 'Graph', 'Canvas'];
+const views = computed<ViewMode[]>(() =>
+  supportedViews.filter((viewName) => props.view.implemented.includes(viewName)),
+);
 const activeView = ref<ViewMode>('Tree');
 const selectView = (viewName: ViewMode) => {
-  activeView.value = viewName;
+  if (views.value.includes(viewName)) activeView.value = viewName;
 };
 const capabilities = computed(() => props.graph.nodes.filter((node) => node.kind === 'capability'));
-const orderedCapabilities = computed(() =>
-  capabilities.value
-    .slice()
-    .sort((left, right) => left.technical_label.localeCompare(right.technical_label, 'en')),
-);
 const unitNode = computed(
   () => props.graph.nodes.find((node) => node.kind === 'knowledge_unit') ?? null,
 );
@@ -119,68 +117,93 @@ const edgeRows = computed(() =>
           <section v-if="active && graph.nodes.length" class="mt-8">
             <div
               v-if="activeView === 'Tree'"
-              class="flex min-h-80 flex-col items-center justify-center gap-4"
+              class="mx-auto flex min-h-80 max-w-4xl flex-col justify-center gap-3"
               aria-label="عرض شجري للعلاقات"
             >
-              <div v-if="capabilities.length" class="flex flex-wrap justify-center gap-3">
-                <article
-                  v-for="capability in capabilities"
-                  :key="capability.id"
-                  class="rounded-xl border border-indigo-700/70 bg-indigo-950/30 px-5 py-3 text-center"
-                >
-                  <p class="text-xs text-slate-500"><bdi dir="ltr">Capability</bdi></p>
+              <article
+                v-for="edge in edgeRows"
+                :key="edge.id"
+                class="grid items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/35 p-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
+              >
+                <div class="rounded-lg border border-indigo-800 bg-indigo-950/25 p-3 text-center">
+                  <p class="text-[11px] text-slate-500"><bdi dir="ltr">Capability</bdi></p>
                   <bdi dir="ltr" class="mt-1 block font-mono text-sm text-indigo-200">
-                    {{ capability.technical_label }}
+                    {{ edge.fromNode?.technical_label ?? edge.from }}
                   </bdi>
-                </article>
-              </div>
-              <div
-                v-if="capabilities.length"
-                class="h-8 w-px bg-slate-700"
-                aria-hidden="true"
-              ></div>
-              <div
-                v-if="unitNode"
-                class="rounded-xl border border-cyan-600 bg-cyan-950/25 px-6 py-4 text-center"
+                </div>
+                <div class="text-center">
+                  <bdi dir="ltr" class="font-mono text-[11px] text-amber-300">
+                    {{ edge.type }}
+                  </bdi>
+                  <bdi dir="ltr" class="mt-1 block font-mono text-[10px] text-slate-500">
+                    revision {{ edge.revision }}
+                  </bdi>
+                </div>
+                <div class="rounded-lg border border-cyan-700 bg-cyan-950/25 p-3 text-center">
+                  <p class="text-[11px] text-slate-500"><bdi dir="ltr">Knowledge Unit</bdi></p>
+                  <p class="mt-1 font-bold">{{ edge.toNode?.label ?? active.title_ar }}</p>
+                  <bdi dir="ltr" class="mt-1 block font-mono text-xs text-cyan-200">
+                    {{ edge.toNode?.technical_label ?? edge.to }}
+                  </bdi>
+                </div>
+              </article>
+
+              <article
+                v-if="!edgeRows.length && unitNode"
+                class="mx-auto rounded-xl border border-cyan-700 bg-cyan-950/25 px-6 py-4 text-center"
               >
                 <p class="font-bold">{{ unitNode.label }}</p>
                 <bdi dir="ltr" class="mt-1 block font-mono text-xs text-cyan-200">
                   {{ unitNode.technical_label }}
                 </bdi>
-                <p v-if="!capabilities.length" class="mt-3 text-xs text-slate-500">
+                <p class="mt-3 text-xs text-slate-500">
                   لا يوجد <bdi dir="ltr">Curriculum Placement</bdi> محفوظ لهذه الوحدة.
                 </p>
-              </div>
+              </article>
             </div>
 
             <div
               v-else-if="activeView === 'Path'"
-              class="mx-auto flex min-h-80 max-w-3xl flex-col items-stretch justify-center"
+              class="mx-auto flex min-h-80 max-w-4xl flex-col justify-center gap-4"
               aria-label="عرض مسار للعلاقات"
             >
-              <template v-for="(capability, index) in orderedCapabilities" :key="capability.id">
-                <article class="rounded-xl border border-indigo-800 bg-indigo-950/20 px-5 py-4">
-                  <div class="flex flex-wrap items-center justify-between gap-3">
-                    <span class="text-xs text-slate-500">{{ index + 1 }} — Capability</span>
-                    <bdi dir="ltr" class="font-mono text-sm text-indigo-200">
-                      {{ capability.technical_label }}
+              <article
+                v-for="(edge, index) in edgeRows"
+                :key="edge.id"
+                class="rounded-xl border border-slate-800 bg-slate-950/35 p-4"
+              >
+                <p class="mb-3 text-xs text-slate-500">
+                  مسار قانوني مستقل {{ index + 1 }} — مشتق من حافة محفوظة واحدة
+                </p>
+                <div
+                  class="grid items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
+                >
+                  <bdi
+                    dir="ltr"
+                    class="rounded-lg border border-indigo-800 bg-indigo-950/20 px-4 py-3 text-center font-mono text-sm text-indigo-200"
+                  >
+                    {{ edge.fromNode?.technical_label ?? edge.from }}
+                  </bdi>
+                  <div class="text-center">
+                    <bdi dir="ltr" class="font-mono text-xs text-amber-300">
+                      → {{ edge.type }} →
+                    </bdi>
+                    <bdi dir="ltr" class="mt-1 block font-mono text-[10px] text-slate-500">
+                      revision {{ edge.revision }}
                     </bdi>
                   </div>
-                </article>
-                <div class="mx-auto h-7 w-px bg-slate-700" aria-hidden="true"></div>
-              </template>
-              <article
-                v-if="unitNode"
-                class="rounded-xl border border-cyan-700 bg-cyan-950/25 px-5 py-4 text-center"
-              >
-                <p class="text-xs text-slate-500">Knowledge Unit</p>
-                <p class="mt-1 font-bold">{{ unitNode.label }}</p>
-                <bdi dir="ltr" class="mt-1 block font-mono text-xs text-cyan-200">
-                  {{ unitNode.technical_label }}
-                </bdi>
+                  <div
+                    class="rounded-lg border border-cyan-700 bg-cyan-950/25 px-4 py-3 text-center"
+                  >
+                    <p class="font-bold">{{ edge.toNode?.label ?? active.title_ar }}</p>
+                    <bdi dir="ltr" class="mt-1 block font-mono text-xs text-cyan-200">
+                      {{ edge.toNode?.technical_label ?? edge.to }}
+                    </bdi>
+                  </div>
+                </div>
               </article>
-              <p v-if="!orderedCapabilities.length" class="text-center text-sm text-slate-500">
-                لا يوجد مسار Capability محفوظ لهذه الوحدة؛ تظهر الوحدة القانونية وحدها.
+              <p v-if="!edgeRows.length" class="text-center text-sm text-slate-500">
+                لا يوجد مسار محفوظ؛ لا تُنشأ سلسلة Capability وهمية لهذه الوحدة.
               </p>
             </div>
 
@@ -226,6 +249,9 @@ const edgeRows = computed(() =>
                     <bdi dir="ltr" class="block font-mono text-slate-300">
                       {{ edge.toNode?.technical_label ?? edge.to }}
                     </bdi>
+                    <bdi dir="ltr" class="mt-1 block font-mono text-[10px] text-slate-600">
+                      revision {{ edge.revision }}
+                    </bdi>
                   </li>
                 </ol>
                 <p v-else class="mt-3 text-xs text-slate-500">لا توجد Edges محفوظة.</p>
@@ -262,17 +288,19 @@ const edgeRows = computed(() =>
               </div>
               <div
                 v-if="edgeRows.length"
-                class="mt-4 flex flex-wrap justify-center gap-2 border-t border-slate-800 pt-4"
+                class="mt-4 space-y-2 border-t border-slate-800 pt-4"
+                aria-label="حواف Canvas القانونية"
               >
-                <bdi
+                <div
                   v-for="edge in edgeRows"
                   :key="edge.id"
-                  dir="ltr"
-                  class="rounded-full border border-slate-700 px-3 py-1 font-mono text-[11px] text-slate-400"
+                  class="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-center"
                 >
-                  {{ edge.fromNode?.technical_label ?? edge.from }} → {{ edge.type }} →
-                  {{ edge.toNode?.technical_label ?? edge.to }}
-                </bdi>
+                  <bdi dir="ltr" class="font-mono text-[11px] text-slate-400">
+                    {{ edge.fromNode?.technical_label ?? edge.from }} → {{ edge.type }} →
+                    {{ edge.toNode?.technical_label ?? edge.to }} · revision {{ edge.revision }}
+                  </bdi>
+                </div>
               </div>
             </div>
           </section>
@@ -324,7 +352,7 @@ const edgeRows = computed(() =>
               {{ graph.source }}
             </bdi>
             <p class="mt-3 text-xs leading-6 text-slate-500">
-              تغيير View يغيّر التمثيل البنيوي فقط. لا توجد عملية كتابة تغيّر canonical containment.
+              تغيير View يغيّر التمثيل فقط؛ جميع الأنماط تعرض Nodes وEdges القانونية نفسها.
             </p>
           </section>
 

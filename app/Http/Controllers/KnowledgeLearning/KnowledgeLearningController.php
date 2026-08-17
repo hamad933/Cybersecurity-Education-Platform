@@ -51,9 +51,10 @@ final class KnowledgeLearningController extends Controller
         $validated = $request->validate([
             'lock_version' => ['required', 'integer', 'min:1'],
             'blocks' => ['required', 'array', 'min:1', 'max:24'],
-            'blocks.*' => ['array:type,body'],
+            'blocks.*' => ['array:type,body,depth'],
             'blocks.*.type' => ['required', Rule::in(['heading', 'paragraph', 'callout', 'rules', 'boundaries', 'code', 'request', 'response', 'log'])],
             'blocks.*.body' => ['required', 'string', 'max:4000'],
+            'blocks.*.depth' => ['required', 'integer', 'min:0', 'max:3'],
             'citations' => ['required', 'array', 'min:1', 'max:20'],
             'citations.*' => ['required', 'string', 'max:80'],
         ]);

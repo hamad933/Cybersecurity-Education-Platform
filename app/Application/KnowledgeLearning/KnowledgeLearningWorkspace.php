@@ -34,7 +34,7 @@ final class KnowledgeLearningWorkspace
     {
         $catalog = $this->knowledge->catalog();
         $activeUnitId = $this->knowledge->resolveUnitId($requestedUnitId);
-        $active = $this->knowledge->unit($activeUnitId, $requestedRevisionId);
+        $active = $this->withStructuralDepth($this->knowledge->unit($activeUnitId, $requestedRevisionId));
         $placements = $this->curriculum->placements(array_column($catalog, 'id'));
         $citations = $this->activeCitations($active);
 
@@ -125,8 +125,8 @@ final class KnowledgeLearningWorkspace
                 'state' => 'NO_PERSISTED_MAP_MODEL_IN_WAVE1',
             ],
             'view' => [
-                'implemented' => ['Tree', 'Graph'],
-                'not_implemented' => ['Path', 'Canvas'],
+                'implemented' => ['Tree', 'Path', 'Graph', 'Canvas'],
+                'not_implemented' => [],
             ],
             'overlay' => [
                 'active' => null,
@@ -243,6 +243,36 @@ final class KnowledgeLearningWorkspace
         }
 
         return $groups;
+    }
+
+    /** @param array<string, mixed>|null $active */
+    private function withStructuralDepth(?array $active): ?array
+    {
+        if ($active === null) {
+            return null;
+        }
+
+        $revision = $active['revision'] ?? null;
+        if (! is_array($revision)) {
+            return $active;
+        }
+
+        $blocks = $revision['blocks'] ?? [];
+        if (! is_array($blocks)) {
+            return $active;
+        }
+
+        foreach ($blocks as $index => $block) {
+            if (is_array($block) && ! array_key_exists('depth', $block)) {
+                $block['depth'] = 0;
+                $blocks[$index] = $block;
+            }
+        }
+
+        $revision['blocks'] = $blocks;
+        $active['revision'] = $revision;
+
+        return $active;
     }
 
     /**

@@ -87,7 +87,7 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
 
         $this->actingAs($this->owner)->patch("/knowledge/library/revisions/{$draft->id}", [
             'lock_version' => 1,
-            'blocks' => [['type' => 'paragraph', 'body' => 'محتوى عربي محدث مع SQL Injection كمصطلح تقني.']],
+            'blocks' => [['type' => 'paragraph', 'body' => 'محتوى عربي محدث مع SQL Injection كمصطلح تقني.', 'depth' => 0]],
             'citations' => ['WIN-AUTH-901'],
         ])->assertRedirect()->assertSessionHasNoErrors();
 
@@ -104,7 +104,7 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
 
         $this->actingAs($this->owner)->patch("/knowledge/library/revisions/{$draft->id}", [
             'lock_version' => 1,
-            'blocks' => [['type' => 'paragraph', 'body' => 'تعديل متعارض.']],
+            'blocks' => [['type' => 'paragraph', 'body' => 'تعديل متعارض.', 'depth' => 0]],
             'citations' => ['WIN-AUTH-901'],
         ])->assertSessionHasErrors('revision');
 
@@ -112,15 +112,123 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
     }
 
     #[Test]
-    public function published_history_is_preserved_when_restored_as_a_new_draft(): void
+    public function structural_nesting_persists_reloads_and_accepts_a_valid_outdent(): void
     {
         $unit = $this->knowledgeUnit();
+        $draft = $this->draft($unit->id);
+
+        $nested = [
+            ['type' => 'heading', 'body' => 'الجذر', 'depth' => 0],
+            ['type' => 'paragraph', 'body' => 'الفرع الأول', 'depth' => 1],
+            ['type' => 'callout', 'body' => 'فرع أعمق', 'depth' => 2],
+            ['type' => 'paragraph', 'body' => 'شقيق في المستوى الأول', 'depth' => 1],
+        ];
+
+        $this->actingAs($this->owner)->patch("/knowledge/library/revisions/{$draft->id}", [
+            'lock_version' => 1,
+            'blocks' => $nested,
+            'citations' => ['WIN-AUTH-901'],
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $draft->refresh();
+        $this->assertSame($nested, $draft->blockList());
+
+        $this->actingAs($this->owner)->get("/knowledge?object={$unit->id}&revision={$draft->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('active.revision.blocks.0.depth', 0)
+                ->where('active.revision.blocks.1.depth', 1)
+                ->where('active.revision.blocks.2.depth', 2)
+                ->where('active.revision.blocks.3.depth', 1));
+
+        $outdented = [
+            ['type' => 'heading', 'body' => 'الجذر', 'depth' => 0],
+            ['type' => 'paragraph', 'body' => 'الفرع الأول', 'depth' => 1],
+            ['type' => 'callout', 'body' => 'أصبح شقيقًا في المستوى الأول', 'depth' => 1],
+            ['type' => 'paragraph', 'body' => 'كتلة جذرية لاحقة', 'depth' => 0],
+        ];
+
+        $this->actingAs($this->owner)->patch("/knowledge/library/revisions/{$draft->id}", [
+            'lock_version' => 2,
+            'blocks' => $outdented,
+            'citations' => ['WIN-AUTH-901'],
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $draft->refresh();
+        $this->assertSame(3, $draft->lock_version);
+        $this->assertSame($outdented, $draft->blockList());
+    }
+
+    #[Test]
+    public function structural_hierarchy_rejects_invalid_root_depth_and_depth_jumps_in_the_workflow_layer(): void
+    {
+        $unit = $this->knowledgeUnit();
+        $draft = $this->draft($unit->id);
+
+        $this->actingAs($this->owner)->patch("/knowledge/library/revisions/{$draft->id}", [
+            'lock_version' => 1,
+            'blocks' => [
+                ['type' => 'heading', 'body' => 'جذر غير صالح', 'depth' => 1],
+                ['type' => 'paragraph', 'body' => 'تابع', 'depth' => 1],
+            ],
+            'citations' => ['WIN-AUTH-901'],
+        ])->assertSessionHasErrors('revision');
+
+        $this->actingAs($this->owner)->patch("/knowledge/library/revisions/{$draft->id}", [
+            'lock_version' => 1,
+            'blocks' => [
+                ['type' => 'heading', 'body' => 'جذر صالح', 'depth' => 0],
+                ['type' => 'paragraph', 'body' => 'قفزة غير صالحة', 'depth' => 2],
+            ],
+            'citations' => ['WIN-AUTH-901'],
+        ])->assertSessionHasErrors('revision');
+
+        $draft->refresh();
+        $this->assertSame(1, $draft->lock_version);
+        $this->assertSame([
+            ['type' => 'paragraph', 'body' => 'محتوى اختبار حقيقي من قاعدة البيانات.', 'depth' => 0],
+        ], $draft->blockList());
+    }
+
+    #[Test]
+    public function legacy_blocks_without_depth_remain_readable_as_root_level_blocks(): void
+    {
+        $unit = $this->knowledgeUnit();
+        $legacy = LessonRevision::query()->create([
+            'knowledge_unit_id' => $unit->id,
+            'revision' => 1,
+            'state' => 'draft',
+            'lock_version' => 1,
+            'blocks' => [['type' => 'paragraph', 'body' => 'محتوى تاريخي بلا depth.']],
+            'citations' => ['WIN-AUTH-901'],
+            'authority_baseline_id' => 'TEST-AUTHORITY',
+            'content_digest' => hash('sha256', 'legacy-depthless'),
+        ]);
+
+        $this->assertArrayNotHasKey('depth', $legacy->blockList()[0]);
+
+        $this->actingAs($this->owner)->get("/knowledge?object={$unit->id}&revision={$legacy->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('active.revision.blocks.0.type', 'paragraph')
+                ->where('active.revision.blocks.0.body', 'محتوى تاريخي بلا depth.')
+                ->where('active.revision.blocks.0.depth', 0));
+    }
+
+    #[Test]
+    public function published_history_is_preserved_when_restored_as_a_new_draft_with_hierarchy_intact(): void
+    {
+        $unit = $this->knowledgeUnit();
+        $publishedBlocks = [
+            ['type' => 'heading', 'body' => 'نسخة منشورة لا تعدل في مكانها.', 'depth' => 0],
+            ['type' => 'paragraph', 'body' => 'فرع منشور محفوظ.', 'depth' => 1],
+        ];
         $published = LessonRevision::query()->create([
             'knowledge_unit_id' => $unit->id,
             'revision' => 1,
             'state' => 'published',
             'lock_version' => 4,
-            'blocks' => [['type' => 'paragraph', 'body' => 'نسخة منشورة لا تعدل في مكانها.']],
+            'blocks' => $publishedBlocks,
             'citations' => ['WIN-AUTH-901'],
             'authority_baseline_id' => 'TEST-AUTHORITY',
             'content_digest' => hash('sha256', 'published'),
@@ -134,12 +242,18 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
 
         $published->refresh();
         $this->assertSame('published', $published->state);
+        $this->assertSame($publishedBlocks, $published->blockList());
         $this->assertDatabaseHas('lesson_revisions', [
             'knowledge_unit_id' => $unit->id,
             'revision' => 2,
             'state' => 'draft',
             'derived_from_revision_id' => $published->id,
         ]);
+        $restored = LessonRevision::query()
+            ->where('knowledge_unit_id', $unit->id)
+            ->where('revision', 2)
+            ->firstOrFail();
+        $this->assertSame($publishedBlocks, $restored->blockList());
         $this->assertDatabaseCount('lesson_revisions', 2);
     }
 
@@ -186,7 +300,7 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
     }
 
     #[Test]
-    public function visualize_reads_persisted_curriculum_relationships_and_does_not_claim_an_unsaved_map(): void
+    public function visualize_reads_persisted_curriculum_relationships_and_truthfully_declares_all_four_views(): void
     {
         $unit = $this->knowledgeUnit();
         CurriculumPlacement::query()->create([
@@ -202,11 +316,15 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
                 ->component('KnowledgeLearning/Visualize')
                 ->where('map.saved', false)
                 ->where('map.state', 'NO_PERSISTED_MAP_MODEL_IN_WAVE1')
+                ->where('view.implemented', ['Tree', 'Path', 'Graph', 'Canvas'])
+                ->where('view.not_implemented', [])
                 ->where('graph.source', 'curriculum_placements')
                 ->has('graph.nodes', 2)
                 ->has('graph.edges', 1)
                 ->where('graph.edges.0.type', 'canonical_placement')
-                ->where('graph.edges.0.revision', 3));
+                ->where('graph.edges.0.revision', 3)
+                ->where('graph.edges.0.from', 'capability:CAP-W02-VIS')
+                ->where('graph.edges.0.to', "ku:{$unit->id}"));
     }
 
     #[Test]
@@ -264,6 +382,18 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
             $this->assertStringNotContainsString('/vs002', $source);
         }
 
+        $library = file_get_contents(resource_path('js/pages/KnowledgeLearning/Library.vue'));
+        $visualize = file_get_contents(resource_path('js/pages/KnowledgeLearning/Visualize.vue'));
+        $this->assertIsString($library);
+        $this->assertIsString($visualize);
+        $this->assertStringContainsString('block.depth += 1', $library);
+        $this->assertStringContainsString('depth: item.depth - 1', $library);
+        $this->assertStringContainsString('safeHttpsUrl', $library);
+        $this->assertStringNotContainsString('v-html', $library);
+        $this->assertStringNotContainsString("block.body = lines.map", $library);
+        $this->assertStringContainsString('مسار قانوني مستقل', $visualize);
+        $this->assertStringNotContainsString('orderedCapabilities', $visualize);
+
         $routeFile = file_get_contents(base_path('routes/workspaces/knowledge-learning.php'));
         $this->assertIsString($routeFile);
         $this->assertStringContainsString("->prefix('knowledge')", $routeFile);
@@ -284,7 +414,7 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
     {
         return app(LessonRevisionWorkflow::class)->createDraft(
             $knowledgeUnitId,
-            [['type' => 'paragraph', 'body' => 'محتوى اختبار حقيقي من قاعدة البيانات.']],
+            [['type' => 'paragraph', 'body' => 'محتوى اختبار حقيقي من قاعدة البيانات.', 'depth' => 0]],
             ['WIN-AUTH-901'],
             actorId: (string) $this->owner->id,
             authorityBaselineId: 'TEST-AUTHORITY',

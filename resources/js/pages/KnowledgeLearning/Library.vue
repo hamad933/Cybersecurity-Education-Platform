@@ -10,13 +10,14 @@ type CatalogItem = {
   latest_revision: number | null;
   latest_state: string | null;
 };
-type EditorBlock = { type: string; body: string };
+type RevisionBlock = { type: string; body: string; depth?: number };
+type EditorBlock = { type: string; body: string; depth: number };
 type Revision = {
   id: string;
   revision: number;
   state: string;
   lock_version: number;
-  blocks: EditorBlock[];
+  blocks: RevisionBlock[];
   citations: string[];
   authority_baseline_id: string | null;
   content_digest: string;
@@ -64,6 +65,11 @@ type RecoveryRecord = {
   snapshot: EditorSnapshot;
 };
 type InertiaRevisionPayload = { props?: { active?: ActiveUnit | null } };
+type InlineToken = {
+  kind: 'text' | 'strong' | 'emphasis' | 'code' | 'link';
+  text: string;
+  href?: string;
+};
 
 const props = defineProps<{
   catalog: CatalogItem[];
@@ -95,10 +101,27 @@ const blockTypes = [
   'log',
 ];
 const technicalTypes = new Set(['code', 'request', 'response', 'log']);
+const MAX_BLOCK_DEPTH = 3;
+
+const structuralDepth = (block: RevisionBlock): number =>
+  Number.isInteger(block.depth) ? (block.depth as number) : 0;
+const normalizeBlock = (block: RevisionBlock): EditorBlock => ({
+  type: block.type,
+  body: block.body,
+  depth: structuralDepth(block),
+});
+const normalizeBlocks = (blocks: RevisionBlock[]): EditorBlock[] => blocks.map(normalizeBlock);
+const normalizeSnapshot = (snapshot: {
+  blocks: RevisionBlock[];
+  citations: string[];
+}): EditorSnapshot => ({
+  blocks: normalizeBlocks(snapshot.blocks),
+  citations: snapshot.citations.slice(),
+});
 
 const form = useForm({
   lock_version: props.active?.revision?.lock_version ?? 1,
-  blocks: props.active?.revision?.blocks.map((block) => ({ ...block })) ?? [],
+  blocks: normalizeBlocks(props.active?.revision?.blocks ?? []),
   citations: props.active?.revision?.citations.slice() ?? [],
 });
 
@@ -113,18 +136,35 @@ const currentSnapshot = (): EditorSnapshot => ({
 const snapshotsEqual = (left: EditorSnapshot, right: EditorSnapshot) =>
   JSON.stringify(left) === JSON.stringify(right);
 
+const isValidHierarchy = (blocks: EditorBlock[]): boolean => {
+  if (!blocks.length || blocks[0]?.depth !== 0) return false;
+
+  return blocks.every((block, index) => {
+    if (!Number.isInteger(block.depth) || block.depth < 0 || block.depth > MAX_BLOCK_DEPTH) {
+      return false;
+    }
+    if (index === 0) return block.depth === 0;
+
+    const previous = blocks[index - 1];
+    return Boolean(previous) && block.depth <= previous.depth + 1;
+  });
+};
+
 const revisionKey = computed(() => props.active?.revision?.id ?? 'none');
 const historicalRevisions = computed(() =>
   (props.active?.revisions ?? []).filter((revision) => revision.id !== props.active?.revision?.id),
 );
-const displayedBlocks = computed(() =>
-  props.active?.revision?.editable ? form.blocks : (props.active?.revision?.blocks ?? []),
+const displayedBlocks = computed<EditorBlock[]>(() =>
+  props.active?.revision?.editable
+    ? form.blocks
+    : normalizeBlocks(props.active?.revision?.blocks ?? []),
 );
 const canAutosave = computed(
   () =>
     Boolean(props.active?.revision?.editable) &&
     form.blocks.length > 0 &&
-    form.blocks.every((block) => block.body.trim().length > 0),
+    form.blocks.every((block) => block.body.trim().length > 0) &&
+    isValidHierarchy(form.blocks),
 );
 
 const undoStack = ref<EditorSnapshot[]>([]);
@@ -132,6 +172,7 @@ const redoStack = ref<EditorSnapshot[]>([]);
 const recoveryCandidate = ref<RecoveryRecord | null>(null);
 const recoverySavedAt = ref<string | null>(null);
 const autosaveState = ref<'idle' | 'pending' | 'saving' | 'saved' | 'error'>('idle');
+const linkValidationError = ref('');
 let lastSnapshot = currentSnapshot();
 let suppressHistory = false;
 let historyTimer: ReturnType<typeof setTimeout> | undefined;
@@ -172,12 +213,14 @@ const loadRecovery = () => {
 
   try {
     const record = JSON.parse(raw) as RecoveryRecord;
+    const normalizedSnapshot = normalizeSnapshot(record.snapshot);
     if (
       record.revision_id === revision.id &&
       record.lock_version === revision.lock_version &&
-      !snapshotsEqual(record.snapshot, currentSnapshot())
+      isValidHierarchy(normalizedSnapshot.blocks) &&
+      !snapshotsEqual(normalizedSnapshot, currentSnapshot())
     ) {
-      recoveryCandidate.value = record;
+      recoveryCandidate.value = { ...record, snapshot: normalizedSnapshot };
       recoverySavedAt.value = record.saved_at;
       return;
     }
@@ -238,6 +281,10 @@ const submitRevision = (mode: 'manual' | 'auto') => {
   const url = revisionUrl();
   if (!url || !props.active?.revision?.editable || form.processing) return;
   if (mode === 'auto' && !canAutosave.value) return;
+  if (!isValidHierarchy(form.blocks)) {
+    autosaveState.value = 'error';
+    return;
+  }
 
   if (mode === 'auto') autosaveState.value = 'saving';
   form.patch(url, {
@@ -271,13 +318,14 @@ watch(revisionKey, () => {
   if (autosaveTimer) clearTimeout(autosaveTimer);
   suppressHistory = true;
   form.lock_version = props.active?.revision?.lock_version ?? 1;
-  form.blocks = props.active?.revision?.blocks.map((block) => ({ ...block })) ?? [];
+  form.blocks = normalizeBlocks(props.active?.revision?.blocks ?? []);
   form.citations = props.active?.revision?.citations.slice() ?? [];
   form.clearErrors();
   undoStack.value = [];
   redoStack.value = [];
   lastSnapshot = currentSnapshot();
   autosaveState.value = 'idle';
+  linkValidationError.value = '';
   void nextTick(() => {
     suppressHistory = false;
     loadRecovery();
@@ -298,36 +346,109 @@ const restore = () => {
   );
 };
 
-const addBlock = () => form.blocks.push({ type: 'paragraph', body: '' });
+const subtreeEnd = (blocks: EditorBlock[], index: number): number => {
+  const block = blocks[index];
+  if (!block) return index;
+
+  let end = index + 1;
+  while (end < blocks.length && (blocks[end]?.depth ?? 0) > block.depth) end += 1;
+
+  return end;
+};
+const previousSiblingIndex = (blocks: EditorBlock[], index: number): number | null => {
+  const block = blocks[index];
+  if (!block) return null;
+
+  for (let candidate = index - 1; candidate >= 0; candidate -= 1) {
+    const depth = blocks[candidate]?.depth ?? 0;
+    if (depth < block.depth) return null;
+    if (depth === block.depth) return candidate;
+  }
+
+  return null;
+};
+const nextSiblingIndex = (blocks: EditorBlock[], index: number): number | null => {
+  const block = blocks[index];
+  if (!block) return null;
+
+  const candidate = subtreeEnd(blocks, index);
+  if (candidate < blocks.length && blocks[candidate]?.depth === block.depth) return candidate;
+
+  return null;
+};
+const parentIndex = (blocks: EditorBlock[], index: number): number | null => {
+  const block = blocks[index];
+  if (!block || block.depth === 0) return null;
+
+  for (let candidate = index - 1; candidate >= 0; candidate -= 1) {
+    const depth = blocks[candidate]?.depth ?? 0;
+    if (depth < block.depth) return depth === block.depth - 1 ? candidate : null;
+  }
+
+  return null;
+};
+const canIndentBlock = (index: number) => {
+  const block = form.blocks[index];
+  if (!block || previousSiblingIndex(form.blocks, index) === null) return false;
+
+  const end = subtreeEnd(form.blocks, index);
+  return form.blocks.slice(index, end).every((item) => item.depth < MAX_BLOCK_DEPTH);
+};
+const canOutdentBlock = (index: number) => (form.blocks[index]?.depth ?? 0) > 0;
+const canMoveBlock = (index: number, delta: number) =>
+  delta < 0
+    ? previousSiblingIndex(form.blocks, index) !== null
+    : nextSiblingIndex(form.blocks, index) !== null;
+
+const addBlock = () => form.blocks.push({ type: 'paragraph', body: '', depth: 0 });
 const removeBlock = (index: number) => {
-  if (form.blocks.length > 1) form.blocks.splice(index, 1);
+  const end = subtreeEnd(form.blocks, index);
+  const count = end - index;
+  if (count < 1 || form.blocks.length - count < 1) return;
+  form.blocks.splice(index, count);
 };
 const moveBlock = (index: number, delta: number) => {
-  const target = index + delta;
-  if (target < 0 || target >= form.blocks.length) return;
-  const [block] = form.blocks.splice(index, 1);
-  if (!block) return;
-  form.blocks.splice(target, 0, block);
+  if (delta < 0) {
+    const previous = previousSiblingIndex(form.blocks, index);
+    if (previous === null) return;
+    const end = subtreeEnd(form.blocks, index);
+    const segment = form.blocks.splice(index, end - index);
+    form.blocks.splice(previous, 0, ...segment);
+    return;
+  }
+
+  const next = nextSiblingIndex(form.blocks, index);
+  if (next === null) return;
+  const end = subtreeEnd(form.blocks, index);
+  const nextEnd = subtreeEnd(form.blocks, next);
+  const nextLength = nextEnd - next;
+  const segment = form.blocks.splice(index, end - index);
+  form.blocks.splice(index + nextLength, 0, ...segment);
 };
 const indentBlock = (index: number) => {
-  const block = form.blocks[index];
-  if (!block) return;
-  const lines = block.body.split('\n');
-  const minimumIndent = Math.min(
-    ...lines.filter((line) => line.length > 0).map((line) => line.match(/^ */)?.[0].length ?? 0),
-    6,
-  );
-  if (Number.isFinite(minimumIndent) && minimumIndent >= 6) return;
-  block.body = lines.map((line) => (line.length ? `  ${line}` : line)).join('\n');
+  if (!canIndentBlock(index)) return;
+  const end = subtreeEnd(form.blocks, index);
+  for (let cursor = index; cursor < end; cursor += 1) {
+    const block = form.blocks[cursor];
+    if (block) block.depth += 1;
+  }
 };
 const outdentBlock = (index: number) => {
   const block = form.blocks[index];
-  if (!block) return;
-  block.body = block.body
-    .split('\n')
-    .map((line) => line.replace(/^ {1,2}/, ''))
-    .join('\n');
+  const parent = parentIndex(form.blocks, index);
+  if (!block || block.depth === 0 || parent === null) return;
+
+  const end = subtreeEnd(form.blocks, index);
+  const parentEnd = subtreeEnd(form.blocks, parent);
+  const segment = form.blocks
+    .slice(index, end)
+    .map((item) => ({ ...item, depth: item.depth - 1 }));
+  const count = end - index;
+
+  form.blocks.splice(index, count);
+  form.blocks.splice(parentEnd - count, 0, ...segment);
 };
+
 const replaceSelection = (index: number, before: string, after = before, fallback = '') => {
   const block = form.blocks[index];
   const input = document.getElementById(`knowledge-block-${index}`) as HTMLTextAreaElement | null;
@@ -342,11 +463,27 @@ const replaceSelection = (index: number, before: string, after = before, fallbac
     input.setSelectionRange(cursorStart, cursorStart + selected.length);
   });
 };
+const safeHttpsUrl = (candidate: string): string | null => {
+  try {
+    const parsed = new URL(candidate);
+    return parsed.protocol === 'https:' ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+};
 const insertLink = (index: number) => {
   if (typeof window === 'undefined') return;
+  linkValidationError.value = '';
   const href = window.prompt('أدخل رابط HTTPS المرجعي:', 'https://');
   if (!href) return;
-  replaceSelection(index, '[', `](${href.trim()})`, 'نص الرابط');
+
+  const safeHref = safeHttpsUrl(href.trim());
+  if (!safeHref) {
+    linkValidationError.value = 'يُسمح فقط بروابط HTTPS صحيحة.';
+    return;
+  }
+
+  replaceSelection(index, '[', `](${safeHref})`, 'نص الرابط');
 };
 const insertReference = (index: number) => {
   if (typeof window === 'undefined') return;
@@ -360,13 +497,45 @@ const removeCitation = (citation: string) => {
   form.citations = form.citations.filter((item) => item !== citation);
 };
 
+const inlineTokens = (body: string): InlineToken[] => {
+  const pattern =
+    /(\*\*[^*\n]+\*\*|_[^_\n]+_|`[^`\n]+`|\[[^\]\n]+\]\(https:\/\/[^)\s]+\))/g;
+  const tokens: InlineToken[] = [];
+  let offset = 0;
+
+  for (const match of body.matchAll(pattern)) {
+    const index = match.index ?? 0;
+    if (index > offset) tokens.push({ kind: 'text', text: body.slice(offset, index) });
+
+    const raw = match[0];
+    const link = raw.match(/^\[([^\]]+)\]\((https:\/\/[^)\s]+)\)$/);
+    const href = link?.[2] ? safeHttpsUrl(link[2]) : null;
+    if (link?.[1] && href) {
+      tokens.push({ kind: 'link', text: link[1], href });
+    } else if (raw.startsWith('**') && raw.endsWith('**')) {
+      tokens.push({ kind: 'strong', text: raw.slice(2, -2) });
+    } else if (raw.startsWith('_') && raw.endsWith('_')) {
+      tokens.push({ kind: 'emphasis', text: raw.slice(1, -1) });
+    } else if (raw.startsWith('`') && raw.endsWith('`')) {
+      tokens.push({ kind: 'code', text: raw.slice(1, -1) });
+    } else {
+      tokens.push({ kind: 'text', text: raw });
+    }
+
+    offset = index + raw.length;
+  }
+
+  if (offset < body.length) tokens.push({ kind: 'text', text: body.slice(offset) });
+  return tokens.length ? tokens : [{ kind: 'text', text: body }];
+};
+
 const compareRevisionId = ref('');
 const compareRevision = ref<Revision | null>(null);
 const compareLoading = ref(false);
 const compareError = ref('');
 const compareOpen = ref(false);
 const comparisonRows = computed(() => {
-  const right = compareRevision.value?.blocks ?? [];
+  const right = normalizeBlocks(compareRevision.value?.blocks ?? []);
   const count = Math.max(displayedBlocks.value.length, right.length);
   return Array.from({ length: count }, (_, index) => ({
     current: displayedBlocks.value[index] ?? null,
@@ -568,7 +737,8 @@ const loadComparison = async () => {
               <article
                 v-for="(block, index) in form.blocks"
                 :key="`${revisionKey}:${index}`"
-                class="rounded-xl border border-slate-800 bg-slate-950/60 p-4"
+                class="rounded-xl border border-slate-800 bg-slate-950/60 p-4 transition-[margin]"
+                :style="{ marginInlineStart: `${block.depth * 1.25}rem` }"
               >
                 <div class="flex flex-wrap items-center justify-between gap-3">
                   <div class="flex flex-wrap items-center gap-2">
@@ -581,6 +751,12 @@ const loadComparison = async () => {
                         {{ type }}
                       </option>
                     </select>
+                    <bdi
+                      dir="ltr"
+                      class="rounded border border-slate-800 px-2 py-1 font-mono text-[10px] text-slate-500"
+                    >
+                      depth {{ block.depth }}
+                    </bdi>
                     <div class="flex flex-wrap gap-1" aria-label="تنسيق الكتلة">
                       <button
                         type="button"
@@ -625,30 +801,34 @@ const loadComparison = async () => {
                   <div class="flex flex-wrap gap-1">
                     <button
                       type="button"
-                      class="focus-ring rounded border border-slate-700 px-2 py-1 text-xs"
-                      title="تعشيق داخل المستوى التالي"
+                      class="focus-ring rounded border border-slate-700 px-2 py-1 text-xs disabled:opacity-35"
+                      title="تعشيق بنيوي داخل الشقيق السابق"
+                      :disabled="!canIndentBlock(index)"
                       @click="indentBlock(index)"
                     >
                       تعشيق ←
                     </button>
                     <button
                       type="button"
-                      class="focus-ring rounded border border-slate-700 px-2 py-1 text-xs"
-                      title="إلغاء مستوى تعشيق"
+                      class="focus-ring rounded border border-slate-700 px-2 py-1 text-xs disabled:opacity-35"
+                      title="إلغاء مستوى تعشيق بنيوي"
+                      :disabled="!canOutdentBlock(index)"
                       @click="outdentBlock(index)"
                     >
                       → إلغاء
                     </button>
                     <button
                       type="button"
-                      class="focus-ring rounded border border-slate-700 px-2 py-1 text-xs"
+                      class="focus-ring rounded border border-slate-700 px-2 py-1 text-xs disabled:opacity-35"
+                      :disabled="!canMoveBlock(index, -1)"
                       @click="moveBlock(index, -1)"
                     >
                       ↑
                     </button>
                     <button
                       type="button"
-                      class="focus-ring rounded border border-slate-700 px-2 py-1 text-xs"
+                      class="focus-ring rounded border border-slate-700 px-2 py-1 text-xs disabled:opacity-35"
+                      :disabled="!canMoveBlock(index, 1)"
                       @click="moveBlock(index, 1)"
                     >
                       ↓
@@ -678,12 +858,16 @@ const loadComparison = async () => {
                   class="focus-ring rounded-lg border border-dashed border-slate-600 px-4 py-2 text-sm text-slate-300"
                   @click="addBlock"
                 >
-                  إضافة كتلة
+                  إضافة كتلة جذرية
                 </button>
                 <span v-if="recoverySavedAt" class="text-[11px] text-slate-600">
                   آخر نسخة استرداد: <bdi dir="ltr">{{ recoverySavedAt }}</bdi>
                 </span>
               </div>
+
+              <p v-if="linkValidationError" role="alert" class="text-sm text-rose-300">
+                {{ linkValidationError }}
+              </p>
 
               <section class="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
                 <h2 class="text-xs font-bold text-slate-400">مراجع المسودة</h2>
@@ -719,15 +903,40 @@ const loadComparison = async () => {
                 v-for="(block, index) in active.revision.blocks"
                 :key="index"
                 class="rounded-xl border border-slate-800 bg-slate-950/50 p-5"
+                :style="{ marginInlineStart: `${structuralDepth(block) * 1.25}rem` }"
               >
-                <bdi dir="ltr" class="font-mono text-xs text-cyan-300">{{ block.type }}</bdi>
+                <div class="flex flex-wrap items-center gap-2">
+                  <bdi dir="ltr" class="font-mono text-xs text-cyan-300">{{ block.type }}</bdi>
+                  <bdi dir="ltr" class="font-mono text-[10px] text-slate-600">
+                    depth {{ structuralDepth(block) }}
+                  </bdi>
+                </div>
                 <pre
                   v-if="technicalTypes.has(block.type)"
                   dir="ltr"
                   class="mt-3 overflow-x-auto text-left font-mono text-sm leading-6 whitespace-pre-wrap text-slate-200"
-                  >{{ block.body }}</pre>
+                  >{{ block.body }}</pre
+                >
                 <p v-else class="mt-3 leading-8 whitespace-pre-wrap text-slate-200">
-                  {{ block.body }}
+                  <template v-for="(token, tokenIndex) in inlineTokens(block.body)" :key="tokenIndex">
+                    <strong v-if="token.kind === 'strong'">{{ token.text }}</strong>
+                    <em v-else-if="token.kind === 'emphasis'">{{ token.text }}</em>
+                    <code
+                      v-else-if="token.kind === 'code'"
+                      dir="ltr"
+                      class="rounded bg-slate-800 px-1 font-mono text-[0.92em]"
+                      >{{ token.text }}</code
+                    >
+                    <a
+                      v-else-if="token.kind === 'link' && token.href"
+                      :href="token.href"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="text-cyan-300 underline decoration-cyan-700 underline-offset-4"
+                      >{{ token.text }}</a
+                    >
+                    <span v-else>{{ token.text }}</span>
+                  </template>
                 </p>
               </article>
             </div>
@@ -919,27 +1128,89 @@ const loadComparison = async () => {
             :key="index"
             class="grid gap-3 md:grid-cols-2"
           >
-            <article class="min-w-0 rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-              <bdi v-if="row.current" dir="ltr" class="font-mono text-[11px] text-cyan-300">
-                {{ row.current.type }}
-              </bdi>
+            <article
+              class="min-w-0 rounded-lg border border-slate-800 bg-slate-950/50 p-3"
+              :style="{
+                marginInlineStart: row.current ? `${row.current.depth * 1.25}rem` : undefined,
+              }"
+            >
+              <div v-if="row.current" class="flex flex-wrap items-center gap-2">
+                <bdi dir="ltr" class="font-mono text-[11px] text-cyan-300">
+                  {{ row.current.type }}
+                </bdi>
+                <bdi dir="ltr" class="font-mono text-[10px] text-slate-600">
+                  depth {{ row.current.depth }}
+                </bdi>
+              </div>
               <p
                 v-if="row.current"
                 class="mt-2 text-sm leading-7 whitespace-pre-wrap text-slate-300"
               >
-                {{ row.current.body }}
+                <template
+                  v-for="(token, tokenIndex) in inlineTokens(row.current.body)"
+                  :key="tokenIndex"
+                >
+                  <strong v-if="token.kind === 'strong'">{{ token.text }}</strong>
+                  <em v-else-if="token.kind === 'emphasis'">{{ token.text }}</em>
+                  <code
+                    v-else-if="token.kind === 'code'"
+                    dir="ltr"
+                    class="rounded bg-slate-800 px-1 font-mono text-[0.92em]"
+                    >{{ token.text }}</code
+                  >
+                  <a
+                    v-else-if="token.kind === 'link' && token.href"
+                    :href="token.href"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-cyan-300 underline decoration-cyan-700 underline-offset-4"
+                    >{{ token.text }}</a
+                  >
+                  <span v-else>{{ token.text }}</span>
+                </template>
               </p>
               <p v-else class="text-xs text-slate-600">لا توجد كتلة مقابلة.</p>
             </article>
-            <article class="min-w-0 rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-              <bdi v-if="row.compared" dir="ltr" class="font-mono text-[11px] text-indigo-300">
-                {{ row.compared.type }}
-              </bdi>
+            <article
+              class="min-w-0 rounded-lg border border-slate-800 bg-slate-950/50 p-3"
+              :style="{
+                marginInlineStart: row.compared ? `${row.compared.depth * 1.25}rem` : undefined,
+              }"
+            >
+              <div v-if="row.compared" class="flex flex-wrap items-center gap-2">
+                <bdi dir="ltr" class="font-mono text-[11px] text-indigo-300">
+                  {{ row.compared.type }}
+                </bdi>
+                <bdi dir="ltr" class="font-mono text-[10px] text-slate-600">
+                  depth {{ row.compared.depth }}
+                </bdi>
+              </div>
               <p
                 v-if="row.compared"
                 class="mt-2 text-sm leading-7 whitespace-pre-wrap text-slate-300"
               >
-                {{ row.compared.body }}
+                <template
+                  v-for="(token, tokenIndex) in inlineTokens(row.compared.body)"
+                  :key="tokenIndex"
+                >
+                  <strong v-if="token.kind === 'strong'">{{ token.text }}</strong>
+                  <em v-else-if="token.kind === 'emphasis'">{{ token.text }}</em>
+                  <code
+                    v-else-if="token.kind === 'code'"
+                    dir="ltr"
+                    class="rounded bg-slate-800 px-1 font-mono text-[0.92em]"
+                    >{{ token.text }}</code
+                  >
+                  <a
+                    v-else-if="token.kind === 'link' && token.href"
+                    :href="token.href"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-cyan-300 underline decoration-cyan-700 underline-offset-4"
+                    >{{ token.text }}</a
+                  >
+                  <span v-else>{{ token.text }}</span>
+                </template>
               </p>
               <p v-else class="text-xs text-slate-600">لا توجد كتلة مقابلة.</p>
             </article>
