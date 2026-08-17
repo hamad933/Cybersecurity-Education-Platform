@@ -498,6 +498,7 @@ const removeCitation = (citation: string) => {
 };
 
 const inlineTokens = (body: string): InlineToken[] => {
+  // prettier-ignore
   const pattern = /(\*\*[^*\n]+\*\*|_[^_\n]+_|`[^`\n]+`|\[[^\]\n]+\]\(https:\/\/[^)\s]+\))/g;
   const tokens: InlineToken[] = [];
   let offset = 0;
@@ -546,6 +547,7 @@ const loadComparison = async () => {
   compareLoading.value = true;
   compareError.value = '';
   try {
+    // prettier-ignore
     const url = `/knowledge?object=${encodeURIComponent(props.active.id)}&revision=${encodeURIComponent(compareRevisionId.value)}`;
     const response = await window.fetch(url, {
       credentials: 'same-origin',
@@ -573,6 +575,7 @@ const loadComparison = async () => {
 };
 </script>
 
+<!-- prettier-ignore -->
 <template>
   <Head title="المعرفة والتعلّم — المكتبة" />
   <div dir="rtl" class="min-h-screen bg-slate-950 text-slate-100">
