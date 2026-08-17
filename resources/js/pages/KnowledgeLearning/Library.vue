@@ -916,10 +916,7 @@ const loadComparison = async () => {
                   class="mt-3 overflow-x-auto text-left font-mono text-sm leading-6 whitespace-pre-wrap text-slate-200"
                   >{{ block.body }}</pre>
                 <p v-else class="mt-3 leading-8 whitespace-pre-wrap text-slate-200">
-                  <template
-                    v-for="(token, tokenIndex) in inlineTokens(block.body)"
-                    :key="tokenIndex"
-                  >
+                  <template v-for="(token, tokenIndex) in inlineTokens(block.body)" :key="tokenIndex">
                     <strong v-if="token.kind === 'strong'">{{ token.text }}</strong>
                     <em v-else-if="token.kind === 'emphasis'">{{ token.text }}</em>
                     <code
