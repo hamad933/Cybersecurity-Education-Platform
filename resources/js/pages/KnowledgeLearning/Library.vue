@@ -440,9 +440,7 @@ const outdentBlock = (index: number) => {
 
   const end = subtreeEnd(form.blocks, index);
   const parentEnd = subtreeEnd(form.blocks, parent);
-  const segment = form.blocks
-    .slice(index, end)
-    .map((item) => ({ ...item, depth: item.depth - 1 }));
+  const segment = form.blocks.slice(index, end).map((item) => ({ ...item, depth: item.depth - 1 }));
   const count = end - index;
 
   form.blocks.splice(index, count);
