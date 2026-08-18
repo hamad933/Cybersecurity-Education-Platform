@@ -221,8 +221,7 @@ const aiImportForm = useForm<{ package: File | null }>({ package: null });
 const backupForm = useForm({});
 const restoreForm = useForm<{ package: File | null }>({ package: null });
 const decisionRationales = reactive<Record<string, string>>({});
-const pick = (event: Event): File | null =>
-  (event.target as HTMLInputElement).files?.[0] ?? null;
+const pick = (event: Event): File | null => (event.target as HTMLInputElement).files?.[0] ?? null;
 const decideAi = (resultId: string, decision: 'ACCEPT_AS_DRAFT' | 'REJECT') => {
   const rationale = (decisionRationales[resultId] ?? '').trim();
   if (!rationale) return;
