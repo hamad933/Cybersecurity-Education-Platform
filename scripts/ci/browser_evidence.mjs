@@ -24,8 +24,48 @@ let profileDir;
 let routeProfiles;
 let selectedProfiles = [];
 let selectedRoutes;
+let mainBodyStatus = 'NOT_STARTED';
+let mainBodyError = null;
+const finalizationOperations = [];
+const finalizationFailures = [];
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function writeHarnessLifecycle() {
+  const causalClass = mainBodyStatus === 'FAIL'
+    ? 'MAIN_BODY'
+    : finalizationFailures.length
+      ? 'FINALLY_CLEANUP'
+      : null;
+  await writeFile(join(evidenceDir, 'browser-harness-lifecycle.json'), JSON.stringify({
+    schema: 'cep.browser-harness-lifecycle.v1',
+    status: causalClass ? 'FAIL' : 'PASS',
+    causalClass,
+    mainBody: {
+      status: mainBodyStatus,
+      message: mainBodyError ? errorMessage(mainBodyError) : null,
+    },
+    finalization: {
+      status: finalizationFailures.length ? 'FAIL' : 'PASS',
+      operations: finalizationOperations,
+    },
+  }, null, 2) + '\n');
+}
+
+async function runFinalizationOperation(operation, task) {
+  try {
+    const detail = await task();
+    finalizationOperations.push({ operation, status: 'PASS', detail: detail ?? null, message: null });
+  } catch (error) {
+    const message = errorMessage(error);
+    finalizationOperations.push({ operation, status: 'FAIL', detail: null, message });
+    finalizationFailures.push({ operation, message });
+  }
+}
 
 function parseProfileNames(value) {
   return value.split(',').map(item => item.trim()).filter(Boolean);
@@ -464,7 +504,10 @@ try {
   }
   client.close();
   }
+  mainBodyStatus = 'PASS';
 } catch (error) {
+  mainBodyStatus = 'FAIL';
+  mainBodyError = error;
   await writeRouteProfileEvidence('browser-harness-aborted-before-route-completed');
   await writeFile(join(evidenceDir, 'browser-harness-error.json'), JSON.stringify({
     schema: 'cep.browser-harness-error.v1',
@@ -472,12 +515,28 @@ try {
     assuranceScope: 'GENERIC_BROWSER_ROUTE_EVIDENCE',
     productAssurance: 'NOT ESTABLISHED',
     selectedProfiles,
-    message: error instanceof Error ? error.message : String(error),
+    causalClass: 'MAIN_BODY',
+    message: errorMessage(error),
   }, null, 2) + '\n');
-  throw error;
 } finally {
-  chromium?.kill('SIGTERM');
-  const sanitizedLog = password ? browserLog.join('').replaceAll(password, '[REDACTED]') : browserLog.join('');
-  await writeFile(join(evidenceDir, 'chromium-sanitized.log'), sanitizedLog);
-  if (profileDir) await rm(profileDir, { recursive: true, force: true });
+  await runFinalizationOperation('chromium-termination', async () => {
+    if (!chromium) return { attempted: false, signalSent: false };
+    return { attempted: true, signalSent: chromium.kill('SIGTERM') };
+  });
+  await runFinalizationOperation('chromium-sanitized-log-write', async () => {
+    const sanitizedLog = password ? browserLog.join('').replaceAll(password, '[REDACTED]') : browserLog.join('');
+    await writeFile(join(evidenceDir, 'chromium-sanitized.log'), sanitizedLog);
+    return { bytes: Buffer.byteLength(sanitizedLog) };
+  });
+  await runFinalizationOperation('temporary-profile-cleanup', async () => {
+    if (!profileDir) return { attempted: false };
+    await rm(profileDir, { recursive: true, force: true });
+    return { attempted: true };
+  });
+  await writeHarnessLifecycle();
+}
+
+if (mainBodyError) throw mainBodyError;
+if (finalizationFailures.length) {
+  throw new Error(`Browser evidence finalization failed: ${finalizationFailures.map(item => `${item.operation}: ${item.message}`).join('; ')}`);
 }
