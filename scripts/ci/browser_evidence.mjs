@@ -67,6 +67,35 @@ async function runFinalizationOperation(operation, task) {
   }
 }
 
+async function terminateChromium(child, gracefulTimeoutMs = 5000, forceTimeoutMs = 2000) {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return { attempted: false, alreadyExited: true, exitCode: child.exitCode, signal: child.signalCode };
+  }
+
+  let resolveClose;
+  const closed = new Promise(resolve => { resolveClose = resolve; });
+  child.once('close', (code, signal) => resolveClose({ code, signal }));
+
+  const signalSent = child.kill('SIGTERM');
+  const graceful = await Promise.race([
+    closed.then(outcome => ({ outcome, timedOut: false })),
+    delay(gracefulTimeoutMs).then(() => ({ outcome: null, timedOut: true })),
+  ]);
+  if (!graceful.timedOut) {
+    return { attempted: true, signalSent, forced: false, exitCode: graceful.outcome.code, signal: graceful.outcome.signal };
+  }
+
+  const forceSignalSent = child.kill('SIGKILL');
+  const forced = await Promise.race([
+    closed.then(outcome => ({ outcome, timedOut: false })),
+    delay(forceTimeoutMs).then(() => ({ outcome: null, timedOut: true })),
+  ]);
+  if (forced.timedOut) {
+    throw new Error(`Chromium did not exit after SIGTERM (${gracefulTimeoutMs}ms) or SIGKILL (${forceTimeoutMs}ms).`);
+  }
+  throw new Error(`Chromium required SIGKILL after SIGTERM timeout (${gracefulTimeoutMs}ms); forceSignalSent=${forceSignalSent}; exitCode=${forced.outcome.code}; signal=${forced.outcome.signal}.`);
+}
+
 function parseProfileNames(value) {
   return value.split(',').map(item => item.trim()).filter(Boolean);
 }
@@ -521,7 +550,7 @@ try {
 } finally {
   await runFinalizationOperation('chromium-termination', async () => {
     if (!chromium) return { attempted: false, signalSent: false };
-    return { attempted: true, signalSent: chromium.kill('SIGTERM') };
+    return await terminateChromium(chromium);
   });
   await runFinalizationOperation('chromium-sanitized-log-write', async () => {
     const sanitizedLog = password ? browserLog.join('').replaceAll(password, '[REDACTED]') : browserLog.join('');
