@@ -64,7 +64,7 @@ final class SystemOperationsState
             'processing' => [
                 'counts' => $this->statusCounts('processing_runs', 'status'),
                 'runs' => $this->rows('processing_runs', [
-                    'id', 'type', 'status', 'attempt_count', 'max_attempts', 'worker_identifier',
+                    'id', 'type', 'input_digest', 'status', 'attempt_count', 'max_attempts', 'worker_identifier',
                     'started_at', 'completed_at', 'cancelled_at', 'error_category',
                     'safe_error_message', 'created_at', 'updated_at',
                 ], 'created_at', 30),
@@ -86,8 +86,9 @@ final class SystemOperationsState
             'packages' => [
                 'counts' => $this->statusCounts('portable_packages', 'status'),
                 'records' => $this->rows('portable_packages', [
-                    'id', 'package_type', 'schema_version', 'owner_module', 'package_digest', 'status', 'created_at',
-                ], 'created_at', 30),
+                    'id', 'package_type', 'schema_version', 'owner_module', 'scope', 'manifest',
+                    'package_digest', 'status', 'created_at',
+                ], 'created_at', 30, ['scope', 'manifest']),
             ],
             'source_imports' => [
                 'counts' => $this->statusCounts('source_imports', 'status'),
@@ -118,9 +119,8 @@ final class SystemOperationsState
             'prompts' => $this->actorRows('prompt_packages', $actorId, [
                 'id', 'purpose', 'status', 'current_revision', 'created_at', 'updated_at',
             ], 'created_at', 20),
-            'results' => $this->actorRows('imported_ai_results', $actorId, [
-                'id', 'prompt_package_revision_id', 'result_digest', 'status', 'imported_at',
-            ], 'imported_at', 20),
+            'prompt_revisions' => $this->promptRevisionRows($actorId),
+            'results' => $this->aiResultRows($actorId),
             'decisions' => $this->actorRows('ai_proposal_decisions', $actorId, [
                 'id', 'imported_ai_result_id', 'decision', 'rationale', 'lesson_revision_id', 'decided_at',
             ], 'decided_at', 20),
@@ -136,7 +136,7 @@ final class SystemOperationsState
             ], 'created_at', 20),
             'restores' => $this->actorRows('restore_runs', $actorId, [
                 'id', 'backup_manifest_id', 'target_database', 'status', 'verification', 'started_at', 'completed_at',
-            ], 'started_at', 20),
+            ], 'started_at', 20, ['verification']),
             'safety' => [
                 'web_restore_mode' => 'STAGE_AND_VERIFY_ONLY',
                 'activation_route_available' => false,
@@ -155,7 +155,7 @@ final class SystemOperationsState
             'records' => $this->rows('audit_records', [
                 'id', 'sequence_no', 'actor_identifier', 'action', 'target_type', 'target_identifier',
                 'correlation_id', 'outcome', 'safe_metadata', 'occurred_at', 'previous_hash', 'record_hash',
-            ], 'sequence_no', 50),
+            ], 'sequence_no', 50, ['safe_metadata']),
             'policy' => ['append_only' => true, 'destructive_http_actions' => false],
         ];
     }
@@ -169,8 +169,9 @@ final class SystemOperationsState
                 ['ready' => false, 'checks' => []],
             ),
             'packages' => $this->rows('portable_packages', [
-                'id', 'package_type', 'owner_module', 'package_digest', 'status', 'created_at',
-            ], 'created_at', 30),
+                'id', 'package_type', 'schema_version', 'owner_module', 'scope', 'manifest',
+                'package_digest', 'status', 'created_at',
+            ], 'created_at', 30, ['scope', 'manifest']),
             'authorization' => [
                 'deployment_authorized' => false,
                 'deployment_workflow_available' => false,
@@ -199,6 +200,90 @@ final class SystemOperationsState
         ];
     }
 
+    /** @return list<array<string, mixed>> */
+    private function promptRevisionRows(string $actorId): array
+    {
+        if (! $this->tablesAvailable(['prompt_package_revisions', 'prompt_packages', 'portable_packages'])) {
+            return [];
+        }
+
+        return $this->safe(function () use ($actorId): array {
+            return DB::table('prompt_package_revisions as revision')
+                ->join('prompt_packages as prompt', 'prompt.id', '=', 'revision.prompt_package_id')
+                ->join('portable_packages as package', 'package.id', '=', 'revision.portable_package_id')
+                ->where('prompt.actor_id', $actorId)
+                ->orderByDesc('revision.exported_at')
+                ->limit(20)
+                ->get([
+                    'revision.id',
+                    'revision.prompt_package_id',
+                    'revision.revision',
+                    'revision.portable_package_id',
+                    'revision.input_digest',
+                    'revision.declared_scope',
+                    'revision.exported_at',
+                    'prompt.purpose as prompt_purpose',
+                    'prompt.status as prompt_status',
+                    'prompt.current_revision as prompt_current_revision',
+                    'package.package_type as package_type',
+                    'package.package_digest as package_digest',
+                    'package.scope as package_scope',
+                    'package.manifest as package_manifest',
+                    'package.status as package_status',
+                ])
+                ->map(fn (object $row): array => $this->decodeJsonColumns((array) $row, [
+                    'declared_scope', 'package_scope', 'package_manifest',
+                ]))
+                ->all();
+        }, []);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function aiResultRows(string $actorId): array
+    {
+        if (! $this->tablesAvailable([
+            'imported_ai_results', 'prompt_package_revisions', 'prompt_packages', 'portable_packages',
+        ])) {
+            return [];
+        }
+
+        return $this->safe(function () use ($actorId): array {
+            return DB::table('imported_ai_results as result')
+                ->join('prompt_package_revisions as revision', 'revision.id', '=', 'result.prompt_package_revision_id')
+                ->join('prompt_packages as prompt', 'prompt.id', '=', 'revision.prompt_package_id')
+                ->join('portable_packages as returned_package', 'returned_package.id', '=', 'result.portable_package_id')
+                ->where('result.actor_id', $actorId)
+                ->where('prompt.actor_id', $actorId)
+                ->orderByDesc('result.imported_at')
+                ->limit(20)
+                ->get([
+                    'result.id',
+                    'result.prompt_package_revision_id',
+                    'result.portable_package_id',
+                    'result.result_digest',
+                    'result.structured_result',
+                    'result.status',
+                    'result.imported_at',
+                    'revision.prompt_package_id',
+                    'revision.revision as prompt_revision',
+                    'revision.input_digest as prompt_input_digest',
+                    'revision.declared_scope',
+                    'revision.portable_package_id as prompt_portable_package_id',
+                    'prompt.purpose as prompt_purpose',
+                    'prompt.status as prompt_status',
+                    'returned_package.package_type as returned_package_type',
+                    'returned_package.package_digest as returned_package_digest',
+                    'returned_package.scope as returned_package_scope',
+                    'returned_package.manifest as returned_package_manifest',
+                    'returned_package.status as returned_package_status',
+                ])
+                ->map(fn (object $row): array => $this->decodeJsonColumns((array) $row, [
+                    'structured_result', 'declared_scope', 'returned_package_scope', 'returned_package_manifest',
+                ]))
+                ->all();
+        }, []);
+    }
+
     /** @return array<string, int> */
     private function statusCounts(string $table, string $column): array
     {
@@ -216,11 +301,18 @@ final class SystemOperationsState
         }, []);
     }
 
-    /** @param list<string> $columns
+    /**
+     * @param  list<string>  $columns
+     * @param  list<string>  $jsonColumns
      * @return list<array<string, mixed>>
      */
-    private function rows(string $table, array $columns, string $orderColumn, int $limit): array
-    {
+    private function rows(
+        string $table,
+        array $columns,
+        string $orderColumn,
+        int $limit,
+        array $jsonColumns = [],
+    ): array {
         if ($this->tableAvailable($table) === false) {
             return [];
         }
@@ -229,15 +321,23 @@ final class SystemOperationsState
             ->orderByDesc($orderColumn)
             ->limit($limit)
             ->get($columns)
-            ->map(fn (object $row): array => (array) $row)
+            ->map(fn (object $row): array => $this->decodeJsonColumns((array) $row, $jsonColumns))
             ->all(), []);
     }
 
-    /** @param list<string> $columns
+    /**
+     * @param  list<string>  $columns
+     * @param  list<string>  $jsonColumns
      * @return list<array<string, mixed>>
      */
-    private function actorRows(string $table, string $actorId, array $columns, string $orderColumn, int $limit): array
-    {
+    private function actorRows(
+        string $table,
+        string $actorId,
+        array $columns,
+        string $orderColumn,
+        int $limit,
+        array $jsonColumns = [],
+    ): array {
         if ($this->tableAvailable($table) === false) {
             return [];
         }
@@ -247,8 +347,42 @@ final class SystemOperationsState
             ->orderByDesc($orderColumn)
             ->limit($limit)
             ->get($columns)
-            ->map(fn (object $row): array => (array) $row)
+            ->map(fn (object $row): array => $this->decodeJsonColumns((array) $row, $jsonColumns))
             ->all(), []);
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  list<string>  $columns
+     * @return array<string, mixed>
+     */
+    private function decodeJsonColumns(array $row, array $columns): array
+    {
+        foreach ($columns as $column) {
+            $value = $row[$column] ?? null;
+            if (! is_string($value)) {
+                continue;
+            }
+
+            $row[$column] = $this->safe(
+                fn (): mixed => json_decode($value, true, 64, JSON_THROW_ON_ERROR),
+                $value,
+            );
+        }
+
+        return $row;
+    }
+
+    /** @param  list<string>  $tables */
+    private function tablesAvailable(array $tables): bool
+    {
+        foreach ($tables as $table) {
+            if ($this->tableAvailable($table) === false) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function tableAvailable(string $table): bool
@@ -256,7 +390,9 @@ final class SystemOperationsState
         return $this->safe(fn (): bool => Schema::hasTable($table), false);
     }
 
-    /** @template T
+    /**
+     * @template T
+     *
      * @param  callable(): T  $operation
      * @param  T  $fallback
      * @return T
