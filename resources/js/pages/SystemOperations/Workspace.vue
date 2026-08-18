@@ -1072,7 +1072,9 @@ const packageCounts = computed<Counts>(() =>
         <template v-else-if="surface === 'releases'"
           ><p class="rail-label">حد التفويض</p>
           <h2>لا Deployment</h2>
-          <p>المعروض هو package/release validation وfollow-up context فقط، دون صلاحية نشر إنتاجي.</p></template
+          <p>
+            المعروض هو package/release validation وfollow-up context فقط، دون صلاحية نشر إنتاجي.
+          </p></template
         >
         <template v-else-if="surface === 'configuration'"
           ><p class="rail-label">نطاق التهيئة</p>
