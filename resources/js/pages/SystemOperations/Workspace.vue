@@ -1059,7 +1059,9 @@ const packageCounts = computed<Counts>(() =>
           <h2>
             <bdi dir="ltr">{{ state.safety?.web_restore_mode }}</bdi>
           </h2>
-          <p>الإجراء عبر الويب ينتهي عند staging + verification؛ التفعيل المدمر غير معروض.</p></template
+          <p>
+            الإجراء عبر الويب ينتهي عند staging + verification؛ التفعيل المدمر غير معروض.
+          </p></template
         >
         <template v-else-if="surface === 'audit'"
           ><p class="rail-label">الحقيقة التاريخية</p>
@@ -1079,7 +1081,9 @@ const packageCounts = computed<Counts>(() =>
         <template v-else-if="surface === 'configuration'"
           ><p class="rail-label">نطاق التهيئة</p>
           <h2>تشغيل المنتج المحلي</h2>
-          <p>تظهر فقط قيم تشغيلية مسموحة وغير سرية. لا مفاتيح API ولا إعدادات حساب استهلاكية.</p></template
+          <p>
+            تظهر فقط قيم تشغيلية مسموحة وغير سرية. لا مفاتيح API ولا إعدادات حساب استهلاكية.
+          </p></template
         >
       </aside>
     </div>
