@@ -222,7 +222,7 @@ jobs:
         id: browser-capture
         shell: bash
         run: |
-          set -eEuo pipefail
+          set -euo pipefail
           record_browser() {
             local attempted="$1"
             local status="$2"
@@ -238,8 +238,30 @@ jobs:
               '{schema:"cep.browser-attempt-state.v1",attempted:$attempted,status:$status,verification:$verification,reason:(if $reason == "" then null else $reason end),exit_code:$exit_code}' \
               > evidence/browser/browser-state.json
           }
+          record_wrapper() {
+            local status="$1"
+            local causal_class="$2"
+            local docker_code="$3"
+            local lifecycle_status="$4"
+            local harness_class="$5"
+            local main_status="$6"
+            local browser_result="$7"
+            local reason="$8"
+            jq -n \
+              --arg status "$status" \
+              --arg causal_class "$causal_class" \
+              --argjson docker_exit_code "$docker_code" \
+              --arg lifecycle_status "$lifecycle_status" \
+              --arg harness_class "$harness_class" \
+              --arg main_status "$main_status" \
+              --arg browser_result "$browser_result" \
+              --arg reason "$reason" \
+              '{schema:"cep.browser-wrapper-result.v1",status:$status,causalClass:(if $causal_class == "" then null else $causal_class end),dockerExitCode:$docker_exit_code,harnessLifecycleStatus:$lifecycle_status,harnessCausalClass:(if $harness_class == "" then null else $harness_class end),mainBodyStatus:$main_status,browserResultStatus:$browser_result,reason:(if $reason == "" then null else $reason end)}' \
+              > evidence/browser/browser-wrapper-result.json
+          }
+
           record_browser true "RUNNING" "NOT VERIFIED" "browser-capture-in-progress" 0
-          trap 'code=$?; record_browser true "FAIL" "FAIL" "browser-capture-command-failed" "$code"; exit "$code"' ERR
+          set +e
           docker run --rm --network host \
             -v "$PWD:/repo" \
             -w /repo \
@@ -250,7 +272,41 @@ jobs:
             -e EVIDENCE_DIR=evidence/browser \
             mcr.microsoft.com/playwright:v1.55.0-noble \
             bash -lc 'set -euo pipefail; CHROMIUM_PATH="$(find /ms-playwright -type f \( -name chrome -o -name chromium \) | head -n 1)"; test -x "$CHROMIUM_PATH"; export CHROMIUM_PATH; node scripts/ci/browser_evidence.mjs'
-          trap - ERR
+          docker_code=$?
+          set -e
+
+          lifecycle_status="$(jq -r '.status // "MISSING"' evidence/browser/browser-harness-lifecycle.json 2>/dev/null || printf MISSING)"
+          harness_class="$(jq -r '.causalClass // ""' evidence/browser/browser-harness-lifecycle.json 2>/dev/null || printf '')"
+          main_status="$(jq -r '.mainBody.status // "UNKNOWN"' evidence/browser/browser-harness-lifecycle.json 2>/dev/null || printf UNKNOWN)"
+          browser_result="$(jq -r '.status // "MISSING"' evidence/browser/browser-result.json 2>/dev/null || printf MISSING)"
+
+          if [[ "$docker_code" -ne 0 ]]; then
+            causal_class="$harness_class"
+            if [[ "$causal_class" != "MAIN_BODY" && "$causal_class" != "FINALLY_CLEANUP" ]]; then
+              causal_class="DOCKER_OR_SHELL_WRAPPER"
+            fi
+            verification="FAIL"
+            reason="browser-main-body-failed"
+            if [[ "$causal_class" == "FINALLY_CLEANUP" ]]; then
+              verification="GENERIC ROUTE VERIFIED; FINALIZATION FAILED"
+              reason="browser-finally-cleanup-failed"
+            elif [[ "$causal_class" == "DOCKER_OR_SHELL_WRAPPER" ]]; then
+              [[ "$browser_result" == "PASS" ]] && verification="GENERIC ROUTE VERIFIED; WRAPPER FAILED"
+              reason="docker-or-shell-wrapper-failed"
+            fi
+            record_wrapper "FAIL" "$causal_class" "$docker_code" "$lifecycle_status" "$harness_class" "$main_status" "$browser_result" "$reason"
+            record_browser true "FAIL" "$verification" "$reason" "$docker_code"
+            exit "$docker_code"
+          fi
+
+          if [[ "$lifecycle_status" != "PASS" || "$harness_class" != "" || "$main_status" != "PASS" || "$browser_result" != "PASS" ]]; then
+            wrapper_code=90
+            record_wrapper "FAIL" "DOCKER_OR_SHELL_WRAPPER" "$docker_code" "$lifecycle_status" "$harness_class" "$main_status" "$browser_result" "successful-docker-exit-with-inconsistent-browser-evidence"
+            record_browser true "FAIL" "FAIL" "docker-or-shell-wrapper-failed" "$wrapper_code"
+            exit "$wrapper_code"
+          fi
+
+          record_wrapper "PASS" "" 0 "$lifecycle_status" "" "$main_status" "$browser_result" ""
           record_browser true "PASS" "GENERIC ROUTE VERIFIED" "" 0
 
       - name: Capture sanitized browser runtime diagnostics
@@ -306,15 +362,21 @@ jobs:
           startup_status="$(jq -r '.status // "UNKNOWN"' evidence/browser/startup-state.json 2>/dev/null || printf UNKNOWN)"
           browser_status="$(jq -r '.status // "UNKNOWN"' evidence/browser/browser-state.json 2>/dev/null || printf UNKNOWN)"
           browser_verification="$(jq -r '.verification // "NOT VERIFIED"' evidence/browser/browser-state.json 2>/dev/null || printf 'NOT VERIFIED')"
+          wrapper_status="$(jq -r '.status // "NOT_REACHED"' evidence/browser/browser-wrapper-result.json 2>/dev/null || printf NOT_REACHED)"
+          causal_class="$(jq -r '.causalClass // "NONE"' evidence/browser/browser-wrapper-result.json 2>/dev/null || printf NONE)"
+          docker_exit_code="$(jq -r '.dockerExitCode // "null"' evidence/browser/browser-wrapper-result.json 2>/dev/null || printf null)"
           jq -n \
             --arg startup_outcome "$START_OUTCOME" \
             --arg browser_outcome "$BROWSER_OUTCOME" \
             --arg startup_status "$startup_status" \
             --arg browser_status "$browser_status" \
             --arg browser_verification "$browser_verification" \
+            --arg wrapper_status "$wrapper_status" \
+            --arg causal_class "$causal_class" \
+            --argjson docker_exit_code "$docker_exit_code" \
             --argjson health_bytes "$(wc -c < evidence/browser/container-health.json)" \
             --argjson log_bytes "$(wc -c < evidence/browser/runtime-sanitized.log)" \
-            '{schema:"cep.browser-diagnostic-summary.v1",startup_step_outcome:$startup_outcome,browser_step_outcome:$browser_outcome,startup_status:$startup_status,browser_status:$browser_status,browser_verification:$browser_verification,container_health_bytes:$health_bytes,runtime_log_bytes:$log_bytes}' \
+            '{schema:"cep.browser-diagnostic-summary.v1",startup_step_outcome:$startup_outcome,browser_step_outcome:$browser_outcome,startup_status:$startup_status,browser_status:$browser_status,browser_verification:$browser_verification,wrapper_status:$wrapper_status,causal_class:(if $causal_class == "NONE" then null else $causal_class end),docker_exit_code:$docker_exit_code,container_health_bytes:$health_bytes,runtime_log_bytes:$log_bytes}' \
             > evidence/browser/diagnostic-summary.json
 
       - name: Finalize browser evidence
