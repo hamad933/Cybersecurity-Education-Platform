@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Modules\IdentityAccess\Actions\CreateOwner;
-use App\Modules\Platform\Audit\AuditRecord;
 use App\Modules\Platform\Audit\AuditWriter;
 use App\Modules\Platform\Processing\ProcessingRun;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -198,7 +197,7 @@ final class SystemOperationsWorkspaceTest extends TestCase
     {
         $owner = $this->owner();
         $correlationId = (string) Str::uuid7();
-        app(AuditWriter::class)->append([
+        $record = app(AuditWriter::class)->append([
             'actor_identifier' => (string) $owner->getAuthIdentifier(),
             'action' => 'w05.fixture.checked',
             'target_type' => 'system_operations',
@@ -207,7 +206,6 @@ final class SystemOperationsWorkspaceTest extends TestCase
             'outcome' => 'success',
             'safe_metadata' => ['fixture' => true, 'source' => 'w05-r02'],
         ]);
-        $record = AuditRecord::query()->firstOrFail();
 
         $this->actingAs($owner)->get('/system/audit')->assertInertia(fn (Assert $page) => $page
             ->where('state.records.0.actor_identifier', (string) $owner->getAuthIdentifier())
