@@ -355,13 +355,16 @@ const packageCounts = computed<Counts>(() =>
             <h2>المعالجة الفعلية مع ربط الطلب بالتنفيذ</h2>
             <div class="metric-strip compact">
               <div>
-                <span>Pending</span><strong>{{ count(state.processing?.counts, 'pending') }}</strong>
+                <span>Pending</span
+                ><strong>{{ count(state.processing?.counts, 'pending') }}</strong>
               </div>
               <div>
-                <span>Running</span><strong>{{ count(state.processing?.counts, 'running') }}</strong>
+                <span>Running</span
+                ><strong>{{ count(state.processing?.counts, 'running') }}</strong>
               </div>
               <div>
-                <span>Completed</span><strong>{{ count(state.processing?.counts, 'completed') }}</strong>
+                <span>Completed</span
+                ><strong>{{ count(state.processing?.counts, 'completed') }}</strong>
               </div>
               <div>
                 <span>Failed</span><strong>{{ count(state.processing?.counts, 'failed') }}</strong>
@@ -634,7 +637,9 @@ const packageCounts = computed<Counts>(() =>
                 <dl class="trace-grid">
                   <div>
                     <dt>Requested prompt</dt>
-                    <dd dir="ltr">{{ result.prompt_package_id }} / r{{ result.prompt_revision }}</dd>
+                    <dd dir="ltr">
+                      {{ result.prompt_package_id }} / r{{ result.prompt_revision }}
+                    </dd>
                   </div>
                   <div>
                     <dt>Returned package</dt>
