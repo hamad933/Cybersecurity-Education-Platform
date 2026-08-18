@@ -13,7 +13,11 @@ failures=0
 compose() { docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml "$@"; }
 
 start_release_services() {
-  compose up -d --wait --wait-timeout 120 postgres app
+  local code=0
+  compose up -d --wait --wait-timeout 120 postgres app || code=$?
+  if [[ $code -ne 0 ]]; then
+    return "$code"
+  fi
   compose up -d --no-deps queue
 }
 
