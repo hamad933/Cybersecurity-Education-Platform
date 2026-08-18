@@ -372,11 +372,7 @@ const packageCounts = computed<Counts>(() =>
               </div>
             </div>
             <div class="record-list">
-              <article
-                v-for="run in state.processing?.runs ?? []"
-                :key="run.id"
-                class="trace-card"
-              >
+              <article v-for="run in state.processing?.runs ?? []" :key="run.id" class="trace-card">
                 <div class="trace-heading">
                   <div>
                     <strong><bdi dir="ltr">{{ run.type }}</bdi></strong>
@@ -760,11 +756,7 @@ const packageCounts = computed<Counts>(() =>
           <section class="panel">
             <h2>النسخ المسجلة</h2>
             <div class="record-list">
-              <article
-                v-for="backup in state.backups ?? []"
-                :key="backup.id"
-                class="record-row"
-              >
+              <article v-for="backup in state.backups ?? []" :key="backup.id" class="record-row">
                 <div>
                   <strong><bdi dir="ltr">{{ backup.database_driver }}</bdi></strong>
                   <small>
@@ -808,11 +800,7 @@ const packageCounts = computed<Counts>(() =>
           <section class="panel">
             <h2>Restore Runs</h2>
             <div class="record-list">
-              <article
-                v-for="restore in state.restores ?? []"
-                :key="restore.id"
-                class="trace-card"
-              >
+              <article v-for="restore in state.restores ?? []" :key="restore.id" class="trace-card">
                 <div class="trace-heading">
                   <div>
                     <strong><bdi dir="ltr">{{ restore.target_database }}</bdi></strong>
