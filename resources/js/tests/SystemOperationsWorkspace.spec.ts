@@ -64,101 +64,108 @@ describe('System & Operations workspace', () => {
     expect(wrapper.text()).toContain('Captured failure.');
   });
 
-  it('keeps Manual AI manual-only and places complete proposal review before decision controls', () => {
-    const inputDigest = 'b'.repeat(64);
-    const resultDigest = 'c'.repeat(64);
-    const structuredResult = {
-      knowledge_unit_id: 'KU-42',
-      proposed_blocks: [{ type: 'paragraph', body: 'Material operator-review content.' }],
-      citation_claim_ids: ['claim-42'],
-      derived_from_revision_id: null,
-      authority_baseline_id: 'baseline-42',
-      limitations: ['Manual review required.'],
-      confidence: 'bounded',
-    };
-    const wrapper = mount(Workspace, {
-      props: {
-        surface: 'ai-bridge',
-        state: {
-          policy: {
-            execution: 'MANUAL_ONLY',
-            automatic_provider_enabled: false,
-            automatic_publish: false,
-            polling: false,
-            embeddings: false,
-          },
-          prompts: [],
-          prompt_revisions: [
-            {
-              id: 'revision-1',
-              prompt_package_id: 'prompt-1',
-              revision: 1,
-              portable_package_id: 'prompt-package-1',
-              input_digest: inputDigest,
-              declared_scope: {
-                scope: { knowledge_unit_id: 'KU-42' },
-                manual_execution_only: true,
-                automatic_network_provider: false,
-              },
-              exported_at: '2026-08-18T00:00:00Z',
-              prompt_purpose: 'Review KU-42',
-              prompt_status: 'result_imported',
-              prompt_current_revision: 1,
-              package_type: 'manual-ai-prompt',
-              package_digest: 'd'.repeat(64),
-              package_scope: { knowledge_unit_id: 'KU-42' },
-              package_manifest: { files: [{ path: 'prompt.json' }] },
-              package_status: 'exported',
+  it(
+    'keeps Manual AI manual-only and places complete proposal review before decision controls',
+    () => {
+      const inputDigest = 'b'.repeat(64);
+      const resultDigest = 'c'.repeat(64);
+      const structuredResult = {
+        knowledge_unit_id: 'KU-42',
+        proposed_blocks: [
+          { type: 'paragraph', body: 'Material operator-review content.' },
+        ],
+        citation_claim_ids: ['claim-42'],
+        derived_from_revision_id: null,
+        authority_baseline_id: 'baseline-42',
+        limitations: ['Manual review required.'],
+        confidence: 'bounded',
+      };
+      const wrapper = mount(Workspace, {
+        props: {
+          surface: 'ai-bridge',
+          state: {
+            policy: {
+              execution: 'MANUAL_ONLY',
+              automatic_provider_enabled: false,
+              automatic_publish: false,
+              polling: false,
+              embeddings: false,
             },
-          ],
-          results: [
-            {
-              id: 'result-1',
-              prompt_package_revision_id: 'revision-1',
-              portable_package_id: 'result-package-1',
-              result_digest: resultDigest,
-              structured_result: structuredResult,
-              status: 'pending_review',
-              imported_at: '2026-08-18T00:02:00Z',
-              prompt_package_id: 'prompt-1',
-              prompt_revision: 1,
-              prompt_input_digest: inputDigest,
-              declared_scope: { scope: { knowledge_unit_id: 'KU-42' } },
-              prompt_portable_package_id: 'prompt-package-1',
-              prompt_purpose: 'Review KU-42',
-              prompt_status: 'result_imported',
-              returned_package_type: 'manual-ai-result',
-              returned_package_digest: 'e'.repeat(64),
-              returned_package_scope: {
+            prompts: [],
+            prompt_revisions: [
+              {
+                id: 'revision-1',
+                prompt_package_id: 'prompt-1',
+                revision: 1,
+                portable_package_id: 'prompt-package-1',
+                input_digest: inputDigest,
+                declared_scope: {
+                  scope: { knowledge_unit_id: 'KU-42' },
+                  manual_execution_only: true,
+                  automatic_network_provider: false,
+                },
+                exported_at: '2026-08-18T00:00:00Z',
+                prompt_purpose: 'Review KU-42',
+                prompt_status: 'result_imported',
+                prompt_current_revision: 1,
+                package_type: 'manual-ai-prompt',
+                package_digest: 'd'.repeat(64),
+                package_scope: { knowledge_unit_id: 'KU-42' },
+                package_manifest: { files: [{ path: 'prompt.json' }] },
+                package_status: 'exported',
+              },
+            ],
+            results: [
+              {
+                id: 'result-1',
+                prompt_package_revision_id: 'revision-1',
+                portable_package_id: 'result-package-1',
+                result_digest: resultDigest,
+                structured_result: structuredResult,
+                status: 'pending_review',
+                imported_at: '2026-08-18T00:02:00Z',
                 prompt_package_id: 'prompt-1',
                 prompt_revision: 1,
-                input_digest: inputDigest,
+                prompt_input_digest: inputDigest,
+                declared_scope: { scope: { knowledge_unit_id: 'KU-42' } },
+                prompt_portable_package_id: 'prompt-package-1',
+                prompt_purpose: 'Review KU-42',
+                prompt_status: 'result_imported',
+                returned_package_type: 'manual-ai-result',
+                returned_package_digest: 'e'.repeat(64),
+                returned_package_scope: {
+                  prompt_package_id: 'prompt-1',
+                  prompt_revision: 1,
+                  input_digest: inputDigest,
+                },
+                returned_package_manifest: { files: [{ path: 'result.json' }] },
+                returned_package_status: 'exported',
               },
-              returned_package_manifest: { files: [{ path: 'result.json' }] },
-              returned_package_status: 'exported',
-            },
-          ],
-          decisions: [],
+            ],
+            decisions: [],
+          },
         },
-      },
-    });
+      });
 
-    expect(wrapper.text()).toContain('MANUAL_ONLY / PROVIDER-NEUTRAL');
-    expect(wrapper.text()).toContain('REQUESTED');
-    expect(wrapper.text()).toContain(inputDigest);
-    expect(wrapper.text()).toContain(resultDigest);
-    expect(wrapper.text()).toContain('Material operator-review content.');
-    expect(wrapper.text()).toContain('manual_execution_only');
-    expect(wrapper.text()).toContain('لا API provider');
-    expect(wrapper.text()).toContain('لا polling');
+      expect(wrapper.text()).toContain('MANUAL_ONLY / PROVIDER-NEUTRAL');
+      expect(wrapper.text()).toContain('REQUESTED');
+      expect(wrapper.text()).toContain(inputDigest);
+      expect(wrapper.text()).toContain(resultDigest);
+      expect(wrapper.text()).toContain('Material operator-review content.');
+      expect(wrapper.text()).toContain('manual_execution_only');
+      expect(wrapper.text()).toContain('لا API provider');
+      expect(wrapper.text()).toContain('لا polling');
 
-    const review = wrapper.find('details.proposal-review');
-    expect(review.exists()).toBe(true);
-    expect(review.attributes('open')).toBeUndefined();
-    expect(review.find('pre.proposal-payload').text()).toContain('Material operator-review content.');
-    expect(review.find('button.danger-button').text()).toBe('رفض');
-    expect(review.findAll('button').some((button) => button.text() === 'قبول كمسودة')).toBe(true);
-  });
+      const review = wrapper.find('details.proposal-review');
+      expect(review.exists()).toBe(true);
+      expect(review.attributes('open')).toBeUndefined();
+      expect(review.find('pre.proposal-payload').text()).toContain(
+        'Material operator-review content.',
+      );
+      expect(review.find('button.danger-button').text()).toBe('رفض');
+      expect(review.findAll('button').some((button) => button.text() === 'قبول كمسودة')).toBe(true);
+    },
+  );
 
   it('renders audit actor, target, correlation, metadata and chain context', () => {
     const wrapper = mount(Workspace, {
@@ -238,7 +245,10 @@ describe('System & Operations workspace', () => {
         state: {
           backups: [],
           restores: [],
-          safety: { web_restore_mode: 'STAGE_AND_VERIFY_ONLY', activation_route_available: false },
+          safety: {
+            web_restore_mode: 'STAGE_AND_VERIFY_ONLY',
+            activation_route_available: false,
+          },
         },
       },
     });
