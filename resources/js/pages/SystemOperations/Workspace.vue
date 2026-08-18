@@ -276,9 +276,7 @@ const packageCounts = computed<Counts>(() =>
         <a v-if="surface === 'ai-bridge'" href="#manual-ai-export" class="tool-link">
           تجهيز Prompt
         </a>
-        <a v-if="surface === 'backups'" href="#backup-create" class="tool-link">
-          إنشاء Backup
-        </a>
+        <a v-if="surface === 'backups'" href="#backup-create" class="tool-link">إنشاء Backup</a>
         <span
           v-if="!['validation', 'ai-bridge', 'backups'].includes(surface)"
           class="read-only-chip"
@@ -852,9 +850,7 @@ const packageCounts = computed<Counts>(() =>
             </span>
           </section>
           <section class="panel">
-            <p class="section-kicker" dir="ltr">
-              CAPTURED CHRONOLOGY / INVESTIGATION CONTEXT
-            </p>
+            <p class="section-kicker" dir="ltr">CAPTURED CHRONOLOGY / INVESTIGATION CONTEXT</p>
             <h2>السجل التاريخي القابل للتحقيق</h2>
             <div class="record-list">
               <article
@@ -907,9 +903,7 @@ const packageCounts = computed<Counts>(() =>
                   </dl>
                 </details>
               </article>
-              <p v-if="(state.records ?? []).length === 0" class="empty">
-                لا توجد سجلات تدقيق.
-              </p>
+              <p v-if="(state.records ?? []).length === 0" class="empty">لا توجد سجلات تدقيق.</p>
             </div>
           </section>
         </template>
@@ -1040,9 +1034,7 @@ const packageCounts = computed<Counts>(() =>
         <template v-if="surface === 'health'">
           <p class="rail-label">التأثير</p>
           <h2>أثر الحالة التشغيلية</h2>
-          <p v-if="state.release_gate?.ready">
-            لا توجد بوابة Release بحالة FAIL وفق الفحص الحالي.
-          </p>
+          <p v-if="state.release_gate?.ready">لا توجد بوابة Release بحالة FAIL وفق الفحص الحالي.</p>
           <p v-else>
             حالة Release validation الحالية تمنع اعتبار الحزمة جاهزة حتى معالجة فحوص FAIL.
           </p>
