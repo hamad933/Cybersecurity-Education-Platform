@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import KnowledgeTabs from './components/KnowledgeTabs.vue';
 import ProvenancePanel from './components/research-quality/ProvenancePanel.vue';
 import ResearchQualityWorkbench from './components/research-quality/ResearchQualityWorkbench.vue';
@@ -10,7 +10,7 @@ import type { ResearchAnalysis, Source } from './components/research-quality/typ
 type CatalogItem = { id: string; title_ar: string; title_en: string };
 type Mode = 'claims' | 'compare' | 'conflicts' | 'revision';
 
-const props = defineProps<{
+defineProps<{
   catalog: CatalogItem[];
   active: {
     id: string;
@@ -33,6 +33,9 @@ const props = defineProps<{
 }>();
 
 const mode = ref<Mode>('claims');
+const workbenchMode = computed<'claims' | 'conflicts' | 'revision'>(() =>
+  mode.value === 'compare' ? 'claims' : mode.value,
+);
 const modes: Array<{ key: Mode; ar: string; en: string }> = [
   { key: 'claims', ar: 'الادعاءات', en: 'Claims' },
   { key: 'compare', ar: 'المقارنة', en: 'Compare' },
@@ -138,7 +141,7 @@ const modes: Array<{ key: Mode; ar: string; en: string }> = [
             />
             <ResearchQualityWorkbench
               v-else
-              :mode="mode"
+              :mode="workbenchMode"
               :source="quality.active_source"
               :analysis="quality.analysis ?? null"
             />
