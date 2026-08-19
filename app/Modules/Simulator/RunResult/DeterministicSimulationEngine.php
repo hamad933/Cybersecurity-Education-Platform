@@ -24,7 +24,6 @@ final class DeterministicSimulationEngine
             'module_instances' => array_map(
                 static fn (array $instance): array => [
                     'lab_definition_id' => (string) ($instance['lab_definition_id'] ?? ''),
-                    'instance_key' => (string) ($instance['instance_key'] ?? ''),
                     'state' => $instance['state'] ?? [],
                 ],
                 $moduleInstances,
