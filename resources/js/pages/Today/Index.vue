@@ -100,9 +100,7 @@ function refreshOrchestration(): void {
         >
           الآن
         </a>
-        <a class="cep-structure-nav__link focus-ring" href="#workspace-handoffs">
-          مساحات العمل
-        </a>
+        <a class="cep-structure-nav__link focus-ring" href="#workspace-handoffs"> مساحات العمل </a>
       </nav>
     </template>
 
@@ -110,8 +108,8 @@ function refreshOrchestration(): void {
       <p class="cep-kicker">سطح قيادة وتنسيق</p>
       <h1 id="today-title" class="cep-page-title">اليوم</h1>
       <p class="cep-lede">
-        نقطة بدء للعمل عبر المنصة. يعرض هذا السطح فقط الحالة التي تصل من مصادر حقيقية، ويوجّهك
-        إلى مساحة العمل الأساسية المناسبة بدل إنشاء نسخ محلية من سجلات المجالات.
+        نقطة بدء للعمل عبر المنصة. يعرض هذا السطح فقط الحالة التي تصل من مصادر حقيقية، ويوجّهك إلى
+        مساحة العمل الأساسية المناسبة بدل إنشاء نسخ محلية من سجلات المجالات.
       </p>
     </section>
 
@@ -125,11 +123,7 @@ function refreshOrchestration(): void {
       />
     </section>
 
-    <section
-      id="workspace-handoffs"
-      class="cep-section"
-      aria-labelledby="workspace-handoffs-title"
-    >
+    <section id="workspace-handoffs" class="cep-section" aria-labelledby="workspace-handoffs-title">
       <p class="cep-kicker">انتقال يحفظ الملكية</p>
       <h2 id="workspace-handoffs-title" class="cep-section-title">اذهب إلى مساحة العمل المناسبة</h2>
       <p class="cep-context-copy today-workspace-intro">
