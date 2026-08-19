@@ -281,7 +281,8 @@ const packageCounts = computed<Counts>(() =>
         <a v-if="surface === 'validation'" href="#source-import" class="tool-link">استيراد للتحقق</a
         ><a v-else-if="surface === 'ai-bridge'" href="#manual-ai-export" class="tool-link"
           >تجهيز Prompt</a
-        ><a v-else-if="surface === 'backups'" href="#backup-create" class="tool-link">إنشاء Backup</a
+        ><a v-else-if="surface === 'backups'" href="#backup-create" class="tool-link"
+          >إنشاء Backup</a
         ><span v-else class="read-only-chip">فحص تشغيلي</span>
       </div>
     </header>
@@ -969,8 +970,8 @@ const packageCounts = computed<Counts>(() =>
             <p class="section-kicker" dir="ltr">CAPTURED PACKAGE / FOLLOW-UP CONTEXT</p>
             <h2>حزم مرتبطة بالتحقق</h2>
             <p class="muted">
-              الهوية والحالة تبقيان في CENTER؛ تفاصيل Scope وManifest تُفتح مؤقتًا في BOTTOM ولا تمنح
-              صلاحية Deployment.
+              الهوية والحالة تبقيان في CENTER؛ تفاصيل Scope وManifest تُفتح مؤقتًا في BOTTOM ولا
+              تمنح صلاحية Deployment.
             </p>
             <div class="record-list">
               <article v-for="pkg in packagesAsRecords" :key="pkg.id" class="trace-card">
@@ -1144,11 +1145,7 @@ const packageCounts = computed<Counts>(() =>
         >
       </aside>
     </div>
-    <section
-      v-if="deepWorkspace"
-      class="workspace-bottom"
-      aria-label="مساحة العمل العميقة المؤقتة"
-    >
+    <section v-if="deepWorkspace" class="workspace-bottom" aria-label="مساحة العمل العميقة المؤقتة">
       <header class="bottom-header">
         <div>
           <p class="section-kicker" dir="ltr">TEMPORARY DEEP WORKSPACE</p>
