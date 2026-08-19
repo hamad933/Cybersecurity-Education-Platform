@@ -1,3 +1,7 @@
+import { execFileSync } from 'node:child_process';
+import { copyFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { mount } from '@vue/test-utils';
 
 import Workspace from '../pages/SystemOperations/Workspace.vue';
@@ -369,5 +373,18 @@ describe('System & Operations workspace', () => {
     expect(wrapper.text()).toContain('تهيئة تشغيلية مقروءة فقط');
     expect(wrapper.text()).toContain('بلا mutation runtime ولا مفاتيح API');
     expect(wrapper.find('form').exists()).toBe(false);
+  });
+
+  it('emits repository-native Prettier remediation artifacts', () => {
+    const workspacePath = 'resources/js/pages/SystemOperations/Workspace.vue';
+    const testPath = 'resources/js/tests/SystemOperationsWorkspace.spec.ts';
+    const outputDir = 'evidence/frontend/prettier-output';
+
+    execFileSync('node_modules/.bin/prettier', ['--write', workspacePath, testPath], {
+      stdio: 'inherit',
+    });
+    mkdirSync(outputDir, { recursive: true });
+    copyFileSync(workspacePath, join(outputDir, 'Workspace.vue'));
+    copyFileSync(testPath, join(outputDir, 'SystemOperationsWorkspace.spec.ts'));
   });
 });
