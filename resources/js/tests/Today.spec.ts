@@ -1,6 +1,3 @@
-import { Buffer } from 'node:buffer';
-import { execFileSync } from 'node:child_process';
-
 import { mount } from '@vue/test-utils';
 
 import Today from '../pages/Today/Index.vue';
@@ -43,15 +40,5 @@ describe('Today workspace', () => {
     expect(wrapper.text()).not.toContain('VS-001');
     expect(wrapper.text()).not.toContain('VS-002');
     expect(wrapper.text()).not.toContain('VS-003');
-  });
-
-  it('prints the repository formatter output for Today during remediation', () => {
-    const formatted = execFileSync(
-      'node_modules/.bin/prettier',
-      ['resources/js/pages/Today/Index.vue'],
-      { encoding: 'utf8' },
-    );
-
-    console.log(`W01_C01_PRETTIER_TODAY_BASE64=${Buffer.from(formatted).toString('base64')}`);
   });
 });
