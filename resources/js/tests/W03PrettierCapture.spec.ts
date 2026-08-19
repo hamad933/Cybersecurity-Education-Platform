@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { Buffer } from 'node:buffer';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+
 import { format } from 'prettier';
 import { expect, it } from 'vitest';
 
@@ -22,7 +22,7 @@ it('captures the exact CI Prettier output for W03 UI files', async () => {
     formatted[file] = await format(readFileSync(file, 'utf8'), { filepath: file });
   }
 
-  const payload = Buffer.from(JSON.stringify(formatted), 'utf8').toString('base64');
-  console.log(`W03_PRETTIER_CAPTURE_BEGIN:${payload}:W03_PRETTIER_CAPTURE_END`);
+  mkdirSync('evidence/frontend', { recursive: true });
+  writeFileSync('evidence/frontend/prettier-capture.json', JSON.stringify(formatted));
   expect(Object.keys(formatted)).toHaveLength(files.length);
 });
