@@ -26,7 +26,7 @@ const routeRegistrationSummary = computed(
 
 const workspaceDescriptions = {
   today: '',
-  knowledge: 'الوصول إلى المعرفة والتعلّم والتصور والبحث والجودة ضمن ملكيتها الكنسية.',
+  knowledge: 'الوصول إلى المعرفة والتعلّم والتصور والبحث والجودة ضمن ملكيتها الأساسية.',
   simulation: 'الانتقال إلى المؤسسة والسيناريوهات والمختبرات والتشغيل والنتائج.',
   progress: 'الانتقال إلى الأدلة والمراجعات والإتقان والمحفظة دون نسخ سجلاتها هنا.',
   system: 'الانتقال إلى الصحة والمعالجة والتحقق والجسر اليدوي والنسخ والتدقيق والإصدارات.',
@@ -112,7 +112,7 @@ function refreshOrchestration(): void {
       <h1 id="today-title" class="cep-page-title">اليوم</h1>
       <p class="cep-lede">
         نقطة بدء للعمل عبر المنصة. يعرض هذا السطح فقط الحالة التي تصل من مصادر حقيقية، ويوجّهك
-        إلى مساحة العمل الكنسية المناسبة بدل إنشاء نسخ محلية من سجلات المجالات.
+        إلى مساحة العمل الأساسية المناسبة بدل إنشاء نسخ محلية من سجلات المجالات.
       </p>
     </section>
 
@@ -134,7 +134,7 @@ function refreshOrchestration(): void {
       <p class="cep-kicker">انتقال يحفظ الملكية</p>
       <h2 id="workspace-handoffs-title" class="cep-section-title">اذهب إلى مساحة العمل المناسبة</h2>
       <p class="cep-context-copy today-workspace-intro">
-        هذه روابط انتقال فقط. لا يعرض سطح اليوم نسخًا من السجلات الكنسية ولا يفسر حالة مجال لم
+        هذه روابط انتقال فقط. لا يعرض سطح اليوم نسخًا من السجلات الأساسية ولا يفسر حالة مجال لم
         يزوّده ببيانات فعلية.
       </p>
 
@@ -159,7 +159,7 @@ function refreshOrchestration(): void {
           <p class="cep-kicker">حدود السياق</p>
           <h2 id="today-context-title" class="cep-context-title">ما الذي يملكه سطح اليوم؟</h2>
           <ul class="today-context-list">
-            <li>التوجيه والتنسيق بين مساحات العمل، لا ملكية السجلات الكنسية.</li>
+            <li>التوجيه والتنسيق بين مساحات العمل، لا ملكية السجلات الأساسية.</li>
             <li>عرض الحالة العابرة للمجالات فقط عندما يوجد مصدر تطبيق موثوق لها.</li>
             <li>تفاصيل البيئة وربط المسارات موجودة في التشخيص المؤقت، وليست معلومات دائمة.</li>
           </ul>
@@ -195,3 +195,133 @@ function refreshOrchestration(): void {
     </template>
   </CepWorkspaceLayout>
 </template>
+
+<style scoped>
+#today-focus,
+#workspace-handoffs {
+  scroll-margin-top: 8rem;
+}
+
+.today-command-bar {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.today-command-bar__copy {
+  min-width: 0;
+}
+
+.today-command-bar__title {
+  margin: 0;
+  color: var(--cep-text);
+  font-size: 0.9rem;
+  font-weight: 760;
+}
+
+.today-command-bar__meta {
+  margin: 0.15rem 0 0;
+  color: var(--cep-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.today-command-bar__actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.today-command-bar__actions button:disabled {
+  cursor: progress;
+  opacity: 0.58;
+}
+
+.today-workspace-intro {
+  max-width: 54rem;
+}
+
+.today-workspace-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.today-workspace-card {
+  display: grid;
+  min-width: 0;
+  gap: 0.55rem;
+  border: 1px solid var(--cep-border);
+  border-radius: var(--cep-radius-md);
+  background: rgb(4 17 29 / 0.76);
+  padding: 1rem;
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    transform 140ms ease;
+}
+
+.today-workspace-card:hover {
+  border-color: var(--cep-border-strong);
+  background: rgb(10 35 51 / 0.88);
+  transform: translateY(-1px);
+}
+
+.today-workspace-card__title {
+  color: var(--cep-text);
+  font-size: 0.95rem;
+  font-weight: 780;
+}
+
+.today-workspace-card__description {
+  color: var(--cep-text-muted);
+  font-size: 0.82rem;
+  line-height: 1.75;
+}
+
+.today-workspace-card__action {
+  color: #8ce8f7;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.today-context-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.85rem 0 0;
+  padding-inline-start: 1.1rem;
+  color: var(--cep-text-muted);
+  font-size: 0.84rem;
+  line-height: 1.75;
+}
+
+.today-diagnostics {
+  max-width: 44rem;
+}
+
+@media (max-width: 48rem) {
+  .today-command-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .today-command-bar__actions {
+    width: 100%;
+  }
+
+  .today-command-bar__actions button {
+    flex: 1 1 10rem;
+  }
+
+  .today-workspace-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style>
