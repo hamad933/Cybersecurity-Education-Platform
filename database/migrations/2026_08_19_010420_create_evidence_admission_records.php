@@ -25,7 +25,7 @@ return new class extends Migration
         });
 
         DB::statement(<<<'SQL'
-CREATE FUNCTION cep_validate_evidence_admission_record()
+CREATE OR REPLACE FUNCTION cep_validate_evidence_admission_record()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
@@ -57,7 +57,7 @@ FOR EACH ROW
 EXECUTE FUNCTION cep_validate_evidence_admission_record()
 SQL);
         DB::statement(<<<'SQL'
-CREATE FUNCTION cep_reject_evidence_admission_record_mutation()
+CREATE OR REPLACE FUNCTION cep_reject_evidence_admission_record_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$

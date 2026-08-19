@@ -9,6 +9,7 @@ use App\Modules\Evidence\IntakeReview\Domain\ReviewStatus;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use stdClass;
 use ValueError;
 
 final class ReviewDecisionService
@@ -61,7 +62,7 @@ final class ReviewDecisionService
             }
 
             if ($supersedesDecisionId !== null
-                && ! DB::table('evidence_review_decisions')->where('id', $supersedesDecisionId)->exists()) {
+                && !DB::table('evidence_review_decisions')->where('id', $supersedesDecisionId)->exists()) {
                 throw new IntakeReviewException('Superseded Review Decision was not found.');
             }
 
@@ -115,7 +116,7 @@ final class ReviewDecisionService
         });
     }
 
-    /** @return Collection<int, object> */
+    /** @return Collection<int, stdClass> */
     private function scopeItems(string $reviewRequestId): Collection
     {
         return DB::table('evidence_review_scope_items')

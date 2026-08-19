@@ -59,7 +59,7 @@ final class EvidenceReviewService
 
                 $subjectActorId ??= (string) $row->subject_actor_id;
 
-                if (! hash_equals($subjectActorId, (string) $row->subject_actor_id)) {
+                if (!hash_equals($subjectActorId, (string) $row->subject_actor_id)) {
                     throw new IntakeReviewException('A formal multi-Evidence Review cannot cross Evidence subject boundaries.');
                 }
             }
@@ -81,7 +81,7 @@ final class EvidenceReviewService
                 'evidence_revision_id' => $primary->evidenceRevisionId,
                 'requested_by' => $requestedBy,
                 'review_scope_key' => trim($reviewScopeKey),
-                'criterion_refs' => json_encode(array_values($criterionRefs), JSON_THROW_ON_ERROR),
+                'criterion_refs' => json_encode($criterionRefs, JSON_THROW_ON_ERROR),
                 'purpose' => trim($purpose),
                 'prior_decision_id' => null,
                 'status' => $status,
@@ -210,7 +210,7 @@ final class EvidenceReviewService
                 ->all();
 
             foreach ($supportingRevisionIds as $revisionId) {
-                if (! in_array($revisionId, $allowed, true)) {
+                if (!in_array($revisionId, $allowed, true)) {
                     throw new IntakeReviewException('Review Finding references Evidence outside the formal Review scope.');
                 }
             }
@@ -231,7 +231,7 @@ final class EvidenceReviewService
                 'criterion_key' => trim($criterionKey),
                 'finding' => $finding,
                 'statement' => trim($statement),
-                'supporting_evidence_revision_ids' => json_encode(array_values($supportingRevisionIds), JSON_THROW_ON_ERROR),
+                'supporting_evidence_revision_ids' => json_encode($supportingRevisionIds, JSON_THROW_ON_ERROR),
                 'recorded_by' => $reviewerId,
                 'recorded_at' => $now,
                 'created_at' => $now,

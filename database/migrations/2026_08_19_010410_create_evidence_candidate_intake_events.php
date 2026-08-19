@@ -35,7 +35,7 @@ return new class extends Migration
              CHECK (to_state IN ('RECEIVED','DRAFT','PREPARED','SUBMITTED_FOR_INTAKE','RETURNED_FOR_CONTEXT','ADMITTED','DECLINED','WITHDRAWN'))",
         );
         DB::statement(<<<'SQL'
-CREATE FUNCTION cep_reject_evidence_candidate_intake_event_mutation()
+CREATE OR REPLACE FUNCTION cep_reject_evidence_candidate_intake_event_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$

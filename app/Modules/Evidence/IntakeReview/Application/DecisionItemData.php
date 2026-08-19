@@ -7,9 +7,7 @@ use App\Modules\Evidence\IntakeReview\Domain\IntakeReviewException;
 
 final readonly class DecisionItemData
 {
-    public function __construct(public CanonicalEvidenceReference $reference)
-    {
-    }
+    public function __construct(public CanonicalEvidenceReference $reference) {}
 
     /** @param array<string, mixed> $payload */
     public static function fromArray(array $payload): self

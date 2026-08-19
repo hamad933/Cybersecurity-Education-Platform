@@ -35,7 +35,7 @@ final class EvidenceIntakeService
             ->first();
 
         if ($existing !== null) {
-            if (! hash_equals((string) $existing->source_digest, $candidate->sourceDigest)) {
+            if (!hash_equals((string) $existing->source_digest, $candidate->sourceDigest)) {
                 throw new IntakeReviewException('Candidate Evidence semantic identity conflicts with source integrity.');
             }
 

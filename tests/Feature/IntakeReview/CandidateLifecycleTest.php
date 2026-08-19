@@ -3,6 +3,7 @@
 namespace Tests\Feature\IntakeReview;
 
 use App\Modules\Evidence\IntakeReview\Application\EvidenceIntakeService;
+use App\Modules\Evidence\IntakeReview\Application\IntakeReviewReadModel;
 use App\Modules\IdentityAccess\Actions\CreateOwner;
 use App\Modules\IdentityAccess\Models\OwnerAccount;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -36,8 +37,7 @@ final class CandidateLifecycleTest extends TestCase
         $this->assertDatabaseCount('evidence_review_decisions', 0);
         $this->assertDatabaseCount('evidence_mastery_states', 0);
 
-        $timeline = app(\App\Modules\Evidence\IntakeReview\Application\IntakeReviewReadModel::class)
-            ->candidateTimeline($candidate['id']);
+        $timeline = app(IntakeReviewReadModel::class)->candidateTimeline($candidate['id']);
         $this->assertSame(
             ['RECEIVED', 'PREPARED', 'SUBMITTED_FOR_INTAKE', 'ADMITTED'],
             array_column($timeline, 'to_state'),

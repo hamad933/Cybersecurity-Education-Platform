@@ -43,14 +43,14 @@ final readonly class IntakeCandidateData
             'title',
             'summary',
         ] as $required) {
-            if (! isset($payload[$required]) || trim((string) $payload[$required]) === '') {
+            if (!isset($payload[$required]) || trim((string) $payload[$required]) === '') {
                 throw new IntakeReviewException("Missing Candidate Evidence field: {$required}.");
             }
         }
 
         $sourceDigest = strtolower(trim((string) $payload['source_digest']));
 
-        if (! preg_match('/^[a-f0-9]{64}$/', $sourceDigest)) {
+        if (!preg_match('/^[a-f0-9]{64}$/', $sourceDigest)) {
             throw new IntakeReviewException('Source digest must be a SHA-256 hex digest.');
         }
 
@@ -88,7 +88,7 @@ final readonly class IntakeCandidateData
     /** @return list<string> */
     private static function stringList(mixed $value): array
     {
-        if (! is_array($value)) {
+        if (!is_array($value)) {
             throw new IntakeReviewException('Expected a list of string references.');
         }
 
