@@ -27,7 +27,7 @@ describe('System & Operations workspace', () => {
     expect(wrapper.text()).not.toContain('تم النشر');
   });
 
-  it('distinguishes requested processing input from executed state', () => {
+  it('keeps processing diagnostics in a closed temporary bottom workspace', async () => {
     const inputDigest = 'a'.repeat(64);
     const wrapper = mount(Workspace, {
       props: {
@@ -54,6 +54,11 @@ describe('System & Operations workspace', () => {
             ],
           },
           outbox: { counts: {}, messages: [] },
+          policy: {
+            cancellation: 'PENDING_OR_RUNNING_ONLY',
+            retry_route_available: false,
+            knowledge_decisions: false,
+          },
         },
       },
     });
@@ -61,7 +66,52 @@ describe('System & Operations workspace', () => {
     expect(wrapper.text()).toContain('REQUESTED → EXECUTED / CURRENT STATE');
     expect(wrapper.text()).toContain(inputDigest);
     expect(wrapper.text()).toContain('worker-7');
-    expect(wrapper.text()).toContain('Captured failure.');
+    expect(wrapper.text()).not.toContain('Captured failure.');
+    expect(wrapper.find('.workspace-bottom').exists()).toBe(false);
+    expect(wrapper.findAll('button').some((button) => button.text() === 'إلغاء التشغيل')).toBe(false);
+
+    await wrapper.findAll('button').find((button) => button.text() === 'فتح التشخيص')!.trigger('click');
+
+    expect(wrapper.find('.workspace-bottom').exists()).toBe(true);
+    expect(wrapper.find('.workspace-bottom').text()).toContain('Captured failure.');
+    expect(wrapper.find('.workspace-bottom').text()).toContain('fixture');
+
+    await wrapper.find('.workspace-bottom button').trigger('click');
+    expect(wrapper.find('.workspace-bottom').exists()).toBe(false);
+  });
+
+  it('exposes bounded cancellation only for actionable processing states', () => {
+    const wrapper = mount(Workspace, {
+      props: {
+        surface: 'processing',
+        state: {
+          processing: {
+            counts: { pending: 1 },
+            runs: [
+              {
+                id: 'run-pending',
+                type: 'fixture.pending',
+                input_digest: 'f'.repeat(64),
+                status: 'pending',
+                attempt_count: 0,
+                max_attempts: 3,
+                worker_identifier: null,
+                started_at: null,
+                completed_at: null,
+                cancelled_at: null,
+                error_category: null,
+                safe_error_message: null,
+                created_at: '2026-08-18T00:00:00Z',
+              },
+            ],
+          },
+          outbox: { counts: {}, messages: [] },
+        },
+      },
+    });
+
+    expect(wrapper.findAll('button').some((button) => button.text() === 'إلغاء التشغيل')).toBe(true);
+    expect(wrapper.text()).toContain('لا يوجد Retry تلقائي');
   });
 
   it('keeps Manual AI manual-only and places complete proposal review before decision controls', () => {
@@ -87,7 +137,6 @@ describe('System & Operations workspace', () => {
             polling: false,
             embeddings: false,
           },
-          prompts: [],
           prompt_revisions: [
             {
               id: 'revision-1',
@@ -144,7 +193,6 @@ describe('System & Operations workspace', () => {
     });
 
     expect(wrapper.text()).toContain('MANUAL_ONLY / PROVIDER-NEUTRAL');
-    expect(wrapper.text()).toContain('REQUESTED');
     expect(wrapper.text()).toContain(inputDigest);
     expect(wrapper.text()).toContain(resultDigest);
     expect(wrapper.text()).toContain('Material operator-review content.');
@@ -162,7 +210,7 @@ describe('System & Operations workspace', () => {
     expect(review.findAll('button').some((button) => button.text() === 'قبول كمسودة')).toBe(true);
   });
 
-  it('renders audit actor, target, correlation, metadata and chain context', () => {
+  it('moves audit metadata and hash-chain details into temporary investigation workspace', async () => {
     const wrapper = mount(Workspace, {
       props: {
         surface: 'audit',
@@ -191,12 +239,17 @@ describe('System & Operations workspace', () => {
     expect(wrapper.text()).toContain('owner-42');
     expect(wrapper.text()).toContain('result-42');
     expect(wrapper.text()).toContain('correlation-42');
-    expect(wrapper.text()).toContain('result_digest');
-    expect(wrapper.text()).toContain('1'.repeat(64));
-    expect(wrapper.text()).toContain('2'.repeat(64));
+    expect(wrapper.text()).not.toContain('1'.repeat(64));
+    expect(wrapper.find('.workspace-bottom').exists()).toBe(false);
+
+    await wrapper.findAll('button').find((button) => button.text() === 'فتح سياق التحقيق')!.trigger('click');
+
+    expect(wrapper.find('.workspace-bottom').text()).toContain('result_digest');
+    expect(wrapper.find('.workspace-bottom').text()).toContain('1'.repeat(64));
+    expect(wrapper.find('.workspace-bottom').text()).toContain('2'.repeat(64));
   });
 
-  it('renders recorded release package scope and manifest without deployment authority', () => {
+  it('keeps release package scope and manifest in temporary follow-up context without deployment authority', async () => {
     const wrapper = mount(Workspace, {
       props: {
         surface: 'releases',
@@ -227,10 +280,16 @@ describe('System & Operations workspace', () => {
       },
     });
 
-    expect(wrapper.text()).toContain('release-candidate:W05');
-    expect(wrapper.text()).toContain('package-and-release-validation-only');
-    expect(wrapper.text()).toContain('evidence.json');
+    expect(wrapper.text()).toContain('package-42');
     expect(wrapper.text()).toContain('لا Deployment');
+    expect(wrapper.text()).not.toContain('release-candidate:W05');
+    expect(wrapper.find('.workspace-bottom').exists()).toBe(false);
+
+    await wrapper.findAll('button').find((button) => button.text() === 'فتح سياق الحزمة')!.trigger('click');
+
+    expect(wrapper.find('.workspace-bottom').text()).toContain('release-candidate:W05');
+    expect(wrapper.find('.workspace-bottom').text()).toContain('package-and-release-validation-only');
+    expect(wrapper.find('.workspace-bottom').text()).toContain('evidence.json');
   });
 
   it('keeps restore staging behind closed progressive disclosure', () => {
@@ -249,5 +308,33 @@ describe('System & Operations workspace', () => {
     expect(restoreDisclosure.exists()).toBe(true);
     expect(restoreDisclosure.attributes('open')).toBeUndefined();
     expect(wrapper.text()).toContain('لا يوجد تفعيل Restore عبر HTTP');
+  });
+
+  it('presents configuration as a read-only operational whitelist, not consumer settings', () => {
+    const wrapper = mount(Workspace, {
+      props: {
+        surface: 'configuration',
+        state: {
+          profile: 'local',
+          queue_connection: 'database',
+          blob_disk: 'local',
+          auth_bypass: false,
+          force_https: false,
+          release_loopback_only: true,
+          ai_network_provider_enabled: false,
+          limits: { source_import_max_bytes: 10485760 },
+          configuration_policy: {
+            mode: 'READ_ONLY_WHITELIST',
+            runtime_mutation_available: false,
+            secrets_exposed: false,
+          },
+        },
+      },
+    });
+
+    expect(wrapper.text()).toContain('READ_ONLY_WHITELIST');
+    expect(wrapper.text()).toContain('تهيئة تشغيلية مقروءة فقط');
+    expect(wrapper.text()).toContain('بلا mutation runtime ولا مفاتيح API');
+    expect(wrapper.find('form').exists()).toBe(false);
   });
 });
