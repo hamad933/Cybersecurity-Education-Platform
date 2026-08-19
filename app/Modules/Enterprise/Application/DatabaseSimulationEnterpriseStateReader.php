@@ -7,6 +7,10 @@ use stdClass;
 
 final class DatabaseSimulationEnterpriseStateReader implements SimulationEnterpriseStateReader
 {
+    public function __construct(
+        private readonly EnterpriseDigitalTwinService $digitalTwins,
+    ) {}
+
     public function findForSimulation(
         string $enterpriseId,
         string $digitalTwinRevisionId,
@@ -81,14 +85,18 @@ final class DatabaseSimulationEnterpriseStateReader implements SimulationEnterpr
         ?stdClass $digitalTwinRevision,
         ?stdClass $baseline,
     ): SimulationEnterpriseState {
+        $enterpriseId = (string) $enterprise->id;
+
         return new SimulationEnterpriseState(
             enterprise: [
-                'id' => (string) $enterprise->id,
+                'id' => $enterpriseId,
                 'slug' => (string) $enterprise->slug,
                 'name_ar' => (string) $enterprise->name_ar,
                 'name_en' => $enterprise->name_en === null ? null : (string) $enterprise->name_en,
                 'description_ar' => $enterprise->description_ar === null ? null : (string) $enterprise->description_ar,
                 'definition' => $this->decodeJson($enterprise->definition),
+                'catalog_projection' => $this->digitalTwins->catalogProjection($enterpriseId),
+                'digital_twins' => $this->digitalTwins->listDigitalTwins($enterpriseId),
                 'is_fixture' => (bool) $enterprise->is_fixture,
                 'created_by' => $enterprise->created_by === null ? null : (string) $enterprise->created_by,
                 'created_at' => (string) $enterprise->created_at,
@@ -97,10 +105,24 @@ final class DatabaseSimulationEnterpriseStateReader implements SimulationEnterpr
             digitalTwinRevision: $digitalTwinRevision === null ? [] : [
                 'id' => (string) $digitalTwinRevision->id,
                 'enterprise_id' => (string) $digitalTwinRevision->enterprise_id,
+                'digital_twin_id' => $digitalTwinRevision->digital_twin_id === null
+                    ? null
+                    : (string) $digitalTwinRevision->digital_twin_id,
+                'source_revision_id' => $digitalTwinRevision->source_revision_id === null
+                    ? null
+                    : (string) $digitalTwinRevision->source_revision_id,
                 'revision' => (int) $digitalTwinRevision->revision,
                 'status' => (string) $digitalTwinRevision->status,
                 'topology' => $this->decodeJson($digitalTwinRevision->topology),
+                'operational_model' => $digitalTwinRevision->digital_twin_id === null
+                    ? []
+                    : $this->digitalTwins->operationalModel((string) $digitalTwinRevision->id),
                 'behavior_model' => $this->decodeJson($digitalTwinRevision->behavior_model),
+                'simulation_local_objects' => $this->decodeJson($digitalTwinRevision->simulation_local_objects),
+                'validation_report' => $this->decodeJson($digitalTwinRevision->validation_report),
+                'validated_at' => $digitalTwinRevision->validated_at === null
+                    ? null
+                    : (string) $digitalTwinRevision->validated_at,
                 'digest' => (string) $digitalTwinRevision->digest,
                 'published_at' => $digitalTwinRevision->published_at === null ? null : (string) $digitalTwinRevision->published_at,
                 'created_by' => $digitalTwinRevision->created_by === null ? null : (string) $digitalTwinRevision->created_by,
@@ -110,6 +132,7 @@ final class DatabaseSimulationEnterpriseStateReader implements SimulationEnterpr
             baseline: $baseline === null ? [] : [
                 'id' => (string) $baseline->id,
                 'enterprise_id' => (string) $baseline->enterprise_id,
+                'digital_twin_id' => $baseline->digital_twin_id === null ? null : (string) $baseline->digital_twin_id,
                 'digital_twin_revision_id' => (string) $baseline->digital_twin_revision_id,
                 'revision' => (int) $baseline->revision,
                 'status' => (string) $baseline->status,
