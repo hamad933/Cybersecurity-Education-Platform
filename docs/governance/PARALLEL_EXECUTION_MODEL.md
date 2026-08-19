@@ -53,11 +53,11 @@ Every authorized child must obey all of the following:
 4. **Parent is read-only to child writers.** Child writers never push or otherwise mutate the parent feature branch directly. Concurrent child work must remain isolated on child branches.
 5. **No concurrent mutation of the same parent ref.** Multiple writers must not race to advance the same parent branch/HEAD.
 6. **Disjoint write sets preferred.** Child write sets should be disjoint whenever practical. Shared critical surfaces should not be split merely to maximize parallelism.
-7. **Overlap requires serialization.** If children must touch overlapping shared files, that overlap is serialized or assigned to a Controller-designated parent/domain integration writer. The Workstream Contract must state the ownership or stop rule.
+7. **Overlap requires serialization.** If children must touch overlapping shared files, that overlap is serialized or assigned to a Controller-designated parent/domain integration writer for bounded reconciliation on its own authorized branch/write set. That role does not receive merge authority.
 8. **Exact-state recovery before substantial writes.** Before every substantial write, the child writer recovers the live parent state and the child branch state needed to verify the expected exact HEAD/preconditions.
 9. **Moved parent means stop.** If the live parent HEAD differs from the frozen parent HEAD in the Workstream Contract, the child writer stops with `CONTROLLER REBASELINE REQUIRED`. It does not silently adopt the newer parent.
 10. **Unknown writes are recovered, not retried blindly.** If a write was sent but its result was not confirmed, set `WRITE_OUTCOME = UNKNOWN`, recover live GitHub state, prove whether it landed, and only then decide whether retry is safe.
-11. **Controller integration authority.** Only the Controller may authorize integration of a child PR into its parent branch. The Controller may perform that integration or designate one parent/domain integration writer to execute the authorized composition. Child writers do not self-merge.
+11. **Controller integration authority.** Only the Controller may authorize integration of a child PR into its parent branch. Child writers and other Executors do not merge child PRs. Any designated integration writer may prepare a bounded reconciliation candidate only; final integration remains outside Executor authority.
 12. **Acceptance boundaries remain distinct.** A child merge is only bounded composition into the parent branch; it is not parent-domain acceptance. Parent-domain acceptance is not integration-branch acceptance. Integration-branch acceptance is not `main` acceptance, release authorization, or deployment authorization.
 13. **No Drive writes or self-approval.** Child writers do not update canonical Google Drive state and do not approve their own work or gates.
 14. **Repository governance is the stable rule source.** Workstream Contracts may supply more specific execution details for a bounded fan-out, but do not silently change approved product/visual architecture or grant broader authority.
@@ -223,7 +223,7 @@ routes/workspaces/system-operations.php
 → feat/cep-system-operations
 ```
 
-A child may edit its parent's route file only if its Workstream Contract assigns that exact file to the child write set and no sibling child concurrently owns it. Otherwise the parent/domain integration writer owns the overlap.
+A child may edit its parent's route file only if its Workstream Contract assigns that exact file to the child write set and no sibling child concurrently owns it. Otherwise the parent/domain integration writer owns the reconciliation work on its own authorized branch/write set, without direct parent mutation or merge authority.
 
 The existing root/dashboard behavior is temporarily preserved from `routes/workspaces/today.php` until W01 replaces it with the approved Today workspace. Existing Release Center endpoints are preserved in `routes/workspaces/system-operations.php` as `REFACTOR_FOR_REUSE` inputs for W05. Legacy `/vs001`, `/vs002`, `/vs003` routes remain in `routes/web.php` as reference/reuse surfaces and are not the target product IA.
 
@@ -256,7 +256,9 @@ Within one parent fan-out, files touched by more than one child are shared integ
 
 - serialize those child changes;
 - remove the file from all but one child write set; or
-- assign the file to a designated parent/domain integration writer.
+- assign the file to a designated parent/domain integration writer that prepares bounded reconciliation on its own authorized branch/write set and returns it for Controller review.
+
+The designated integration writer does not mutate the parent branch directly and does not merge its own or another writer's PR.
 
 Do not use repeated rebases, force-pushes, or competing edits to turn an ownership problem into an ad hoc merge problem.
 
@@ -266,7 +268,7 @@ Parallel development is allowed, but merge/integration order is controlled.
 
 ### Child to parent
 
-Before any child composition, the integration authority recovers live GitHub state for the parent target, child PR, exact child HEAD, expected frozen parent/base ancestry, changed paths, and relevant checks. A child whose reviewed HEAD changed must be re-verified before integration.
+Before any child composition, the Controller recovers live GitHub state for the parent target, child PR, exact child HEAD, expected frozen parent/base ancestry, changed paths, and relevant checks. A child whose reviewed HEAD changed must be re-verified before integration.
 
 Recommended child composition sequence:
 
@@ -274,11 +276,11 @@ Recommended child composition sequence:
 2. verify parent target and ancestry;
 3. verify changed paths remain inside the child write set;
 4. verify sibling overlap has an explicit integration plan;
-5. integrate only after Controller authorization;
-6. verify the exact resulting parent HEAD;
+5. authorize integration only after Controller review;
+6. verify the exact resulting parent HEAD after the authorized integration action;
 7. run or await the parent-level checks required by the parent workstream.
 
-The child writer does not perform or authorize this integration.
+Child writers and other Executors do not perform or authorize the merge action.
 
 ### Parent to integration branch
 
@@ -352,7 +354,7 @@ The Controller:
 - opens remediation workstreams when repository governance or architecture boundaries are insufficient;
 - prepares the final integration/acceptance gate.
 
-A Controller may designate a parent/domain integration writer to execute an already-authorized composition. That designation does not grant the integration writer independent acceptance, `main`, release, deployment, or Drive authority.
+A Controller may designate a parent/domain integration writer to prepare reconciliation on a separate authorized branch/write set. That writer returns a bounded candidate for review and receives no merge, `main`, release, deployment, acceptance, or Drive authority.
 
 ## 9. Recovery rules
 
