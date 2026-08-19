@@ -1,30 +1,16 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import KnowledgeTabs from './components/KnowledgeTabs.vue';
+import ProvenancePanel from './components/research-quality/ProvenancePanel.vue';
+import ResearchQualityWorkbench from './components/research-quality/ResearchQualityWorkbench.vue';
+import SourceComparisonTable from './components/research-quality/SourceComparisonTable.vue';
+import type { ResearchAnalysis, Source } from './components/research-quality/types';
 
 type CatalogItem = { id: string; title_ar: string; title_en: string };
-type Claim = {
-  id: string;
-  claim_id: string;
-  segment_ref: string;
-  supported_scope: string;
-  excluded_semantics: string;
-  assessment: string;
-  used_by_active_revision: boolean;
-};
-type Source = {
-  id: string;
-  authority_class: string;
-  title: string;
-  exact_url: string | null;
-  relative_path: string | null;
-  sha256: string;
-  review_status: string;
-  metadata: Record<string, unknown>;
-  claims: Claim[];
-};
+type Mode = 'claims' | 'compare' | 'conflicts' | 'revision';
 
-defineProps<{
+const props = defineProps<{
   catalog: CatalogItem[];
   active: {
     id: string;
@@ -37,6 +23,7 @@ defineProps<{
     active_source: Source | null;
     canonical_claim_ids: string[];
     review_semantics: string;
+    analysis?: ResearchAnalysis;
   };
   semantic_boundary: {
     review: string;
@@ -44,6 +31,14 @@ defineProps<{
     mastery_judgment: string;
   };
 }>();
+
+const mode = ref<Mode>('claims');
+const modes: Array<{ key: Mode; ar: string; en: string }> = [
+  { key: 'claims', ar: 'الادعاءات', en: 'Claims' },
+  { key: 'compare', ar: 'المقارنة', en: 'Compare' },
+  { key: 'conflicts', ar: 'التعارضات', en: 'Conflicts' },
+  { key: 'revision', ar: 'المراجعة', en: 'Revision' },
+];
 </script>
 
 <template>
@@ -51,172 +46,181 @@ defineProps<{
   <div dir="rtl" class="min-h-screen bg-slate-950 text-slate-100">
     <div class="mx-auto max-w-[1600px] px-4 py-5 sm:px-6">
       <header class="border-b border-slate-800 pb-4">
-        <KnowledgeTabs active="research-quality" :object-id="active?.id" />
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <KnowledgeTabs active="research-quality" :object-id="active?.id" />
+          <div class="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 p-1">
+            <button
+              v-for="item in modes"
+              :key="item.key"
+              type="button"
+              class="focus-ring rounded-lg px-3 py-2 text-xs transition"
+              :class="
+                mode === item.key
+                  ? 'bg-cyan-400/10 text-cyan-200'
+                  : 'text-slate-400 hover:text-slate-200'
+              "
+              :aria-pressed="mode === item.key"
+              @click="mode = item.key"
+            >
+              <span class="font-bold">{{ item.ar }}</span>
+              <bdi dir="ltr" class="mr-1 text-[10px] text-slate-600">{{ item.en }}</bdi>
+            </button>
+          </div>
+        </div>
       </header>
 
-      <div class="mt-4 grid min-h-[700px] gap-4 xl:grid-cols-[280px_minmax(0,1fr)_300px]">
+      <div class="mt-4 grid min-h-[720px] gap-4 xl:grid-cols-[285px_minmax(0,1fr)_315px]">
         <aside
-          class="min-w-0 rounded-xl border border-slate-800 bg-slate-900/50 p-4"
+          class="rounded-xl border border-slate-800 bg-slate-900/50 p-4"
           aria-label="مصادر البحث والجودة"
         >
-          <h2 class="text-xs font-bold text-slate-400">مصادر البحث والجودة</h2>
-          <ul v-if="quality.sources.length" class="mt-4 space-y-1">
+          <div class="border-b border-slate-800 pb-4">
+            <p class="text-[10px] font-bold tracking-[0.2em] text-slate-600" dir="ltr">
+              SOURCE SET
+            </p>
+            <h2 class="mt-1 text-sm font-black">مصادر المراجعة الحالية</h2>
+            <p class="mt-2 text-xs leading-6 text-slate-500">
+              اختيار المصدر يغيّر سياق الفحص فقط؛ ولا يمنحه أفضلية حقيقة تلقائية.
+            </p>
+          </div>
+
+          <ul v-if="quality.sources.length" class="mt-4 space-y-2">
             <li v-for="source in quality.sources" :key="source.id">
               <Link
                 :href="`/knowledge/research-quality?${active ? `object=${encodeURIComponent(active.id)}&` : ''}source=${encodeURIComponent(source.id)}`"
-                class="focus-ring block rounded-lg px-3 py-2 text-sm"
+                class="focus-ring block rounded-xl border px-3 py-3 text-sm transition"
                 :class="
                   source.id === quality.active_source?.id
-                    ? 'bg-cyan-400/10 text-cyan-100'
-                    : 'text-slate-300 hover:bg-slate-800'
+                    ? 'border-cyan-800 bg-cyan-950/20 text-cyan-100'
+                    : 'border-slate-800 bg-slate-950/25 text-slate-300 hover:border-slate-600'
                 "
               >
-                {{ source.title }}
+                <span class="block font-bold">{{ source.title }}</span>
+                <span class="mt-2 flex flex-wrap items-center gap-2 text-[10px]">
+                  <bdi dir="ltr" class="text-slate-500">{{ source.authority_class }}</bdi>
+                  <bdi dir="ltr" class="text-slate-600">{{ source.review_status }}</bdi>
+                </span>
               </Link>
             </li>
           </ul>
-          <p v-else class="mt-4 text-sm leading-7 text-slate-500">لا توجد Source Records محفوظة.</p>
+          <p v-else class="mt-4 text-sm leading-7 text-slate-500">
+            لا توجد <bdi dir="ltr">Source Records</bdi> محفوظة؛ لن تُنشأ مصادر وهمية.
+          </p>
         </aside>
 
         <main class="min-w-0 rounded-xl border border-slate-800 bg-slate-900/35 p-5 sm:p-7">
-          <div v-if="quality.active_source">
-            <header class="border-b border-slate-800 pb-5">
-              <p class="text-xs font-bold text-cyan-300">
-                مراجعة جودة معرفة — ليست Evidence Review
-              </p>
-              <h1 class="mt-2 text-2xl font-black">{{ quality.active_source.title }}</h1>
-              <div class="mt-3 flex flex-wrap gap-2 text-xs">
-                <bdi
-                  dir="ltr"
-                  class="rounded border border-slate-700 px-2 py-1 font-mono text-emerald-300"
-                >
-                  {{ quality.active_source.review_status }}
-                </bdi>
-                <span class="rounded border border-slate-700 px-2 py-1 text-slate-400">
-                  {{ quality.active_source.authority_class }}
-                </span>
-              </div>
-            </header>
-
-            <section class="mt-6">
-              <div class="flex flex-wrap items-center justify-between gap-3">
-                <h2 class="font-bold">Claims ومواضع الدعم</h2>
-                <p class="text-xs text-slate-500">Compare = أداة؛ Review = workflow جودة معرفة.</p>
-              </div>
-              <div v-if="quality.active_source.claims.length" class="mt-4 space-y-3">
-                <article
-                  v-for="claim in quality.active_source.claims"
-                  :key="claim.id"
-                  class="rounded-xl border border-slate-800 bg-slate-950/50 p-4"
-                >
-                  <div class="flex flex-wrap items-center justify-between gap-3">
-                    <div class="flex flex-wrap items-center gap-2">
-                      <bdi dir="ltr" class="font-mono text-sm font-bold text-cyan-200">
-                        {{ claim.claim_id }}
-                      </bdi>
-                      <span
-                        v-if="claim.used_by_active_revision"
-                        class="rounded bg-cyan-950 px-2 py-1 text-[10px] text-cyan-200"
-                      >
-                        مستخدم في المراجعة النشطة
-                      </span>
-                    </div>
-                    <bdi
-                      dir="ltr"
-                      class="font-mono text-xs"
-                      :class="
-                        claim.assessment === 'supported' ? 'text-emerald-300' : 'text-amber-300'
-                      "
-                    >
-                      {{ claim.assessment }}
-                    </bdi>
-                  </div>
-                  <bdi dir="ltr" class="mt-3 block font-mono text-xs text-slate-500">
-                    {{ claim.segment_ref }}
-                  </bdi>
-                  <div class="mt-4 grid gap-3 md:grid-cols-2">
-                    <div class="rounded-lg border border-emerald-900/70 bg-emerald-950/15 p-3">
-                      <h3 class="text-xs font-bold text-emerald-300">النطاق المدعوم</h3>
-                      <p class="mt-2 text-sm leading-7 text-slate-300">
-                        {{ claim.supported_scope }}
-                      </p>
-                    </div>
-                    <div class="rounded-lg border border-amber-900/70 bg-amber-950/15 p-3">
-                      <h3 class="text-xs font-bold text-amber-300">الدلالة المستبعدة</h3>
-                      <p class="mt-2 text-sm leading-7 text-slate-300">
-                        {{ claim.excluded_semantics }}
-                      </p>
-                    </div>
-                  </div>
-                </article>
-              </div>
-              <p
-                v-else
-                class="mt-5 rounded-xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-500"
-              >
-                هذا المصدر لا يملك Claims محفوظة.
-              </p>
-            </section>
-          </div>
-          <div v-else class="grid min-h-[420px] place-items-center text-center">
+          <header
+            class="flex flex-wrap items-end justify-between gap-4 border-b border-slate-800 pb-5"
+          >
             <div>
-              <h1 class="font-bold text-slate-300">لا يوجد عمل جودة معرفة حالي.</h1>
-              <p class="mt-2 text-sm text-slate-500">لا توجد مصادر مخزنة، ولن تُنشأ سجلات وهمية.</p>
+              <p class="text-xs font-bold text-cyan-300">
+                مراجعة جودة معرفة — ليست <bdi dir="ltr">Evidence Review</bdi>
+              </p>
+              <h1 class="mt-2 text-2xl font-black">
+                {{ quality.active_source?.title ?? active?.title_ar ?? 'لا يوجد عمل جودة معرفة حالي' }}
+              </h1>
+              <bdi v-if="active" dir="ltr" class="mt-2 block font-mono text-xs text-slate-500">
+                {{ active.id }}
+              </bdi>
             </div>
+            <div v-if="quality.analysis" class="text-left text-[10px] text-slate-600">
+              <span class="block">Decision authority</span>
+              <bdi dir="ltr" class="font-mono text-emerald-300">
+                {{ quality.analysis.review.decision_authority }}
+              </bdi>
+            </div>
+          </header>
+
+          <div class="mt-6">
+            <SourceComparisonTable
+              v-if="mode === 'compare'"
+              :rows="quality.analysis?.comparison.rows ?? []"
+            />
+            <ResearchQualityWorkbench
+              v-else
+              :mode="mode"
+              :source="quality.active_source"
+              :analysis="quality.analysis ?? null"
+            />
           </div>
         </main>
 
         <aside
-          class="min-w-0 rounded-xl border border-slate-800 bg-slate-900/50 p-4"
-          aria-label="Provenance المصدر"
+          class="rounded-xl border border-slate-800 bg-slate-900/50 p-4"
+          aria-label="Provenance and review boundary"
         >
-          <h2 class="text-xs font-bold text-slate-500">Provenance الفريد للمصدر المحدد</h2>
-          <div v-if="quality.active_source" class="mt-4 space-y-5 text-sm">
-            <section>
-              <p class="text-xs text-slate-500">المسار أو الرابط</p>
-              <a
-                v-if="quality.active_source.exact_url"
-                :href="quality.active_source.exact_url"
-                target="_blank"
-                rel="noreferrer"
-                dir="ltr"
-                class="focus-ring mt-2 block text-left text-xs break-all text-cyan-300 underline"
-              >
-                {{ quality.active_source.exact_url }}
-              </a>
-              <bdi
-                v-else-if="quality.active_source.relative_path"
-                dir="ltr"
-                class="mt-2 block font-mono text-xs break-all text-slate-300"
-              >
-                {{ quality.active_source.relative_path }}
-              </bdi>
-              <p v-else class="mt-2 text-slate-500">لا يوجد مسار مصدر محفوظ.</p>
-            </section>
-            <section>
-              <p class="text-xs text-slate-500">Integrity digest</p>
-              <bdi dir="ltr" class="mt-2 block font-mono text-[10px] break-all text-slate-400">
-                sha256:{{ quality.active_source.sha256 }}
-              </bdi>
-            </section>
-          </div>
+          <ProvenancePanel
+            :source="quality.active_source"
+            :provenance="quality.analysis?.provenance.sources ?? []"
+          />
 
-          <div
-            class="mt-6 rounded-lg border border-rose-900/60 bg-rose-950/15 p-3 text-xs leading-6 text-rose-100"
-          >
-            هذا المجال لا يستورد <bdi dir="ltr">Evidence Decisions</bdi> ولا
-            <bdi dir="ltr">Mastery States</bdi>، ولا يصدر أحكام <bdi dir="ltr">A03</bdi>.
-          </div>
+          <section class="mt-6 border-t border-slate-800 pt-5">
+            <p class="text-[10px] font-bold tracking-[0.2em] text-slate-600" dir="ltr">
+              REVIEW BOUNDARY
+            </p>
+            <h2 class="mt-1 text-sm font-black">حدود الحكم</h2>
+            <div class="mt-3 space-y-3 text-xs leading-6">
+              <p class="rounded-lg border border-rose-900/60 bg-rose-950/15 p-3 text-rose-100">
+                <bdi dir="ltr">Research & Quality Review != Evidence Review</bdi>. هذا المجال لا
+                يصدر قرارات Evidence أو Mastery.
+              </p>
+              <p class="rounded-lg border border-amber-900/60 bg-amber-950/15 p-3 text-amber-100">
+                النظام لا يقرر حقيقة المعرفة. يمكنه كشف التعارضات وتجميع provenance فقط؛ أما
+                reconciliation النهائي فحكم بشري.
+              </p>
+              <dl class="rounded-lg border border-slate-800 p-3 text-slate-500">
+                <div class="flex justify-between gap-3">
+                  <dt>Review semantics</dt>
+                  <dd><bdi dir="ltr">{{ quality.review_semantics }}</bdi></dd>
+                </div>
+                <div class="mt-2 flex justify-between gap-3">
+                  <dt>Pending conflicts</dt>
+                  <dd>{{ quality.analysis?.reconciliation.pending_conflict_count ?? 0 }}</dd>
+                </div>
+              </dl>
+            </div>
+          </section>
         </aside>
       </div>
 
       <details class="mt-4 rounded-xl border border-slate-800 bg-slate-900/30 px-4 py-3">
         <summary class="cursor-pointer text-sm font-bold text-slate-400">
-          مساحة مقارنة مؤقتة — مغلقة افتراضيًا
+          أثر reconciliation و revision — مساحة مقارنة مؤقتة
         </summary>
-        <p class="mt-3 text-sm leading-7 text-slate-500">
-          يمكن أن تستضيف Compare أو Revision diff لاحقًا دون تكرار العمل الدائم في CENTER.
-        </p>
+        <div class="mt-4 grid gap-4 md:grid-cols-2">
+          <section>
+            <h2 class="text-xs font-bold text-slate-500">Unresolved canonical claims</h2>
+            <div class="mt-2 space-y-2">
+              <bdi
+                v-for="claimId in quality.analysis?.revision_reasoning.unresolved_claim_ids ?? []"
+                :key="claimId"
+                dir="ltr"
+                class="block rounded border border-amber-900/50 px-3 py-2 font-mono text-[11px] text-amber-200"
+              >
+                {{ claimId }}
+              </bdi>
+              <p
+                v-if="!quality.analysis?.revision_reasoning.unresolved_claim_ids.length"
+                class="text-xs text-slate-600"
+              >
+                لا توجد Claims canonical بلا provenance مرصود.
+              </p>
+            </div>
+          </section>
+          <section>
+            <h2 class="text-xs font-bold text-slate-500">Allowed next tools</h2>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <bdi
+                v-for="tool in quality.analysis?.reconciliation.allowed_next_tools ?? []"
+                :key="tool"
+                dir="ltr"
+                class="rounded border border-slate-800 px-2 py-1 font-mono text-[10px] text-slate-500"
+              >
+                {{ tool }}
+              </bdi>
+            </div>
+          </section>
+        </div>
       </details>
     </div>
   </div>
