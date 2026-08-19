@@ -106,7 +106,7 @@ final class MasteryPortfolioService
                 ->first();
 
             if ($current && $current->published_at === null) {
-                throw new LogicException('Publish or discard the current Draft Mastery Policy Revision before creating another revision.');
+                throw new LogicException('Publish the current Draft Mastery Policy Revision before creating another revision.');
             }
 
             return $this->insertPolicyRevision(
@@ -242,8 +242,9 @@ final class MasteryPortfolioService
             throw new LogicException('Revalidation requires an existing governed Mastery State.');
         }
 
-        return $this->evaluate(
+        return $this->progressEvidence->evaluateMastery(
             $subjectId,
+            $policy['target_id'],
             $actorId,
             $policyRevisionId,
             $current->judgment,
@@ -539,9 +540,8 @@ final class MasteryPortfolioService
         array $contradicting,
     ): void {
         if ($contradicting !== [] && $judgment !== 'INCONCLUSIVE') {
-            $handling = $policy['conflict_handling'];
             throw new LogicException(
-                $handling === 'REQUIRE_MANUAL_REVIEW'
+                $policy['conflict_handling'] === 'REQUIRE_MANUAL_REVIEW'
                     ? 'Conflicting Evidence requires manual review and an INCONCLUSIVE Mastery Judgment until resolved.'
                     : 'Conflicting Evidence requires an INCONCLUSIVE Mastery Judgment.',
             );
@@ -575,9 +575,8 @@ final class MasteryPortfolioService
             return;
         }
 
-        $qualifying = $policy['qualifying_review_decisions'];
         foreach ($decisionRows as $row) {
-            if (! in_array($row->decision, $qualifying, true)) {
+            if (! in_array($row->decision, $policy['qualifying_review_decisions'], true)) {
                 throw new LogicException('MASTERED cannot rely on a Review Decision disallowed by the published Mastery Policy.');
             }
         }
@@ -609,9 +608,8 @@ final class MasteryPortfolioService
             }
         }
 
-        $recencyDays = $policy['recency_days'];
-        if ($freshness === 'CURRENT' && $recencyDays !== null) {
-            $cutoff = now()->subDays((int) $recencyDays);
+        if ($freshness === 'CURRENT' && $policy['recency_days'] !== null) {
+            $cutoff = now()->subDays((int) $policy['recency_days']);
             foreach ($supportingRows as $row) {
                 if (CarbonImmutable::parse((string) $row->sealed_at)->lt($cutoff)) {
                     throw new LogicException('CURRENT freshness is not allowed because supporting Evidence exceeds the Mastery Policy recency requirement.');
@@ -627,8 +625,7 @@ final class MasteryPortfolioService
         }
     }
 
-    /** @param mixed $value */
-    private function text($value, int $max, string $label): string
+    private function text(mixed $value, int $max, string $label): string
     {
         $value = trim((string) $value);
         if ($value === '' || mb_strlen($value) > $max) {
@@ -638,11 +635,8 @@ final class MasteryPortfolioService
         return $value;
     }
 
-    /**
-     * @param mixed $value
-     * @return list<string>
-     */
-    private function stringList($value, string $label): array
+    /** @return list<string> */
+    private function stringList(mixed $value, string $label): array
     {
         if (! is_array($value)) {
             throw new InvalidArgumentException("{$label} must be an array.");
