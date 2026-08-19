@@ -374,8 +374,12 @@ const packageCounts = computed<Counts>(() =>
               <article v-for="run in state.processing?.runs ?? []" :key="run.id" class="trace-card">
                 <div class="trace-heading">
                   <div>
-                    <strong><bdi dir="ltr">{{ run.type }}</bdi></strong>
-                    <small><bdi dir="ltr">{{ run.id }}</bdi></small>
+                    <strong
+                      ><bdi dir="ltr">{{ run.type }}</bdi></strong
+                    >
+                    <small
+                      ><bdi dir="ltr">{{ run.id }}</bdi></small
+                    >
                   </div>
                   <span class="state-pill" dir="ltr">{{ run.status }}</span>
                 </div>
@@ -419,7 +423,9 @@ const packageCounts = computed<Counts>(() =>
                 class="record-row"
               >
                 <div>
-                  <strong><bdi dir="ltr">{{ message.type }}</bdi></strong>
+                  <strong
+                    ><bdi dir="ltr">{{ message.type }}</bdi></strong
+                  >
                   <small dir="ltr">correlation={{ message.correlation_id }}</small>
                 </div>
                 <span class="state-pill" dir="ltr">{{ message.dispatch_state }}</span>
@@ -461,7 +467,9 @@ const packageCounts = computed<Counts>(() =>
               <article v-for="pkg in packagesAsRecords" :key="pkg.id" class="trace-card">
                 <div class="trace-heading">
                   <div>
-                    <strong><bdi dir="ltr">{{ pkg.package_type }}</bdi></strong>
+                    <strong
+                      ><bdi dir="ltr">{{ pkg.package_type }}</bdi></strong
+                    >
                     <small class="mono" dir="ltr">{{ pkg.id }}</small>
                   </div>
                   <span class="state-pill" dir="ltr">{{ pkg.status }}</span>
@@ -731,7 +739,9 @@ const packageCounts = computed<Counts>(() =>
                 class="record-row"
               >
                 <div>
-                  <strong><bdi dir="ltr">{{ decision.decision }}</bdi></strong>
+                  <strong
+                    ><bdi dir="ltr">{{ decision.decision }}</bdi></strong
+                  >
                   <small dir="ltr">result={{ decision.imported_ai_result_id }}</small>
                   <p>{{ decision.rationale }}</p>
                 </div>
@@ -802,7 +812,9 @@ const packageCounts = computed<Counts>(() =>
               <article v-for="restore in state.restores ?? []" :key="restore.id" class="trace-card">
                 <div class="trace-heading">
                   <div>
-                    <strong><bdi dir="ltr">{{ restore.target_database }}</bdi></strong>
+                    <strong
+                      ><bdi dir="ltr">{{ restore.target_database }}</bdi></strong
+                    >
                     <small>{{ when(restore.started_at) }}</small>
                   </div>
                   <span class="state-pill" dir="ltr">{{ restore.status }}</span>
@@ -824,9 +836,7 @@ const packageCounts = computed<Counts>(() =>
               <p class="section-kicker">Hash-chained audit</p>
               <h2>
                 {{
-                  state.chain?.valid
-                    ? 'سلسلة التدقيق متماسكة'
-                    : 'تعذر إثبات تكامل سلسلة التدقيق'
+                  state.chain?.valid ? 'سلسلة التدقيق متماسكة' : 'تعذر إثبات تكامل سلسلة التدقيق'
                 }}
               </h2>
             </div>
@@ -935,7 +945,9 @@ const packageCounts = computed<Counts>(() =>
               <article v-for="pkg in packagesAsRecords" :key="pkg.id" class="trace-card">
                 <div class="trace-heading">
                   <div>
-                    <strong><bdi dir="ltr">{{ pkg.package_type }}</bdi></strong>
+                    <strong
+                      ><bdi dir="ltr">{{ pkg.package_type }}</bdi></strong
+                    >
                     <small class="mono" dir="ltr">{{ pkg.id }}</small>
                   </div>
                   <span class="state-pill" dir="ltr">{{ pkg.status }}</span>
@@ -1371,7 +1383,11 @@ pre {
   border-radius: 9px;
   padding: 12px;
   color: #c9dce4;
-  font: 12px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font:
+    12px/1.65 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
 }
 .proposal-payload {
   max-height: 640px;
