@@ -18,6 +18,8 @@ Before changing code, read in this order:
 
 Stop reading unrelated historical task folders once the active workstream has enough direct authority. Historical Task/VS documents are evidence and reuse inputs, not permission to restore old UX or semantics.
 
+The active Controller-issued Workstream Contract is the most specific execution authority for its bounded workstream. When it gives more specific branch, baseline, write-set, fan-out, verification, or stop-gate instructions than generic repository governance, follow the Workstream Contract. It does not override accepted product/visual authority or grant merge, release, deployment, or Drive-write authority unless those powers are explicitly and separately authorized.
+
 ## Current product authority references
 
 The Controller must provide the applicable accepted authority. Current accepted identifiers are:
@@ -67,15 +69,37 @@ During the active CEP real-application build program:
 
 - `main` remains the canonical released/integrated branch.
 - `build/cep-v1-integration` is the controlled integration branch for parallel implementation waves.
-- Each Builder chat owns exactly one workstream branch created from the recorded integration baseline.
-- Builder PRs target `build/cep-v1-integration`, not `main`.
+- The five canonical parent domain branches remain:
+  - `feat/cep-shared-foundation`;
+  - `feat/cep-knowledge-learning`;
+  - `feat/cep-simulation-enterprise`;
+  - `feat/cep-progress-evidence`;
+  - `feat/cep-system-operations`.
+- Parent Builder PRs target `build/cep-v1-integration`, not `main`.
 - Only the Controller may authorize the final integration PR from `build/cep-v1-integration` to `main`.
 - Never push directly to `main` or the integration branch.
 - Never force-push or rewrite shared history.
 
+A Controller-authorized parent workstream may optionally fan out into bounded child branches and child PRs without changing the canonical five-parent topology:
+
+- every child branch starts from an exact frozen parent HEAD recorded in its Workstream Contract;
+- each child writer owns exactly one child branch and one bounded write set;
+- each child PR targets its relevant parent feature branch, never `build/cep-v1-integration` or `main` directly;
+- the parent branch is read-only to child writers; direct concurrent mutation of the same parent branch is forbidden;
+- child write sets should be disjoint whenever practical;
+- overlapping shared files require serialization or a Controller-designated parent/domain integration writer;
+- before every substantial write, recover the live parent state and the writer branch state needed to prove the write is based on the expected exact HEAD;
+- if the parent HEAD moved from the frozen value, stop: Controller rebaseline is required before writing continues;
+- if a write outcome is ambiguous, mark it `UNKNOWN`, recover live GitHub state, and retry only after proving the write did not land;
+- only the Controller may authorize integration of a child PR into its parent branch; a child writer must not self-merge;
+- child integration does not mean parent-domain acceptance, parent-domain acceptance does not mean integration-branch acceptance, and integration-branch acceptance does not mean `main` acceptance;
+- child writers do not update canonical Drive state or self-approve any gate.
+
+Stable fan-out rules live in repository governance. A more specific Controller-issued Workstream Contract may further narrow execution details for one workstream.
+
 ## Shared-path ownership
 
-Only the workstream explicitly assigned as Shared Foundation may modify shared shell/framework paths such as:
+`CEP-BUILD-001-W01` / `feat/cep-shared-foundation` remains the sole owner of shared shell/framework paths unless the Controller explicitly transfers a specific path or bounded shared-file change. Protected shared surfaces include:
 
 - global application shell/layouts;
 - global navigation composition;
@@ -83,7 +107,7 @@ Only the workstream explicitly assigned as Shared Foundation may modify shared s
 - generic route-registration infrastructure;
 - cross-domain contracts used by more than one workstream.
 
-Domain workstreams must remain in their assigned module, route, page, test, and migration boundaries. If a domain needs a shared-path change, stop and request a Controller-coordinated dependency change instead of editing the shared path concurrently.
+Domain workstreams and their child writers must remain in their assigned module, route, page, test, migration, and child write-set boundaries. If a domain needs a shared-path change, stop and request a Controller-coordinated dependency change instead of editing the shared path concurrently.
 
 ## Module boundary rule
 
@@ -111,6 +135,7 @@ Execution Handoff must reference:
 - branch;
 - commit SHA;
 - PR;
+- parent branch and frozen parent HEAD when child fan-out is used;
 - changed paths/diff;
 - tests and GitHub Actions runs;
 - browser/runtime evidence when applicable;
@@ -126,8 +151,8 @@ An Executor must not:
 
 - update canonical Google Drive state;
 - self-approve its PR or gate;
-- merge its own workstream;
-- expand scope into another Builder branch;
+- merge its own workstream or child PR;
+- expand scope into another Builder branch or another child writer's write set;
 - change product architecture or the accepted visual contract silently;
 - replace real application behavior with a prototype;
 - claim CI/runtime/visual acceptance without direct evidence;
@@ -142,6 +167,8 @@ Stop and return to the Controller when:
 - a module dependency or canonical ownership change is needed;
 - a migration/import crosses the authorized boundary;
 - the baseline branch/commit differs from the Workstream Contract;
+- a child workstream's live parent HEAD differs from its frozen parent HEAD;
+- a write outcome is `UNKNOWN` until live state proves whether it landed;
 - required tests cannot run or a required gate fails;
 - the work would require real external execution/connectors;
 - the workstream reaches its stated Stop Gate.

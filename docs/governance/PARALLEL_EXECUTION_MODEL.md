@@ -4,9 +4,13 @@ Status: **canonical repository execution governance for the real-application bui
 
 ## 1. Purpose
 
-Enable multiple Builder chats to implement the real CEP application concurrently without competing ownership, silent architecture drift, or cross-branch overwrites.
+Enable multiple Builder chats to implement the real CEP application concurrently without competing ownership, silent architecture drift, cross-branch overwrites, or concurrent mutation of the same parent feature branch.
 
-## 2. Branch topology
+The stable model has five canonical parent domain branches. A Controller may optionally authorize bounded child-branch / child-PR fan-out beneath a parent when that reduces critical-path time without weakening ownership or review control.
+
+## 2. Canonical parent branch topology
+
+The five-parent topology remains canonical:
 
 ```text
 main
@@ -18,15 +22,47 @@ main
     └── feat/cep-system-operations
 ```
 
-All five Builder branches start from the same recorded integration baseline commit.
+Parent Builder branches start from the exact integration baseline recorded by their Workstream Contracts.
 
-Builder PRs target:
+Parent Builder PRs target:
 
 ```text
 build/cep-v1-integration
 ```
 
 Only the Controller may authorize integration into `main` after the integration branch has passed the required gates and owner/controller review.
+
+### 2.1 Optional bounded child fan-out
+
+A parent workstream may add a temporary child layer only when the Controller issues a Workstream Contract that explicitly authorizes the fan-out. The child layer does not create new canonical domains and does not replace the five parent branches.
+
+Example shape:
+
+```text
+build/cep-v1-integration
+└── feat/cep-knowledge-learning            # canonical parent branch
+    ├── fanout/cep-w02-library-editor-c01  # optional child branch
+    └── fanout/cep-w02-learn-assessment-c01
+```
+
+Every authorized child must obey all of the following:
+
+1. **Exact frozen parent HEAD.** The child branch is created from the exact parent commit recorded in its Workstream Contract, not merely from the current branch name.
+2. **One writer, one child branch.** Each child writer owns exactly one child branch and one bounded write set.
+3. **Child PR targets parent.** The child pull request targets the relevant parent feature branch. It does not target `build/cep-v1-integration` or `main` directly.
+4. **Parent is read-only to child writers.** Child writers never push or otherwise mutate the parent feature branch directly. Concurrent child work must remain isolated on child branches.
+5. **No concurrent mutation of the same parent ref.** Multiple writers must not race to advance the same parent branch/HEAD.
+6. **Disjoint write sets preferred.** Child write sets should be disjoint whenever practical. Shared critical surfaces should not be split merely to maximize parallelism.
+7. **Overlap requires serialization.** If children must touch overlapping shared files, that overlap is serialized or assigned to a Controller-designated parent/domain integration writer. The Workstream Contract must state the ownership or stop rule.
+8. **Exact-state recovery before substantial writes.** Before every substantial write, the child writer recovers the live parent state and the child branch state needed to verify the expected exact HEAD/preconditions.
+9. **Moved parent means stop.** If the live parent HEAD differs from the frozen parent HEAD in the Workstream Contract, the child writer stops with `CONTROLLER REBASELINE REQUIRED`. It does not silently adopt the newer parent.
+10. **Unknown writes are recovered, not retried blindly.** If a write was sent but its result was not confirmed, set `WRITE_OUTCOME = UNKNOWN`, recover live GitHub state, prove whether it landed, and only then decide whether retry is safe.
+11. **Controller integration authority.** Only the Controller may authorize integration of a child PR into its parent branch. The Controller may perform that integration or designate one parent/domain integration writer to execute the authorized composition. Child writers do not self-merge.
+12. **Acceptance boundaries remain distinct.** A child merge is only bounded composition into the parent branch; it is not parent-domain acceptance. Parent-domain acceptance is not integration-branch acceptance. Integration-branch acceptance is not `main` acceptance, release authorization, or deployment authorization.
+13. **No Drive writes or self-approval.** Child writers do not update canonical Google Drive state and do not approve their own work or gates.
+14. **Repository governance is the stable rule source.** Workstream Contracts may supply more specific execution details for a bounded fan-out, but do not silently change approved product/visual architecture or grant broader authority.
+
+A current Workstream Contract may therefore authorize bounded fan-out more specifically than this generic section. The more specific Contract governs the bounded execution detail, while these repository-level safety and authority boundaries remain in force unless explicitly superseded by a separate authority decision.
 
 ## 3. Workstream ownership
 
@@ -44,6 +80,8 @@ Owns:
 - shared browser/accessibility contract tests.
 
 Must not implement domain workflows owned by the other branches.
+
+`CEP-BUILD-001-W01` remains the sole owner of global shell/navigation/shared UI infrastructure unless the Controller explicitly transfers a specific path or bounded shared-file change. Child fan-out under another parent does not inherit authority over W01-owned shared surfaces.
 
 ### B. `feat/cep-knowledge-learning`
 
@@ -137,11 +175,15 @@ Release Center primitives
 
 Does not own knowledge-quality judgment or domain business workflows.
 
+### Child ownership inheritance
+
+A child writer receives only the bounded slice explicitly stated by its Controller-issued Workstream Contract. It does not acquire a new domain or alter canonical parent ownership. The child write set is a temporary partition of work inside the parent's authority, not a transfer of product architecture.
+
 ## 4. Conflict-avoidance rules
 
 ### Shared foundation protected paths
 
-While `feat/cep-shared-foundation` is active, other branches must not modify shared shell files unless the Controller explicitly transfers ownership. Examples include:
+While `feat/cep-shared-foundation` is active, other parent branches and their child writers must not modify shared shell files unless the Controller explicitly transfers ownership of a specific path or bounded change. Examples include:
 
 ```text
 resources/js/layouts/**
@@ -157,7 +199,7 @@ Exact paths may be refined by the Shared Foundation PR, but ownership must remai
 
 ### Parallel-safe workspace route files
 
-`routes/web.php` loads workspace route files mechanically. Each workspace file has exactly one owner:
+`routes/web.php` loads workspace route files mechanically. Each workspace file has exactly one canonical parent owner:
 
 ```text
 routes/workspaces/today.php
@@ -181,7 +223,7 @@ routes/workspaces/system-operations.php
 → feat/cep-system-operations
 ```
 
-Builders modify only their assigned route file. They must not edit another Builder's route file or the shared loader in `routes/web.php`.
+A child may edit its parent's route file only if its Workstream Contract assigns that exact file to the child write set and no sibling child concurrently owns it. Otherwise the parent/domain integration writer owns the overlap.
 
 The existing root/dashboard behavior is temporarily preserved from `routes/workspaces/today.php` until W01 replaces it with the approved Today workspace. Existing Release Center endpoints are preserved in `routes/workspaces/system-operations.php` as `REFACTOR_FOR_REUSE` inputs for W05. Legacy `/vs001`, `/vs002`, `/vs003` routes remain in `routes/web.php` as reference/reuse surfaces and are not the target product IA.
 
@@ -208,11 +250,39 @@ When a domain requires another domain's information:
 3. never import another module's ORM models as a shortcut;
 4. never duplicate canonical data into a second domain store merely for display.
 
-## 5. Integration order
+### Shared child files
+
+Within one parent fan-out, files touched by more than one child are shared integration surfaces. The Controller must either:
+
+- serialize those child changes;
+- remove the file from all but one child write set; or
+- assign the file to a designated parent/domain integration writer.
+
+Do not use repeated rebases, force-pushes, or competing edits to turn an ownership problem into an ad hoc merge problem.
+
+## 5. Integration and acceptance order
 
 Parallel development is allowed, but merge/integration order is controlled.
 
-Recommended order into `build/cep-v1-integration`:
+### Child to parent
+
+Before any child composition, the integration authority recovers live GitHub state for the parent target, child PR, exact child HEAD, expected frozen parent/base ancestry, changed paths, and relevant checks. A child whose reviewed HEAD changed must be re-verified before integration.
+
+Recommended child composition sequence:
+
+1. freeze the accepted child SHA;
+2. verify parent target and ancestry;
+3. verify changed paths remain inside the child write set;
+4. verify sibling overlap has an explicit integration plan;
+5. integrate only after Controller authorization;
+6. verify the exact resulting parent HEAD;
+7. run or await the parent-level checks required by the parent workstream.
+
+The child writer does not perform or authorize this integration.
+
+### Parent to integration branch
+
+Recommended order into `build/cep-v1-integration` remains:
 
 1. Shared Foundation contract slice.
 2. Domain workstreams that do not conflict with the foundation diff.
@@ -220,7 +290,21 @@ Recommended order into `build/cep-v1-integration`:
 4. Full integration regression and real-browser validation.
 5. Final integration PR to `main` only after Controller authorization.
 
-A domain PR may remain open while another PR merges. Before merge, the domain branch must be brought current with the integration baseline and rerun required checks.
+A parent domain PR may remain open while another PR merges. Before parent merge, the domain branch must be brought current with the integration baseline as directed by the Controller and rerun required checks.
+
+### Acceptance boundaries
+
+The following are separate control events and must never be conflated:
+
+```text
+child integration into parent
+!= parent-domain acceptance
+!= parent PR integration into build/cep-v1-integration
+!= integration-branch acceptance
+!= main acceptance / release / deployment
+```
+
+No Executor receives implicit merge, `main`, release, or deployment authority from a successful lower-level gate.
 
 ## 6. Real-app evidence requirement
 
@@ -230,11 +314,13 @@ Static mock screens, disconnected storybook-style surfaces, HTML prototypes, ima
 
 ## 7. Handoff contract
 
-Every Builder stops with an Execution Handoff containing:
+Every Builder or child writer stops with an Execution Handoff containing the applicable fields:
 
 ```text
 WORKSTREAM
 BASELINE
+PARENT BRANCH              # child fan-out only
+FROZEN PARENT HEAD         # child fan-out only
 BRANCH
 HEAD COMMIT
 PR
@@ -245,23 +331,49 @@ CI RUNS
 BROWSER/RUNTIME EVIDENCE
 KNOWN LIMITATIONS
 CROSS-WORKSTREAM DEPENDENCIES
+WRITE_OUTCOME UNKNOWN      # only when applicable
 STOP GATE
 ```
 
-The Builder does not merge and does not write Google Drive control state.
+The handoff must identify the exact reviewer entry point and the next authority. The Builder or child writer does not merge and does not write Google Drive control state.
 
 ## 8. Controller responsibilities
 
 The Controller:
 
 - owns the integration baseline;
-- resolves shared-path ownership;
-- reviews PR diffs and evidence;
-- authorizes merge order;
+- preserves the five canonical parent domain branches;
+- authorizes whether a parent workstream may use child fan-out;
+- freezes the parent HEAD used by each child;
+- resolves shared-path ownership and overlapping child write sets;
+- reviews child and parent PR diffs and evidence;
+- is the only authority that may authorize child-to-parent integration, parent-to-integration composition, and final integration progression;
 - records meaningful control events in Drive;
 - opens remediation workstreams when repository governance or architecture boundaries are insufficient;
 - prepares the final integration/acceptance gate.
 
-## 9. Stop rule
+A Controller may designate a parent/domain integration writer to execute an already-authorized composition. That designation does not grant the integration writer independent acceptance, `main`, release, deployment, or Drive authority.
 
-If parallelism begins to create hidden coupling, shared-file collisions, duplicated canonical state, or conflicting migrations, stop the affected workstream and resolve the dependency centrally. Parallel speed never overrides authority or correctness.
+## 9. Recovery rules
+
+Exact live GitHub state is authoritative for mutable repository facts.
+
+- Recover the required exact HEADs before every substantial write.
+- If the expected parent or base moved, stop and request Controller rebaseline rather than silently adopting drift.
+- If a write was attempted but acknowledgment is missing or ambiguous, record `WRITE_OUTCOME = UNKNOWN`; do not assume failure and do not retry blindly.
+- Resolve an `UNKNOWN` outcome by rereading the target branch/PR/object and proving whether the mutation landed.
+- After interruption or chat rotation, recover live state before continuing and do not repeat completed work unless live evidence requires it.
+
+## 10. Stop rule
+
+Stop the affected workstream and return to the Controller when:
+
+- parallelism creates hidden coupling, shared-file collisions, duplicated canonical state, or conflicting migrations;
+- a child requires a path outside its bounded write set;
+- the parent HEAD moved from the child's frozen authority;
+- two writers would concurrently mutate the same parent branch/ref;
+- an overlapping shared file lacks serialization or a designated integration owner;
+- a write outcome remains unresolved as `UNKNOWN`;
+- required checks or authority are missing for the next integration step.
+
+Parallel speed never overrides authority, exact-state safety, product correctness, or acceptance boundaries.
