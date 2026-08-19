@@ -42,7 +42,6 @@ const workspaceReferences = CEP_GLOBAL_DESTINATIONS.filter(
 function refreshOrchestration(): void {
   router.reload({
     only: ['orchestration'],
-    preserveScroll: true,
     onStart: () => {
       refreshing.value = true;
     },
