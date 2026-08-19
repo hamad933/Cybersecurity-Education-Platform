@@ -17,6 +17,8 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/releases', [SystemOperationsController::class, 'releases'])->name('releases');
         Route::get('/configuration', [SystemOperationsController::class, 'configuration'])->name('configuration');
 
+        Route::post('/processing/runs/{run}/cancel', [SystemOperationsController::class, 'cancelProcessingRun'])
+            ->middleware('throttle:30,1')->whereUuid('run')->name('processing.runs.cancel');
         Route::post('/validation/sources/import', [ReleaseController::class, 'importSource'])
             ->middleware('throttle:10,1')->name('validation.sources.import');
         Route::post('/ai-bridge/prompts/export', [ReleaseController::class, 'exportAiPrompt'])

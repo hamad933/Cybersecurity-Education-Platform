@@ -3,6 +3,9 @@
 namespace App\Modules\Platform\SystemOperations;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Platform\Audit\AuditWriter;
+use App\Modules\Platform\Processing\ProcessingRun;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -49,6 +52,37 @@ final class SystemOperationsController extends Controller
     public function configuration(Request $request): Response
     {
         return $this->render($request, 'configuration');
+    }
+
+    public function cancelProcessingRun(Request $request, string $run, AuditWriter $audit): RedirectResponse
+    {
+        $processingRun = ProcessingRun::query()->findOrFail($run);
+        $previousStatus = (string) $processingRun->status;
+
+        if (! in_array($previousStatus, ['pending', 'running'], true)) {
+            return back()->withErrors([
+                'processing' => "Processing run cannot be cancelled from state {$previousStatus}.",
+            ]);
+        }
+
+        $processingRun->transitionTo('cancelled');
+        $actorId = (string) $request->user()->getAuthIdentifier();
+
+        $audit->append([
+            'actor_identifier' => $actorId,
+            'action' => 'processing.run.cancelled',
+            'target_type' => 'processing_run',
+            'target_identifier' => (string) $processingRun->id,
+            'correlation_id' => (string) $processingRun->id,
+            'outcome' => 'success',
+            'safe_metadata' => [
+                'previous_status' => $previousStatus,
+                'processing_type' => (string) $processingRun->type,
+                'input_digest' => (string) $processingRun->input_digest,
+            ],
+        ]);
+
+        return back()->with('success', 'Processing run cancellation recorded.');
     }
 
     private function render(Request $request, string $surface): Response

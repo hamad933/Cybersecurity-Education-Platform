@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { computed, reactive } from 'vue';
+import { computed, reactive, ref } from 'vue';
 
 type Surface =
   | 'health'
@@ -61,13 +61,6 @@ type SourceImport = {
   sha256: string;
   status: string;
   rejection_code: string | null;
-  created_at: string;
-};
-type Prompt = {
-  id: string;
-  purpose: string;
-  status: string;
-  current_revision: number;
   created_at: string;
 };
 type PromptRevision = {
@@ -147,6 +140,18 @@ type AuditRecord = {
   previous_hash: string | null;
   record_hash: string;
 };
+type OperationalPolicy = {
+  execution?: string;
+  automatic_provider_enabled?: boolean;
+  automatic_publish?: boolean;
+  polling?: boolean;
+  embeddings?: boolean;
+  append_only?: boolean;
+  destructive_http_actions?: boolean;
+  cancellation?: string;
+  retry_route_available?: boolean;
+  knowledge_decisions?: boolean;
+};
 type WorkspaceState = {
   foundation?: { checks: CheckMap; healthy: boolean; failed_checks: string[] };
   processing?: { counts: Counts; runs?: ProcessingRun[] };
@@ -159,16 +164,7 @@ type WorkspaceState = {
     knowledge_quality_decisions: boolean;
     canonical_knowledge_decisions: boolean;
   };
-  policy?: {
-    execution?: string;
-    automatic_provider_enabled?: boolean;
-    automatic_publish?: boolean;
-    polling?: boolean;
-    embeddings?: boolean;
-    append_only?: boolean;
-    destructive_http_actions?: boolean;
-  };
-  prompts?: Prompt[];
+  policy?: OperationalPolicy;
   prompt_revisions?: PromptRevision[];
   results?: AiResult[];
   decisions?: AiDecision[];
@@ -191,7 +187,14 @@ type WorkspaceState = {
   release_loopback_only?: boolean;
   ai_network_provider_enabled?: boolean;
   limits?: Record<string, number>;
+  configuration_policy?: {
+    mode: string;
+    runtime_mutation_available: boolean;
+    secrets_exposed: boolean;
+  };
 };
+type DeepSection = { label: string; value: unknown };
+type DeepWorkspace = { title: string; sections: DeepSection[] };
 
 const props = defineProps<{ surface: Surface; state: WorkspaceState }>();
 const navigation: Array<{ key: Surface; label: string; href: string }> = [
@@ -215,6 +218,7 @@ const titles: Record<Surface, string> = {
   configuration: 'تهيئة المنتج المحلية',
 };
 const title = computed(() => titles[props.surface]);
+const deepWorkspace = ref<DeepWorkspace | null>(null);
 const sourceForm = useForm<{ source: File | null }>({ source: null });
 const promptForm = useForm({ purpose: '', knowledge_unit_id: '', instruction: '' });
 const aiImportForm = useForm<{ package: File | null }>({ package: null });
@@ -231,6 +235,16 @@ const decideAi = (resultId: string, decision: 'ACCEPT_AS_DRAFT' | 'REJECT') => {
     { preserveScroll: true },
   );
 };
+const cancelProcessing = (runId: string) => {
+  router.post(`/system/processing/runs/${runId}/cancel`, {}, { preserveScroll: true });
+};
+const canCancel = (status: string): boolean => status === 'pending' || status === 'running';
+const openDeepWorkspace = (titleValue: string, sections: DeepSection[]) => {
+  deepWorkspace.value = { title: titleValue, sections };
+};
+const closeDeepWorkspace = () => {
+  deepWorkspace.value = null;
+};
 const count = (counts: Counts | undefined, key: string): number => counts?.[key] ?? 0;
 const when = (value: string | null | undefined): string =>
   value ? new Date(value).toLocaleString('ar-YE') : '—';
@@ -238,13 +252,7 @@ const short = (value: string | null | undefined, length = 12): string =>
   value ? value.slice(0, length) : '—';
 const jsonText = (value: unknown): string => {
   if (value === null || value === undefined) return '—';
-  if (typeof value === 'string') {
-    try {
-      return JSON.stringify(JSON.parse(value), null, 2);
-    } catch {
-      return value;
-    }
-  }
+  if (typeof value === 'string') return value;
   return JSON.stringify(value, null, 2) ?? String(value);
 };
 const packagesAsRecords = computed<PackageRecord[]>(() =>
@@ -265,19 +273,17 @@ const packageCounts = computed<Counts>(() =>
         <p class="eyebrow" dir="ltr">CEP / SYSTEM &amp; OPERATIONS</p>
         <h1>{{ title }}</h1>
         <p class="subtitle">
-          حالة تشغيلية فعلية من خدمات CEP وقاعدة البيانات؛ لا مؤشرات توضيحية أو ادعاءات نشر.
+          أدوات تشغيل فعلية مرتبطة بخدمات CEP وقاعدة البيانات، مع فصل الحقيقة التقنية عن أحكام جودة
+          المعرفة.
         </p>
       </div>
       <div class="top-actions" aria-label="أدوات المساحة الحالية">
         <a v-if="surface === 'validation'" href="#source-import" class="tool-link">استيراد للتحقق</a
-        ><a v-if="surface === 'ai-bridge'" href="#manual-ai-export" class="tool-link"
+        ><a v-else-if="surface === 'ai-bridge'" href="#manual-ai-export" class="tool-link"
           >تجهيز Prompt</a
-        ><a v-if="surface === 'backups'" href="#backup-create" class="tool-link">إنشاء Backup</a
-        ><span
-          v-if="!['validation', 'ai-bridge', 'backups'].includes(surface)"
-          class="read-only-chip"
-          >قراءة وفحص</span
-        >
+        ><a v-else-if="surface === 'backups'" href="#backup-create" class="tool-link"
+          >إنشاء Backup</a
+        ><span v-else class="read-only-chip">فحص تشغيلي</span>
       </div>
     </header>
     <div class="workspace-grid">
@@ -403,10 +409,31 @@ const packageCounts = computed<Counts>(() =>
                     </dd>
                   </div>
                 </dl>
-                <p v-if="run.safe_error_message" class="diagnostic">
-                  <bdi dir="ltr">{{ run.error_category || 'uncategorized' }}</bdi> ·
-                  {{ run.safe_error_message }}
-                </p>
+                <div class="context-actions">
+                  <button
+                    v-if="canCancel(run.status)"
+                    type="button"
+                    class="danger-button"
+                    @click="cancelProcessing(run.id)"
+                  >
+                    إلغاء التشغيل
+                  </button>
+                  <button
+                    v-if="run.safe_error_message"
+                    type="button"
+                    class="secondary-button"
+                    @click="
+                      openDeepWorkspace(`تشخيص Processing Run — ${run.type}`, [
+                        { label: 'Error category', value: run.error_category },
+                        { label: 'Safe error message', value: run.safe_error_message },
+                        { label: 'Input digest', value: run.input_digest },
+                        { label: 'Run identity', value: run.id },
+                      ])
+                    "
+                  >
+                    فتح التشخيص
+                  </button>
+                </div>
               </article>
               <p v-if="(state.processing?.runs ?? []).length === 0" class="empty">
                 لا توجد Processing Runs مسجلة.
@@ -427,6 +454,9 @@ const packageCounts = computed<Counts>(() =>
                     ><bdi dir="ltr">{{ message.type }}</bdi></strong
                   >
                   <small dir="ltr">correlation={{ message.correlation_id }}</small>
+                  <small dir="ltr"
+                    >producer={{ message.producer_module }} · attempts={{ message.attempts }}</small
+                  >
                 </div>
                 <span class="state-pill" dir="ltr">{{ message.dispatch_state }}</span>
               </article>
@@ -484,13 +514,19 @@ const packageCounts = computed<Counts>(() =>
                     <dd dir="ltr">{{ pkg.owner_module }} / v{{ pkg.schema_version ?? '—' }}</dd>
                   </div>
                 </dl>
-                <details class="context-disclosure">
-                  <summary>Scope وManifest المسجلان</summary>
-                  <h3>Scope</h3>
-                  <pre dir="ltr">{{ jsonText(pkg.scope) }}</pre>
-                  <h3>Manifest</h3>
-                  <pre dir="ltr">{{ jsonText(pkg.manifest) }}</pre>
-                </details>
+                <button
+                  type="button"
+                  class="secondary-button context-button"
+                  @click="
+                    openDeepWorkspace(`السياق التقني للحزمة — ${pkg.package_type}`, [
+                      { label: 'Scope', value: pkg.scope },
+                      { label: 'Manifest', value: pkg.manifest },
+                      { label: 'Package digest', value: pkg.package_digest },
+                    ])
+                  "
+                >
+                  فتح السياق التقني
+                </button>
               </article>
               <p v-if="packagesAsRecords.length === 0" class="empty">لا توجد حزم مسجلة.</p>
             </div>
@@ -602,20 +638,21 @@ const packageCounts = computed<Counts>(() =>
                     <dt>Input digest</dt>
                     <dd class="mono break-all" dir="ltr">{{ revision.input_digest }}</dd>
                   </div>
-                  <div class="wide">
-                    <dt>Package digest</dt>
-                    <dd class="mono break-all" dir="ltr">{{ revision.package_digest }}</dd>
-                  </div>
                 </dl>
-                <details class="context-disclosure">
-                  <summary>Declared scope، target، method وpackage context</summary>
-                  <h3>Declared scope</h3>
-                  <pre dir="ltr">{{ jsonText(revision.declared_scope) }}</pre>
-                  <h3>Package scope</h3>
-                  <pre dir="ltr">{{ jsonText(revision.package_scope) }}</pre>
-                  <h3>Package manifest</h3>
-                  <pre dir="ltr">{{ jsonText(revision.package_manifest) }}</pre>
-                </details>
+                <button
+                  type="button"
+                  class="secondary-button context-button"
+                  @click="
+                    openDeepWorkspace(`سياق Prompt — ${revision.prompt_purpose}`, [
+                      { label: 'Declared scope', value: revision.declared_scope },
+                      { label: 'Package scope', value: revision.package_scope },
+                      { label: 'Package manifest', value: revision.package_manifest },
+                      { label: 'Package digest', value: revision.package_digest },
+                    ])
+                  "
+                >
+                  فتح سياق الحزمة
+                </button>
               </article>
               <p v-if="(state.prompt_revisions ?? []).length === 0" class="empty">
                 لا توجد Prompt revisions مسجلة.
@@ -626,8 +663,8 @@ const packageCounts = computed<Counts>(() =>
             <p class="section-kicker" dir="ltr">RETURNED / CURRENT STATE</p>
             <h2>النتيجة الكاملة قبل القرار البشري</h2>
             <p class="muted">
-              لا تُعرض معاينة مختصرة لاتخاذ القرار. افتح سجل النتيجة لمراجعة proposal الكامل
-              وProvenance ثم تظهر أدوات القرار.
+              الـ proposal الكامل وسياق أصله جزء من مهمة المراجعة البشرية نفسها، لذلك يبقيان في
+              CENTER قبل أدوات القرار.
             </p>
             <div class="record-list">
               <article
@@ -688,16 +725,8 @@ const packageCounts = computed<Counts>(() =>
                       <dd class="mono" dir="ltr">{{ result.prompt_package_revision_id }}</dd>
                     </div>
                     <div>
-                      <dt>Prompt package identity</dt>
-                      <dd class="mono" dir="ltr">{{ result.prompt_portable_package_id }}</dd>
-                    </div>
-                    <div>
                       <dt>Returned package type</dt>
                       <dd dir="ltr">{{ result.returned_package_type }}</dd>
-                    </div>
-                    <div>
-                      <dt>Returned package state</dt>
-                      <dd dir="ltr">{{ result.returned_package_status }}</dd>
                     </div>
                     <div class="wide">
                       <dt>Returned package digest</dt>
@@ -819,10 +848,19 @@ const packageCounts = computed<Counts>(() =>
                   </div>
                   <span class="state-pill" dir="ltr">{{ restore.status }}</span>
                 </div>
-                <details class="context-disclosure">
-                  <summary>Verification المسجل</summary>
-                  <pre dir="ltr">{{ jsonText(restore.verification) }}</pre>
-                </details>
+                <button
+                  type="button"
+                  class="secondary-button context-button"
+                  @click="
+                    openDeepWorkspace(`Restore verification — ${restore.target_database}`, [
+                      { label: 'Verification', value: restore.verification },
+                      { label: 'Backup manifest', value: restore.backup_manifest_id },
+                      { label: 'Completed at', value: restore.completed_at },
+                    ])
+                  "
+                >
+                  فتح التحقق المرحلي
+                </button>
               </article>
               <p v-if="(state.restores ?? []).length === 0" class="empty">
                 لا توجد Restore Runs مسجلة.
@@ -868,35 +906,29 @@ const packageCounts = computed<Counts>(() =>
                     <dd class="mono" dir="ltr">{{ record.actor_identifier || '—' }}</dd>
                   </div>
                   <div>
-                    <dt>Target type</dt>
-                    <dd class="mono" dir="ltr">{{ record.target_type }}</dd>
+                    <dt>Target</dt>
+                    <dd class="mono" dir="ltr">
+                      {{ record.target_type }} / {{ record.target_identifier || '—' }}
+                    </dd>
                   </div>
-                  <div>
-                    <dt>Target identifier</dt>
-                    <dd class="mono" dir="ltr">{{ record.target_identifier || '—' }}</dd>
-                  </div>
-                  <div>
+                  <div class="wide">
                     <dt>Correlation ID</dt>
                     <dd class="mono" dir="ltr">{{ record.correlation_id }}</dd>
                   </div>
                 </dl>
-                <details class="context-disclosure">
-                  <summary>Safe metadata وHash chain context</summary>
-                  <h3>Safe metadata</h3>
-                  <pre dir="ltr">{{ jsonText(record.safe_metadata) }}</pre>
-                  <dl class="trace-grid">
-                    <div class="wide">
-                      <dt>Previous hash</dt>
-                      <dd class="mono break-all" dir="ltr">
-                        {{ record.previous_hash || 'GENESIS' }}
-                      </dd>
-                    </div>
-                    <div class="wide">
-                      <dt>Record hash</dt>
-                      <dd class="mono break-all" dir="ltr">{{ record.record_hash }}</dd>
-                    </div>
-                  </dl>
-                </details>
+                <button
+                  type="button"
+                  class="secondary-button context-button"
+                  @click="
+                    openDeepWorkspace(`تحقيق Audit #${record.sequence_no}`, [
+                      { label: 'Safe metadata', value: record.safe_metadata },
+                      { label: 'Previous hash', value: record.previous_hash || 'GENESIS' },
+                      { label: 'Record hash', value: record.record_hash },
+                    ])
+                  "
+                >
+                  فتح سياق التحقيق
+                </button>
               </article>
               <p v-if="(state.records ?? []).length === 0" class="empty">لا توجد سجلات تدقيق.</p>
             </div>
@@ -938,8 +970,8 @@ const packageCounts = computed<Counts>(() =>
             <p class="section-kicker" dir="ltr">CAPTURED PACKAGE / FOLLOW-UP CONTEXT</p>
             <h2>حزم مرتبطة بالتحقق</h2>
             <p class="muted">
-              هذه بيانات الحزمة المسجلة نفسها: الهوية، النطاق، Manifest والحالة. لا تمنح صلاحية
-              Deployment.
+              الهوية والحالة تبقيان في CENTER؛ تفاصيل Scope وManifest تُفتح مؤقتًا في BOTTOM ولا
+              تمنح صلاحية Deployment.
             </p>
             <div class="record-list">
               <article v-for="pkg in packagesAsRecords" :key="pkg.id" class="trace-card">
@@ -966,21 +998,35 @@ const packageCounts = computed<Counts>(() =>
                     <dd class="mono break-all" dir="ltr">{{ pkg.package_digest }}</dd>
                   </div>
                 </dl>
-                <details class="context-disclosure">
-                  <summary>Recorded target/scope وManifest</summary>
-                  <h3>Scope</h3>
-                  <pre dir="ltr">{{ jsonText(pkg.scope) }}</pre>
-                  <h3>Manifest</h3>
-                  <pre dir="ltr">{{ jsonText(pkg.manifest) }}</pre>
-                </details>
+                <button
+                  type="button"
+                  class="secondary-button context-button"
+                  @click="
+                    openDeepWorkspace(`Release package context — ${pkg.package_type}`, [
+                      { label: 'Scope', value: pkg.scope },
+                      { label: 'Manifest', value: pkg.manifest },
+                      { label: 'Package digest', value: pkg.package_digest },
+                    ])
+                  "
+                >
+                  فتح سياق الحزمة
+                </button>
               </article>
               <p v-if="packagesAsRecords.length === 0" class="empty">لا توجد حزم مسجلة.</p>
             </div>
           </section>
         </template>
         <template v-else-if="surface === 'configuration'">
+          <section class="hero-state">
+            <div>
+              <p class="section-kicker">Whitelisted local product configuration</p>
+              <h2>تهيئة تشغيلية مقروءة فقط</h2>
+            </div>
+            <span class="state-pill ok" dir="ltr">{{
+              state.configuration_policy?.mode ?? 'READ_ONLY'
+            }}</span>
+          </section>
           <section class="panel">
-            <p class="section-kicker">Whitelisted local product configuration</p>
             <h2>القيم التشغيلية غير السرية</h2>
             <dl class="config-list">
               <div>
@@ -1046,14 +1092,14 @@ const packageCounts = computed<Counts>(() =>
           <h2>Requested ≠ Executed</h2>
           <p>
             Input digest يعرّف الطلب، بينما الحالة والمحاولات والعامل والأوقات تصف ما حدث فعليًا.
-          </p></template
+          </p>
+          <p>الإلغاء متاح فقط لـ pending/running. لا يوجد Retry تلقائي ولا قرار معرفي.</p></template
         >
         <template v-else-if="surface === 'validation'"
           ><p class="rail-label">حد الملكية</p>
           <h2>تحقق تقني فقط</h2>
           <p>
-            التحقق هنا يختبر البنية، النوع، provenance، hashes وحدود الحزمة. قرار جودة المعرفة يبقى
-            خارج W05.
+            التحقق يختبر البنية والنوع والـ hashes وحدود الحزمة. قرار جودة المعرفة يبقى خارج W05.
           </p></template
         >
         <template v-else-if="surface === 'ai-bridge'"
@@ -1079,8 +1125,8 @@ const packageCounts = computed<Counts>(() =>
           ><p class="rail-label">الحقيقة التاريخية</p>
           <h2>Append-only</h2>
           <p>
-            Actor وTarget وCorrelation وSafe metadata والـhashes معروضة للتحقيق؛ لا توجد أوامر تعديل
-            للسجل.
+            السجل غير قابل للتعديل من هذه المساحة. تفاصيل metadata والـ hashes تُفتح كمساحة تحقيق
+            مؤقتة.
           </p></template
         >
         <template v-else-if="surface === 'releases'"
@@ -1092,13 +1138,32 @@ const packageCounts = computed<Counts>(() =>
         >
         <template v-else-if="surface === 'configuration'"
           ><p class="rail-label">نطاق التهيئة</p>
-          <h2>تشغيل المنتج المحلي</h2>
+          <h2>قراءة محكومة</h2>
           <p>
-            تظهر فقط قيم تشغيلية مسموحة وغير سرية. لا مفاتيح API ولا إعدادات حساب استهلاكية.
+            تظهر فقط قيم تشغيلية مسموحة وغير سرية، بلا mutation runtime ولا مفاتيح API.
           </p></template
         >
       </aside>
     </div>
+    <section v-if="deepWorkspace" class="workspace-bottom" aria-label="مساحة العمل العميقة المؤقتة">
+      <header class="bottom-header">
+        <div>
+          <p class="section-kicker" dir="ltr">TEMPORARY DEEP WORKSPACE</p>
+          <h2>{{ deepWorkspace.title }}</h2>
+        </div>
+        <button type="button" class="secondary-button" @click="closeDeepWorkspace">إغلاق</button>
+      </header>
+      <div class="bottom-sections">
+        <article
+          v-for="section in deepWorkspace.sections"
+          :key="section.label"
+          class="bottom-section"
+        >
+          <h3>{{ section.label }}</h3>
+          <pre dir="ltr">{{ jsonText(section.value) }}</pre>
+        </article>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -1138,13 +1203,17 @@ const packageCounts = computed<Counts>(() =>
 .subtitle {
   margin: 8px 0 0;
   color: #9fb0bd;
-  max-width: 760px;
+  max-width: 780px;
   line-height: 1.8;
 }
-.top-actions {
+.top-actions,
+.context-actions,
+.row-actions,
+.decision-actions {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 .tool-link,
 .read-only-chip,
@@ -1163,6 +1232,15 @@ button {
   border-color: #33434f;
   background: #101c25;
   color: #9fb0bd;
+}
+.secondary-button {
+  border-color: #3c5664;
+  background: #101f29;
+  color: #cfe1e8;
+}
+.context-button,
+.context-actions {
+  margin-top: 12px;
 }
 .workspace-grid {
   display: grid;
@@ -1352,7 +1430,6 @@ button {
   margin: 6px 0 0;
   line-height: 1.6;
 }
-.context-disclosure,
 .proposal-review {
   margin-top: 12px;
   border: 1px solid #31505c;
@@ -1360,15 +1437,14 @@ button {
   padding: 12px;
   background: #08131a;
 }
-.context-disclosure summary,
 .proposal-review summary,
 .danger-zone summary {
   cursor: pointer;
   font-weight: 900;
   color: #d8f2f2;
 }
-.context-disclosure h3,
-.proposal-review h3 {
+.proposal-review h3,
+.bottom-section h3 {
   margin: 14px 0 8px;
   font-size: 13px;
   color: #9fb8c3;
@@ -1403,14 +1479,7 @@ pre {
   font-weight: 800;
 }
 .decision-actions {
-  display: flex;
-  gap: 8px;
   margin-top: 10px;
-}
-.row-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 .row-actions a {
   color: #8de5e0;
@@ -1418,11 +1487,6 @@ pre {
 .muted {
   color: #95a7b3;
   line-height: 1.8;
-}
-.diagnostic {
-  color: #d9b896;
-  border-inline-start: 2px solid #755b3c;
-  padding-inline-start: 10px;
 }
 .inline-form,
 .form-grid {
@@ -1504,6 +1568,38 @@ textarea {
   text-align: center;
   padding: 22px;
 }
+.workspace-bottom {
+  position: sticky;
+  bottom: 16px;
+  z-index: 20;
+  margin-top: 16px;
+  border: 1px solid #35636a;
+  background: #07131a;
+  border-radius: 16px;
+  box-shadow: 0 -16px 36px rgba(0, 0, 0, 0.35);
+  padding: 16px;
+  max-height: 46vh;
+  overflow: auto;
+}
+.bottom-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.bottom-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.bottom-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.bottom-section {
+  min-width: 0;
+}
 @media (max-width: 1100px) {
   .workspace-grid {
     grid-template-columns: 180px minmax(0, 1fr);
@@ -1526,7 +1622,8 @@ textarea {
   .top-actions {
     margin-top: 16px;
   }
-  .workspace-grid {
+  .workspace-grid,
+  .bottom-sections {
     grid-template-columns: 1fr;
   }
   .workspace-left {
@@ -1542,20 +1639,23 @@ textarea {
   .trace-grid {
     grid-template-columns: 1fr;
   }
-  .trace-grid .wide {
+  .trace-grid .wide,
+  .form-grid .full {
     grid-column: auto;
   }
   .form-grid {
     grid-template-columns: 1fr;
   }
-  .form-grid .full {
-    grid-column: auto;
+  .workspace-bottom {
+    position: static;
+    max-height: none;
   }
 }
 @media (max-width: 480px) {
   .hero-state,
   .record-row,
-  .trace-heading {
+  .trace-heading,
+  .bottom-header {
     align-items: flex-start;
     flex-direction: column;
   }

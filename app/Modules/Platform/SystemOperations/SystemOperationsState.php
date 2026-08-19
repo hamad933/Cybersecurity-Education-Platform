@@ -23,20 +23,20 @@ final class SystemOperationsState
     public function forSurface(string $surface, string $actorId): array
     {
         return match ($surface) {
-            'health' => $this->healthState(),
+            'health' => $this->healthState($actorId),
             'processing' => $this->processingState(),
-            'validation' => $this->validationState(),
+            'validation' => $this->validationState($actorId),
             'ai-bridge' => $this->aiBridgeState($actorId),
             'backups' => $this->backupState($actorId),
             'audit' => $this->auditState(),
-            'releases' => $this->releaseState(),
+            'releases' => $this->releaseState($actorId),
             'configuration' => $this->configurationState(),
             default => throw new \InvalidArgumentException("Unknown System & Operations surface: {$surface}"),
         };
     }
 
     /** @return array<string, mixed> */
-    private function healthState(): array
+    private function healthState(string $actorId): array
     {
         $checks = $this->health->summaryChecks();
         $failedChecks = collect($checks)->filter(fn (string $status): bool => $status !== 'ok')->keys()->values()->all();
@@ -49,7 +49,7 @@ final class SystemOperationsState
             ],
             'processing' => ['counts' => $this->statusCounts('processing_runs', 'status')],
             'outbox' => ['counts' => $this->statusCounts('outbox_messages', 'dispatch_state')],
-            'packages' => ['counts' => $this->statusCounts('portable_packages', 'status')],
+            'packages' => ['counts' => $this->actorStatusCounts('portable_packages', 'status', $actorId)],
             'release_gate' => $this->safe(
                 fn (): array => $this->releaseReadiness->evaluate(),
                 ['ready' => false, 'checks' => []],
@@ -76,23 +76,28 @@ final class SystemOperationsState
                     'occurred_at', 'next_attempt_at', 'dispatched_at',
                 ], 'occurred_at', 30),
             ],
+            'policy' => [
+                'cancellation' => 'PENDING_OR_RUNNING_ONLY',
+                'retry_route_available' => false,
+                'knowledge_decisions' => false,
+            ],
         ];
     }
 
     /** @return array<string, mixed> */
-    private function validationState(): array
+    private function validationState(string $actorId): array
     {
         return [
             'packages' => [
-                'counts' => $this->statusCounts('portable_packages', 'status'),
-                'records' => $this->rows('portable_packages', [
+                'counts' => $this->actorStatusCounts('portable_packages', 'status', $actorId),
+                'records' => $this->actorRows('portable_packages', $actorId, [
                     'id', 'package_type', 'schema_version', 'owner_module', 'scope', 'manifest',
                     'package_digest', 'status', 'created_at',
                 ], 'created_at', 30, ['scope', 'manifest']),
             ],
             'source_imports' => [
-                'counts' => $this->statusCounts('source_imports', 'status'),
-                'records' => $this->rows('source_imports', [
+                'counts' => $this->actorStatusCounts('source_imports', 'status', $actorId),
+                'records' => $this->actorRows('source_imports', $actorId, [
                     'id', 'original_name', 'detected_media_type', 'extension', 'size_bytes', 'sha256',
                     'status', 'rejection_code', 'created_at',
                 ], 'created_at', 30),
@@ -161,14 +166,14 @@ final class SystemOperationsState
     }
 
     /** @return array<string, mixed> */
-    private function releaseState(): array
+    private function releaseState(string $actorId): array
     {
         return [
             'readiness' => $this->safe(
                 fn (): array => $this->releaseReadiness->evaluate(),
                 ['ready' => false, 'checks' => []],
             ),
-            'packages' => $this->rows('portable_packages', [
+            'packages' => $this->actorRows('portable_packages', $actorId, [
                 'id', 'package_type', 'schema_version', 'owner_module', 'scope', 'manifest',
                 'package_digest', 'status', 'created_at',
             ], 'created_at', 30, ['scope', 'manifest']),
@@ -196,6 +201,11 @@ final class SystemOperationsState
                 'manual_ai_result_max_bytes' => (int) config('platform.manual_ai_result_max_bytes'),
                 'audit_metadata_max_bytes' => (int) config('platform.audit_metadata_max_bytes'),
                 'outbox_payload_max_bytes' => (int) config('platform.outbox_payload_max_bytes'),
+            ],
+            'configuration_policy' => [
+                'mode' => 'READ_ONLY_WHITELIST',
+                'runtime_mutation_available' => false,
+                'secrets_exposed' => false,
             ],
         ];
     }
@@ -293,6 +303,24 @@ final class SystemOperationsState
 
         return $this->safe(function () use ($table, $column): array {
             return DB::table($table)
+                ->select($column, DB::raw('count(*) as aggregate'))
+                ->groupBy($column)
+                ->pluck('aggregate', $column)
+                ->map(fn ($count): int => (int) $count)
+                ->all();
+        }, []);
+    }
+
+    /** @return array<string, int> */
+    private function actorStatusCounts(string $table, string $column, string $actorId): array
+    {
+        if ($this->tableAvailable($table) === false) {
+            return [];
+        }
+
+        return $this->safe(function () use ($table, $column, $actorId): array {
+            return DB::table($table)
+                ->where('actor_id', $actorId)
                 ->select($column, DB::raw('count(*) as aggregate'))
                 ->groupBy($column)
                 ->pluck('aggregate', $column)
