@@ -1,27 +1,31 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import type { EnterpriseItem } from '../types';
-import { asMap, fieldEntries, valueText } from '../utils';
+import { computed } from "vue";
+import type { EnterpriseItem } from "../types";
+import { asMap, fieldEntries, valueText } from "../utils";
 
 const props = defineProps<{ enterprise: EnterpriseItem }>();
 
 const nodes = computed(() =>
   (Array.isArray(asMap(props.enterprise.digital_twin_revision?.topology).nodes)
-    ? (asMap(props.enterprise.digital_twin_revision?.topology).nodes as unknown[])
+    ? (asMap(props.enterprise.digital_twin_revision?.topology)
+        .nodes as unknown[])
     : []
   )
     .map(asMap)
-    .filter((node) => typeof node.id === 'string')
+    .filter((node) => typeof node.id === "string")
     .map((node) => ({ id: String(node.id), kind: valueText(node.kind) })),
 );
 
 const links = computed(() =>
   (Array.isArray(asMap(props.enterprise.digital_twin_revision?.topology).links)
-    ? (asMap(props.enterprise.digital_twin_revision?.topology).links as unknown[])
+    ? (asMap(props.enterprise.digital_twin_revision?.topology)
+        .links as unknown[])
     : []
   )
     .map(asMap)
-    .filter((link) => typeof link.from === 'string' && typeof link.to === 'string')
+    .filter(
+      (link) => typeof link.from === "string" && typeof link.to === "string",
+    )
     .map((link) => ({ from: String(link.from), to: String(link.to) })),
 );
 </script>
@@ -33,11 +37,14 @@ const links = computed(() =>
         <p class="rail-kicker">النموذج التشغيلي</p>
         <h2>{{ enterprise.name_ar }}</h2>
       </div>
-      <span v-if="enterprise.is_fixture" class="fixture-badge">بيانات تجريبية محكومة</span>
+      <span v-if="enterprise.is_fixture" class="fixture-badge"
+        >بيانات تجريبية محكومة</span
+      >
     </header>
 
     <div class="lineage-strip" dir="ltr">
-      <span>Enterprise</span><i>→</i><span>Digital Twin Revision</span><i>→</i><span>Baseline</span>
+      <span>Enterprise</span><i>→</i><span>Digital Twin Revision</span><i>→</i
+      ><span>Baseline</span>
     </div>
 
     <div v-if="nodes.length" class="topology-board">
@@ -47,13 +54,20 @@ const links = computed(() =>
         <small class="technical" dir="ltr">{{ node.kind }}</small>
       </article>
     </div>
-    <p v-else class="truthful-unavailable">لا يرسل الإصدار المحدد عقد Topology منظّمة يمكن رسمها.</p>
+    <p v-else class="truthful-unavailable">
+      لا يرسل الإصدار المحدد عقد Topology منظّمة يمكن رسمها.
+    </p>
 
     <div v-if="links.length" class="edge-ledger">
       <p class="rail-kicker">الوصلات المثبتة</p>
       <div class="edge-list" dir="ltr">
-        <span v-for="link in links" :key="`${link.from}-${link.to}`" class="edge-chip">
-          <b>{{ link.from }}</b><i>→</i><b>{{ link.to }}</b>
+        <span
+          v-for="link in links"
+          :key="`${link.from}-${link.to}`"
+          class="edge-chip"
+        >
+          <b>{{ link.from }}</b
+          ><i>→</i><b>{{ link.to }}</b>
         </span>
       </div>
     </div>
@@ -61,13 +75,22 @@ const links = computed(() =>
     <section class="subsurface">
       <p class="rail-kicker">Baseline State</p>
       <h3>الحالة التشغيلية المثبتة</h3>
-      <div v-if="fieldEntries(enterprise.baseline?.state).length" class="field-grid">
-        <div v-for="field in fieldEntries(enterprise.baseline?.state)" :key="field.key" class="field-cell">
+      <div
+        v-if="fieldEntries(enterprise.baseline?.state).length"
+        class="field-grid"
+      >
+        <div
+          v-for="field in fieldEntries(enterprise.baseline?.state)"
+          :key="field.key"
+          class="field-cell"
+        >
           <small class="technical" dir="ltr">{{ field.key }}</small>
           <strong>{{ field.value }}</strong>
         </div>
       </div>
-      <p v-else class="truthful-unavailable">لا توجد Baseline State منظّمة مستلمة لهذا السجل.</p>
+      <p v-else class="truthful-unavailable">
+        لا توجد Baseline State منظّمة مستلمة لهذا السجل.
+      </p>
     </section>
   </section>
 </template>
