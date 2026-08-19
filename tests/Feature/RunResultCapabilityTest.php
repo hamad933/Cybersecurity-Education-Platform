@@ -80,11 +80,25 @@ final class RunResultCapabilityTest extends TestCase
         $scenarioId = (string) DB::table('simulation_scenario_definitions')->value('id');
 
         $run = $capability->prepareScenarioRun($scenarioId, 6100, ['mode' => 'TEAM']);
+        $capability->markReady((string) $run['id']);
+        $capability->start((string) $run['id']);
+        $first = $capability->executeInternal((string) $run['id']);
 
-        $this->assertSame(RunResultVocabulary::RUN_SCENARIO, $run['run_type']);
-        $this->assertSame($scenarioId, (string) $run['scenario_definition_id']);
-        $this->assertNull($run['standalone_lab_definition_id']);
-        $this->assertGreaterThanOrEqual(1, DB::table('simulation_run_lab_module_instances')->where('run_id', $run['id'])->count());
+        $repeat = $capability->prepareScenarioRun($scenarioId, 6100, ['mode' => 'TEAM']);
+        $capability->markReady((string) $repeat['id']);
+        $capability->start((string) $repeat['id']);
+        $second = $capability->executeInternal((string) $repeat['id']);
+        $firstState = $this->runtimeState((string) $first['id']);
+        $secondState = $this->runtimeState((string) $second['id']);
+
+        $this->assertSame(RunResultVocabulary::RUN_SCENARIO, $first['run_type']);
+        $this->assertSame($scenarioId, (string) $first['scenario_definition_id']);
+        $this->assertNull($first['standalone_lab_definition_id']);
+        $this->assertGreaterThanOrEqual(1, DB::table('simulation_run_lab_module_instances')->where('run_id', $first['id'])->count());
+        $this->assertSame($firstState['trace_digest'], $secondState['trace_digest']);
+        $this->assertSame($firstState['causality'], $secondState['causality']);
+        $this->assertSame($firstState['telemetry'], $secondState['telemetry']);
+        $this->assertSame($firstState['validation'], $secondState['validation']);
     }
 
     #[Test]
