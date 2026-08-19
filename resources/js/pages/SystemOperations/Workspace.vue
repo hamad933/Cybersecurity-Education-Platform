@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { computed, reactive } from 'vue';
+import { computed, reactive, ref } from 'vue';
 
 type Surface =
   | 'health'
@@ -61,13 +61,6 @@ type SourceImport = {
   sha256: string;
   status: string;
   rejection_code: string | null;
-  created_at: string;
-};
-type Prompt = {
-  id: string;
-  purpose: string;
-  status: string;
-  current_revision: number;
   created_at: string;
 };
 type PromptRevision = {
@@ -147,6 +140,18 @@ type AuditRecord = {
   previous_hash: string | null;
   record_hash: string;
 };
+type OperationalPolicy = {
+  execution?: string;
+  automatic_provider_enabled?: boolean;
+  automatic_publish?: boolean;
+  polling?: boolean;
+  embeddings?: boolean;
+  append_only?: boolean;
+  destructive_http_actions?: boolean;
+  cancellation?: string;
+  retry_route_available?: boolean;
+  knowledge_decisions?: boolean;
+};
 type WorkspaceState = {
   foundation?: { checks: CheckMap; healthy: boolean; failed_checks: string[] };
   processing?: { counts: Counts; runs?: ProcessingRun[] };
@@ -159,16 +164,7 @@ type WorkspaceState = {
     knowledge_quality_decisions: boolean;
     canonical_knowledge_decisions: boolean;
   };
-  policy?: {
-    execution?: string;
-    automatic_provider_enabled?: boolean;
-    automatic_publish?: boolean;
-    polling?: boolean;
-    embeddings?: boolean;
-    append_only?: boolean;
-    destructive_http_actions?: boolean;
-  };
-  prompts?: Prompt[];
+  policy?: OperationalPolicy;
   prompt_revisions?: PromptRevision[];
   results?: AiResult[];
   decisions?: AiDecision[];
@@ -191,7 +187,14 @@ type WorkspaceState = {
   release_loopback_only?: boolean;
   ai_network_provider_enabled?: boolean;
   limits?: Record<string, number>;
+  configuration_policy?: {
+    mode: string;
+    runtime_mutation_available: boolean;
+    secrets_exposed: boolean;
+  };
 };
+type DeepSection = { label: string; value: unknown };
+type DeepWorkspace = { title: string; sections: DeepSection[] };
 
 const props = defineProps<{ surface: Surface; state: WorkspaceState }>();
 const navigation: Array<{ key: Surface; label: string; href: string }> = [
@@ -215,6 +218,7 @@ const titles: Record<Surface, string> = {
   configuration: 'تهيئة المنتج المحلية',
 };
 const title = computed(() => titles[props.surface]);
+const deepWorkspace = ref<DeepWorkspace | null>(null);
 const sourceForm = useForm<{ source: File | null }>({ source: null });
 const promptForm = useForm({ purpose: '', knowledge_unit_id: '', instruction: '' });
 const aiImportForm = useForm<{ package: File | null }>({ package: null });
@@ -230,6 +234,16 @@ const decideAi = (resultId: string, decision: 'ACCEPT_AS_DRAFT' | 'REJECT') => {
     { decision, rationale },
     { preserveScroll: true },
   );
+};
+const cancelProcessing = (runId: string) => {
+  router.post(`/system/processing/runs/${runId}/cancel`, {}, { preserveScroll: true });
+};
+const canCancel = (status: string): boolean => status === 'pending' || status === 'running';
+const openDeepWorkspace = (titleValue: string, sections: DeepSection[]) => {
+  deepWorkspace.value = { title: titleValue, sections };
+};
+const closeDeepWorkspace = () => {
+  deepWorkspace.value = null;
 };
 const count = (counts: Counts | undefined, key: string): number => counts?.[key] ?? 0;
 const when = (value: string | null | undefined): string =>
@@ -265,21 +279,17 @@ const packageCounts = computed<Counts>(() =>
         <p class="eyebrow" dir="ltr">CEP / SYSTEM &amp; OPERATIONS</p>
         <h1>{{ title }}</h1>
         <p class="subtitle">
-          حالة تشغيلية فعلية من خدمات CEP وقاعدة البيانات؛ لا مؤشرات توضيحية أو ادعاءات نشر.
+          أدوات تشغيل فعلية مرتبطة بخدمات CEP وقاعدة البيانات، مع فصل الحقيقة التقنية عن أحكام جودة المعرفة.
         </p>
       </div>
       <div class="top-actions" aria-label="أدوات المساحة الحالية">
-        <a v-if="surface === 'validation'" href="#source-import" class="tool-link">استيراد للتحقق</a
-        ><a v-if="surface === 'ai-bridge'" href="#manual-ai-export" class="tool-link"
-          >تجهيز Prompt</a
-        ><a v-if="surface === 'backups'" href="#backup-create" class="tool-link">إنشاء Backup</a
-        ><span
-          v-if="!['validation', 'ai-bridge', 'backups'].includes(surface)"
-          class="read-only-chip"
-          >قراءة وفحص</span
-        >
+        <a v-if="surface === 'validation'" href="#source-import" class="tool-link">استيراد للتحقق</a>
+        <a v-else-if="surface === 'ai-bridge'" href="#manual-ai-export" class="tool-link">تجهيز Prompt</a>
+        <a v-else-if="surface === 'backups'" href="#backup-create" class="tool-link">إنشاء Backup</a>
+        <span v-else class="read-only-chip">فحص تشغيلي</span>
       </div>
     </header>
+
     <div class="workspace-grid">
       <nav class="workspace-left" aria-label="بنية النظام والعمليات">
         <p class="rail-label">البنية</p>
@@ -289,9 +299,11 @@ const packageCounts = computed<Counts>(() =>
           :href="item.href"
           :aria-current="surface === item.key ? 'page' : undefined"
           :class="['rail-link', { active: surface === item.key }]"
-          >{{ item.label }}</a
         >
+          {{ item.label }}
+        </a>
       </nav>
+
       <main class="workspace-center">
         <template v-if="surface === 'health' && state.foundation">
           <section class="hero-state">
@@ -305,159 +317,113 @@ const packageCounts = computed<Counts>(() =>
                 }}
               </h2>
             </div>
-            <span :class="['state-pill', state.foundation.healthy ? 'ok' : 'danger']" dir="ltr">{{
-              state.foundation.healthy ? 'HEALTHY' : 'ATTENTION'
-            }}</span>
+            <span :class="['state-pill', state.foundation.healthy ? 'ok' : 'danger']" dir="ltr">
+              {{ state.foundation.healthy ? 'HEALTHY' : 'ATTENTION' }}
+            </span>
           </section>
           <section class="panel">
             <h2>فحوص المنصة</h2>
             <div class="status-grid">
-              <article
-                v-for="(status, name) in state.foundation.checks"
-                :key="name"
-                class="status-card"
-              >
-                <bdi dir="ltr">{{ name }}</bdi
-                ><span :class="['state-pill', status === 'ok' ? 'ok' : 'danger']" dir="ltr">{{
-                  status
-                }}</span>
+              <article v-for="(status, name) in state.foundation.checks" :key="name" class="status-card">
+                <bdi dir="ltr">{{ name }}</bdi>
+                <span :class="['state-pill', status === 'ok' ? 'ok' : 'danger']" dir="ltr">{{ status }}</span>
               </article>
             </div>
           </section>
           <section class="panel">
             <h2>الحمل التشغيلي المرصود</h2>
             <div class="metric-strip">
-              <div>
-                <span>قيد المعالجة</span
-                ><strong>{{ count(state.processing?.counts, 'running') }}</strong>
-              </div>
-              <div>
-                <span>بانتظار المعالجة</span
-                ><strong>{{ count(state.processing?.counts, 'pending') }}</strong>
-              </div>
-              <div>
-                <span>فشل معالجة</span
-                ><strong>{{ count(state.processing?.counts, 'failed') }}</strong>
-              </div>
-              <div>
-                <span>رسائل Outbox فاشلة</span
-                ><strong>{{ count(state.outbox?.counts, 'failed') }}</strong>
-              </div>
-              <div>
-                <span>حزم مرفوضة</span><strong>{{ count(packageCounts, 'rejected') }}</strong>
-              </div>
+              <div><span>قيد المعالجة</span><strong>{{ count(state.processing?.counts, 'running') }}</strong></div>
+              <div><span>بانتظار المعالجة</span><strong>{{ count(state.processing?.counts, 'pending') }}</strong></div>
+              <div><span>فشل معالجة</span><strong>{{ count(state.processing?.counts, 'failed') }}</strong></div>
+              <div><span>رسائل Outbox فاشلة</span><strong>{{ count(state.outbox?.counts, 'failed') }}</strong></div>
+              <div><span>حزم مرفوضة</span><strong>{{ count(packageCounts, 'rejected') }}</strong></div>
             </div>
           </section>
         </template>
+
         <template v-else-if="surface === 'processing'">
           <section class="panel">
             <p class="section-kicker" dir="ltr">REQUESTED → EXECUTED / CURRENT STATE</p>
             <h2>المعالجة الفعلية مع ربط الطلب بالتنفيذ</h2>
             <div class="metric-strip compact">
-              <div>
-                <span>Pending</span
-                ><strong>{{ count(state.processing?.counts, 'pending') }}</strong>
-              </div>
-              <div>
-                <span>Running</span
-                ><strong>{{ count(state.processing?.counts, 'running') }}</strong>
-              </div>
-              <div>
-                <span>Completed</span
-                ><strong>{{ count(state.processing?.counts, 'completed') }}</strong>
-              </div>
-              <div>
-                <span>Failed</span><strong>{{ count(state.processing?.counts, 'failed') }}</strong>
-              </div>
+              <div><span>Pending</span><strong>{{ count(state.processing?.counts, 'pending') }}</strong></div>
+              <div><span>Running</span><strong>{{ count(state.processing?.counts, 'running') }}</strong></div>
+              <div><span>Completed</span><strong>{{ count(state.processing?.counts, 'completed') }}</strong></div>
+              <div><span>Failed</span><strong>{{ count(state.processing?.counts, 'failed') }}</strong></div>
             </div>
             <div class="record-list">
               <article v-for="run in state.processing?.runs ?? []" :key="run.id" class="trace-card">
                 <div class="trace-heading">
                   <div>
-                    <strong
-                      ><bdi dir="ltr">{{ run.type }}</bdi></strong
-                    >
-                    <small
-                      ><bdi dir="ltr">{{ run.id }}</bdi></small
-                    >
+                    <strong><bdi dir="ltr">{{ run.type }}</bdi></strong>
+                    <small><bdi dir="ltr">{{ run.id }}</bdi></small>
                   </div>
                   <span class="state-pill" dir="ltr">{{ run.status }}</span>
                 </div>
                 <dl class="trace-grid">
-                  <div>
-                    <dt>REQUESTED · input digest</dt>
-                    <dd class="mono break-all" dir="ltr">{{ run.input_digest }}</dd>
-                  </div>
-                  <div>
-                    <dt>EXECUTED · attempts</dt>
-                    <dd dir="ltr">{{ run.attempt_count }} / {{ run.max_attempts }}</dd>
-                  </div>
-                  <div>
-                    <dt>CAPTURED · worker</dt>
-                    <dd class="mono" dir="ltr">{{ run.worker_identifier || '—' }}</dd>
-                  </div>
-                  <div>
-                    <dt>CURRENT STATE · timing</dt>
-                    <dd>
-                      {{ when(run.started_at) }} → {{ when(run.completed_at || run.cancelled_at) }}
-                    </dd>
-                  </div>
+                  <div><dt>REQUESTED · input digest</dt><dd class="mono break-all" dir="ltr">{{ run.input_digest }}</dd></div>
+                  <div><dt>EXECUTED · attempts</dt><dd dir="ltr">{{ run.attempt_count }} / {{ run.max_attempts }}</dd></div>
+                  <div><dt>CAPTURED · worker</dt><dd class="mono" dir="ltr">{{ run.worker_identifier || '—' }}</dd></div>
+                  <div><dt>CURRENT STATE · timing</dt><dd>{{ when(run.started_at) }} → {{ when(run.completed_at || run.cancelled_at) }}</dd></div>
                 </dl>
-                <p v-if="run.safe_error_message" class="diagnostic">
-                  <bdi dir="ltr">{{ run.error_category || 'uncategorized' }}</bdi> ·
-                  {{ run.safe_error_message }}
-                </p>
+                <div class="context-actions">
+                  <button
+                    v-if="canCancel(run.status)"
+                    type="button"
+                    class="danger-button"
+                    @click="cancelProcessing(run.id)"
+                  >
+                    إلغاء التشغيل
+                  </button>
+                  <button
+                    v-if="run.safe_error_message"
+                    type="button"
+                    class="secondary-button"
+                    @click="
+                      openDeepWorkspace(`تشخيص Processing Run — ${run.type}`, [
+                        { label: 'Error category', value: run.error_category },
+                        { label: 'Safe error message', value: run.safe_error_message },
+                        { label: 'Input digest', value: run.input_digest },
+                        { label: 'Run identity', value: run.id },
+                      ])
+                    "
+                  >
+                    فتح التشخيص
+                  </button>
+                </div>
               </article>
-              <p v-if="(state.processing?.runs ?? []).length === 0" class="empty">
-                لا توجد Processing Runs مسجلة.
-              </p>
+              <p v-if="(state.processing?.runs ?? []).length === 0" class="empty">لا توجد Processing Runs مسجلة.</p>
             </div>
           </section>
           <section class="panel">
             <p class="section-kicker">Transactional Outbox</p>
             <h2>حالة التسليم الملتقطة</h2>
             <div class="record-list">
-              <article
-                v-for="message in state.outbox?.messages ?? []"
-                :key="message.id"
-                class="record-row"
-              >
+              <article v-for="message in state.outbox?.messages ?? []" :key="message.id" class="record-row">
                 <div>
-                  <strong
-                    ><bdi dir="ltr">{{ message.type }}</bdi></strong
-                  >
+                  <strong><bdi dir="ltr">{{ message.type }}</bdi></strong>
                   <small dir="ltr">correlation={{ message.correlation_id }}</small>
+                  <small dir="ltr">producer={{ message.producer_module }} · attempts={{ message.attempts }}</small>
                 </div>
                 <span class="state-pill" dir="ltr">{{ message.dispatch_state }}</span>
               </article>
-              <p v-if="(state.outbox?.messages ?? []).length === 0" class="empty">
-                لا توجد Outbox messages مسجلة.
-              </p>
+              <p v-if="(state.outbox?.messages ?? []).length === 0" class="empty">لا توجد Outbox messages مسجلة.</p>
             </div>
           </section>
         </template>
+
         <template v-else-if="surface === 'validation'">
           <section class="panel" id="source-import">
             <p class="section-kicker">Technical ingestion</p>
             <h2>استيراد مصدر للتحقق التقني</h2>
-            <p class="muted">
-              يفحص الملف ويسجّل نتيجة الاستيراد؛ لا يصدر قرارًا عن جودة المعرفة أو صحة الادعاءات.
-            </p>
+            <p class="muted">يفحص الملف ويسجّل نتيجة الاستيراد؛ لا يصدر قرارًا عن جودة المعرفة أو صحة الادعاءات.</p>
             <form
               class="inline-form"
-              @submit.prevent="
-                sourceForm.post('/system/validation/sources/import', {
-                  forceFormData: true,
-                  preserveScroll: true,
-                })
-              "
+              @submit.prevent="sourceForm.post('/system/validation/sources/import', { forceFormData: true, preserveScroll: true })"
             >
-              <input
-                type="file"
-                accept=".txt,.md,.json,.pdf"
-                required
-                @change="sourceForm.source = pick($event)"
-              /><button :disabled="sourceForm.processing">تحقق وسجّل</button>
+              <input type="file" accept=".txt,.md,.json,.pdf" required @change="sourceForm.source = pick($event)" />
+              <button :disabled="sourceForm.processing">تحقق وسجّل</button>
             </form>
           </section>
           <section class="panel">
@@ -466,31 +432,24 @@ const packageCounts = computed<Counts>(() =>
             <div class="record-list">
               <article v-for="pkg in packagesAsRecords" :key="pkg.id" class="trace-card">
                 <div class="trace-heading">
-                  <div>
-                    <strong
-                      ><bdi dir="ltr">{{ pkg.package_type }}</bdi></strong
-                    >
-                    <small class="mono" dir="ltr">{{ pkg.id }}</small>
-                  </div>
+                  <div><strong><bdi dir="ltr">{{ pkg.package_type }}</bdi></strong><small class="mono" dir="ltr">{{ pkg.id }}</small></div>
                   <span class="state-pill" dir="ltr">{{ pkg.status }}</span>
                 </div>
                 <dl class="trace-grid">
-                  <div>
-                    <dt>Package digest</dt>
-                    <dd class="mono break-all" dir="ltr">{{ pkg.package_digest }}</dd>
-                  </div>
-                  <div>
-                    <dt>Owner / schema</dt>
-                    <dd dir="ltr">{{ pkg.owner_module }} / v{{ pkg.schema_version ?? '—' }}</dd>
-                  </div>
+                  <div><dt>Package digest</dt><dd class="mono break-all" dir="ltr">{{ pkg.package_digest }}</dd></div>
+                  <div><dt>Owner / schema</dt><dd dir="ltr">{{ pkg.owner_module }} / v{{ pkg.schema_version ?? '—' }}</dd></div>
                 </dl>
-                <details class="context-disclosure">
-                  <summary>Scope وManifest المسجلان</summary>
-                  <h3>Scope</h3>
-                  <pre dir="ltr">{{ jsonText(pkg.scope) }}</pre>
-                  <h3>Manifest</h3>
-                  <pre dir="ltr">{{ jsonText(pkg.manifest) }}</pre>
-                </details>
+                <button
+                  type="button"
+                  class="secondary-button context-button"
+                  @click="openDeepWorkspace(`السياق التقني للحزمة — ${pkg.package_type}`, [
+                    { label: 'Scope', value: pkg.scope },
+                    { label: 'Manifest', value: pkg.manifest },
+                    { label: 'Package digest', value: pkg.package_digest },
+                  ])"
+                >
+                  فتح السياق التقني
+                </button>
               </article>
               <p v-if="packagesAsRecords.length === 0" class="empty">لا توجد حزم مسجلة.</p>
             </div>
@@ -498,250 +457,118 @@ const packageCounts = computed<Counts>(() =>
           <section class="panel">
             <h2>نتائج استيراد المصادر</h2>
             <div class="record-list">
-              <article
-                v-for="item in state.source_imports?.records ?? []"
-                :key="item.id"
-                class="record-row"
-              >
+              <article v-for="item in state.source_imports?.records ?? []" :key="item.id" class="record-row">
                 <div>
-                  <strong>{{ item.original_name }}</strong
-                  ><small
-                    ><bdi dir="ltr">{{ item.detected_media_type }}</bdi> ·
-                    {{ item.size_bytes }} bytes</small
-                  ><small class="mono break-all" dir="ltr">sha256={{ item.sha256 }}</small
-                  ><small v-if="item.rejection_code"
-                    ><bdi dir="ltr">{{ item.rejection_code }}</bdi></small
-                  >
+                  <strong>{{ item.original_name }}</strong>
+                  <small><bdi dir="ltr">{{ item.detected_media_type }}</bdi> · {{ item.size_bytes }} bytes</small>
+                  <small class="mono break-all" dir="ltr">sha256={{ item.sha256 }}</small>
+                  <small v-if="item.rejection_code"><bdi dir="ltr">{{ item.rejection_code }}</bdi></small>
                 </div>
                 <span class="state-pill" dir="ltr">{{ item.status }}</span>
               </article>
-              <p v-if="(state.source_imports?.records ?? []).length === 0" class="empty">
-                لا توجد عمليات استيراد مسجلة.
-              </p>
+              <p v-if="(state.source_imports?.records ?? []).length === 0" class="empty">لا توجد عمليات استيراد مسجلة.</p>
             </div>
           </section>
         </template>
+
         <template v-else-if="surface === 'ai-bridge'">
           <section class="panel" id="manual-ai-export">
             <p class="section-kicker" dir="ltr">MANUAL_ONLY / PROVIDER-NEUTRAL</p>
             <h2>تجهيز حزمة Prompt</h2>
-            <p class="muted">
-              يتم التصدير فقط. التنفيذ يحدث يدويًا خارج CEP، ثم تعاد النتيجة كحزمة للتحقق والقرار
-              البشري.
-            </p>
-            <form
-              class="form-grid"
-              @submit.prevent="
-                promptForm.post('/system/ai-bridge/prompts/export', { preserveScroll: true })
-              "
-            >
-              <label>الغرض<input v-model="promptForm.purpose" maxlength="120" required /></label
-              ><label
-                ><span dir="ltr">Knowledge Unit ID</span
-                ><input
-                  v-model="promptForm.knowledge_unit_id"
-                  dir="ltr"
-                  maxlength="80"
-                  required /></label
-              ><label class="full"
-                >التعليمات<textarea
-                  v-model="promptForm.instruction"
-                  maxlength="10000"
-                  required
-                /></label
-              ><button :disabled="promptForm.processing">إنشاء حزمة التصدير</button>
+            <p class="muted">يتم التصدير فقط. التنفيذ يحدث يدويًا خارج CEP، ثم تعاد النتيجة كحزمة للتحقق والقرار البشري.</p>
+            <form class="form-grid" @submit.prevent="promptForm.post('/system/ai-bridge/prompts/export', { preserveScroll: true })">
+              <label>الغرض<input v-model="promptForm.purpose" maxlength="120" required /></label>
+              <label><span dir="ltr">Knowledge Unit ID</span><input v-model="promptForm.knowledge_unit_id" dir="ltr" maxlength="80" required /></label>
+              <label class="full">التعليمات<textarea v-model="promptForm.instruction" maxlength="10000" required /></label>
+              <button :disabled="promptForm.processing">إنشاء حزمة التصدير</button>
             </form>
           </section>
           <section class="panel">
             <h2>استيراد نتيجة يدوية</h2>
-            <form
-              class="inline-form"
-              @submit.prevent="
-                aiImportForm.post('/system/ai-bridge/results/import', {
-                  forceFormData: true,
-                  preserveScroll: true,
-                })
-              "
-            >
-              <input
-                type="file"
-                accept=".zip"
-                required
-                @change="aiImportForm.package = pick($event)"
-              /><button :disabled="aiImportForm.processing">تحقق واستورد</button>
+            <form class="inline-form" @submit.prevent="aiImportForm.post('/system/ai-bridge/results/import', { forceFormData: true, preserveScroll: true })">
+              <input type="file" accept=".zip" required @change="aiImportForm.package = pick($event)" />
+              <button :disabled="aiImportForm.processing">تحقق واستورد</button>
             </form>
           </section>
           <section class="panel">
             <p class="section-kicker" dir="ltr">REQUESTED</p>
             <h2>سياق الطلب وProvenance الموثوق</h2>
             <div class="record-list">
-              <article
-                v-for="revision in state.prompt_revisions ?? []"
-                :key="revision.id"
-                class="trace-card"
-              >
+              <article v-for="revision in state.prompt_revisions ?? []" :key="revision.id" class="trace-card">
                 <div class="trace-heading">
                   <div>
                     <strong>{{ revision.prompt_purpose }}</strong>
-                    <small dir="ltr">
-                      prompt={{ revision.prompt_package_id }} · revision={{ revision.revision }}
-                    </small>
+                    <small dir="ltr">prompt={{ revision.prompt_package_id }} · revision={{ revision.revision }}</small>
                   </div>
                   <span class="state-pill" dir="ltr">{{ revision.prompt_status }}</span>
                 </div>
                 <dl class="trace-grid">
-                  <div>
-                    <dt>Prompt revision identity</dt>
-                    <dd class="mono" dir="ltr">{{ revision.id }}</dd>
-                  </div>
-                  <div>
-                    <dt>Portable package identity</dt>
-                    <dd class="mono" dir="ltr">{{ revision.portable_package_id }}</dd>
-                  </div>
-                  <div class="wide">
-                    <dt>Input digest</dt>
-                    <dd class="mono break-all" dir="ltr">{{ revision.input_digest }}</dd>
-                  </div>
-                  <div class="wide">
-                    <dt>Package digest</dt>
-                    <dd class="mono break-all" dir="ltr">{{ revision.package_digest }}</dd>
-                  </div>
+                  <div><dt>Prompt revision identity</dt><dd class="mono" dir="ltr">{{ revision.id }}</dd></div>
+                  <div><dt>Portable package identity</dt><dd class="mono" dir="ltr">{{ revision.portable_package_id }}</dd></div>
+                  <div class="wide"><dt>Input digest</dt><dd class="mono break-all" dir="ltr">{{ revision.input_digest }}</dd></div>
                 </dl>
-                <details class="context-disclosure">
-                  <summary>Declared scope، target، method وpackage context</summary>
-                  <h3>Declared scope</h3>
-                  <pre dir="ltr">{{ jsonText(revision.declared_scope) }}</pre>
-                  <h3>Package scope</h3>
-                  <pre dir="ltr">{{ jsonText(revision.package_scope) }}</pre>
-                  <h3>Package manifest</h3>
-                  <pre dir="ltr">{{ jsonText(revision.package_manifest) }}</pre>
-                </details>
+                <button
+                  type="button"
+                  class="secondary-button context-button"
+                  @click="openDeepWorkspace(`سياق Prompt — ${revision.prompt_purpose}`, [
+                    { label: 'Declared scope', value: revision.declared_scope },
+                    { label: 'Package scope', value: revision.package_scope },
+                    { label: 'Package manifest', value: revision.package_manifest },
+                    { label: 'Package digest', value: revision.package_digest },
+                  ])"
+                >
+                  فتح سياق الحزمة
+                </button>
               </article>
-              <p v-if="(state.prompt_revisions ?? []).length === 0" class="empty">
-                لا توجد Prompt revisions مسجلة.
-              </p>
+              <p v-if="(state.prompt_revisions ?? []).length === 0" class="empty">لا توجد Prompt revisions مسجلة.</p>
             </div>
           </section>
           <section class="panel">
             <p class="section-kicker" dir="ltr">RETURNED / CURRENT STATE</p>
             <h2>النتيجة الكاملة قبل القرار البشري</h2>
-            <p class="muted">
-              لا تُعرض معاينة مختصرة لاتخاذ القرار. افتح سجل النتيجة لمراجعة proposal الكامل
-              وProvenance ثم تظهر أدوات القرار.
-            </p>
+            <p class="muted">الـ proposal الكامل وسياق أصله جزء من مهمة المراجعة البشرية نفسها، لذلك يبقيان في CENTER قبل أدوات القرار.</p>
             <div class="record-list">
-              <article
-                v-for="result in state.results ?? []"
-                :key="result.id"
-                class="trace-card result-card"
-              >
+              <article v-for="result in state.results ?? []" :key="result.id" class="trace-card result-card">
                 <div class="trace-heading">
-                  <div>
-                    <strong>Returned result</strong>
-                    <small class="mono" dir="ltr">{{ result.id }}</small>
-                  </div>
+                  <div><strong>Returned result</strong><small class="mono" dir="ltr">{{ result.id }}</small></div>
                   <span class="state-pill" dir="ltr">{{ result.status }}</span>
                 </div>
                 <dl class="trace-grid">
-                  <div>
-                    <dt>Requested prompt</dt>
-                    <dd dir="ltr">
-                      {{ result.prompt_package_id }} / r{{ result.prompt_revision }}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Returned package</dt>
-                    <dd class="mono" dir="ltr">{{ result.portable_package_id }}</dd>
-                  </div>
-                  <div class="wide">
-                    <dt>Requested input digest</dt>
-                    <dd class="mono break-all" dir="ltr">{{ result.prompt_input_digest }}</dd>
-                  </div>
-                  <div class="wide">
-                    <dt>Returned result digest</dt>
-                    <dd class="mono break-all" dir="ltr">{{ result.result_digest }}</dd>
-                  </div>
+                  <div><dt>Requested prompt</dt><dd dir="ltr">{{ result.prompt_package_id }} / r{{ result.prompt_revision }}</dd></div>
+                  <div><dt>Returned package</dt><dd class="mono" dir="ltr">{{ result.portable_package_id }}</dd></div>
+                  <div class="wide"><dt>Requested input digest</dt><dd class="mono break-all" dir="ltr">{{ result.prompt_input_digest }}</dd></div>
+                  <div class="wide"><dt>Returned result digest</dt><dd class="mono break-all" dir="ltr">{{ result.result_digest }}</dd></div>
                 </dl>
                 <details class="proposal-review">
                   <summary>مراجعة proposal الكامل وProvenance قبل القرار</summary>
-                  <div class="review-section">
-                    <h3>Structured result — materially complete</h3>
-                    <pre class="proposal-payload" dir="ltr">{{
-                      jsonText(result.structured_result)
-                    }}</pre>
-                  </div>
-                  <div class="review-section">
-                    <h3>Declared request scope</h3>
-                    <pre dir="ltr">{{ jsonText(result.declared_scope) }}</pre>
-                  </div>
-                  <div class="review-section">
-                    <h3>Returned package scope</h3>
-                    <pre dir="ltr">{{ jsonText(result.returned_package_scope) }}</pre>
-                  </div>
-                  <div class="review-section">
-                    <h3>Returned package manifest</h3>
-                    <pre dir="ltr">{{ jsonText(result.returned_package_manifest) }}</pre>
-                  </div>
+                  <div class="review-section"><h3>Structured result — materially complete</h3><pre class="proposal-payload" dir="ltr">{{ jsonText(result.structured_result) }}</pre></div>
+                  <div class="review-section"><h3>Declared request scope</h3><pre dir="ltr">{{ jsonText(result.declared_scope) }}</pre></div>
+                  <div class="review-section"><h3>Returned package scope</h3><pre dir="ltr">{{ jsonText(result.returned_package_scope) }}</pre></div>
+                  <div class="review-section"><h3>Returned package manifest</h3><pre dir="ltr">{{ jsonText(result.returned_package_manifest) }}</pre></div>
                   <dl class="trace-grid">
-                    <div>
-                      <dt>Prompt revision identity</dt>
-                      <dd class="mono" dir="ltr">{{ result.prompt_package_revision_id }}</dd>
-                    </div>
-                    <div>
-                      <dt>Prompt package identity</dt>
-                      <dd class="mono" dir="ltr">{{ result.prompt_portable_package_id }}</dd>
-                    </div>
-                    <div>
-                      <dt>Returned package type</dt>
-                      <dd dir="ltr">{{ result.returned_package_type }}</dd>
-                    </div>
-                    <div>
-                      <dt>Returned package state</dt>
-                      <dd dir="ltr">{{ result.returned_package_status }}</dd>
-                    </div>
-                    <div class="wide">
-                      <dt>Returned package digest</dt>
-                      <dd class="mono break-all" dir="ltr">{{ result.returned_package_digest }}</dd>
-                    </div>
+                    <div><dt>Prompt revision identity</dt><dd class="mono" dir="ltr">{{ result.prompt_package_revision_id }}</dd></div>
+                    <div><dt>Returned package type</dt><dd dir="ltr">{{ result.returned_package_type }}</dd></div>
+                    <div class="wide"><dt>Returned package digest</dt><dd class="mono break-all" dir="ltr">{{ result.returned_package_digest }}</dd></div>
                   </dl>
                   <template v-if="result.status === 'pending_review'">
-                    <label class="decision-rationale">
-                      مبرر القرار البشري
-                      <textarea v-model="decisionRationales[result.id]" maxlength="2000" required />
-                    </label>
+                    <label class="decision-rationale">مبرر القرار البشري<textarea v-model="decisionRationales[result.id]" maxlength="2000" required /></label>
                     <div class="decision-actions">
-                      <button type="button" @click="decideAi(result.id, 'ACCEPT_AS_DRAFT')">
-                        قبول كمسودة
-                      </button>
-                      <button
-                        type="button"
-                        class="danger-button"
-                        @click="decideAi(result.id, 'REJECT')"
-                      >
-                        رفض
-                      </button>
+                      <button type="button" @click="decideAi(result.id, 'ACCEPT_AS_DRAFT')">قبول كمسودة</button>
+                      <button type="button" class="danger-button" @click="decideAi(result.id, 'REJECT')">رفض</button>
                     </div>
                   </template>
                 </details>
               </article>
-              <p v-if="(state.results ?? []).length === 0" class="empty">
-                لا توجد نتائج AI مستوردة.
-              </p>
+              <p v-if="(state.results ?? []).length === 0" class="empty">لا توجد نتائج AI مستوردة.</p>
             </div>
           </section>
           <section v-if="(state.decisions ?? []).length > 0" class="panel">
             <p class="section-kicker" dir="ltr">CAPTURED HUMAN DECISIONS</p>
             <h2>القرارات المسجلة</h2>
             <div class="record-list">
-              <article
-                v-for="decision in state.decisions ?? []"
-                :key="decision.id"
-                class="record-row"
-              >
+              <article v-for="decision in state.decisions ?? []" :key="decision.id" class="record-row">
                 <div>
-                  <strong
-                    ><bdi dir="ltr">{{ decision.decision }}</bdi></strong
-                  >
+                  <strong><bdi dir="ltr">{{ decision.decision }}</bdi></strong>
                   <small dir="ltr">result={{ decision.imported_ai_result_id }}</small>
                   <p>{{ decision.rationale }}</p>
                 </div>
@@ -750,14 +577,12 @@ const packageCounts = computed<Counts>(() =>
             </div>
           </section>
         </template>
+
         <template v-else-if="surface === 'backups'">
           <section class="panel" id="backup-create">
             <p class="section-kicker">Verified logical backup</p>
             <h2>إنشاء نسخة احتياطية موثّقة</h2>
-            <p class="muted">
-              تستخدم خدمة Backup الحالية وتنتج Manifest وحزمة قابلة للتحقق. لا يُعرض نجاح قبل اكتمال
-              الخدمة.
-            </p>
+            <p class="muted">تستخدم خدمة Backup الحالية وتنتج Manifest وحزمة قابلة للتحقق. لا يُعرض نجاح قبل اكتمال الخدمة.</p>
             <form @submit.prevent="backupForm.post('/system/backups', { preserveScroll: true })">
               <button :disabled="backupForm.processing">إنشاء Backup</button>
             </form>
@@ -767,42 +592,24 @@ const packageCounts = computed<Counts>(() =>
             <div class="record-list">
               <article v-for="backup in state.backups ?? []" :key="backup.id" class="record-row">
                 <div>
-                  <strong
-                    ><bdi dir="ltr">{{ backup.database_driver }}</bdi></strong
-                  ><small
-                    >{{ when(backup.created_at) }} · digest
-                    <bdi dir="ltr">{{ short(backup.content_digest) }}</bdi></small
-                  >
+                  <strong><bdi dir="ltr">{{ backup.database_driver }}</bdi></strong>
+                  <small>{{ when(backup.created_at) }} · digest <bdi dir="ltr">{{ short(backup.content_digest) }}</bdi></small>
                 </div>
                 <div class="row-actions">
-                  <span class="state-pill" dir="ltr">{{ backup.status }}</span
-                  ><a :href="`/system/packages/${backup.portable_package_id}`">تنزيل الحزمة</a>
+                  <span class="state-pill" dir="ltr">{{ backup.status }}</span>
+                  <a :href="`/system/packages/${backup.portable_package_id}`">تنزيل الحزمة</a>
                 </div>
               </article>
-              <p v-if="(state.backups ?? []).length === 0" class="empty">
-                لا توجد نسخ احتياطية مسجلة.
-              </p>
+              <p v-if="(state.backups ?? []).length === 0" class="empty">لا توجد نسخ احتياطية مسجلة.</p>
             </div>
           </section>
           <details class="danger-zone">
             <summary>استعادة مرحلية — فتح الإجراء المقيد</summary>
             <div class="danger-body">
               <p>واجهة الويب تقوم بـ staging والتحقق فقط. لا يوجد تفعيل Restore عبر HTTP.</p>
-              <form
-                class="inline-form"
-                @submit.prevent="
-                  restoreForm.post('/system/backups/restores/stage', {
-                    forceFormData: true,
-                    preserveScroll: true,
-                  })
-                "
-              >
-                <input
-                  type="file"
-                  accept=".zip"
-                  required
-                  @change="restoreForm.package = pick($event)"
-                /><button :disabled="restoreForm.processing">Stage + Verify</button>
+              <form class="inline-form" @submit.prevent="restoreForm.post('/system/backups/restores/stage', { forceFormData: true, preserveScroll: true })">
+                <input type="file" accept=".zip" required @change="restoreForm.package = pick($event)" />
+                <button :disabled="restoreForm.processing">Stage + Verify</button>
               </form>
             </div>
           </details>
@@ -811,125 +618,78 @@ const packageCounts = computed<Counts>(() =>
             <div class="record-list">
               <article v-for="restore in state.restores ?? []" :key="restore.id" class="trace-card">
                 <div class="trace-heading">
-                  <div>
-                    <strong
-                      ><bdi dir="ltr">{{ restore.target_database }}</bdi></strong
-                    >
-                    <small>{{ when(restore.started_at) }}</small>
-                  </div>
+                  <div><strong><bdi dir="ltr">{{ restore.target_database }}</bdi></strong><small>{{ when(restore.started_at) }}</small></div>
                   <span class="state-pill" dir="ltr">{{ restore.status }}</span>
                 </div>
-                <details class="context-disclosure">
-                  <summary>Verification المسجل</summary>
-                  <pre dir="ltr">{{ jsonText(restore.verification) }}</pre>
-                </details>
+                <button
+                  type="button"
+                  class="secondary-button context-button"
+                  @click="openDeepWorkspace(`Restore verification — ${restore.target_database}`, [
+                    { label: 'Verification', value: restore.verification },
+                    { label: 'Backup manifest', value: restore.backup_manifest_id },
+                    { label: 'Completed at', value: restore.completed_at },
+                  ])"
+                >
+                  فتح التحقق المرحلي
+                </button>
               </article>
-              <p v-if="(state.restores ?? []).length === 0" class="empty">
-                لا توجد Restore Runs مسجلة.
-              </p>
+              <p v-if="(state.restores ?? []).length === 0" class="empty">لا توجد Restore Runs مسجلة.</p>
             </div>
           </section>
         </template>
+
         <template v-else-if="surface === 'audit'">
           <section class="hero-state">
             <div>
               <p class="section-kicker">Hash-chained audit</p>
-              <h2>
-                {{
-                  state.chain?.valid ? 'سلسلة التدقيق متماسكة' : 'تعذر إثبات تكامل سلسلة التدقيق'
-                }}
-              </h2>
+              <h2>{{ state.chain?.valid ? 'سلسلة التدقيق متماسكة' : 'تعذر إثبات تكامل سلسلة التدقيق' }}</h2>
             </div>
-            <span :class="['state-pill', state.chain?.valid ? 'ok' : 'danger']" dir="ltr">
-              {{ state.chain?.valid ? 'VALID' : 'INVALID' }}
-            </span>
+            <span :class="['state-pill', state.chain?.valid ? 'ok' : 'danger']" dir="ltr">{{ state.chain?.valid ? 'VALID' : 'INVALID' }}</span>
           </section>
           <section class="panel">
             <p class="section-kicker" dir="ltr">CAPTURED CHRONOLOGY / INVESTIGATION CONTEXT</p>
             <h2>السجل التاريخي القابل للتحقيق</h2>
             <div class="record-list">
-              <article
-                v-for="record in state.records ?? []"
-                :key="record.id"
-                class="trace-card audit-card"
-              >
+              <article v-for="record in state.records ?? []" :key="record.id" class="trace-card audit-card">
                 <div class="trace-heading">
-                  <div>
-                    <strong>
-                      <bdi dir="ltr">#{{ record.sequence_no }} · {{ record.action }}</bdi>
-                    </strong>
-                    <small>{{ when(record.occurred_at) }}</small>
-                  </div>
+                  <div><strong><bdi dir="ltr">#{{ record.sequence_no }} · {{ record.action }}</bdi></strong><small>{{ when(record.occurred_at) }}</small></div>
                   <span class="state-pill" dir="ltr">{{ record.outcome }}</span>
                 </div>
                 <dl class="trace-grid">
-                  <div>
-                    <dt>Actor identifier</dt>
-                    <dd class="mono" dir="ltr">{{ record.actor_identifier || '—' }}</dd>
-                  </div>
-                  <div>
-                    <dt>Target type</dt>
-                    <dd class="mono" dir="ltr">{{ record.target_type }}</dd>
-                  </div>
-                  <div>
-                    <dt>Target identifier</dt>
-                    <dd class="mono" dir="ltr">{{ record.target_identifier || '—' }}</dd>
-                  </div>
-                  <div>
-                    <dt>Correlation ID</dt>
-                    <dd class="mono" dir="ltr">{{ record.correlation_id }}</dd>
-                  </div>
+                  <div><dt>Actor identifier</dt><dd class="mono" dir="ltr">{{ record.actor_identifier || '—' }}</dd></div>
+                  <div><dt>Target</dt><dd class="mono" dir="ltr">{{ record.target_type }} / {{ record.target_identifier || '—' }}</dd></div>
+                  <div class="wide"><dt>Correlation ID</dt><dd class="mono" dir="ltr">{{ record.correlation_id }}</dd></div>
                 </dl>
-                <details class="context-disclosure">
-                  <summary>Safe metadata وHash chain context</summary>
-                  <h3>Safe metadata</h3>
-                  <pre dir="ltr">{{ jsonText(record.safe_metadata) }}</pre>
-                  <dl class="trace-grid">
-                    <div class="wide">
-                      <dt>Previous hash</dt>
-                      <dd class="mono break-all" dir="ltr">
-                        {{ record.previous_hash || 'GENESIS' }}
-                      </dd>
-                    </div>
-                    <div class="wide">
-                      <dt>Record hash</dt>
-                      <dd class="mono break-all" dir="ltr">{{ record.record_hash }}</dd>
-                    </div>
-                  </dl>
-                </details>
+                <button
+                  type="button"
+                  class="secondary-button context-button"
+                  @click="openDeepWorkspace(`تحقيق Audit #${record.sequence_no}`, [
+                    { label: 'Safe metadata', value: record.safe_metadata },
+                    { label: 'Previous hash', value: record.previous_hash || 'GENESIS' },
+                    { label: 'Record hash', value: record.record_hash },
+                  ])"
+                >
+                  فتح سياق التحقيق
+                </button>
               </article>
               <p v-if="(state.records ?? []).length === 0" class="empty">لا توجد سجلات تدقيق.</p>
             </div>
           </section>
         </template>
+
         <template v-else-if="surface === 'releases'">
           <section class="hero-state">
             <div>
               <p class="section-kicker">Release validation gate</p>
-              <h2>
-                {{
-                  state.readiness?.ready
-                    ? 'بوابة التحقق لا تحتوي FAIL'
-                    : 'بوابة التحقق تحتوي عائقًا'
-                }}
-              </h2>
+              <h2>{{ state.readiness?.ready ? 'بوابة التحقق لا تحتوي FAIL' : 'بوابة التحقق تحتوي عائقًا' }}</h2>
             </div>
-            <span :class="['state-pill', state.readiness?.ready ? 'ok' : 'danger']" dir="ltr">
-              {{ state.readiness?.ready ? 'READY' : 'BLOCKED' }}
-            </span>
+            <span :class="['state-pill', state.readiness?.ready ? 'ok' : 'danger']" dir="ltr">{{ state.readiness?.ready ? 'READY' : 'BLOCKED' }}</span>
           </section>
           <section class="panel">
             <h2>فحوص الإصدار</h2>
             <div class="status-grid">
-              <article
-                v-for="(check, name) in state.readiness?.checks ?? {}"
-                :key="name"
-                class="status-card wide"
-              >
-                <div>
-                  <bdi dir="ltr">{{ name }}</bdi>
-                  <p>{{ check.detail }}</p>
-                </div>
+              <article v-for="(check, name) in state.readiness?.checks ?? {}" :key="name" class="status-card wide">
+                <div><bdi dir="ltr">{{ name }}</bdi><p>{{ check.detail }}</p></div>
                 <span class="state-pill" dir="ltr">{{ check.status }}</span>
               </article>
             </div>
@@ -937,168 +697,115 @@ const packageCounts = computed<Counts>(() =>
           <section class="panel">
             <p class="section-kicker" dir="ltr">CAPTURED PACKAGE / FOLLOW-UP CONTEXT</p>
             <h2>حزم مرتبطة بالتحقق</h2>
-            <p class="muted">
-              هذه بيانات الحزمة المسجلة نفسها: الهوية، النطاق، Manifest والحالة. لا تمنح صلاحية
-              Deployment.
-            </p>
+            <p class="muted">الهوية والحالة تبقيان في CENTER؛ تفاصيل Scope وManifest تُفتح مؤقتًا في BOTTOM ولا تمنح صلاحية Deployment.</p>
             <div class="record-list">
               <article v-for="pkg in packagesAsRecords" :key="pkg.id" class="trace-card">
                 <div class="trace-heading">
-                  <div>
-                    <strong
-                      ><bdi dir="ltr">{{ pkg.package_type }}</bdi></strong
-                    >
-                    <small class="mono" dir="ltr">{{ pkg.id }}</small>
-                  </div>
+                  <div><strong><bdi dir="ltr">{{ pkg.package_type }}</bdi></strong><small class="mono" dir="ltr">{{ pkg.id }}</small></div>
                   <span class="state-pill" dir="ltr">{{ pkg.status }}</span>
                 </div>
                 <dl class="trace-grid">
-                  <div>
-                    <dt>Owner / schema</dt>
-                    <dd dir="ltr">{{ pkg.owner_module }} / v{{ pkg.schema_version ?? '—' }}</dd>
-                  </div>
-                  <div>
-                    <dt>Captured at</dt>
-                    <dd>{{ when(pkg.created_at) }}</dd>
-                  </div>
-                  <div class="wide">
-                    <dt>Package digest</dt>
-                    <dd class="mono break-all" dir="ltr">{{ pkg.package_digest }}</dd>
-                  </div>
+                  <div><dt>Owner / schema</dt><dd dir="ltr">{{ pkg.owner_module }} / v{{ pkg.schema_version ?? '—' }}</dd></div>
+                  <div><dt>Captured at</dt><dd>{{ when(pkg.created_at) }}</dd></div>
+                  <div class="wide"><dt>Package digest</dt><dd class="mono break-all" dir="ltr">{{ pkg.package_digest }}</dd></div>
                 </dl>
-                <details class="context-disclosure">
-                  <summary>Recorded target/scope وManifest</summary>
-                  <h3>Scope</h3>
-                  <pre dir="ltr">{{ jsonText(pkg.scope) }}</pre>
-                  <h3>Manifest</h3>
-                  <pre dir="ltr">{{ jsonText(pkg.manifest) }}</pre>
-                </details>
+                <button
+                  type="button"
+                  class="secondary-button context-button"
+                  @click="openDeepWorkspace(`Release package context — ${pkg.package_type}`, [
+                    { label: 'Scope', value: pkg.scope },
+                    { label: 'Manifest', value: pkg.manifest },
+                    { label: 'Package digest', value: pkg.package_digest },
+                  ])"
+                >
+                  فتح سياق الحزمة
+                </button>
               </article>
               <p v-if="packagesAsRecords.length === 0" class="empty">لا توجد حزم مسجلة.</p>
             </div>
           </section>
         </template>
+
         <template v-else-if="surface === 'configuration'">
+          <section class="hero-state">
+            <div>
+              <p class="section-kicker">Whitelisted local product configuration</p>
+              <h2>تهيئة تشغيلية مقروءة فقط</h2>
+            </div>
+            <span class="state-pill ok" dir="ltr">{{ state.configuration_policy?.mode ?? 'READ_ONLY' }}</span>
+          </section>
           <section class="panel">
-            <p class="section-kicker">Whitelisted local product configuration</p>
             <h2>القيم التشغيلية غير السرية</h2>
             <dl class="config-list">
-              <div>
-                <dt>Profile</dt>
-                <dd>
-                  <bdi dir="ltr">{{ state.profile }}</bdi>
-                </dd>
-              </div>
-              <div>
-                <dt>Queue connection</dt>
-                <dd>
-                  <bdi dir="ltr">{{ state.queue_connection }}</bdi>
-                </dd>
-              </div>
-              <div>
-                <dt>Blob disk</dt>
-                <dd>
-                  <bdi dir="ltr">{{ state.blob_disk }}</bdi>
-                </dd>
-              </div>
-              <div>
-                <dt>Auth bypass</dt>
-                <dd dir="ltr">{{ state.auth_bypass }}</dd>
-              </div>
-              <div>
-                <dt>Force HTTPS</dt>
-                <dd dir="ltr">{{ state.force_https }}</dd>
-              </div>
-              <div>
-                <dt>Release loopback only</dt>
-                <dd dir="ltr">{{ state.release_loopback_only }}</dd>
-              </div>
-              <div>
-                <dt>AI network provider</dt>
-                <dd dir="ltr">{{ state.ai_network_provider_enabled }}</dd>
-              </div>
+              <div><dt>Profile</dt><dd><bdi dir="ltr">{{ state.profile }}</bdi></dd></div>
+              <div><dt>Queue connection</dt><dd><bdi dir="ltr">{{ state.queue_connection }}</bdi></dd></div>
+              <div><dt>Blob disk</dt><dd><bdi dir="ltr">{{ state.blob_disk }}</bdi></dd></div>
+              <div><dt>Auth bypass</dt><dd dir="ltr">{{ state.auth_bypass }}</dd></div>
+              <div><dt>Force HTTPS</dt><dd dir="ltr">{{ state.force_https }}</dd></div>
+              <div><dt>Release loopback only</dt><dd dir="ltr">{{ state.release_loopback_only }}</dd></div>
+              <div><dt>AI network provider</dt><dd dir="ltr">{{ state.ai_network_provider_enabled }}</dd></div>
             </dl>
           </section>
           <section class="panel">
             <h2>حدود الأحجام</h2>
             <dl class="config-list">
-              <div v-for="(value, key) in state.limits ?? {}" :key="key">
-                <dt>
-                  <bdi dir="ltr">{{ key }}</bdi>
-                </dt>
-                <dd dir="ltr">{{ value }} bytes</dd>
-              </div>
+              <div v-for="(value, key) in state.limits ?? {}" :key="key"><dt><bdi dir="ltr">{{ key }}</bdi></dt><dd dir="ltr">{{ value }} bytes</dd></div>
             </dl>
           </section>
         </template>
       </main>
+
       <aside class="workspace-right" aria-label="السياق الفريد">
-        <template v-if="surface === 'health'"
-          ><p class="rail-label">التأثير</p>
-          <h2>أثر الحالة التشغيلية</h2>
+        <template v-if="surface === 'health'">
+          <p class="rail-label">التأثير</p><h2>أثر الحالة التشغيلية</h2>
           <p v-if="state.release_gate?.ready">لا توجد بوابة Release بحالة FAIL وفق الفحص الحالي.</p>
-          <p v-else>
-            حالة Release validation الحالية تمنع اعتبار الحزمة جاهزة حتى معالجة فحوص FAIL.
-          </p></template
-        >
-        <template v-else-if="surface === 'processing'"
-          ><p class="rail-label">Traceability</p>
-          <h2>Requested ≠ Executed</h2>
-          <p>
-            Input digest يعرّف الطلب، بينما الحالة والمحاولات والعامل والأوقات تصف ما حدث فعليًا.
-          </p></template
-        >
-        <template v-else-if="surface === 'validation'"
-          ><p class="rail-label">حد الملكية</p>
-          <h2>تحقق تقني فقط</h2>
-          <p>
-            التحقق هنا يختبر البنية، النوع، provenance، hashes وحدود الحزمة. قرار جودة المعرفة يبقى
-            خارج W05.
-          </p></template
-        >
-        <template v-else-if="surface === 'ai-bridge'"
-          ><p class="rail-label">سياسة التنفيذ</p>
-          <h2>
-            <bdi dir="ltr">{{ state.policy?.execution }}</bdi>
-          </h2>
+          <p v-else>حالة Release validation الحالية تمنع اعتبار الحزمة جاهزة حتى معالجة فحوص FAIL.</p>
+        </template>
+        <template v-else-if="surface === 'processing'">
+          <p class="rail-label">Traceability</p><h2>Requested ≠ Executed</h2>
+          <p>Input digest يعرّف الطلب، بينما الحالة والمحاولات والعامل والأوقات تصف ما حدث فعليًا.</p>
+          <p>الإلغاء متاح فقط لـ pending/running. لا يوجد Retry تلقائي ولا قرار معرفي.</p>
+        </template>
+        <template v-else-if="surface === 'validation'">
+          <p class="rail-label">حد الملكية</p><h2>تحقق تقني فقط</h2>
+          <p>التحقق يختبر البنية والنوع والـ hashes وحدود الحزمة. قرار جودة المعرفة يبقى خارج W05.</p>
+        </template>
+        <template v-else-if="surface === 'ai-bridge'">
+          <p class="rail-label">سياسة التنفيذ</p><h2><bdi dir="ltr">{{ state.policy?.execution }}</bdi></h2>
           <p>لا API provider، لا polling، لا embeddings، ولا نشر تلقائي. القرار النهائي إنساني.</p>
-          <p v-if="state.policy?.automatic_provider_enabled" class="danger-text">
-            الإعداد الحالي يشير إلى provider شبكي مفعّل ويحتاج مراجعة.
-          </p></template
-        >
-        <template v-else-if="surface === 'backups'"
-          ><p class="rail-label">سلامة الاستعادة</p>
-          <h2>
-            <bdi dir="ltr">{{ state.safety?.web_restore_mode }}</bdi>
-          </h2>
-          <p>
-            الإجراء عبر الويب ينتهي عند staging + verification؛ التفعيل المدمر غير معروض.
-          </p></template
-        >
-        <template v-else-if="surface === 'audit'"
-          ><p class="rail-label">الحقيقة التاريخية</p>
-          <h2>Append-only</h2>
-          <p>
-            Actor وTarget وCorrelation وSafe metadata والـhashes معروضة للتحقيق؛ لا توجد أوامر تعديل
-            للسجل.
-          </p></template
-        >
-        <template v-else-if="surface === 'releases'"
-          ><p class="rail-label">حد التفويض</p>
-          <h2>لا Deployment</h2>
-          <p>
-            المعروض هو package/release validation وfollow-up context فقط، دون صلاحية نشر إنتاجي.
-          </p></template
-        >
-        <template v-else-if="surface === 'configuration'"
-          ><p class="rail-label">نطاق التهيئة</p>
-          <h2>تشغيل المنتج المحلي</h2>
-          <p>
-            تظهر فقط قيم تشغيلية مسموحة وغير سرية. لا مفاتيح API ولا إعدادات حساب استهلاكية.
-          </p></template
-        >
+          <p v-if="state.policy?.automatic_provider_enabled" class="danger-text">الإعداد الحالي يشير إلى provider شبكي مفعّل ويحتاج مراجعة.</p>
+        </template>
+        <template v-else-if="surface === 'backups'">
+          <p class="rail-label">سلامة الاستعادة</p><h2><bdi dir="ltr">{{ state.safety?.web_restore_mode }}</bdi></h2>
+          <p>الإجراء عبر الويب ينتهي عند staging + verification؛ التفعيل المدمر غير معروض.</p>
+        </template>
+        <template v-else-if="surface === 'audit'">
+          <p class="rail-label">الحقيقة التاريخية</p><h2>Append-only</h2>
+          <p>السجل غير قابل للتعديل من هذه المساحة. تفاصيل metadata والـ hashes تُفتح كمساحة تحقيق مؤقتة.</p>
+        </template>
+        <template v-else-if="surface === 'releases'">
+          <p class="rail-label">حد التفويض</p><h2>لا Deployment</h2>
+          <p>المعروض هو package/release validation وfollow-up context فقط، دون صلاحية نشر إنتاجي.</p>
+        </template>
+        <template v-else-if="surface === 'configuration'">
+          <p class="rail-label">نطاق التهيئة</p><h2>قراءة محكومة</h2>
+          <p>تظهر فقط قيم تشغيلية مسموحة وغير سرية، بلا mutation runtime ولا مفاتيح API.</p>
+        </template>
       </aside>
     </div>
+
+    <section v-if="deepWorkspace" class="workspace-bottom" aria-label="مساحة العمل العميقة المؤقتة">
+      <header class="bottom-header">
+        <div><p class="section-kicker" dir="ltr">TEMPORARY DEEP WORKSPACE</p><h2>{{ deepWorkspace.title }}</h2></div>
+        <button type="button" class="secondary-button" @click="closeDeepWorkspace">إغلاق</button>
+      </header>
+      <div class="bottom-sections">
+        <article v-for="section in deepWorkspace.sections" :key="section.label" class="bottom-section">
+          <h3>{{ section.label }}</h3>
+          <pre dir="ltr">{{ jsonText(section.value) }}</pre>
+        </article>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -1138,13 +845,17 @@ const packageCounts = computed<Counts>(() =>
 .subtitle {
   margin: 8px 0 0;
   color: #9fb0bd;
-  max-width: 760px;
+  max-width: 780px;
   line-height: 1.8;
 }
-.top-actions {
+.top-actions,
+.context-actions,
+.row-actions,
+.decision-actions {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 .tool-link,
 .read-only-chip,
@@ -1163,6 +874,15 @@ button {
   border-color: #33434f;
   background: #101c25;
   color: #9fb0bd;
+}
+.secondary-button {
+  border-color: #3c5664;
+  background: #101f29;
+  color: #cfe1e8;
+}
+.context-button,
+.context-actions {
+  margin-top: 12px;
 }
 .workspace-grid {
   display: grid;
@@ -1352,7 +1072,6 @@ button {
   margin: 6px 0 0;
   line-height: 1.6;
 }
-.context-disclosure,
 .proposal-review {
   margin-top: 12px;
   border: 1px solid #31505c;
@@ -1360,15 +1079,14 @@ button {
   padding: 12px;
   background: #08131a;
 }
-.context-disclosure summary,
 .proposal-review summary,
 .danger-zone summary {
   cursor: pointer;
   font-weight: 900;
   color: #d8f2f2;
 }
-.context-disclosure h3,
-.proposal-review h3 {
+.proposal-review h3,
+.bottom-section h3 {
   margin: 14px 0 8px;
   font-size: 13px;
   color: #9fb8c3;
@@ -1383,11 +1101,7 @@ pre {
   border-radius: 9px;
   padding: 12px;
   color: #c9dce4;
-  font:
-    12px/1.65 ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
+  font: 12px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 .proposal-payload {
   max-height: 640px;
@@ -1403,14 +1117,7 @@ pre {
   font-weight: 800;
 }
 .decision-actions {
-  display: flex;
-  gap: 8px;
   margin-top: 10px;
-}
-.row-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 .row-actions a {
   color: #8de5e0;
@@ -1418,11 +1125,6 @@ pre {
 .muted {
   color: #95a7b3;
   line-height: 1.8;
-}
-.diagnostic {
-  color: #d9b896;
-  border-inline-start: 2px solid #755b3c;
-  padding-inline-start: 10px;
 }
 .inline-form,
 .form-grid {
@@ -1504,6 +1206,38 @@ textarea {
   text-align: center;
   padding: 22px;
 }
+.workspace-bottom {
+  position: sticky;
+  bottom: 16px;
+  z-index: 20;
+  margin-top: 16px;
+  border: 1px solid #35636a;
+  background: #07131a;
+  border-radius: 16px;
+  box-shadow: 0 -16px 36px rgba(0, 0, 0, 0.35);
+  padding: 16px;
+  max-height: 46vh;
+  overflow: auto;
+}
+.bottom-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.bottom-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.bottom-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.bottom-section {
+  min-width: 0;
+}
 @media (max-width: 1100px) {
   .workspace-grid {
     grid-template-columns: 180px minmax(0, 1fr);
@@ -1526,7 +1260,8 @@ textarea {
   .top-actions {
     margin-top: 16px;
   }
-  .workspace-grid {
+  .workspace-grid,
+  .bottom-sections {
     grid-template-columns: 1fr;
   }
   .workspace-left {
@@ -1542,20 +1277,23 @@ textarea {
   .trace-grid {
     grid-template-columns: 1fr;
   }
-  .trace-grid .wide {
+  .trace-grid .wide,
+  .form-grid .full {
     grid-column: auto;
   }
   .form-grid {
     grid-template-columns: 1fr;
   }
-  .form-grid .full {
-    grid-column: auto;
+  .workspace-bottom {
+    position: static;
+    max-height: none;
   }
 }
 @media (max-width: 480px) {
   .hero-state,
   .record-row,
-  .trace-heading {
+  .trace-heading,
+  .bottom-header {
     align-items: flex-start;
     flex-direction: column;
   }
