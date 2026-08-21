@@ -186,7 +186,9 @@ const handoffClaim = ref(
 const operationValue = ref(false);
 const pendingAction = ref<string | null>(null);
 const localError = ref<string | null>(null);
-const serverError = computed(() => page.props.errors?.simulation ?? Object.values(page.props.errors ?? {})[0]);
+const serverError = computed(
+  () => page.props.errors?.simulation ?? Object.values(page.props.errors ?? {})[0],
+);
 
 const records = computed<Array<EnterpriseItem | ScenarioItem | LabItem | RunItem | ResultItem>>(
   () => {
@@ -258,7 +260,9 @@ function post(path: string, data?: PostPayload, action = 'mutation'): void {
   router.post(path, data, {
     preserveScroll: true,
     onError: (errors) => {
-      localError.value = String(errors.simulation ?? Object.values(errors)[0] ?? 'تعذر إكمال الإجراء.');
+      localError.value = String(
+        errors.simulation ?? Object.values(errors)[0] ?? 'تعذر إكمال الإجراء.',
+      );
     },
     onFinish: () => {
       pendingAction.value = null;
@@ -458,11 +462,7 @@ function replayCompare(): void {
               </div>
               <span class="technical slug">{{ enterprise.slug }}</span>
             </div>
-            <section
-              v-for="twin in enterprise.digital_twins"
-              :key="twin.id"
-              class="topology-card"
-            >
+            <section v-for="twin in enterprise.digital_twins" :key="twin.id" class="topology-card">
               <div class="record-heading">
                 <div>
                   <span v-if="twin.is_fixture" class="fixture-badge">بيانات توأم تجريبية</span>
@@ -475,11 +475,7 @@ function replayCompare(): void {
                 لا توجد مراجعة منشورة لهذا التوأم الرقمي.
               </div>
               <template v-else>
-                <div
-                  v-for="revision in twin.revisions"
-                  :key="revision.id"
-                  class="lineage-revision"
-                >
+                <div v-for="revision in twin.revisions" :key="revision.id" class="lineage-revision">
                   <div class="causal-strip">
                     <span>Enterprise</span><b>←</b><span>Digital Twin</span><b>←</b
                     ><span>Revision {{ revision.revision }}</span>
@@ -624,9 +620,7 @@ function replayCompare(): void {
                 <h2>نتيجة تشغيل مختومة</h2>
                 <p class="technical id-line">Run {{ result.run_id }}</p>
                 <span class="provenance-badge technical">{{ result.provenance }}</span>
-                <span v-if="result.source_fixture" class="fixture-badge"
-                  >نتيجة من مصدر تجريبي</span
-                >
+                <span v-if="result.source_fixture" class="fixture-badge">نتيجة من مصدر تجريبي</span>
               </div>
               <div class="status-stack">
                 <span class="technical">{{ runTypeLabel(result.run_type) }}</span>
@@ -773,7 +767,9 @@ function replayCompare(): void {
           </dl>
           <h3>Semantic Replay / Compare</h3>
           <button type="button" :disabled="pendingAction !== null" @click="replayCompare">
-            {{ pendingAction === 'replay' ? 'جارٍ إعادة البناء والمقارنة…' : 'إعادة البناء والمقارنة' }}
+            {{
+              pendingAction === 'replay' ? 'جارٍ إعادة البناء والمقارنة…' : 'إعادة البناء والمقارنة'
+            }}
           </button>
           <div v-if="selectedResult.replay_compare" class="handoff-state">
             <strong class="technical">
@@ -803,9 +799,13 @@ function replayCompare(): void {
               <dt>Handoff Identity</dt>
               <dd class="technical">{{ selectedResult.candidate_evidence_handoff.id }}</dd>
               <dt>Source Result Revision</dt>
-              <dd class="technical">{{ selectedResult.candidate_evidence_handoff.source_result_revision }}</dd>
+              <dd class="technical">
+                {{ selectedResult.candidate_evidence_handoff.source_result_revision }}
+              </dd>
               <dt>Source Result Digest</dt>
-              <dd class="technical wrap">{{ selectedResult.candidate_evidence_handoff.source_result_digest }}</dd>
+              <dd class="technical wrap">
+                {{ selectedResult.candidate_evidence_handoff.source_result_digest }}
+              </dd>
               <dt>Actor</dt>
               <dd class="technical">{{ selectedResult.candidate_evidence_handoff.created_by }}</dd>
             </dl>
