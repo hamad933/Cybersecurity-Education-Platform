@@ -537,6 +537,7 @@ final class SimulationEnterpriseService
             $operationByKey[$operation['operation_key']] = $operation;
         }
         $timelineIntegrity = $this->timelineIsSequential($timeline);
+        $reconstructedStatesByEventSequence = [];
         $appliedOperationKeys = [];
         if ($timelineIntegrity && $operationChainValid) {
             foreach ($timeline as $event) {
@@ -608,16 +609,29 @@ final class SimulationEnterpriseService
                         break;
                     }
                 }
+
+                $reconstructedStatesByEventSequence[(int) $event['sequence']] = $state;
             }
         }
         $operationChainValid = $operationChainValid && count($appliedOperationKeys) === count($operationByKey);
         $sealedLineage = is_array($sealedPayload['lineage'] ?? null) ? $sealedPayload['lineage'] : [];
         $snapshotIntegrity = $snapshots !== [];
+        $previousSnapshotEventSequence = 0;
+        $expectedSnapshotSequence = 1;
         foreach ($snapshots as $snapshot) {
+            $eventSequence = is_array($snapshot) ? ($snapshot['event_sequence'] ?? null) : null;
             if (
                 ! is_array($snapshot)
+                || ! is_int($snapshot['sequence'] ?? null)
+                || $snapshot['sequence'] !== $expectedSnapshotSequence
+                || ! is_int($eventSequence)
+                || $eventSequence < 1
+                || $eventSequence > count($timeline)
+                || $eventSequence <= $previousSnapshotEventSequence
                 || ! is_array($snapshot['state'] ?? null)
                 || ! hash_equals((string) ($snapshot['state_digest'] ?? ''), $this->digest($snapshot['state']))
+                || ! isset($reconstructedStatesByEventSequence[$eventSequence])
+                || ! hash_equals($this->digest($snapshot['state']), $this->digest($reconstructedStatesByEventSequence[$eventSequence]))
                 || ($snapshot['digital_twin_id'] ?? null) !== ($sealedLineage['digital_twin_id'] ?? null)
                 || ($snapshot['digital_twin_revision_id'] ?? null) !== ($sealedLineage['digital_twin_revision_id'] ?? null)
                 || ($snapshot['baseline_id'] ?? null) !== ($sealedLineage['baseline_id'] ?? null)
@@ -627,6 +641,8 @@ final class SimulationEnterpriseService
                 $snapshotIntegrity = false;
                 break;
             }
+            $previousSnapshotEventSequence = $eventSequence;
+            $expectedSnapshotSequence++;
         }
         $artifactIntegrity = true;
         foreach ($operationByKey as $operation) {

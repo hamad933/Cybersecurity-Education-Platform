@@ -9,6 +9,7 @@ use DomainException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -130,6 +131,47 @@ final class SimulationEnterpriseDomainTest extends TestCase
     }
 
     #[Test]
+    public function semantic_replay_rejects_a_self_consistent_snapshot_at_the_wrong_event_sequence(): void
+    {
+        $this->seed(SimulationEnterpriseWave1Seeder::class);
+        $simulation = app(SimulationEnterpriseService::class);
+        $labId = (string) DB::table('simulation_lab_definitions')->value('id');
+        $run = $simulation->prepareStandaloneLabRun($labId, 902, ['mode' => 'SOLO'], self::ACTOR);
+        $simulation->markReady((string) $run['id'], self::ACTOR);
+        $simulation->start((string) $run['id'], self::ACTOR);
+        $simulation->applyOperation((string) $run['id'], [
+            'operation_key' => 'misplaced-snapshot-operation-001',
+            'verb' => 'SET_CONTROL_STATE',
+            'target' => 'IDENTITY_MFA',
+            'value' => false,
+        ], self::ACTOR);
+
+        $initialSnapshot = DB::table('simulation_runtime_snapshots')->where('run_id', $run['id'])->orderBy('sequence')->firstOrFail();
+        DB::table('simulation_runtime_snapshots')->insert([
+            'id' => (string) Str::uuid7(),
+            'run_id' => $run['id'],
+            'sequence' => 2,
+            'event_sequence' => 4,
+            'digital_twin_id' => $run['digital_twin_id'],
+            'digital_twin_revision_id' => $run['digital_twin_revision_id'],
+            'baseline_id' => $run['baseline_id'],
+            'state' => $initialSnapshot->state,
+            'state_digest' => $initialSnapshot->state_digest,
+            'captured_by' => self::ACTOR,
+            'captured_at' => now(),
+            'created_at' => now(),
+        ]);
+
+        $simulation->completeInternalSimulation((string) $run['id'], self::ACTOR);
+        $result = $simulation->sealResult((string) $run['id'], 'PARTIAL', 'لقطة تاريخية في موضع خاطئ.', null, self::ACTOR);
+        $compare = $simulation->replayAndCompareResult((string) $result['id'], self::ACTOR);
+        $reconstruction = json_decode((string) $compare['reconstruction'], true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertFalse((bool) $compare['integrity_match']);
+        $this->assertFalse($reconstruction['checks']['snapshot_integrity']);
+    }
+
+    #[Test]
     public function simulated_fixture_provenance_propagates_to_run_result_and_stable_handoff(): void
     {
         $this->seed(SimulationEnterpriseWave1Seeder::class);
@@ -196,6 +238,33 @@ final class SimulationEnterpriseDomainTest extends TestCase
 
     /** @return array<string,array{string}> */
     public static function handoffMutations(): array
+    {
+        return [
+            'UPDATE' => ['UPDATE'],
+            'DELETE' => ['DELETE'],
+        ];
+    }
+
+    #[DataProvider('replayComparisonMutations')]
+    #[Test]
+    public function replay_comparisons_are_append_only(string $mutation): void
+    {
+        $this->seed(SimulationEnterpriseWave1Seeder::class);
+        $simulation = app(SimulationEnterpriseService::class);
+        $resultId = (string) DB::table('simulation_run_results')->value('id');
+        $compare = $simulation->replayAndCompareResult($resultId, self::ACTOR);
+
+        $this->expectException(QueryException::class);
+        if ($mutation === 'UPDATE') {
+            DB::table('simulation_result_replay_compares')->where('id', $compare['id'])->update(['actor_id' => 'SYSTEM:TAMPERED']);
+
+            return;
+        }
+        DB::table('simulation_result_replay_compares')->where('id', $compare['id'])->delete();
+    }
+
+    /** @return array<string,array{string}> */
+    public static function replayComparisonMutations(): array
     {
         return [
             'UPDATE' => ['UPDATE'],
