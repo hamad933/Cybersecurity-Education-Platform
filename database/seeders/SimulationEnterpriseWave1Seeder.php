@@ -10,6 +10,7 @@ final class SimulationEnterpriseWave1Seeder extends Seeder
 {
     public function run(): void
     {
+        $actorId = 'SYSTEM:SIMULATION_WAVE1_SEEDER';
         /** @var SimulationEnterpriseFixtureWriter $enterpriseFixtures */
         $enterpriseFixtures = app(SimulationEnterpriseFixtureWriter::class);
 
@@ -26,8 +27,21 @@ final class SimulationEnterpriseWave1Seeder extends Seeder
                 'purpose' => 'SYNTHETIC_WAVE1_FIXTURE',
                 'zones' => ['USER_EDGE', 'APPLICATION', 'IDENTITY', 'DATA'],
             ],
+            $actorId,
         );
-        $twin = $enterpriseFixtures->publishDigitalTwinRevision((string) $enterprise['id'], [
+        $primaryTwin = $enterpriseFixtures->createDigitalTwin(
+            (string) $enterprise['id'],
+            'identity-operations-twin',
+            'التوأم الرقمي لعمليات الهوية',
+            $actorId,
+        );
+        $secondaryTwin = $enterpriseFixtures->createDigitalTwin(
+            (string) $enterprise['id'],
+            'recovery-validation-twin',
+            'التوأم الرقمي للتحقق من التعافي',
+            $actorId,
+        );
+        $twinRevision = $enterpriseFixtures->publishDigitalTwinRevision((string) $enterprise['id'], (string) $primaryTwin['id'], [
             'nodes' => [
                 ['id' => 'EDGE-01', 'kind' => 'gateway'],
                 ['id' => 'APP-01', 'kind' => 'application'],
@@ -40,15 +54,23 @@ final class SimulationEnterpriseWave1Seeder extends Seeder
         ], [
             'authentication' => 'SIMULATED_POLICY_ENGINE',
             'telemetry' => 'INTERNAL_EVENT_STREAM',
-        ]);
+        ], $actorId);
+        $enterpriseFixtures->publishDigitalTwinRevision((string) $enterprise['id'], (string) $secondaryTwin['id'], [
+            'nodes' => [['id' => 'RECOVERY-01', 'kind' => 'recovery-service']],
+            'links' => [],
+        ], [
+            'recovery' => 'SIMULATED_RECOVERY_ENGINE',
+        ], $actorId);
         $baseline = $enterpriseFixtures->publishBaseline(
             (string) $enterprise['id'],
-            (string) $twin['id'],
+            (string) $primaryTwin['id'],
+            (string) $twinRevision['id'],
             [
                 'identity_policy' => ['mfa_required' => true],
                 'application_state' => ['maintenance' => false],
                 'telemetry_state' => ['collection' => 'enabled'],
             ],
+            $actorId,
         );
         $lab = $simulation->publishLab(
             (string) $enterprise['id'],
@@ -57,6 +79,7 @@ final class SimulationEnterpriseWave1Seeder extends Seeder
             'مختبر تحليل مصادقة داخلي',
             ['objective' => 'trace-authentication-causality', 'steps' => ['observe', 'correlate', 'validate']],
             ['requires_trace' => true],
+            $actorId,
         );
         $scenario = $simulation->publishScenario(
             (string) $enterprise['id'],
@@ -65,27 +88,34 @@ final class SimulationEnterpriseWave1Seeder extends Seeder
             'سيناريو دخول مميّز مشتبه به',
             ['phases' => ['initial_access', 'identity_validation', 'telemetry_review']],
             ['deterministic' => true, 'trace_required' => true],
+            $actorId,
         );
         $simulation->attachLabModule((string) $scenario['id'], (string) $lab['id'], 'AUTH-INVESTIGATION-01', [
             'mode' => 'GUIDED',
             'required' => true,
         ]);
 
-        $run = $simulation->prepareScenarioRun((string) $scenario['id'], 20260814, ['mode' => 'GUIDED']);
-        $simulation->markReady((string) $run['id']);
-        $simulation->start((string) $run['id']);
-        $simulation->completeInternalSimulation((string) $run['id']);
+        $run = $simulation->prepareScenarioRun((string) $scenario['id'], 20260814, ['mode' => 'GUIDED'], $actorId);
+        $simulation->markReady((string) $run['id'], $actorId);
+        $simulation->start((string) $run['id'], $actorId);
+        $simulation->applyOperation((string) $run['id'], [
+            'operation_key' => 'wave1-operation-001',
+            'verb' => 'SET_CONTROL_STATE',
+            'target' => 'IDENTITY_MFA',
+            'value' => false,
+        ], $actorId);
+        $simulation->completeInternalSimulation((string) $run['id'], $actorId);
         $result = $simulation->sealResult(
             (string) $run['id'],
             'PARTIAL',
             'نتيجة تجريبية مختومة لإثبات مسار Wave 1 الداخلي فقط.',
             84.0,
+            $actorId,
             [['kind' => 'trace_digest', 'ref' => 'internal://wave1/trace']],
         );
         $simulation->createCandidateEvidenceHandoff((string) $result['id'], [
             'claim_ar' => 'مرشح دليل تجريبي مشتق من نتيجة محاكاة داخلية مختومة.',
             'artifact_refs' => ['internal://wave1/trace'],
-            'source' => 'SIMULATION_RUN_RESULT',
-        ], 'progress-evidence-intake:v1');
+        ], 'progress-evidence-intake:v1', $actorId);
     }
 }

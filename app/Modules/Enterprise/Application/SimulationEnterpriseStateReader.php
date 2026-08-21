@@ -11,6 +11,7 @@ interface SimulationEnterpriseStateReader
 {
     public function findForSimulation(
         string $enterpriseId,
+        string $digitalTwinId,
         string $digitalTwinRevisionId,
         string $baselineId,
     ): ?SimulationEnterpriseState;
@@ -20,6 +21,6 @@ interface SimulationEnterpriseStateReader
         string $baselineId,
     ): ?SimulationEnterpriseState;
 
-    /** @return list<SimulationEnterpriseState> */
+    /** @return list<array<string,mixed>> */
     public function listForSimulationWorkspace(): array;
 }

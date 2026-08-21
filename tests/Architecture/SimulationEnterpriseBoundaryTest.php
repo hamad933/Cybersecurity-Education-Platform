@@ -40,9 +40,12 @@ final class SimulationEnterpriseBoundaryTest extends TestCase
     {
         $routes = file_get_contents(base_path('routes/workspaces/simulation-enterprise.php')) ?: '';
 
+        $this->assertSame(5, substr_count($routes, 'Route::get('));
         $this->assertStringNotContainsString("Route::get('/operations'", $routes);
         foreach (["Route::get('/'", "Route::get('/scenarios'", "Route::get('/labs'", "Route::get('/runs'", "Route::get('/results'"] as $required) {
             $this->assertStringContainsString($required, $routes);
         }
+        $this->assertStringContainsString("Route::post('/runs/{run}/operations'", $routes);
+        $this->assertStringContainsString("Route::post('/results/{result}/replay-compare'", $routes);
     }
 }
