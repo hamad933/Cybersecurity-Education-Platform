@@ -383,7 +383,9 @@ final class SimulationEnterpriseController extends Controller
         return (string) $actorId;
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @return array<array-key, mixed>
+     */
     private function decode(mixed $value): array
     {
         if (is_array($value)) {
@@ -397,7 +399,9 @@ final class SimulationEnterpriseController extends Controller
         return is_array($decoded) ? $decoded : [];
     }
 
-    /** @return list<mixed> */
+    /**
+     * @return list<mixed>
+     */
     private function decodeList(mixed $value): array
     {
         $decoded = $this->decode($value);

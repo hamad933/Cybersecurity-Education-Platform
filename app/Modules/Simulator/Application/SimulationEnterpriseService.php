@@ -47,7 +47,11 @@ final class SimulationEnterpriseService
 
     public function __construct(private readonly SimulationEnterpriseStateReader $enterpriseState) {}
 
-    /** @param array<string,mixed> $orchestration @param array<string,mixed> $validation @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $orchestration
+     * @param  array<string, mixed>  $validation
+     * @return array<string, mixed>
+     */
     public function publishScenario(
         string $enterpriseId,
         string $baselineId,
@@ -85,7 +89,11 @@ final class SimulationEnterpriseService
         return $this->row('simulation_scenario_definitions', $id);
     }
 
-    /** @param array<string,mixed> $configuration @param array<string,mixed> $validation @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $configuration
+     * @param  array<string, mixed>  $validation
+     * @return array<string, mixed>
+     */
     public function publishLab(
         string $enterpriseId,
         string $baselineId,
@@ -123,7 +131,10 @@ final class SimulationEnterpriseService
         return $this->row('simulation_lab_definitions', $id);
     }
 
-    /** @param array<string,mixed> $policy @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $policy
+     * @return array<string, mixed>
+     */
     public function attachLabModule(string $scenarioDefinitionId, string $labDefinitionId, string $moduleKey, array $policy = []): array
     {
         $scenario = $this->requireRow('simulation_scenario_definitions', $scenarioDefinitionId);
@@ -151,7 +162,10 @@ final class SimulationEnterpriseService
         return $this->row('simulation_scenario_lab_references', $id);
     }
 
-    /** @param array<string,mixed> $executionPolicies @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $executionPolicies
+     * @return array<string, mixed>
+     */
     public function prepareScenarioRun(string $scenarioDefinitionId, int $seed, array $executionPolicies, string $actorId): array
     {
         $this->assertActor($actorId);
@@ -179,7 +193,10 @@ final class SimulationEnterpriseService
         });
     }
 
-    /** @param array<string,mixed> $executionPolicies @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $executionPolicies
+     * @return array<string, mixed>
+     */
     public function prepareStandaloneLabRun(string $labDefinitionId, int $seed, array $executionPolicies, string $actorId): array
     {
         $this->assertActor($actorId);
@@ -232,7 +249,10 @@ final class SimulationEnterpriseService
         return $this->transition($runId, 'STOPPED', 'RUN_STOPPED', $actorId);
     }
 
-    /** @param array{operation_key:string,verb:string,target:string,value:bool} $operation @return array<string,mixed> */
+    /**
+     * @param  array{operation_key: string, verb: string, target: string, value: mixed}  $operation
+     * @return array<string, mixed>
+     */
     public function applyOperation(string $runId, array $operation, string $actorId): array
     {
         $this->assertActor($actorId);
@@ -370,7 +390,10 @@ final class SimulationEnterpriseService
         });
     }
 
-    /** @param list<mixed> $artifacts @return array<string,mixed> */
+    /**
+     * @param  list<array<string, mixed>>  $artifacts
+     * @return array<string, mixed>
+     */
     public function sealResult(string $runId, string $outcome, string $summaryAr, ?float $score, string $actorId, array $artifacts = []): array
     {
         $this->assertActor($actorId);
@@ -426,7 +449,7 @@ final class SimulationEnterpriseService
                 'digest' => $operation['post_state_digest'],
                 'provenance' => self::PROVENANCE_SIMULATED,
             ], $operations);
-            $sealedArtifacts = array_values(array_merge($artifacts, $operationArtifacts));
+            $sealedArtifacts = array_merge($artifacts, $operationArtifacts);
             $sealedPayload = [
                 'schema' => 'cep.simulation.run-result.v1',
                 'run_id' => $runId,
@@ -659,7 +682,10 @@ final class SimulationEnterpriseService
         return $this->row(self::RESULT_REPLAY_COMPARES_TABLE, $id);
     }
 
-    /** @param array<string,mixed> $candidateManifest @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $candidateManifest
+     * @return array<string, mixed>
+     */
     public function createCandidateEvidenceHandoff(string $resultId, array $candidateManifest, ?string $intakeContractRef, string $actorId): array
     {
         $this->assertActor($actorId);
@@ -740,7 +766,11 @@ final class SimulationEnterpriseService
         };
     }
 
-    /** @param array<string,mixed> $lineage @param array<string,mixed> $executionPolicies @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $lineage
+     * @param  array<string, mixed>  $executionPolicies
+     * @return array<string, mixed>
+     */
     private function insertRun(
         string $runType,
         array $lineage,
@@ -895,7 +925,10 @@ final class SimulationEnterpriseService
         return $this->row('simulation_runs', $runId);
     }
 
-    /** @param array<string,mixed> $payload @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
     private function appendEvent(string $runId, string $eventType, array $payload, string $actorId): array
     {
         $sequence = (int) DB::table('simulation_run_events')->where('run_id', $runId)->max('sequence') + 1;
@@ -941,7 +974,9 @@ final class SimulationEnterpriseService
         return $this->row('simulation_runtime_snapshots', $id);
     }
 
-    /** @param array{operation_key:string,verb:string,target:string,value:bool} $operation */
+    /**
+     * @param  array{operation_key: string, verb: string, target: string, value: mixed}  $operation
+     */
     private function assertOperation(array $operation): void
     {
         if (
@@ -954,7 +989,11 @@ final class SimulationEnterpriseService
         }
     }
 
-    /** @param array<string,mixed> $state @param array<string,mixed> $operation @return array{0:array<string,mixed>,1:array<string,mixed>} */
+    /**
+     * @param  array<string, mixed>  $state
+     * @param  array{operation_key: string, verb: string, target: string, value: mixed}  $operation
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}
+     */
     private function applyOperationGrammar(array $state, array $operation): array
     {
         $this->assertOperation($operation);
@@ -1005,7 +1044,12 @@ final class SimulationEnterpriseService
         );
     }
 
-    /** @param array<string,mixed> $sealedPayload @param list<mixed> $timeline @param list<mixed> $artifacts @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $sealedPayload
+     * @param  list<array<string, mixed>>  $timeline
+     * @param  list<array<string, mixed>>  $artifacts
+     * @return array<string, mixed>
+     */
     private function resultDigestPayload(
         string $runId,
         string $outcome,
@@ -1021,11 +1065,13 @@ final class SimulationEnterpriseService
         return compact('runId', 'outcome', 'score', 'summaryAr', 'sealedPayload', 'timeline', 'artifacts', 'revision', 'provenance', 'sourceFixture');
     }
 
-    /** @param list<mixed> $timeline */
+    /**
+     * @param  list<array<string, mixed>>  $timeline
+     */
     private function timelineIsSequential(array $timeline): bool
     {
         foreach ($timeline as $index => $event) {
-            if (! is_array($event) || ($event['sequence'] ?? null) !== $index + 1 || ! is_string($event['actor_id'] ?? null) || $event['actor_id'] === '') {
+            if (($event['sequence'] ?? null) !== $index + 1 || ! is_string($event['actor_id'] ?? null) || $event['actor_id'] === '') {
                 return false;
             }
         }
@@ -1056,13 +1102,17 @@ final class SimulationEnterpriseService
         return $row;
     }
 
-    /** @param array<mixed> $value */
+    /**
+     * @param  array<array-key, mixed>  $value
+     */
     private function json(array $value): string
     {
         return json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @return array<array-key, mixed>
+     */
     private function decodeJson(mixed $value): array
     {
         if (is_array($value)) {
@@ -1076,7 +1126,9 @@ final class SimulationEnterpriseService
         return is_array($decoded) ? $decoded : [];
     }
 
-    /** @return list<mixed> */
+    /**
+     * @return list<mixed>
+     */
     private function decodeList(mixed $value): array
     {
         $decoded = $this->decodeJson($value);

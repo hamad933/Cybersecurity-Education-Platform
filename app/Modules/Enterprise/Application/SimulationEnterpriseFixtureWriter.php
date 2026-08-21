@@ -17,7 +17,10 @@ final class SimulationEnterpriseFixtureWriter
         return DB::table('simulation_enterprises')->where('slug', $slug)->exists();
     }
 
-    /** @param array<string,mixed> $definition @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $definition
+     * @return array<string, mixed>
+     */
     public function createEnterprise(string $slug, string $nameAr, array $definition, ?string $actorId = null): array
     {
         $id = (string) Str::uuid7();
@@ -65,7 +68,11 @@ final class SimulationEnterpriseFixtureWriter
         return $this->row(self::DIGITAL_TWINS_TABLE, $id);
     }
 
-    /** @param array<string,mixed> $topology @param array<string,mixed> $behaviorModel @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $topology
+     * @param  array<string, mixed>  $behaviorModel
+     * @return array<string, mixed>
+     */
     public function publishDigitalTwinRevision(
         string $enterpriseId,
         string $digitalTwinId,
@@ -106,7 +113,10 @@ final class SimulationEnterpriseFixtureWriter
         return $this->row('simulation_digital_twin_revisions', $id);
     }
 
-    /** @param array<string,mixed> $state @return array<string,mixed> */
+    /**
+     * @param  array<string, mixed>  $state
+     * @return array<string, mixed>
+     */
     public function publishBaseline(
         string $enterpriseId,
         string $digitalTwinId,
@@ -166,7 +176,9 @@ final class SimulationEnterpriseFixtureWriter
         return $row;
     }
 
-    /** @param array<mixed> $value */
+    /**
+     * @param  array<array-key, mixed>  $value
+     */
     private function json(array $value): string
     {
         return json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
