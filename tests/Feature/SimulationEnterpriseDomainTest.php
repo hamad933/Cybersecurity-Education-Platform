@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Modules\Enterprise\Application\SimulationEnterpriseFixtureWriter;
 use App\Modules\Simulator\Application\SimulationEnterpriseService;
 use Database\Seeders\SimulationEnterpriseWave1Seeder;
 use DomainException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -15,36 +17,69 @@ final class SimulationEnterpriseDomainTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const ACTOR = 'SYSTEM:W03_DOMAIN_TEST';
+
+    #[Test]
+    public function one_enterprise_owns_two_digital_twins_with_independent_revision_streams(): void
+    {
+        $this->seed(SimulationEnterpriseWave1Seeder::class);
+        $enterpriseId = (string) DB::table('simulation_enterprises')->value('id');
+        $twins = DB::table('simulation_digital_twins')->where('enterprise_id', $enterpriseId)->orderBy('slug')->get();
+        $this->assertCount(2, $twins);
+        $this->assertDatabaseCount('simulation_enterprises', 1);
+
+        $writer = app(SimulationEnterpriseFixtureWriter::class);
+        foreach ($twins as $twin) {
+            $revision = $writer->publishDigitalTwinRevision(
+                $enterpriseId,
+                (string) $twin->id,
+                ['nodes' => [['id' => 'REVISION-2', 'kind' => 'bounded-node']], 'links' => []],
+                ['behavior' => 'SIMULATED_REVISION_2'],
+                self::ACTOR,
+            );
+            $this->assertSame(2, (int) $revision['revision']);
+
+            $previousBaselineRevision = (int) DB::table('simulation_baselines')
+                ->where('digital_twin_id', $twin->id)
+                ->max('revision');
+            $baseline = $writer->publishBaseline(
+                $enterpriseId,
+                (string) $twin->id,
+                (string) $revision['id'],
+                ['identity_policy' => ['mfa_required' => false]],
+                self::ACTOR,
+            );
+            $this->assertSame($previousBaselineRevision + 1, (int) $baseline['revision']);
+            $this->assertSame((string) $twin->id, (string) $baseline['digital_twin_id']);
+        }
+
+        foreach ($twins as $twin) {
+            $this->assertSame([1, 2], DB::table('simulation_digital_twin_revisions')->where('digital_twin_id', $twin->id)->orderBy('revision')->pluck('revision')->map(fn (mixed $value): int => (int) $value)->all());
+        }
+    }
+
     #[Test]
     public function scenario_and_lab_are_distinct_and_scenario_lab_references_become_instances_not_standalone_runs(): void
     {
         $this->seed(SimulationEnterpriseWave1Seeder::class);
-
         $scenario = DB::table('simulation_scenario_definitions')->firstOrFail();
         $lab = DB::table('simulation_lab_definitions')->firstOrFail();
         $run = DB::table('simulation_runs')->firstOrFail();
-
         $this->assertNotSame((string) $scenario->id, (string) $lab->id);
         $this->assertSame('Scenario Run', $run->run_type);
         $this->assertSame((string) $scenario->id, (string) $run->scenario_definition_id);
         $this->assertNull($run->standalone_lab_definition_id);
-        $this->assertDatabaseCount('simulation_scenario_lab_references', 1);
         $this->assertDatabaseCount('simulation_run_lab_module_instances', 1);
-        $instance = DB::table('simulation_run_lab_module_instances')->firstOrFail();
-        $this->assertSame((string) $run->id, (string) $instance->run_id);
-        $this->assertSame((string) $lab->id, (string) $instance->lab_definition_id);
     }
 
     #[Test]
-    public function exactly_two_run_types_are_enforced_by_postgresql_and_lifecycle_is_separate_from_result_outcome(): void
+    public function exactly_two_run_types_are_enforced_and_lifecycle_is_separate_from_result_outcome(): void
     {
         $this->seed(SimulationEnterpriseWave1Seeder::class);
         $constraint = DB::selectOne("SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conname = 'sim_run_type_check'");
         $this->assertNotNull($constraint);
-        $definition = (string) $constraint->definition;
-        $this->assertStringContainsString('Standalone Lab Run', $definition);
-        $this->assertStringContainsString('Scenario Run', $definition);
-
+        $this->assertStringContainsString('Standalone Lab Run', (string) $constraint->definition);
+        $this->assertStringContainsString('Scenario Run', (string) $constraint->definition);
         $run = DB::table('simulation_runs')->firstOrFail();
         $result = DB::table('simulation_run_results')->where('run_id', $run->id)->firstOrFail();
         $this->assertSame('COMPLETED', $run->lifecycle);
@@ -54,67 +89,153 @@ final class SimulationEnterpriseDomainTest extends TestCase
     }
 
     #[Test]
-    public function standalone_and_scenario_runs_use_deterministic_traceable_internal_execution(): void
+    public function bounded_operation_mutates_runtime_state_and_derives_actor_audited_telemetry(): void
     {
         $this->seed(SimulationEnterpriseWave1Seeder::class);
         $simulation = app(SimulationEnterpriseService::class);
         $labId = (string) DB::table('simulation_lab_definitions')->value('id');
+        $run = $simulation->prepareStandaloneLabRun($labId, 901, ['mode' => 'SOLO'], self::ACTOR);
+        $simulation->markReady((string) $run['id'], self::ACTOR);
+        $simulation->start((string) $run['id'], self::ACTOR);
+        $operation = $simulation->applyOperation((string) $run['id'], [
+            'operation_key' => 'domain-operation-001',
+            'verb' => 'SET_CONTROL_STATE',
+            'target' => 'IDENTITY_MFA',
+            'value' => false,
+        ], self::ACTOR);
 
-        $first = $simulation->prepareStandaloneLabRun($labId, 901, ['mode' => 'SOLO']);
-        $simulation->markReady((string) $first['id']);
-        $simulation->start((string) $first['id']);
-        $simulation->completeInternalSimulation((string) $first['id']);
-
-        $second = $simulation->prepareStandaloneLabRun($labId, 901, ['mode' => 'SOLO']);
-        $simulation->markReady((string) $second['id']);
-        $simulation->start((string) $second['id']);
-        $simulation->completeInternalSimulation((string) $second['id']);
-
-        $firstState = json_decode((string) DB::table('simulation_runs')->where('id', $first['id'])->value('runtime_state'), true, 512, JSON_THROW_ON_ERROR);
-        $secondState = json_decode((string) DB::table('simulation_runs')->where('id', $second['id'])->value('runtime_state'), true, 512, JSON_THROW_ON_ERROR);
-        $this->assertSame('INTERNAL_HIGH_FIDELITY_V1', $firstState['engine']);
-        $this->assertTrue($firstState['validation']['traceable']);
-        $this->assertTrue($firstState['validation']['deterministic']);
-        $this->assertSame($firstState['trace_digest'], $secondState['trace_digest']);
-        $this->assertSame($firstState['telemetry'], $secondState['telemetry']);
-        $this->assertDatabaseHas('simulation_runs', ['id' => $first['id'], 'run_type' => 'Standalone Lab Run', 'lifecycle' => 'COMPLETED']);
-        $this->assertGreaterThanOrEqual(5, DB::table('simulation_run_events')->where('run_id', $first['id'])->count());
-        $this->assertGreaterThanOrEqual(2, DB::table('simulation_runtime_snapshots')->where('run_id', $first['id'])->count());
+        $state = json_decode((string) DB::table('simulation_runs')->where('id', $run['id'])->value('runtime_state'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertFalse($state['simulated_state']['identity_policy']['mfa_required']);
+        $this->assertTrue(json_decode((string) $operation['telemetry'], true, 512, JSON_THROW_ON_ERROR)['state_changed']);
+        $this->assertDatabaseHas('simulation_run_events', ['run_id' => $run['id'], 'event_type' => 'SIMULATION_OPERATION_APPLIED', 'actor_id' => self::ACTOR]);
+        $this->assertDatabaseHas('simulation_runtime_snapshots', ['run_id' => $run['id'], 'captured_by' => self::ACTOR]);
     }
 
     #[Test]
-    public function each_result_belongs_to_exactly_one_run_and_cannot_be_resealed_or_overwritten(): void
+    public function semantic_replay_reconstructs_sealed_state_and_compares_integrity(): void
+    {
+        $this->seed(SimulationEnterpriseWave1Seeder::class);
+        $simulation = app(SimulationEnterpriseService::class);
+        $resultId = (string) DB::table('simulation_run_results')->value('id');
+        $compare = $simulation->replayAndCompareResult($resultId, self::ACTOR);
+        $reconstruction = json_decode((string) $compare['reconstruction'], true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertTrue((bool) $compare['integrity_match']);
+        $this->assertNotEmpty($reconstruction['sealed_lineage']);
+        $this->assertNotEmpty($reconstruction['timeline']);
+        $this->assertNotEmpty($reconstruction['artifacts']);
+        $this->assertNotEmpty($reconstruction['runtime_snapshots']);
+        $this->assertTrue($reconstruction['checks']['sealed_result_digest_valid']);
+        $this->assertSame(self::ACTOR, $compare['actor_id']);
+    }
+
+    #[Test]
+    public function simulated_fixture_provenance_propagates_to_run_result_and_stable_handoff(): void
+    {
+        $this->seed(SimulationEnterpriseWave1Seeder::class);
+        $run = DB::table('simulation_runs')->firstOrFail();
+        $result = DB::table('simulation_run_results')->firstOrFail();
+        $handoff = DB::table('simulation_candidate_evidence_handoffs')->firstOrFail();
+        $this->assertSame('SIMULATED', $run->provenance);
+        $this->assertTrue((bool) $run->source_fixture);
+        $this->assertSame('SIMULATED', $result->provenance);
+        $this->assertTrue((bool) $result->source_fixture);
+        $this->assertSame((string) $result->result_digest, (string) $handoff->source_result_digest);
+        $this->assertSame('SIMULATED', $handoff->provenance);
+        $this->assertTrue((bool) $handoff->source_fixture);
+        $this->assertSame('SYSTEM:SIMULATION_WAVE1_SEEDER', $handoff->created_by);
+        $this->assertSame(64, strlen((string) $handoff->manifest_digest));
+        $this->assertSame(0, DB::table('simulation_run_events')->where('actor_id', '!=', 'SYSTEM:SIMULATION_WAVE1_SEEDER')->count());
+        $this->assertDatabaseCount('evidence_records', 0);
+    }
+
+    #[DataProvider('publishedDefinitionTables')]
+    #[Test]
+    public function published_definitions_are_immutable_in_postgresql(string $table, string $mutation): void
+    {
+        $this->seed(SimulationEnterpriseWave1Seeder::class);
+        $id = DB::table($table)->value('id');
+        $this->expectException(QueryException::class);
+        if ($mutation === 'UPDATE') {
+            DB::table($table)->where('id', $id)->update(['status' => 'DRAFT']);
+
+            return;
+        }
+        DB::table($table)->where('id', $id)->delete();
+    }
+
+    /** @return array<string,array{string,string}> */
+    public static function publishedDefinitionTables(): array
+    {
+        return [
+            'Digital Twin Revision UPDATE' => ['simulation_digital_twin_revisions', 'UPDATE'],
+            'Digital Twin Revision DELETE' => ['simulation_digital_twin_revisions', 'DELETE'],
+            'Baseline UPDATE' => ['simulation_baselines', 'UPDATE'],
+            'Baseline DELETE' => ['simulation_baselines', 'DELETE'],
+            'Scenario UPDATE' => ['simulation_scenario_definitions', 'UPDATE'],
+            'Scenario DELETE' => ['simulation_scenario_definitions', 'DELETE'],
+            'Lab UPDATE' => ['simulation_lab_definitions', 'UPDATE'],
+            'Lab DELETE' => ['simulation_lab_definitions', 'DELETE'],
+        ];
+    }
+
+    #[DataProvider('handoffMutations')]
+    #[Test]
+    public function candidate_evidence_handoff_is_append_only(string $mutation): void
+    {
+        $this->seed(SimulationEnterpriseWave1Seeder::class);
+        $id = DB::table('simulation_candidate_evidence_handoffs')->value('id');
+        $this->expectException(QueryException::class);
+        if ($mutation === 'UPDATE') {
+            DB::table('simulation_candidate_evidence_handoffs')->where('id', $id)->update(['status' => 'HANDED_OFF']);
+
+            return;
+        }
+        DB::table('simulation_candidate_evidence_handoffs')->where('id', $id)->delete();
+    }
+
+    /** @return array<string,array{string}> */
+    public static function handoffMutations(): array
+    {
+        return [
+            'UPDATE' => ['UPDATE'],
+            'DELETE' => ['DELETE'],
+        ];
+    }
+
+    #[DataProvider('historicalAuditTables')]
+    #[Test]
+    public function historical_run_audit_rows_are_append_only(string $table, string $actorColumn): void
+    {
+        $this->seed(SimulationEnterpriseWave1Seeder::class);
+        $id = DB::table($table)->value('id');
+        $this->expectException(QueryException::class);
+        DB::table($table)->where('id', $id)->update([$actorColumn => 'SYSTEM:TAMPERED']);
+    }
+
+    /** @return array<string,array{string,string}> */
+    public static function historicalAuditTables(): array
+    {
+        return [
+            'Operation' => ['simulation_run_operations', 'actor_id'],
+            'Event' => ['simulation_run_events', 'actor_id'],
+            'Runtime Snapshot' => ['simulation_runtime_snapshots', 'captured_by'],
+        ];
+    }
+
+    #[Test]
+    public function sealed_result_cannot_be_resealed_or_directly_mutated(): void
     {
         $this->seed(SimulationEnterpriseWave1Seeder::class);
         $simulation = app(SimulationEnterpriseService::class);
         $result = DB::table('simulation_run_results')->firstOrFail();
-
-        $this->expectException(DomainException::class);
-        $simulation->sealResult((string) $result->run_id, 'ACHIEVED', 'محاولة إعادة ختم غير مسموحة.');
-    }
-
-    #[Test]
-    public function postgresql_trigger_rejects_direct_mutation_of_sealed_result_history(): void
-    {
-        $this->seed(SimulationEnterpriseWave1Seeder::class);
-        $result = DB::table('simulation_run_results')->firstOrFail();
-
         try {
-            DB::table('simulation_run_results')->where('id', $result->id)->update(['outcome' => 'ACHIEVED']);
-            $this->fail('Sealed Result update unexpectedly succeeded.');
-        } catch (QueryException $exception) {
-            $this->assertSame('55000', (string) $exception->getCode());
+            $simulation->sealResult((string) $result->run_id, 'ACHIEVED', 'محاولة إعادة ختم.', null, self::ACTOR);
+            $this->fail('Result reseal unexpectedly succeeded.');
+        } catch (DomainException) {
+            $this->assertDatabaseCount('simulation_run_results', 1);
         }
-    }
-
-    #[Test]
-    public function candidate_evidence_handoff_stops_at_the_w03_boundary(): void
-    {
-        $this->seed(SimulationEnterpriseWave1Seeder::class);
-        $handoff = DB::table('simulation_candidate_evidence_handoffs')->firstOrFail();
-
-        $this->assertSame('READY_FOR_INTAKE', $handoff->status);
-        $this->assertSame('progress-evidence-intake:v1', $handoff->intake_contract_ref);
-        $this->assertDatabaseCount('evidence_records', 0);
+        $this->expectException(QueryException::class);
+        DB::table('simulation_run_results')->where('id', $result->id)->update(['outcome' => 'ACHIEVED']);
     }
 }

@@ -72,6 +72,7 @@ final class SimulationEnterpriseOwnershipBoundaryTest extends TestCase
     {
         $tables = [
             'simulation_enterprises',
+            'simulation_digital_twins',
             'simulation_digital_twin_revisions',
             'simulation_baselines',
         ];
@@ -105,16 +106,20 @@ final class SimulationEnterpriseOwnershipBoundaryTest extends TestCase
     {
         $state = new SimulationEnterpriseState(
             enterprise: ['id' => 'ent-1', 'state' => 'active'],
-            digitalTwinRevision: ['id' => 'twin-2', 'revision' => 2, 'digest' => 'twin-digest'],
+            digitalTwin: ['id' => 'twin-1', 'provenance' => 'SIMULATED'],
+            digitalTwinRevision: ['id' => 'revision-2', 'revision' => 2, 'digest' => 'twin-digest'],
             baseline: ['id' => 'base-3', 'state' => 'sealed', 'digest' => 'baseline-digest'],
         );
 
         $this->assertSame('ent-1', $state->enterprise['id']);
-        $this->assertSame('twin-2', $state->digitalTwinRevision['id']);
+        $this->assertSame('twin-1', $state->digitalTwin['id']);
+        $this->assertSame('SIMULATED', $state->digitalTwin['provenance']);
+        $this->assertSame('revision-2', $state->digitalTwinRevision['id']);
         $this->assertSame('twin-digest', $state->digitalTwinRevision['digest']);
         $this->assertSame('base-3', $state->baseline['id']);
         $this->assertSame('baseline-digest', $state->baseline['digest']);
         $this->assertIsArray($state->enterprise);
+        $this->assertIsArray($state->digitalTwin);
         $this->assertIsArray($state->digitalTwinRevision);
         $this->assertIsArray($state->baseline);
     }

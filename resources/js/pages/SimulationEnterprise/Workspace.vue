@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
 type NavigationItem = { key: string; label: string; href: string };
@@ -8,14 +8,41 @@ type EventItem = {
   sequence: number;
   event_type: string;
   payload: JsonMap;
+  actor_id: string;
   occurred_at: string;
 };
 type SnapshotItem = {
   id: string;
   sequence: number;
   event_sequence: number;
+  state: JsonMap;
   state_digest: string;
+  captured_by: string;
   captured_at: string;
+};
+type DigitalTwinRevisionItem = {
+  id: string;
+  digital_twin_id: string;
+  revision: number;
+  digest: string;
+  topology: JsonMap;
+  behavior_model: JsonMap;
+  baselines: Array<{
+    id: string;
+    digital_twin_id: string;
+    digital_twin_revision_id: string;
+    revision: number;
+    digest: string;
+    state: JsonMap;
+  }>;
+};
+type DigitalTwinItem = {
+  id: string;
+  slug: string;
+  name_ar: string;
+  provenance: string;
+  is_fixture: boolean;
+  revisions: DigitalTwinRevisionItem[];
 };
 type EnterpriseItem = {
   id: string;
@@ -23,14 +50,9 @@ type EnterpriseItem = {
   name_ar: string;
   description_ar?: string | null;
   definition: JsonMap;
+  provenance: string;
   is_fixture: boolean;
-  digital_twin_revision?: {
-    id: string;
-    revision: number;
-    digest: string;
-    topology: JsonMap;
-  } | null;
-  baseline?: { id: string; revision: number; digest: string; state: JsonMap } | null;
+  digital_twins: DigitalTwinItem[];
 };
 type ScenarioItem = {
   id: string;
@@ -41,6 +63,7 @@ type ScenarioItem = {
   digest: string;
   orchestration: JsonMap;
   validation: JsonMap;
+  provenance: string;
   lab_module_references: Array<{
     reference_id: string;
     module_key: string;
@@ -59,6 +82,7 @@ type LabItem = {
   digest: string;
   configuration: JsonMap;
   validation: JsonMap;
+  provenance: string;
 };
 type RuntimeState = JsonMap & {
   engine?: string;
@@ -72,6 +96,7 @@ type RunItem = {
   lifecycle: string;
   definition_title_ar: string;
   enterprise_id: string;
+  digital_twin_id: string;
   digital_twin_revision_id: string;
   baseline_id: string;
   scenario_definition_id?: string | null;
@@ -80,8 +105,19 @@ type RunItem = {
   execution_policies: JsonMap;
   runtime_state: RuntimeState;
   input_digest: string;
+  provenance: string;
+  source_fixture: boolean;
   available_actions: string[];
   events: EventItem[];
+  operations: Array<{
+    id: string;
+    operation_key: string;
+    verb: string;
+    target: string;
+    input: JsonMap;
+    telemetry: JsonMap;
+    actor_id: string;
+  }>;
   snapshots: SnapshotItem[];
   result_id?: string | null;
 };
@@ -96,11 +132,31 @@ type ResultItem = {
   sealed_payload: JsonMap;
   replay_timeline: EventItem[];
   artifacts: unknown[];
+  result_revision: number;
+  result_digest: string;
+  provenance: string;
+  source_fixture: boolean;
+  sealed_by: string;
   sealed_at: string;
+  replay_compare?: {
+    id: string;
+    integrity_match: boolean;
+    sealed_result_digest: string;
+    reconstructed_state_digest: string;
+    reconstruction: JsonMap;
+    actor_id: string;
+    compared_at: string;
+  } | null;
   candidate_evidence_handoff?: {
     id: string;
     status: string;
     candidate_manifest: JsonMap;
+    source_result_revision: number;
+    source_result_digest: string;
+    provenance: string;
+    source_fixture: boolean;
+    manifest_digest: string;
+    created_by: string;
     intake_contract_ref?: string | null;
   } | null;
 };
@@ -116,6 +172,7 @@ const props = defineProps<{
   results: ResultItem[];
   outcomes: string[];
 }>();
+const page = usePage<{ errors?: Record<string, string> }>();
 
 const selectedId = ref<string | null>(null);
 const seed = ref(20260814);
@@ -126,6 +183,10 @@ const resultScore = ref<number | null>(null);
 const handoffClaim = ref(
   'مرشح دليل مشتق من نتيجة المحاكاة المختومة؛ يخضع لاحقًا لعملية Intake في Progress & Evidence.',
 );
+const operationValue = ref(false);
+const pendingAction = ref<string | null>(null);
+const localError = ref<string | null>(null);
+const serverError = computed(() => page.props.errors?.simulation ?? Object.values(page.props.errors ?? {})[0]);
 
 const records = computed<Array<EnterpriseItem | ScenarioItem | LabItem | RunItem | ResultItem>>(
   () => {
@@ -190,8 +251,19 @@ const hasKeys = (value: unknown) =>
 const runTypeLabel = (value: string) =>
   value === 'Scenario Run' ? 'Scenario Run' : 'Standalone Lab Run';
 
-function post(path: string, data?: PostPayload): void {
-  router.post(path, data, { preserveScroll: true });
+function post(path: string, data?: PostPayload, action = 'mutation'): void {
+  if (pendingAction.value !== null) return;
+  localError.value = null;
+  pendingAction.value = action;
+  router.post(path, data, {
+    preserveScroll: true,
+    onError: (errors) => {
+      localError.value = String(errors.simulation ?? Object.values(errors)[0] ?? 'تعذر إكمال الإجراء.');
+    },
+    onFinish: () => {
+      pendingAction.value = null;
+    },
+  });
 }
 
 function prepareScenario(id: string): void {
@@ -203,7 +275,21 @@ function prepareLab(id: string): void {
 }
 
 function runAction(run: RunItem, action: string): void {
-  post(`/simulation/runs/${run.id}/${action}`);
+  post(`/simulation/runs/${run.id}/${action}`, undefined, action);
+}
+
+function applyOperation(run: RunItem): void {
+  const operationKey = `ui:${run.id}:${Date.now()}`;
+  post(
+    `/simulation/runs/${run.id}/operations`,
+    {
+      operation_key: operationKey,
+      verb: 'SET_CONTROL_STATE',
+      target: 'IDENTITY_MFA',
+      value: operationValue.value,
+    },
+    'operate',
+  );
 }
 
 function sealSelectedRun(): void {
@@ -223,11 +309,16 @@ function createHandoff(): void {
     intake_contract_ref: 'progress-evidence-intake:v1',
   });
 }
+
+function replayCompare(): void {
+  if (!selectedResult.value) return;
+  post(`/simulation/results/${selectedResult.value.id}/replay-compare`, undefined, 'replay');
+}
 </script>
 
 <template>
   <Head :title="`CEP — ${pageTitle}`" />
-  <div class="workspace" dir="rtl">
+  <div class="workspace" dir="rtl" :aria-busy="pendingAction !== null">
     <header class="topbar">
       <div>
         <p class="eyebrow">Simulation &amp; Enterprise</p>
@@ -263,6 +354,7 @@ function createHandoff(): void {
         <button
           v-if="selectedRun.available_actions.includes('ready')"
           type="button"
+          :disabled="pendingAction !== null"
           @click="runAction(selectedRun, 'ready')"
         >
           اعتماد الجاهزية
@@ -270,6 +362,7 @@ function createHandoff(): void {
         <button
           v-if="selectedRun.available_actions.includes('start')"
           type="button"
+          :disabled="pendingAction !== null"
           @click="runAction(selectedRun, 'start')"
         >
           بدء
@@ -277,6 +370,7 @@ function createHandoff(): void {
         <button
           v-if="selectedRun.available_actions.includes('pause')"
           type="button"
+          :disabled="pendingAction !== null"
           @click="runAction(selectedRun, 'pause')"
         >
           إيقاف مؤقت
@@ -284,6 +378,7 @@ function createHandoff(): void {
         <button
           v-if="selectedRun.available_actions.includes('resume')"
           type="button"
+          :disabled="pendingAction !== null"
           @click="runAction(selectedRun, 'resume')"
         >
           استئناف
@@ -291,6 +386,7 @@ function createHandoff(): void {
         <button
           v-if="selectedRun.available_actions.includes('complete')"
           type="button"
+          :disabled="pendingAction !== null"
           @click="runAction(selectedRun, 'complete')"
         >
           إكمال المحاكاة الداخلية
@@ -298,6 +394,7 @@ function createHandoff(): void {
         <button
           v-if="selectedRun.available_actions.includes('snapshot')"
           type="button"
+          :disabled="pendingAction !== null"
           @click="runAction(selectedRun, 'snapshot')"
         >
           حفظ Snapshot
@@ -306,12 +403,20 @@ function createHandoff(): void {
           v-if="selectedRun.available_actions.includes('stop')"
           class="button-muted"
           type="button"
+          :disabled="pendingAction !== null"
           @click="runAction(selectedRun, 'stop')"
         >
           إيقاف
         </button>
       </div>
     </header>
+
+    <div v-if="localError || serverError" class="error-state" role="alert">
+      {{ localError || serverError }}
+    </div>
+    <div v-else-if="pendingAction" class="pending-state" role="status">
+      جارٍ تنفيذ الإجراء وحفظ الحالة…
+    </div>
 
     <div class="body-grid">
       <aside class="left-rail" aria-label="بنية المحاكاة والمؤسسة">
@@ -348,25 +453,51 @@ function createHandoff(): void {
             <div class="record-heading">
               <div>
                 <span v-if="enterprise.is_fixture" class="fixture-badge">بيانات تجريبية</span>
+                <span class="provenance-badge technical">{{ enterprise.provenance }}</span>
                 <h2>{{ enterprise.name_ar }}</h2>
               </div>
               <span class="technical slug">{{ enterprise.slug }}</span>
             </div>
-            <div class="causal-strip">
-              <span>Enterprise</span><b>←</b
-              ><span
-                >Digital Twin Revision {{ enterprise.digital_twin_revision?.revision ?? '—' }}</span
-              ><b>←</b><span>Baseline {{ enterprise.baseline?.revision ?? '—' }}</span>
-            </div>
-            <section class="topology-card">
-              <h3>الحالة البنيوية المثبتة</h3>
-              <pre class="technical">{{
-                jsonText(enterprise.digital_twin_revision?.topology ?? {})
-              }}</pre>
-            </section>
-            <section class="state-card">
-              <h3>Baseline State</h3>
-              <pre class="technical">{{ jsonText(enterprise.baseline?.state ?? {}) }}</pre>
+            <section
+              v-for="twin in enterprise.digital_twins"
+              :key="twin.id"
+              class="topology-card"
+            >
+              <div class="record-heading">
+                <div>
+                  <span v-if="twin.is_fixture" class="fixture-badge">بيانات توأم تجريبية</span>
+                  <span class="provenance-badge technical">{{ twin.provenance }}</span>
+                  <h3>{{ twin.name_ar }}</h3>
+                </div>
+                <code class="technical">{{ twin.slug }}</code>
+              </div>
+              <div v-if="twin.revisions.length === 0" class="empty-state">
+                لا توجد مراجعة منشورة لهذا التوأم الرقمي.
+              </div>
+              <template v-else>
+                <div
+                  v-for="revision in twin.revisions"
+                  :key="revision.id"
+                  class="lineage-revision"
+                >
+                  <div class="causal-strip">
+                    <span>Enterprise</span><b>←</b><span>Digital Twin</span><b>←</b
+                    ><span>Revision {{ revision.revision }}</span>
+                  </div>
+                  <code class="technical wrap">{{ revision.digest }}</code>
+                  <pre class="technical">{{ jsonText(revision.topology) }}</pre>
+                  <div v-if="revision.baselines.length === 0" class="empty-state">
+                    لا يوجد Baseline منشور لهذه المراجعة.
+                  </div>
+                  <template v-else>
+                    <div v-for="baseline in revision.baselines" :key="baseline.id">
+                      <h3>Baseline {{ baseline.revision }}</h3>
+                      <code class="technical wrap">{{ baseline.digest }}</code>
+                      <pre class="technical">{{ jsonText(baseline.state) }}</pre>
+                    </div>
+                  </template>
+                </div>
+              </template>
             </section>
           </article>
         </template>
@@ -383,6 +514,7 @@ function createHandoff(): void {
               <h2>{{ scenario.title_ar }}</h2>
               <span class="technical">Revision {{ scenario.revision }}</span>
             </div>
+            <span class="provenance-badge technical">{{ scenario.provenance }}</span>
             <p class="technical id-line">{{ scenario.slug }}</p>
             <h3>Lab Module References</h3>
             <div v-if="scenario.lab_module_references.length" class="module-list">
@@ -397,7 +529,11 @@ function createHandoff(): void {
               </div>
             </div>
             <p v-else class="muted">لا توجد Lab Module References لهذا السيناريو.</p>
-            <button type="button" @click.stop="prepareScenario(scenario.id)">
+            <button
+              type="button"
+              :disabled="pendingAction !== null"
+              @click.stop="prepareScenario(scenario.id)"
+            >
               Prepare Scenario Run
             </button>
           </article>
@@ -415,10 +551,15 @@ function createHandoff(): void {
               <h2>{{ lab.title_ar }}</h2>
               <span class="technical">Revision {{ lab.revision }}</span>
             </div>
+            <span class="provenance-badge technical">{{ lab.provenance }}</span>
             <p class="technical id-line">{{ lab.slug }}</p>
             <h3>تعريف المختبر</h3>
             <pre class="technical">{{ jsonText(lab.configuration) }}</pre>
-            <button type="button" @click.stop="prepareLab(lab.id)">
+            <button
+              type="button"
+              :disabled="pendingAction !== null"
+              @click.stop="prepareLab(lab.id)"
+            >
               Prepare Standalone Lab Run
             </button>
           </article>
@@ -436,6 +577,8 @@ function createHandoff(): void {
               <div>
                 <h2>{{ run.definition_title_ar }}</h2>
                 <p class="technical id-line">{{ run.id }}</p>
+                <span class="provenance-badge technical">{{ run.provenance }}</span>
+                <span v-if="run.source_fixture" class="fixture-badge">مصدر تجريبي</span>
               </div>
               <div class="status-stack">
                 <span class="technical run-type">{{ runTypeLabel(run.run_type) }}</span>
@@ -451,6 +594,9 @@ function createHandoff(): void {
               >
               <span
                 >Snapshots <b>{{ run.snapshots.length }}</b></span
+              >
+              <span
+                >Operations <b>{{ run.operations.length }}</b></span
               >
             </div>
             <div
@@ -477,6 +623,10 @@ function createHandoff(): void {
               <div>
                 <h2>نتيجة تشغيل مختومة</h2>
                 <p class="technical id-line">Run {{ result.run_id }}</p>
+                <span class="provenance-badge technical">{{ result.provenance }}</span>
+                <span v-if="result.source_fixture" class="fixture-badge"
+                  >نتيجة من مصدر تجريبي</span
+                >
               </div>
               <div class="status-stack">
                 <span class="technical">{{ runTypeLabel(result.run_type) }}</span>
@@ -494,7 +644,7 @@ function createHandoff(): void {
                 >Sealed <b class="technical">{{ result.sealed_at }}</b></span
               >
             </div>
-            <h3>Event-Semantic Replay Timeline</h3>
+            <h3>Sealed Event Timeline</h3>
             <ol class="timeline">
               <li v-for="event in result.replay_timeline" :key="event.sequence">
                 <code>{{ event.sequence }}</code
@@ -551,6 +701,8 @@ function createHandoff(): void {
           <h2>سياق التشغيل</h2>
           <h3>Lineage المثبت</h3>
           <dl>
+            <dt>Digital Twin</dt>
+            <dd class="technical">{{ selectedRun.digital_twin_id }}</dd>
             <dt>Digital Twin Revision</dt>
             <dd class="technical">{{ selectedRun.digital_twin_revision_id }}</dd>
             <dt>Baseline</dt>
@@ -560,6 +712,23 @@ function createHandoff(): void {
           </dl>
           <h3>Execution Policies</h3>
           <pre class="technical">{{ jsonText(selectedRun.execution_policies) }}</pre>
+          <form
+            v-if="selectedRun.available_actions.includes('operate')"
+            class="action-form"
+            @submit.prevent="applyOperation(selectedRun)"
+          >
+            <h3>عملية داخل التشغيل</h3>
+            <label>
+              IDENTITY_MFA
+              <select v-model="operationValue">
+                <option :value="true">ENABLED</option>
+                <option :value="false">DISABLED</option>
+              </select>
+            </label>
+            <button type="submit" :disabled="pendingAction !== null">
+              {{ pendingAction === 'operate' ? 'جارٍ تطبيق العملية…' : 'تطبيق SET_CONTROL_STATE' }}
+            </button>
+          </form>
           <form
             v-if="
               ['COMPLETED', 'STOPPED', 'FAILED'].includes(selectedRun.lifecycle) &&
@@ -583,7 +752,7 @@ function createHandoff(): void {
               >Score
               <input v-model.number="resultScore" type="number" min="0" max="100" step="0.01" />
             </label>
-            <button type="submit">ختم النتيجة التاريخية</button>
+            <button type="submit" :disabled="pendingAction !== null">ختم النتيجة التاريخية</button>
           </form>
           <p v-else-if="selectedRun.result_id" class="sealed-note">
             لهذا التشغيل Result مختوم بالفعل؛ لا يمكن إعادة كتابة التاريخ.
@@ -592,11 +761,57 @@ function createHandoff(): void {
         <template v-else-if="selectedResult">
           <h2>التفسير وحدّ Evidence</h2>
           <p>{{ selectedResult.summary_ar }}</p>
+          <dl>
+            <dt>Result Identity</dt>
+            <dd class="technical">{{ selectedResult.id }}</dd>
+            <dt>Result Revision</dt>
+            <dd class="technical">{{ selectedResult.result_revision }}</dd>
+            <dt>Result Digest</dt>
+            <dd class="technical wrap">{{ selectedResult.result_digest }}</dd>
+            <dt>Sealed Actor</dt>
+            <dd class="technical">{{ selectedResult.sealed_by }}</dd>
+          </dl>
+          <h3>Semantic Replay / Compare</h3>
+          <button type="button" :disabled="pendingAction !== null" @click="replayCompare">
+            {{ pendingAction === 'replay' ? 'جارٍ إعادة البناء والمقارنة…' : 'إعادة البناء والمقارنة' }}
+          </button>
+          <div v-if="selectedResult.replay_compare" class="handoff-state">
+            <strong class="technical">
+              {{
+                selectedResult.replay_compare.integrity_match
+                  ? 'INTEGRITY_MATCH'
+                  : 'INTEGRITY_MISMATCH'
+              }}
+            </strong>
+            <code class="technical wrap">{{
+              selectedResult.replay_compare.reconstructed_state_digest
+            }}</code>
+            <small class="technical">Actor {{ selectedResult.replay_compare.actor_id }}</small>
+          </div>
           <h3>Candidate Evidence Handoff</h3>
           <div v-if="selectedResult.candidate_evidence_handoff" class="handoff-state">
             <strong class="technical">{{
               selectedResult.candidate_evidence_handoff.status
             }}</strong>
+            <span class="provenance-badge technical">{{
+              selectedResult.candidate_evidence_handoff.provenance
+            }}</span>
+            <code class="technical wrap">{{
+              selectedResult.candidate_evidence_handoff.manifest_digest
+            }}</code>
+            <dl>
+              <dt>Handoff Identity</dt>
+              <dd class="technical">{{ selectedResult.candidate_evidence_handoff.id }}</dd>
+              <dt>Source Result Revision</dt>
+              <dd class="technical">{{ selectedResult.candidate_evidence_handoff.source_result_revision }}</dd>
+              <dt>Source Result Digest</dt>
+              <dd class="technical wrap">{{ selectedResult.candidate_evidence_handoff.source_result_digest }}</dd>
+              <dt>Actor</dt>
+              <dd class="technical">{{ selectedResult.candidate_evidence_handoff.created_by }}</dd>
+            </dl>
+            <pre class="technical">{{
+              jsonText(selectedResult.candidate_evidence_handoff.candidate_manifest)
+            }}</pre>
             <p>
               تم إنشاء Handoff فقط. قبول Evidence والمراجعة وMastery ليست ملكًا لـ Simulation &amp;
               Enterprise.
@@ -607,7 +822,9 @@ function createHandoff(): void {
               >Candidate claim
               <textarea v-model="handoffClaim" rows="5" />
             </label>
-            <button type="submit">Prepare Candidate Evidence Handoff</button>
+            <button type="submit" :disabled="pendingAction !== null">
+              Prepare Candidate Evidence Handoff
+            </button>
           </form>
         </template>
         <p v-else class="muted">اختر سجلًا من سطح العمل لعرض سياقه دون تكرار الحقائق الأساسية.</p>
@@ -623,6 +840,7 @@ function createHandoff(): void {
             <li v-for="event in selectedRun.events" :key="event.sequence">
               <code>{{ event.sequence }}</code
               ><strong class="technical">{{ event.event_type }}</strong>
+              <small class="technical">Actor {{ event.actor_id }}</small>
               <pre class="technical">{{ jsonText(event.payload) }}</pre>
             </li>
           </ol>
@@ -632,6 +850,8 @@ function createHandoff(): void {
           <div v-for="snapshot in selectedRun.snapshots" :key="snapshot.id" class="snapshot-row">
             <strong>Snapshot {{ snapshot.sequence }}</strong>
             <code class="technical wrap">{{ snapshot.state_digest }}</code>
+            <small class="technical">Actor {{ snapshot.captured_by }}</small>
+            <pre class="technical">{{ jsonText(snapshot.state) }}</pre>
           </div>
         </section>
       </div>
@@ -646,6 +866,10 @@ function createHandoff(): void {
         <section>
           <h3>Frozen Result Payload</h3>
           <pre class="technical">{{ jsonText(selectedResult.sealed_payload) }}</pre>
+          <h3>Semantic Replay Reconstruction</h3>
+          <pre class="technical">{{
+            jsonText(selectedResult.replay_compare?.reconstruction ?? {})
+          }}</pre>
         </section>
       </div>
     </details>
@@ -793,6 +1017,15 @@ h3 {
   border-radius: 999px;
   padding: 2px 8px;
 }
+.provenance-badge {
+  display: inline-block;
+  margin: 0 6px 7px;
+  padding: 2px 8px;
+  border: 1px solid #376a62;
+  border-radius: 999px;
+  color: #9ed7c9;
+  font-size: 11px;
+}
 .causal-strip {
   display: flex;
   gap: 9px;
@@ -837,6 +1070,10 @@ button {
 }
 button:hover {
   background: #22405a;
+}
+button:disabled {
+  cursor: wait;
+  opacity: 0.55;
 }
 .button-muted {
   background: transparent;
@@ -1033,6 +1270,19 @@ pre {
   border-radius: 12px;
   padding: 30px;
   color: #9fb0c2;
+}
+.error-state,
+.pending-state {
+  padding: 10px 28px;
+  border-bottom: 1px solid #263240;
+}
+.error-state {
+  background: #35191d;
+  color: #ffd1d7;
+}
+.pending-state {
+  background: #142536;
+  color: #b7d5ee;
 }
 .empty-state code {
   direction: ltr;

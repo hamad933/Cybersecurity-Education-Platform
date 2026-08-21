@@ -12,11 +12,13 @@ final readonly class SimulationEnterpriseState
 {
     /**
      * @param  array<string, mixed>  $enterprise
+     * @param  array<string, mixed>  $digitalTwin
      * @param  array<string, mixed>  $digitalTwinRevision
      * @param  array<string, mixed>  $baseline
      */
     public function __construct(
         public array $enterprise,
+        public array $digitalTwin,
         public array $digitalTwinRevision,
         public array $baseline,
     ) {}
