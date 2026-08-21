@@ -2,15 +2,28 @@
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
+type HandoffReceipt = {
+  id: string;
+  source_type: string;
+  source_id: string;
+  source_revision: string;
+  source_digest: string;
+  selected_material_refs: string[];
+  capability_id: string;
+};
+
 type Candidate = {
   id: string;
   capability_id: string;
   proposed_title: string;
   proposed_summary: string;
   state: string;
+  source_type: string;
   source_id: string;
   source_revision: string;
+  source_digest: string;
   evidence_claim: string;
+  governed_purpose: string;
   selected_material_refs: string[];
   criterion_scope: string[];
 };
@@ -20,12 +33,19 @@ type EvidenceRevision = {
   revision: number;
   previous_revision_id: string | null;
   revision_reason: string;
+  source_type: string;
+  source_id: string;
+  source_revision: string;
+  source_digest: string;
+  selected_material_refs: string[];
+  criterion_scope: string[];
 };
 
 type Evidence = {
   id: string;
   capability_id: string;
   evidence_claim: string;
+  governed_purpose: string;
   lifecycle_state: string;
   review_status: string;
   effective_review_decision: string;
@@ -34,6 +54,12 @@ type Evidence = {
   current_revision_id: string;
   title: string;
   summary: string;
+  source_type: string;
+  source_id: string;
+  source_revision: string;
+  source_digest: string;
+  selected_material_refs: string[];
+  criterion_scope: string[];
   revisions: EvidenceRevision[];
 };
 
@@ -82,6 +108,13 @@ type MasteryState = {
   contradicting_evidence_revision_ids: string[];
 };
 
+type MasteryPolicy = {
+  id: string;
+  policy_key: string;
+  revision: number;
+  qualifying_review_decisions: string[];
+};
+
 type PortfolioItem = {
   id: string;
   evidence_id: string;
@@ -104,12 +137,14 @@ type Panel =
 const props = defineProps<{
   surface: Surface;
   summary: Record<string, number>;
+  handoff_receipts: HandoffReceipt[];
   candidates: Candidate[];
   evidence: Evidence[];
   review_requests: ReviewRequest[];
   reviews: Review[];
   mastery: MasteryState[];
   mastery_history: MasteryState[];
+  mastery_policies: MasteryPolicy[];
   portfolios: Portfolio[];
 }>();
 
@@ -135,6 +170,11 @@ const candidate = computed(() => props.candidates.find((item) => item.id === can
 const selectedEvidence = computed(() =>
   props.evidence.find((item) => item.id === evidenceId.value),
 );
+const revisionHandoffReceipts = computed(() =>
+  props.handoff_receipts.filter(
+    (receipt) => receipt.capability_id === selectedEvidence.value?.capability_id,
+  ),
+);
 const selectedRequest = computed(() =>
   props.review_requests.find((item) => item.id === requestId.value),
 );
@@ -153,21 +193,36 @@ const selectedMasteryHistory = computed(() => {
 
   return item ? props.mastery_history.filter((state) => state.target_id === item.target_id) : [];
 });
+const selectedReviewRevision = computed(() => {
+  const revisionId = selectedReview.value?.evidence_revision_id;
+  if (!revisionId) return undefined;
+
+  return props.evidence.flatMap((item) => item.revisions).find((item) => item.id === revisionId);
+});
+const remainingReviewCriteria = computed(() => {
+  const review = selectedReview.value;
+  if (!review) return [];
+
+  const recorded = new Set(review.findings.map((item) => item.criterion_key));
+
+  return [...new Set(review.criterion_refs)].filter((criterion) => !recorded.has(criterion));
+});
+const validationErrors = computed(() => Object.entries(page.props.errors ?? {}));
 
 const intake = useForm({
-  source_type: 'SOURCE_HANDOFF',
-  source_id: '',
-  source_revision: '',
-  source_digest: '',
-  selected_material_refs: [''] as [string],
-  capability_id: '',
+  handoff_receipt_id: props.handoff_receipts[0]?.id ?? '',
   evidence_claim: '',
-  criterion_scope: [''] as [string],
+  criterion_scope: [''] as string[],
   governed_purpose: 'FORMAL_CAPABILITY_EVIDENCE',
   title: '',
   summary: '',
 });
-const revision = useForm({ title: '', summary: '', revision_reason: '' });
+const revision = useForm({
+  title: '',
+  summary: '',
+  revision_reason: '',
+  handoff_receipt_id: '',
+});
 const finding = useForm({
   criterion_key: '',
   finding: 'SATISFIED',
@@ -177,7 +232,7 @@ const finding = useForm({
 const decision = useForm({ decision: 'ACCEPT', rationale: '' });
 const masteryForm = useForm({
   capability_id: '',
-  policy_revision_id: '',
+  policy_revision_id: props.mastery_policies[0]?.id ?? '',
   judgment: 'NOT_EVALUATED',
   freshness_status: 'CURRENT',
   review_decision_ids: [] as string[],
@@ -191,6 +246,9 @@ const portfolioForm = useForm({
   grouping: 'CAPABILITY',
 });
 const portfolioAdd = useForm({ evidence_id: '', annotation: '', sort_order: 0 });
+const selectedIntakeReceipt = computed(() =>
+  props.handoff_receipts.find((receipt) => receipt.id === intake.handoff_receipt_id),
+);
 
 const nav = [
   { key: 'evidence', href: '/progress', ar: 'الأدلة', en: 'Evidence' },
@@ -199,18 +257,39 @@ const nav = [
   { key: 'portfolio', href: '/progress/portfolio', ar: 'الملف المهني', en: 'Portfolio' },
 ] as const;
 
-const candidateAction = computed(() => {
+const candidateActions = computed(() => {
   switch (candidate.value?.state) {
     case 'RECEIVED':
+      return [
+        { label: 'حفظ Candidate كمسودة', state: 'DRAFT' },
+        { label: 'تحضير Candidate', state: 'PREPARED' },
+        { label: 'سحب Candidate', state: 'WITHDRAWN' },
+      ];
     case 'DRAFT':
+      return [
+        { label: 'تحضير Candidate', state: 'PREPARED' },
+        { label: 'سحب Candidate', state: 'WITHDRAWN' },
+      ];
     case 'RETURNED_FOR_CONTEXT':
-      return { label: 'تحضير Candidate', state: 'PREPARED' };
+      return [
+        { label: 'إعادة التحضير', state: 'PREPARED' },
+        { label: 'رفض Candidate', state: 'DECLINED' },
+        { label: 'سحب Candidate', state: 'WITHDRAWN' },
+      ];
     case 'PREPARED':
-      return { label: 'إرسال إلى Intake', state: 'SUBMITTED_FOR_INTAKE' };
+      return [
+        { label: 'إرسال إلى Intake', state: 'SUBMITTED_FOR_INTAKE' },
+        { label: 'سحب Candidate', state: 'WITHDRAWN' },
+      ];
     case 'SUBMITTED_FOR_INTAKE':
-      return { label: 'Admission وإنشاء Revision 1', state: 'ADMIT' };
+      return [
+        { label: 'Admission وإنشاء Revision 1', state: 'ADMIT' },
+        { label: 'إعادة للسياق', state: 'RETURNED_FOR_CONTEXT' },
+        { label: 'رفض Candidate', state: 'DECLINED' },
+        { label: 'سحب Candidate', state: 'WITHDRAWN' },
+      ];
     default:
-      return null;
+      return [];
   }
 });
 
@@ -218,9 +297,8 @@ function evidenceTitle(id: string): string {
   return props.evidence.find((item) => item.id === id)?.title ?? 'Evidence';
 }
 
-function runCandidateAction(): void {
+function runCandidateAction(action: { state: string }): void {
   const item = candidate.value;
-  const action = candidateAction.value;
   if (!item || !action) return;
 
   if (action.state === 'ADMIT') {
@@ -232,6 +310,21 @@ function runCandidateAction(): void {
   router.post(`/progress/candidates/${item.id}/state`, { state: action.state });
 }
 
+function submitIntake(): void {
+  if (intake.governed_purpose === 'GOVERNED_PROVENANCE_ATTESTATION') {
+    intake.criterion_scope = [];
+  }
+
+  intake.post('/progress/intake', { onSuccess: () => (panel.value = null) });
+}
+
+function transitionEvidenceLifecycle(state: 'WITHDRAWN' | 'SUPERSEDED'): void {
+  const item = selectedEvidence.value;
+  if (!item || item.lifecycle_state !== 'ACTIVE') return;
+
+  router.post(`/progress/evidence/${item.id}/lifecycle`, { lifecycle_state: state });
+}
+
 function openRevision(): void {
   const item = selectedEvidence.value;
   if (!item) return;
@@ -239,6 +332,7 @@ function openRevision(): void {
   revision.title = item.title;
   revision.summary = item.summary;
   revision.revision_reason = '';
+  revision.handoff_receipt_id = '';
   panel.value = 'revision';
 }
 
@@ -260,7 +354,7 @@ function openFinding(): void {
   const item = selectedReview.value;
   if (!item || !['IN_REVIEW', 'READY_FOR_DECISION'].includes(item.status)) return;
 
-  finding.criterion_key = item.criterion_refs[0] ?? '';
+  finding.criterion_key = remainingReviewCriteria.value[0] ?? '';
   finding.supporting_evidence_revision_ids = [item.evidence_revision_id];
   panel.value = 'finding';
 }
@@ -285,20 +379,24 @@ function submitDecision(): void {
 
 function openMastery(): void {
   const item =
-    selectedEvidence.value ??
+    (selectedEvidence.value?.effective_review_decision_id ? selectedEvidence.value : undefined) ??
     props.evidence.find(
       (evidence) =>
         evidence.effective_review_decision_id !== null && evidence.lifecycle_state === 'ACTIVE',
     );
 
   masteryForm.capability_id = item?.capability_id ?? selectedMastery.value?.target_id ?? '';
+  masteryForm.policy_revision_id = props.mastery_policies[0]?.id ?? '';
   masteryForm.review_decision_ids = item?.effective_review_decision_id
     ? [item.effective_review_decision_id]
     : [];
-  masteryForm.supporting_evidence_revision_ids = item?.effective_review_decision_id
-    ? [item.current_revision_id]
-    : [];
-  masteryForm.contradicting_evidence_revision_ids = [];
+  const qualifying = ['ACCEPT', 'ACCEPT_WITH_LIMITATIONS'].includes(
+    item?.effective_review_decision ?? '',
+  );
+  masteryForm.supporting_evidence_revision_ids =
+    item?.effective_review_decision_id && qualifying ? [item.current_revision_id] : [];
+  masteryForm.contradicting_evidence_revision_ids =
+    item?.effective_review_decision_id && !qualifying ? [item.current_revision_id] : [];
   panel.value = 'mastery';
 }
 
@@ -326,9 +424,20 @@ function removePortfolioItem(): void {
       </div>
       <div class="actions">
         <template v-if="surface === 'evidence'">
-          <button class="action-button" @click="panel = 'intake'">إدخال Candidate</button>
-          <button class="action-button" :disabled="!candidateAction" @click="runCandidateAction">
-            {{ candidateAction?.label ?? 'لا يوجد انتقال متاح' }}
+          <button
+            class="action-button"
+            :disabled="!handoff_receipts.length"
+            @click="panel = 'intake'"
+          >
+            إدخال Candidate
+          </button>
+          <button
+            v-for="action in candidateActions"
+            :key="action.state"
+            class="action-button"
+            @click="runCandidateAction(action)"
+          >
+            {{ action.label }}
           </button>
           <button class="action-button" :disabled="!selectedEvidence" @click="openRevision">
             Revision جديدة
@@ -339,6 +448,20 @@ function removePortfolioItem(): void {
             @click="requestReview"
           >
             طلب مراجعة
+          </button>
+          <button
+            class="action-button"
+            :disabled="!selectedEvidence || selectedEvidence.lifecycle_state !== 'ACTIVE'"
+            @click="transitionEvidenceLifecycle('WITHDRAWN')"
+          >
+            سحب Evidence
+          </button>
+          <button
+            class="action-button"
+            :disabled="!selectedEvidence || selectedEvidence.lifecycle_state !== 'ACTIVE'"
+            @click="transitionEvidenceLifecycle('SUPERSEDED')"
+          >
+            تعليم Evidence بأنها Superseded
           </button>
         </template>
         <template v-else-if="surface === 'reviews'">
@@ -353,7 +476,8 @@ function removePortfolioItem(): void {
             class="action-button"
             :disabled="
               !selectedReview ||
-              !['IN_REVIEW', 'READY_FOR_DECISION'].includes(selectedReview.status)
+              !['IN_REVIEW', 'READY_FOR_DECISION'].includes(selectedReview.status) ||
+              !remainingReviewCriteria.length
             "
             @click="openFinding"
           >
@@ -361,15 +485,18 @@ function removePortfolioItem(): void {
           </button>
           <button
             class="action-button"
-            :disabled="
-              selectedReview?.status !== 'READY_FOR_DECISION' || !selectedReview.findings.length
-            "
+            :disabled="selectedReview?.status !== 'READY_FOR_DECISION'"
             @click="panel = 'decision'"
           >
             تسجيل Decision
           </button>
         </template>
-        <button v-else-if="surface === 'mastery'" class="action-button" @click="openMastery">
+        <button
+          v-else-if="surface === 'mastery'"
+          class="action-button"
+          :disabled="!mastery_policies.length"
+          @click="openMastery"
+        >
           إلحاق Mastery State
         </button>
         <template v-else>
@@ -392,8 +519,18 @@ function removePortfolioItem(): void {
       </div>
     </header>
 
-    <p v-if="page.props.flash?.status" class="notice success">{{ page.props.flash.status }}</p>
-    <p v-if="page.props.errors?.workflow" class="notice error">{{ page.props.errors.workflow }}</p>
+    <p v-if="page.props.flash?.status" class="notice success" role="status" aria-live="polite">
+      {{ page.props.flash.status }}
+    </p>
+    <div v-if="validationErrors.length" class="notice error" role="alert" aria-live="assertive">
+      <p>تعذر إكمال الإجراء. راجع الحقول التالية:</p>
+      <ul class="error-list">
+        <li v-for="([field, message], index) in validationErrors" :key="`${field}-${index}`">
+          <bdi dir="ltr">{{ field }}</bdi
+          >: {{ message }}
+        </li>
+      </ul>
+    </div>
 
     <div class="workspace-grid">
       <nav class="surface-nav" aria-label="بنية التقدم والأدلة">
@@ -402,6 +539,7 @@ function removePortfolioItem(): void {
           :key="item.key"
           :href="item.href"
           :class="{ active: surface === item.key }"
+          :aria-current="surface === item.key ? 'page' : undefined"
         >
           <span>{{ item.ar }}</span>
           <bdi>{{ item.en }}</bdi>
@@ -413,17 +551,35 @@ function removePortfolioItem(): void {
           <p class="intro">
             Candidate → Admission → sealed Evidence Revision. Admission لا يعني Review أو Mastery.
           </p>
+          <p v-if="!handoff_receipts.length" class="empty-state">
+            لا يوجد Handoff/Submission موثوق متاح للاستلام؛ لا يمكن إنشاء Candidate من بيانات مصدر
+            يكتبها المتصفح.
+          </p>
           <h2>Candidate Evidence</h2>
           <button
             v-for="item in candidates"
             :key="item.id"
             class="record"
             :class="{ selected: item.id === candidateId }"
+            :aria-pressed="item.id === candidateId"
             @click="candidateId = item.id"
           >
             <span>
               <strong>{{ item.proposed_title }}</strong>
               <small>{{ item.evidence_claim }}</small>
+              <small>
+                <bdi dir="ltr">
+                  {{ item.source_type }}/{{ item.source_id }}@{{ item.source_revision }} ·
+                  {{ item.source_digest }}
+                </bdi>
+              </small>
+              <small>
+                Materials: <bdi dir="ltr">{{ item.selected_material_refs.join(', ') }}</bdi> ·
+                Criteria: <bdi dir="ltr">{{ item.criterion_scope.join(', ') || '—' }}</bdi>
+              </small>
+              <small
+                >Purpose: <bdi dir="ltr">{{ item.governed_purpose }}</bdi></small
+              >
             </span>
             <span class="record-state">
               <bdi>{{ item.capability_id }}</bdi>
@@ -438,6 +594,7 @@ function removePortfolioItem(): void {
             :key="item.id"
             class="record"
             :class="{ selected: item.id === evidenceId }"
+            :aria-pressed="item.id === evidenceId"
             @click="evidenceId = item.id"
           >
             <span>
@@ -454,6 +611,9 @@ function removePortfolioItem(): void {
               <span>{{ item.effective_review_decision }}</span>
             </span>
           </button>
+          <p v-if="!evidence.length" class="empty-state">
+            لا توجد Evidence محكومة بعد. ابدأ من Handoff موثوق ثم نفّذ Admission.
+          </p>
         </template>
 
         <template v-else-if="surface === 'reviews'">
@@ -464,6 +624,7 @@ function removePortfolioItem(): void {
             :key="item.id"
             class="record"
             :class="{ selected: item.id === requestId }"
+            :aria-pressed="item.id === requestId"
             @click="requestId = item.id"
           >
             <strong>{{ evidenceTitle(item.evidence_id) }}</strong>
@@ -472,6 +633,9 @@ function removePortfolioItem(): void {
               {{ item.status }}
             </small>
           </button>
+          <p v-if="!review_requests.length" class="empty-state">
+            لا توجد Review Requests. يجب طلب المراجعة من Evidence فعّالة.
+          </p>
 
           <h2 class="section-title">Evidence Reviews</h2>
           <button
@@ -479,23 +643,31 @@ function removePortfolioItem(): void {
             :key="item.id"
             class="record"
             :class="{ selected: item.id === reviewId }"
+            :aria-pressed="item.id === reviewId"
             @click="reviewId = item.id"
           >
             <strong>{{ evidenceTitle(item.evidence_id) }}</strong>
             <small>{{ item.findings.length }} Finding(s) · {{ item.status }}</small>
             <bdi v-if="item.decision">{{ item.decision.decision }}</bdi>
           </button>
+          <p v-if="!reviews.length" class="empty-state">
+            لا توجد Evidence Reviews. قبول Review Request يبدأ المراجعة الرسمية.
+          </p>
         </template>
 
         <template v-else-if="surface === 'mastery'">
           <p class="intro">
             Judgment ≠ Freshness، وكل تقييم يولّد Mastery State جديدة بدل overwrite.
           </p>
+          <p v-if="!mastery_policies.length" class="empty-state">
+            لا توجد Mastery Policy Revision معتمدة؛ لن يُنشأ حكم إتقان من Policy ID حر.
+          </p>
           <button
             v-for="item in mastery"
             :key="item.id"
             class="record"
             :class="{ selected: item.id === masteryId }"
+            :aria-pressed="item.id === masteryId"
             @click="masteryId = item.id"
           >
             <strong
@@ -510,6 +682,9 @@ function removePortfolioItem(): void {
               {{ item.supporting_evidence_revision_ids.length }} supporting Revision ref(s)
             </small>
           </button>
+          <p v-if="!mastery.length" class="empty-state">
+            لا توجد Mastery States. الإكمال وحده لا ينشئ حكم إتقان.
+          </p>
         </template>
 
         <template v-else>
@@ -519,14 +694,20 @@ function removePortfolioItem(): void {
             :key="item.id"
             class="portfolio-card"
             :class="{ selected: item.id === portfolioId }"
-            @click="portfolioId = item.id"
           >
-            <h2>{{ item.name }}</h2>
+            <button
+              class="portfolio-selector"
+              :aria-pressed="item.id === portfolioId"
+              @click="portfolioId = item.id"
+            >
+              {{ item.name }}
+            </button>
             <button
               v-for="entry in item.items"
               :key="entry.id"
               class="portfolio-item"
               :class="{ selected: entry.id === portfolioItemId }"
+              :aria-pressed="item.id === portfolioId && entry.id === portfolioItemId"
               @click.stop="
                 portfolioId = item.id;
                 portfolioItemId = entry.id;
@@ -535,7 +716,13 @@ function removePortfolioItem(): void {
               <strong>{{ entry.title }}</strong>
               <bdi>{{ entry.current_revision_id }}</bdi>
             </button>
+            <p v-if="!item.items.length" class="empty-state">
+              هذا العرض فارغ؛ أضف مرجعًا إلى Evidence محكومة.
+            </p>
           </article>
+          <p v-if="!portfolios.length" class="empty-state">
+            لا توجد Portfolio Views. العرض المحفوظ إسقاط مرجعي وليس مخزن Evidence.
+          </p>
         </template>
       </section>
 
@@ -543,16 +730,53 @@ function removePortfolioItem(): void {
         <template v-if="surface === 'evidence' && selectedEvidence">
           <p class="eyebrow">Sealed Revision History</p>
           <h2>السجل غير القابل لإعادة الكتابة</h2>
+          <p>
+            Source:
+            <bdi dir="ltr">
+              {{ selectedEvidence.source_type }}/{{ selectedEvidence.source_id }}@{{
+                selectedEvidence.source_revision
+              }}
+            </bdi>
+          </p>
+          <p>
+            Digest: <bdi dir="ltr">{{ selectedEvidence.source_digest }}</bdi>
+          </p>
+          <p>Material refs:</p>
+          <ul class="provenance-list">
+            <li v-for="material in selectedEvidence.selected_material_refs" :key="material">
+              <bdi dir="ltr">{{ material }}</bdi>
+            </li>
+          </ul>
+          <p>Criterion scope:</p>
+          <ul class="provenance-list">
+            <li v-for="criterion in selectedEvidence.criterion_scope" :key="criterion">
+              <bdi dir="ltr">{{ criterion }}</bdi>
+            </li>
+            <li v-if="!selectedEvidence.criterion_scope.length">
+              <bdi dir="ltr">{{ selectedEvidence.governed_purpose }}</bdi>
+            </li>
+          </ul>
           <ol>
             <li v-for="item in selectedEvidence.revisions" :key="item.id">
               <bdi>R{{ item.revision }}</bdi> — {{ item.revision_reason }}
+              <small>
+                <bdi dir="ltr">
+                  {{ item.source_type }}/{{ item.source_id }}@{{ item.source_revision }} ·
+                  {{ item.source_digest }}
+                </bdi>
+              </small>
             </li>
           </ol>
         </template>
         <template v-else-if="surface === 'evidence' && candidate">
           <p class="eyebrow">Candidate Semantic Identity</p>
           <p>
-            <bdi>{{ candidate.source_id }}@{{ candidate.source_revision }}</bdi>
+            <bdi dir="ltr">
+              {{ candidate.source_type }}/{{ candidate.source_id }}@{{ candidate.source_revision }}
+            </bdi>
+          </p>
+          <p>
+            Digest: <bdi dir="ltr">{{ candidate.source_digest }}</bdi>
           </p>
           <p>
             {{ candidate.selected_material_refs.length }} material ref(s) ·
@@ -570,6 +794,27 @@ function removePortfolioItem(): void {
           <p>
             Scope: <bdi>{{ selectedReview.review_scope_key }}</bdi>
           </p>
+          <template v-if="selectedReviewRevision">
+            <p>
+              Source:
+              <bdi dir="ltr">
+                {{ selectedReviewRevision.source_type }}/{{ selectedReviewRevision.source_id }}@{{
+                  selectedReviewRevision.source_revision
+                }}
+              </bdi>
+            </p>
+            <p>
+              Digest: <bdi dir="ltr">{{ selectedReviewRevision.source_digest }}</bdi>
+            </p>
+            <p>
+              Materials:
+              <bdi dir="ltr">{{ selectedReviewRevision.selected_material_refs.join(', ') }}</bdi>
+            </p>
+            <p>
+              Criteria:
+              <bdi dir="ltr">{{ selectedReviewRevision.criterion_scope.join(', ') || '—' }}</bdi>
+            </p>
+          </template>
         </template>
         <template v-else-if="surface === 'mastery' && selectedMastery">
           <p class="eyebrow">Mastery Provenance</p>
@@ -597,29 +842,43 @@ function removePortfolioItem(): void {
         <button class="action-button" @click="panel = null">إغلاق</button>
       </div>
 
-      <form
-        v-if="panel === 'intake'"
-        class="form-grid"
-        @submit.prevent="intake.post('/progress/intake', { onSuccess: () => (panel = null) })"
-      >
-        <label>Source Type<input v-model="intake.source_type" dir="ltr" required /></label>
-        <label>Source ID<input v-model="intake.source_id" dir="ltr" required /></label>
-        <label>Source Revision<input v-model="intake.source_revision" dir="ltr" required /></label>
+      <form v-if="panel === 'intake'" class="form-grid" @submit.prevent="submitIntake">
         <label>
-          Source SHA-256
-          <input v-model="intake.source_digest" dir="ltr" minlength="64" maxlength="64" required />
+          Verified Handoff Receipt
+          <select v-model="intake.handoff_receipt_id" dir="ltr" required>
+            <option v-for="receipt in handoff_receipts" :key="receipt.id" :value="receipt.id">
+              {{ receipt.source_type }}/{{ receipt.source_id }}@{{ receipt.source_revision }} ·
+              {{ receipt.capability_id }}
+            </option>
+          </select>
         </label>
-        <label>
-          Selected Material<input v-model="intake.selected_material_refs[0]" dir="ltr" required />
-        </label>
-        <label>Capability ID<input v-model="intake.capability_id" dir="ltr" required /></label>
+        <p class="wide">
+          المصدر والإصدار والبصمة والمواد والحقائق مثبّتة في إيصال Handoff غير قابل للتعديل؛ لا يمكن
+          إدخالها من المتصفح.
+        </p>
+        <div v-if="selectedIntakeReceipt" class="wide provenance-preview">
+          <p>
+            Digest: <bdi dir="ltr">{{ selectedIntakeReceipt.source_digest }}</bdi>
+          </p>
+          <p>
+            Materials:
+            <bdi dir="ltr">{{ selectedIntakeReceipt.selected_material_refs.join(', ') }}</bdi>
+          </p>
+        </div>
         <label class="wide"
           >Evidence Claim<textarea v-model="intake.evidence_claim" required />
         </label>
-        <label>Criterion Ref<input v-model="intake.criterion_scope[0]" dir="ltr" required /></label>
-        <label
-          >Governed Purpose<input v-model="intake.governed_purpose" dir="ltr" required
-        /></label>
+        <label>
+          Governed Purpose
+          <select v-model="intake.governed_purpose" dir="ltr" required>
+            <option value="FORMAL_CAPABILITY_EVIDENCE">FORMAL_CAPABILITY_EVIDENCE</option>
+            <option value="GOVERNED_PROVENANCE_ATTESTATION">GOVERNED_PROVENANCE_ATTESTATION</option>
+          </select>
+        </label>
+        <label v-if="intake.governed_purpose === 'FORMAL_CAPABILITY_EVIDENCE'">
+          Criterion Ref
+          <input v-model="intake.criterion_scope[0]" dir="ltr" required />
+        </label>
         <label>العنوان<input v-model="intake.title" required /></label>
         <label>الملخص<textarea v-model="intake.summary" required /></label>
         <button class="primary-button">إنشاء Candidate في RECEIVED</button>
@@ -634,6 +893,19 @@ function removePortfolioItem(): void {
           })
         "
       >
+        <label>
+          Superseding Handoff Receipt (optional)
+          <select v-model="revision.handoff_receipt_id" dir="ltr">
+            <option value="">Retain current pinned source</option>
+            <option
+              v-for="receipt in revisionHandoffReceipts"
+              :key="receipt.id"
+              :value="receipt.id"
+            >
+              {{ receipt.source_type }}/{{ receipt.source_id }}@{{ receipt.source_revision }}
+            </option>
+          </select>
+        </label>
         <label>العنوان<input v-model="revision.title" required /></label>
         <label>Revision Reason<input v-model="revision.revision_reason" required /></label>
         <label class="wide">الملخص<textarea v-model="revision.summary" required /></label>
@@ -645,7 +917,18 @@ function removePortfolioItem(): void {
         class="form-grid"
         @submit.prevent="submitFinding"
       >
-        <label>Criterion Key<input v-model="finding.criterion_key" dir="ltr" required /></label>
+        <label>
+          Criterion Key
+          <select v-model="finding.criterion_key" dir="ltr" required>
+            <option
+              v-for="criterion in remainingReviewCriteria"
+              :key="criterion"
+              :value="criterion"
+            >
+              {{ criterion }}
+            </option>
+          </select>
+        </label>
         <label>
           Finding
           <select v-model="finding.finding">
@@ -686,7 +969,13 @@ function removePortfolioItem(): void {
       >
         <label>Capability ID<input v-model="masteryForm.capability_id" dir="ltr" required /></label>
         <label>
-          Policy Revision<input v-model="masteryForm.policy_revision_id" dir="ltr" required />
+          Policy Revision
+          <select v-model="masteryForm.policy_revision_id" dir="ltr" required>
+            <option v-for="policy in mastery_policies" :key="policy.id" :value="policy.id">
+              {{ policy.policy_key }}@{{ policy.revision }} ·
+              {{ policy.qualifying_review_decisions.join(', ') }}
+            </option>
+          </select>
         </label>
         <label>
           Judgment
@@ -719,7 +1008,14 @@ function removePortfolioItem(): void {
       >
         <label>اسم العرض<input v-model="portfolioForm.name" required /></label>
         <label>View Scope<input v-model="portfolioForm.view_scope" /></label>
-        <label>Grouping<input v-model="portfolioForm.grouping" dir="ltr" required /></label>
+        <label>
+          Grouping
+          <select v-model="portfolioForm.grouping" dir="ltr" required>
+            <option>CAPABILITY</option>
+            <option>REVIEW_DECISION</option>
+            <option>MASTERY</option>
+          </select>
+        </label>
         <button class="primary-button">إنشاء Reference Projection</button>
       </form>
 
@@ -838,6 +1134,11 @@ button:disabled {
   border-color: #be123c;
 }
 
+.error-list,
+.provenance-list {
+  margin-bottom: 0;
+}
+
 .workspace-grid {
   display: grid;
   grid-template-columns: 11rem minmax(0, 1fr) 19rem;
@@ -934,6 +1235,23 @@ bdi {
   padding: 0.75rem;
   margin-top: 0.5rem;
   text-align: right;
+}
+
+.portfolio-selector {
+  width: 100%;
+  padding: 0.5rem;
+  color: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: right;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.context-panel small {
+  display: block;
+  overflow-wrap: anywhere;
 }
 
 .context-panel ol {

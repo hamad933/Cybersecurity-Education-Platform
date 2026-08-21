@@ -9,8 +9,31 @@ return new class extends Migration
 {
     public function up(): void
     {
+        Schema::create('evidence_source_handoff_receipts', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('subject_actor_id');
+            $table->uuid('registered_by');
+            $table->string('source_type', 64);
+            $table->string('source_id', 160);
+            $table->string('source_revision', 80);
+            $table->char('source_digest', 64);
+            $table->jsonb('selected_material_refs');
+            $table->string('capability_id', 100);
+            $table->jsonb('facts');
+            $table->jsonb('metadata');
+            $table->char('receipt_digest', 64);
+            $table->timestampTz('registered_at');
+            $table->timestampsTz();
+            $table->unique(['subject_actor_id', 'receipt_digest'], 'evidence_handoff_receipt_identity_unique');
+            $table->index(
+                ['subject_actor_id', 'source_type', 'source_id', 'source_revision'],
+                'evidence_handoff_receipt_source_idx',
+            );
+        });
+
         Schema::create('evidence_candidates', function (Blueprint $table): void {
             $table->uuid('id')->primary();
+            $table->uuid('handoff_receipt_id');
             $table->uuid('subject_actor_id');
             $table->uuid('submitted_by');
             $table->string('source_type', 64);
@@ -33,6 +56,7 @@ return new class extends Migration
             $table->timestampsTz();
             $table->unique(['subject_actor_id', 'semantic_identity_digest'], 'evidence_candidates_semantic_identity_unique');
             $table->index(['subject_actor_id', 'state']);
+            $table->foreign('handoff_receipt_id')->references('id')->on('evidence_source_handoff_receipts')->restrictOnDelete();
         });
 
         Schema::create('governed_evidence', function (Blueprint $table): void {
@@ -58,6 +82,7 @@ return new class extends Migration
         Schema::create('governed_evidence_revisions', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->uuid('evidence_id');
+            $table->uuid('handoff_receipt_id');
             $table->uuid('previous_revision_id')->nullable()->unique();
             $table->unsignedInteger('revision');
             $table->string('title', 180);
@@ -76,6 +101,7 @@ return new class extends Migration
             $table->timestampsTz();
             $table->unique(['evidence_id', 'revision'], 'governed_evidence_revision_unique');
             $table->foreign('evidence_id')->references('id')->on('governed_evidence')->restrictOnDelete();
+            $table->foreign('handoff_receipt_id')->references('id')->on('evidence_source_handoff_receipts')->restrictOnDelete();
         });
 
         Schema::table('governed_evidence_revisions', function (Blueprint $table): void {
@@ -165,12 +191,25 @@ return new class extends Migration
             $table->foreign('prior_decision_id')->references('id')->on('evidence_review_decisions')->restrictOnDelete();
         });
 
+        Schema::create('evidence_mastery_policy_revisions', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('policy_key', 100);
+            $table->unsignedInteger('revision');
+            $table->jsonb('qualifying_review_decisions');
+            $table->string('state', 16)->default('APPROVED');
+            $table->char('content_digest', 64);
+            $table->uuid('approved_by');
+            $table->timestampTz('approved_at');
+            $table->timestampsTz();
+            $table->unique(['policy_key', 'revision'], 'evidence_mastery_policy_revision_unique');
+        });
+
         Schema::create('evidence_mastery_evaluations', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->uuid('subject_actor_id');
             $table->string('target_type', 24)->default('CAPABILITY');
             $table->string('target_id', 100);
-            $table->string('policy_revision_id', 120);
+            $table->uuid('policy_revision_id');
             $table->string('judgment', 32);
             $table->string('freshness_status', 32);
             $table->jsonb('review_decision_ids');
@@ -182,6 +221,7 @@ return new class extends Migration
             $table->timestampTz('evaluated_at');
             $table->timestampsTz();
             $table->index(['subject_actor_id', 'target_type', 'target_id'], 'evidence_mastery_eval_target_idx');
+            $table->foreign('policy_revision_id')->references('id')->on('evidence_mastery_policy_revisions')->restrictOnDelete();
         });
 
         Schema::create('evidence_mastery_states', function (Blueprint $table): void {
@@ -191,13 +231,14 @@ return new class extends Migration
             $table->string('target_id', 100);
             $table->string('judgment', 32);
             $table->string('freshness_status', 32);
-            $table->string('policy_revision_id', 120);
+            $table->uuid('policy_revision_id');
             $table->uuid('evaluation_id')->unique();
             $table->uuid('previous_state_id')->nullable()->unique();
             $table->text('reason');
             $table->timestampTz('evaluated_at');
             $table->timestampsTz();
             $table->foreign('evaluation_id')->references('id')->on('evidence_mastery_evaluations')->restrictOnDelete();
+            $table->foreign('policy_revision_id')->references('id')->on('evidence_mastery_policy_revisions')->restrictOnDelete();
             $table->index(['subject_actor_id', 'target_type', 'target_id', 'evaluated_at'], 'evidence_mastery_state_history_idx');
         });
 
@@ -258,6 +299,7 @@ return new class extends Migration
         DB::statement("ALTER TABLE evidence_reviews ADD CONSTRAINT evidence_review_status_check CHECK (status IN ('IN_REVIEW','READY_FOR_DECISION','CLOSED','CANCELLED'))");
         DB::statement("ALTER TABLE evidence_review_findings ADD CONSTRAINT evidence_review_finding_check CHECK (finding IN ('SATISFIED','PARTIALLY_SATISFIED','NOT_SATISFIED','NOT_ASSESSABLE'))");
         DB::statement("ALTER TABLE evidence_review_decisions ADD CONSTRAINT evidence_review_decision_check CHECK (decision IN ('ACCEPT','ACCEPT_WITH_LIMITATIONS','MORE_EVIDENCE_REQUIRED','REJECT'))");
+        DB::statement("ALTER TABLE evidence_mastery_policy_revisions ADD CONSTRAINT evidence_mastery_policy_state_check CHECK (state = 'APPROVED')");
         DB::statement("ALTER TABLE evidence_mastery_evaluations ADD CONSTRAINT evidence_mastery_eval_target_type_check CHECK (target_type = 'CAPABILITY')");
         DB::statement("ALTER TABLE evidence_mastery_evaluations ADD CONSTRAINT evidence_mastery_eval_judgment_check CHECK (judgment IN ('NOT_EVALUATED','INSUFFICIENT_EVIDENCE','INCONCLUSIVE','NOT_MASTERED','MASTERED'))");
         DB::statement("ALTER TABLE evidence_mastery_evaluations ADD CONSTRAINT evidence_mastery_eval_freshness_check CHECK (freshness_status IN ('CURRENT','REVALIDATION_REQUIRED'))");
@@ -280,8 +322,24 @@ CREATE TRIGGER governed_evidence_revisions_immutable
 BEFORE UPDATE OR DELETE ON governed_evidence_revisions
 FOR EACH ROW EXECUTE FUNCTION cep_reject_immutable_governance_row();
 
+CREATE TRIGGER evidence_source_handoff_receipts_immutable
+BEFORE UPDATE OR DELETE ON evidence_source_handoff_receipts
+FOR EACH ROW EXECUTE FUNCTION cep_reject_immutable_governance_row();
+
+CREATE TRIGGER evidence_review_findings_immutable
+BEFORE UPDATE OR DELETE ON evidence_review_findings
+FOR EACH ROW EXECUTE FUNCTION cep_reject_immutable_governance_row();
+
 CREATE TRIGGER evidence_review_decisions_immutable
 BEFORE UPDATE OR DELETE ON evidence_review_decisions
+FOR EACH ROW EXECUTE FUNCTION cep_reject_immutable_governance_row();
+
+CREATE TRIGGER evidence_mastery_policy_revisions_immutable
+BEFORE UPDATE OR DELETE ON evidence_mastery_policy_revisions
+FOR EACH ROW EXECUTE FUNCTION cep_reject_immutable_governance_row();
+
+CREATE TRIGGER evidence_mastery_evaluations_immutable
+BEFORE UPDATE OR DELETE ON evidence_mastery_evaluations
 FOR EACH ROW EXECUTE FUNCTION cep_reject_immutable_governance_row();
 
 CREATE TRIGGER evidence_mastery_states_immutable
@@ -294,8 +352,12 @@ SQL);
     {
         DB::unprepared(<<<'SQL'
 DROP TRIGGER IF EXISTS evidence_mastery_states_immutable ON evidence_mastery_states;
+DROP TRIGGER IF EXISTS evidence_mastery_evaluations_immutable ON evidence_mastery_evaluations;
+DROP TRIGGER IF EXISTS evidence_mastery_policy_revisions_immutable ON evidence_mastery_policy_revisions;
 DROP TRIGGER IF EXISTS evidence_review_decisions_immutable ON evidence_review_decisions;
+DROP TRIGGER IF EXISTS evidence_review_findings_immutable ON evidence_review_findings;
 DROP TRIGGER IF EXISTS governed_evidence_revisions_immutable ON governed_evidence_revisions;
+DROP TRIGGER IF EXISTS evidence_source_handoff_receipts_immutable ON evidence_source_handoff_receipts;
 DROP FUNCTION IF EXISTS cep_reject_immutable_governance_row();
 SQL);
 
@@ -305,6 +367,7 @@ SQL);
         Schema::dropIfExists('evidence_mastery_state_decisions');
         Schema::dropIfExists('evidence_mastery_states');
         Schema::dropIfExists('evidence_mastery_evaluations');
+        Schema::dropIfExists('evidence_mastery_policy_revisions');
 
         Schema::table('evidence_review_requests', function (Blueprint $table): void {
             $table->dropForeign(['prior_decision_id']);
@@ -320,5 +383,6 @@ SQL);
         Schema::dropIfExists('governed_evidence_revisions');
         Schema::dropIfExists('governed_evidence');
         Schema::dropIfExists('evidence_candidates');
+        Schema::dropIfExists('evidence_source_handoff_receipts');
     }
 };
