@@ -16,6 +16,7 @@ use stdClass;
 final class SimulationEnterpriseController extends Controller
 {
     private const RUN_OPERATIONS_TABLE = 'simulation_run_operations';
+
     private const RESULT_REPLAY_COMPARES_TABLE = 'simulation_result_replay_compares';
 
     public function __construct(

@@ -14,17 +14,23 @@ use stdClass;
 final class SimulationEnterpriseService
 {
     private const RUN_OPERATIONS_TABLE = 'simulation_run_operations';
+
     private const RESULT_REPLAY_COMPARES_TABLE = 'simulation_result_replay_compares';
 
     public const RUN_STANDALONE_LAB = 'Standalone Lab Run';
+
     public const RUN_SCENARIO = 'Scenario Run';
+
     public const PROVENANCE_SIMULATED = 'SIMULATED';
+
     public const OPERATION_GRAMMAR = 'CEP_INTERNAL_OPERATION_V1';
 
     /** @var list<string> */
     public const RUN_TYPES = [self::RUN_STANDALONE_LAB, self::RUN_SCENARIO];
+
     /** @var list<string> */
     public const LIFECYCLES = ['PREPARING', 'READY', 'RUNNING', 'PAUSED', 'COMPLETED', 'STOPPED', 'FAILED'];
+
     /** @var list<string> */
     public const OUTCOMES = ['ACHIEVED', 'PARTIAL', 'NOT_ACHIEVED', 'INCONCLUSIVE', 'NOT_EVALUATED'];
 
