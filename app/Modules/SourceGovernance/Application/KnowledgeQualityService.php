@@ -2,6 +2,7 @@
 
 namespace App\Modules\SourceGovernance\Application;
 
+use App\Modules\SourceGovernance\Application\ResearchQuality\ResearchQualityWorkbench;
 use App\Modules\SourceGovernance\Models\SourceClaim;
 use App\Modules\SourceGovernance\Models\SourceRecord;
 use Illuminate\Database\Eloquent\Builder;
@@ -74,6 +75,7 @@ final class KnowledgeQualityService
             'active_source' => $active,
             'canonical_claim_ids' => $canonicalClaimIds,
             'review_semantics' => 'knowledge_quality',
+            'analysis' => (new ResearchQualityWorkbench)->analyze($sources, $canonicalClaimIds),
         ];
     }
 
