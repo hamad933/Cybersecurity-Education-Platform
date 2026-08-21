@@ -2,6 +2,8 @@
 
 namespace App\Modules\Knowledge\Application;
 
+use App\Modules\Knowledge\Application\Library\LibraryCapabilityManifest;
+use App\Modules\Knowledge\Application\Library\LibraryHierarchyProjector;
 use App\Modules\Knowledge\Models\KnowledgeUnit;
 use App\Modules\Knowledge\Models\LessonRevision;
 use App\Modules\Knowledge\Publication\LessonRevisionWorkflow;
@@ -95,6 +97,29 @@ final class KnowledgeLibraryService
             'revision' => $selected instanceof LessonRevision ? $this->revision($selected) : null,
             'revisions' => $revisionItems,
         ];
+    }
+
+    /**
+     * Build the complete structural projection only when the parent supplies
+     * authoritative Domain / Capability Cluster context for each capability.
+     *
+     * @param  list<array<string, mixed>>  $placements
+     * @param  list<array<string, mixed>>  $capabilityContexts
+     * @return array<string, mixed>
+     */
+    public function hierarchyProjection(array $placements, array $capabilityContexts): array
+    {
+        return (new LibraryHierarchyProjector)->project(
+            $this->catalog(),
+            $placements,
+            $capabilityContexts,
+        );
+    }
+
+    /** @return array<string, mixed> */
+    public function capabilityManifest(): array
+    {
+        return (new LibraryCapabilityManifest)->current();
     }
 
     /**
