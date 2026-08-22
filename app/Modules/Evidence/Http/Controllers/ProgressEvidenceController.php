@@ -216,17 +216,17 @@ final class ProgressEvidenceController extends Controller
 
         return $this->workflow(function () use ($request, $data): void {
             $actor = $this->actorId($request);
-            $this->masteryService->evaluateMastery(
-                $actor,
-                $data['capability_id'],
-                $data['policy_revision_id'],
-                $data['judgment'],
-                $data['freshness_status'],
-                $data['review_decision_ids'],
-                $data['supporting_evidence_revision_ids'],
-                $data['contradicting_evidence_revision_ids'],
-                $data['rationale'],
-            );
+                $this->masteryService->evaluate(
+                    $actor,
+                    $actor,
+                    $data['policy_revision_id'],
+                    $data['judgment'],
+                    $data['freshness_status'],
+                    $data['review_decision_ids'],
+                    $data['supporting_evidence_revision_ids'],
+                    $data['contradicting_evidence_revision_ids'],
+                    $data['rationale'],
+                );
         }, 'تم حفظ Mastery State. بناءً على Decision/Evidence Revision provenance تم تحديث الإتقان.');
     }
 
@@ -235,7 +235,7 @@ final class ProgressEvidenceController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:180'],
             'view_scope' => ['nullable', 'string', 'max:120'],
-            'grouping' => ['required', 'in:CAPABILITY,REVIEW_DECISION,MASTERY'],
+            'grouping' => ['required', 'in:CAPABILITY,PROJECT,OBJECTIVE,EVIDENCE_TYPE,TIME,MASTERY_JUDGMENT,FRESHNESS_STATUS'],
             'filters' => ['sometimes', 'array:lifecycle_states,review_decisions,capability_ids'],
             'filters.lifecycle_states' => ['sometimes', 'array', 'max:3'],
             'filters.lifecycle_states.*' => ['in:ACTIVE,WITHDRAWN,SUPERSEDED'],
@@ -269,7 +269,7 @@ final class ProgressEvidenceController extends Controller
         ]);
 
         return $this->workflow(
-            fn () => $this->masteryService->addPortfolioEvidence(
+            fn () => $this->masteryService->addAcceptedEvidenceToPortfolio(
                 $portfolio,
                 $data['evidence_id'],
                 $this->actorId($request),
@@ -283,7 +283,11 @@ final class ProgressEvidenceController extends Controller
     public function removePortfolioEvidence(Request $request, string $portfolio, string $evidence): RedirectResponse
     {
         return $this->workflow(
-            fn () => $this->masteryService->removePortfolioEvidence($portfolio, $evidence, $this->actorId($request)),
+            fn () => $this->masteryService->removeEvidenceFromPortfolio(
+                $portfolio,
+                $evidence,
+                $this->actorId($request)
+            ),
             'تمت إزالة Evidence من Portfolio View بمرجعية قوية لحفظ السجل.',
         );
     }
