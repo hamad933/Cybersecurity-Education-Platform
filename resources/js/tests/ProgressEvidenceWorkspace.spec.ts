@@ -8,9 +8,12 @@ const candidate = {
   proposed_title: 'تحليل تدفق مصادقة',
   proposed_summary: 'ملخص مرشّح',
   state: 'SUBMITTED_FOR_INTAKE',
+  source_type: 'SIMULATION',
   source_id: 'RUN-0042',
   source_revision: 'result-r3',
+  source_digest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   evidence_claim: 'يثبت القدرة على تحليل تدفق مصادقة وتفسير السبب الجذري.',
+  governed_purpose: 'FORMAL_CAPABILITY_EVIDENCE',
   selected_material_refs: ['artifact:http-transaction', 'artifact:timeline'],
   criterion_scope: ['CRIT-AUTH-01'],
 };
@@ -19,6 +22,7 @@ const evidence = {
   id: 'evidence-1',
   capability_id: 'CAP-WEB-01',
   evidence_claim: 'تحليل تدفق مصادقة موثّق بمراجع محكومة.',
+  governed_purpose: 'FORMAL_CAPABILITY_EVIDENCE',
   lifecycle_state: 'ACTIVE',
   review_status: 'UNREVIEWED',
   effective_review_decision: 'NONE',
@@ -27,12 +31,22 @@ const evidence = {
   current_revision_id: 'revision-1',
   title: 'تحليل المصادقة المحكوم',
   summary: 'Evidence مختومة ومؤهلة للمراجعة.',
+  source_type: 'SIMULATION',
+  source_id: 'RUN-0042',
+  source_revision: 'result-r3',
   revisions: [
     {
       id: 'revision-1',
+      evidence_id: 'evidence-1',
       revision: 1,
       previous_revision_id: null,
       revision_reason: 'Admission from Candidate Evidence',
+      source_type: 'SIMULATION',
+      source_id: 'RUN-0042',
+      source_revision: 'result-r3',
+      source_digest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      selected_material_refs: ['artifact:http-transaction', 'artifact:timeline'],
+      criterion_scope: ['CRIT-AUTH-01'],
     },
   ],
 };
@@ -107,6 +121,25 @@ function propsFor(surface: 'evidence' | 'reviews' | 'mastery' | 'portfolio') {
       mastery,
     ],
     portfolios: [portfolio],
+    handoff_receipts: [
+      {
+        id: 'handoff-1',
+        source_type: 'SIMULATION',
+        source_id: 'RUN-0042',
+        source_revision: 'result-r3',
+        source_digest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        selected_material_refs: ['artifact:http-transaction'],
+        capability_id: 'CAP-WEB-01',
+      },
+    ],
+    mastery_policies: [
+      {
+        id: 'POLICY-MASTERY-R4',
+        policy_key: 'CAP-WEB-MASTERY',
+        revision: 4,
+        qualifying_review_decisions: ['ACCEPT', 'ACCEPT_WITH_LIMITATIONS'],
+      },
+    ],
   };
 }
 
