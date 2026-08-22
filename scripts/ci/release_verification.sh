@@ -12,6 +12,15 @@ failures=0
 
 compose() { docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml "$@"; }
 
+start_release_services() {
+  local code=0
+  compose up -d --wait --wait-timeout 120 postgres app || code=$?
+  if [[ $code -ne 0 ]]; then
+    return "$code"
+  fi
+  compose up -d --no-deps queue
+}
+
 run_gate() {
   local gate="$1"; shift
   local log="$EVIDENCE_DIR/${gate}.log"
@@ -31,7 +40,7 @@ run_gate() {
 }
 
 run_gate release-image-build compose build --pull app queue
-run_gate release-services-start compose up -d postgres app queue
+run_gate release-services-start start_release_services
 run_gate release-container-liveness bash -o pipefail -c '
   for i in $(seq 1 60); do
     services="$(docker compose --env-file "'"$RELEASE_ENV_FILE"'" -f compose.release.yaml ps --services --filter status=running)"

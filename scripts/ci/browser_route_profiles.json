@@ -1,0 +1,70 @@
+{
+  "schema": "cep.browser-route-profiles.v1",
+  "requiredProfiles": ["BASELINE", "LEGACY", "W01", "W02", "W03", "W04", "W05"],
+  "defaultProfiles": ["BASELINE", "LEGACY", "W01"],
+  "profiles": {
+    "BASELINE": {
+      "description": "Shared authenticated baseline routes retained by existing browser regression evidence.",
+      "routes": ["/", "/release/"]
+    },
+    "LEGACY": {
+      "description": "Legacy generic verification routes retained for regression continuity.",
+      "routes": [
+        "/vs001/sources",
+        "/vs001/lesson",
+        "/vs001/lab",
+        "/vs001/evidence",
+        "/vs002/sources",
+        "/vs002/lesson",
+        "/vs002/lab",
+        "/vs002/evidence",
+        "/vs003/lab"
+      ]
+    },
+    "W01": {
+      "description": "W01 root coverage.",
+      "routes": ["/"]
+    },
+    "W02": {
+      "description": "W02 route inventory only; selection verifies routing and generic browser properties, not Product Assurance.",
+      "routes": [
+        "/knowledge",
+        "/knowledge/learn",
+        "/knowledge/visualize",
+        "/knowledge/research-quality"
+      ]
+    },
+    "W03": {
+      "description": "W03 route inventory only; selection verifies routing and generic browser properties, not Product Assurance.",
+      "routes": [
+        "/simulation",
+        "/simulation/scenarios",
+        "/simulation/labs",
+        "/simulation/runs",
+        "/simulation/results"
+      ]
+    },
+    "W04": {
+      "description": "W04 route inventory only; selection verifies routing and generic browser properties, not Product Assurance.",
+      "routes": [
+        "/progress",
+        "/progress/reviews",
+        "/progress/mastery",
+        "/progress/portfolio"
+      ]
+    },
+    "W05": {
+      "description": "W05 route inventory only; selection verifies routing and generic browser properties, not Product Assurance.",
+      "routes": [
+        "/system",
+        "/system/processing",
+        "/system/validation",
+        "/system/ai-bridge",
+        "/system/backups",
+        "/system/audit",
+        "/system/releases",
+        "/system/configuration"
+      ]
+    }
+  }
+}

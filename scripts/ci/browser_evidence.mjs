@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -8,14 +8,210 @@ const email = process.env.BROWSER_EMAIL ?? 'task010-browser@example.test';
 const password = process.env.BROWSER_PASSWORD ?? '';
 const evidenceDir = process.env.EVIDENCE_DIR ?? 'evidence/browser';
 const chromiumPath = process.env.CHROMIUM_PATH ?? '/usr/bin/chromium';
+const routeProfilePath = process.env.BROWSER_ROUTE_PROFILE_FILE ?? 'scripts/ci/browser_route_profiles.json';
+const requestedProfileValue = process.env.BROWSER_ROUTE_PROFILES?.trim() ?? '';
+const validateProfilesOnly = process.argv.includes('--validate-profiles');
+const viewports = [
+  { name: 'desktop', width: 1440, height: 1000, mobile: false },
+  { name: 'mobile', width: 390, height: 844, mobile: true },
+];
 
-if (password.length < 20) throw new Error('BROWSER_PASSWORD must be a synthetic value of at least 20 characters.');
 await mkdir(join(evidenceDir, 'screenshots'), { recursive: true });
-const profileDir = await mkdtemp(join(tmpdir(), 'cep-browser-'));
 const browserLog = [];
+const pageResults = [];
 let chromium;
+let profileDir;
+let routeProfiles;
+let selectedProfiles = [];
+let selectedRoutes;
+let mainBodyStatus = 'NOT_STARTED';
+let mainBodyError = null;
+const finalizationOperations = [];
+const finalizationFailures = [];
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function writeHarnessLifecycle() {
+  const causalClass = mainBodyStatus === 'FAIL'
+    ? 'MAIN_BODY'
+    : finalizationFailures.length
+      ? 'FINALLY_CLEANUP'
+      : null;
+  await writeFile(join(evidenceDir, 'browser-harness-lifecycle.json'), JSON.stringify({
+    schema: 'cep.browser-harness-lifecycle.v1',
+    status: causalClass ? 'FAIL' : 'PASS',
+    causalClass,
+    mainBody: {
+      status: mainBodyStatus,
+      message: mainBodyError ? errorMessage(mainBodyError) : null,
+    },
+    finalization: {
+      status: finalizationFailures.length ? 'FAIL' : 'PASS',
+      operations: finalizationOperations,
+    },
+  }, null, 2) + '\n');
+}
+
+async function runFinalizationOperation(operation, task) {
+  try {
+    const detail = await task();
+    finalizationOperations.push({ operation, status: 'PASS', detail: detail ?? null, message: null });
+  } catch (error) {
+    const message = errorMessage(error);
+    finalizationOperations.push({ operation, status: 'FAIL', detail: null, message });
+    finalizationFailures.push({ operation, message });
+  }
+}
+
+async function terminateChromium(child, gracefulTimeoutMs = 5000, forceTimeoutMs = 2000) {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return { attempted: false, alreadyExited: true, exitCode: child.exitCode, signal: child.signalCode };
+  }
+
+  let resolveClose;
+  const closed = new Promise(resolve => { resolveClose = resolve; });
+  child.once('close', (code, signal) => resolveClose({ code, signal }));
+
+  const signalSent = child.kill('SIGTERM');
+  const graceful = await Promise.race([
+    closed.then(outcome => ({ outcome, timedOut: false })),
+    delay(gracefulTimeoutMs).then(() => ({ outcome: null, timedOut: true })),
+  ]);
+  if (!graceful.timedOut) {
+    return { attempted: true, signalSent, forced: false, exitCode: graceful.outcome.code, signal: graceful.outcome.signal };
+  }
+
+  const forceSignalSent = child.kill('SIGKILL');
+  const forced = await Promise.race([
+    closed.then(outcome => ({ outcome, timedOut: false })),
+    delay(forceTimeoutMs).then(() => ({ outcome: null, timedOut: true })),
+  ]);
+  if (forced.timedOut) {
+    throw new Error(`Chromium did not exit after SIGTERM (${gracefulTimeoutMs}ms) or SIGKILL (${forceTimeoutMs}ms).`);
+  }
+  throw new Error(`Chromium required SIGKILL after SIGTERM timeout (${gracefulTimeoutMs}ms); forceSignalSent=${forceSignalSent}; exitCode=${forced.outcome.code}; signal=${forced.outcome.signal}.`);
+}
+
+function parseProfileNames(value) {
+  return value.split(',').map(item => item.trim()).filter(Boolean);
+}
+
+function validateRoute(pathname, profileName) {
+  if (typeof pathname !== 'string' || !pathname.startsWith('/') || /[\s?#]/.test(pathname) || pathname.startsWith('//')) {
+    throw new Error(`Malformed route in profile ${profileName}: ${JSON.stringify(pathname)}`);
+  }
+}
+
+async function loadRouteProfiles() {
+  let parsed;
+  try {
+    parsed = JSON.parse(await readFile(routeProfilePath, 'utf8'));
+  } catch (error) {
+    throw new Error(`Unable to parse route profile file ${routeProfilePath}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Route profile document must be a JSON object.');
+  if (parsed.schema !== 'cep.browser-route-profiles.v1') throw new Error(`Unsupported route profile schema: ${JSON.stringify(parsed.schema)}`);
+  if (!Array.isArray(parsed.requiredProfiles) || parsed.requiredProfiles.length === 0) throw new Error('requiredProfiles must be a non-empty array.');
+  if (!Array.isArray(parsed.defaultProfiles) || parsed.defaultProfiles.length === 0) throw new Error('defaultProfiles must be a non-empty array.');
+  if (!parsed.profiles || typeof parsed.profiles !== 'object' || Array.isArray(parsed.profiles)) throw new Error('profiles must be an object.');
+
+  const requiredProfiles = parsed.requiredProfiles;
+  const defaults = parsed.defaultProfiles;
+  for (const [label, values] of [['requiredProfiles', requiredProfiles], ['defaultProfiles', defaults]]) {
+    if (new Set(values).size !== values.length) throw new Error(`${label} contains duplicate profile names.`);
+    for (const name of values) {
+      if (typeof name !== 'string' || !/^[A-Z][A-Z0-9_-]*$/.test(name)) throw new Error(`Malformed profile name in ${label}: ${JSON.stringify(name)}`);
+      if (!Object.hasOwn(parsed.profiles, name)) throw new Error(`${label} references unknown profile ${name}.`);
+    }
+  }
+
+  for (const [name, profile] of Object.entries(parsed.profiles)) {
+    if (!/^[A-Z][A-Z0-9_-]*$/.test(name)) throw new Error(`Malformed profile key: ${JSON.stringify(name)}`);
+    if (!profile || typeof profile !== 'object' || Array.isArray(profile)) throw new Error(`Profile ${name} must be an object.`);
+    if (typeof profile.description !== 'string' || !profile.description.trim()) throw new Error(`Profile ${name} requires a non-empty description.`);
+    if (!Array.isArray(profile.routes) || profile.routes.length === 0) throw new Error(`Profile ${name} routes must be a non-empty array.`);
+    if (new Set(profile.routes).size !== profile.routes.length) throw new Error(`Profile ${name} contains duplicate routes.`);
+    for (const route of profile.routes) validateRoute(route, name);
+  }
+
+  const selected = requestedProfileValue ? parseProfileNames(requestedProfileValue) : defaults;
+  if (selected.length === 0) throw new Error('No browser route profiles were selected.');
+  if (new Set(selected).size !== selected.length) throw new Error('Selected browser route profiles contain duplicates.');
+  for (const name of selected) {
+    if (!/^[A-Z][A-Z0-9_-]*$/.test(name)) throw new Error(`Malformed required profile: ${JSON.stringify(name)}`);
+    if (!Object.hasOwn(parsed.profiles, name)) throw new Error(`Unknown required browser route profile: ${name}`);
+    if (!requiredProfiles.includes(name)) throw new Error(`Selected profile ${name} is not declared in requiredProfiles.`);
+  }
+
+  const catalog = new Map();
+  for (const name of selected) {
+    for (const route of parsed.profiles[name].routes) {
+      const membership = catalog.get(route) ?? [];
+      membership.push(name);
+      catalog.set(route, membership);
+    }
+  }
+  const routes = [...catalog.entries()].map(([path, profiles]) => ({ path, profiles }));
+  return { ...parsed, selected, routes };
+}
+
+async function writeRouteProfileEvidence(reason = null) {
+  if (!routeProfiles) return;
+  const profiles = Object.entries(routeProfiles.profiles).map(([name, profile]) => {
+    if (!selectedProfiles.includes(name)) {
+      return {
+        name,
+        selected: false,
+        status: 'SKIPPED',
+        verification: 'NOT VERIFIED',
+        reason: 'profile-not-selected',
+        routes: profile.routes.map(path => ({ path, status: 'SKIPPED', verification: 'NOT VERIFIED', reason: 'profile-not-selected' })),
+      };
+    }
+    const routes = profile.routes.map(path => {
+      const records = pageResults.filter(page => page.path === path);
+      if (records.length < viewports.length) {
+        return {
+          path,
+          status: 'NOT VERIFIED',
+          verification: 'NOT VERIFIED',
+          reason: reason ?? 'route-not-exercised-in-all-required-viewports',
+          exercisedViewports: records.map(record => record.viewport),
+        };
+      }
+      const failing = records.filter(record => record.genericChecks !== 'PASS');
+      return {
+        path,
+        status: failing.length ? 'FAIL' : 'VERIFIED',
+        verification: failing.length ? 'GENERIC ROUTE CHECK FAILED' : 'GENERIC ROUTE VERIFIED',
+        reason: failing.length ? 'one-or-more-generic-browser-checks-failed' : null,
+        exercisedViewports: records.map(record => record.viewport),
+      };
+    });
+    const failed = routes.some(route => route.status === 'FAIL');
+    const incomplete = routes.some(route => route.status === 'NOT VERIFIED');
+    return {
+      name,
+      selected: true,
+      status: failed ? 'FAIL' : incomplete ? 'NOT VERIFIED' : 'VERIFIED',
+      verification: failed ? 'GENERIC ROUTE CHECK FAILED' : incomplete ? 'NOT VERIFIED' : 'GENERIC ROUTE VERIFIED',
+      productAssurance: 'NOT ESTABLISHED',
+      reason: incomplete ? (reason ?? 'one-or-more-routes-not-exercised') : failed ? 'one-or-more-routes-failed-generic-checks' : null,
+      routes,
+    };
+  });
+  await writeFile(join(evidenceDir, 'route-profile-coverage.json'), JSON.stringify({
+    schema: 'cep.browser-route-coverage.v1',
+    assuranceScope: 'GENERIC_BROWSER_ROUTE_EVIDENCE',
+    productAssurance: 'NOT ESTABLISHED',
+    selectedProfiles,
+    profiles,
+  }, null, 2) + '\n');
+}
 
 async function waitForJson(url, timeoutMs = 30000) {
   const started = Date.now();
@@ -93,6 +289,34 @@ function safeSlug(pathname) {
 }
 
 try {
+  routeProfiles = await loadRouteProfiles();
+  selectedProfiles = routeProfiles.selected;
+  selectedRoutes = routeProfiles.routes;
+  await writeFile(join(evidenceDir, 'route-profile-selection.json'), JSON.stringify({
+    schema: 'cep.browser-route-selection.v1',
+    source: routeProfilePath,
+    requested: requestedProfileValue || null,
+    selectedProfiles,
+    defaultSelectionUsed: !requestedProfileValue,
+    assuranceScope: 'GENERIC_BROWSER_ROUTE_EVIDENCE',
+    productAssurance: 'NOT ESTABLISHED',
+    routes: selectedRoutes,
+  }, null, 2) + '\n');
+  await writeRouteProfileEvidence('browser-capture-not-started');
+
+  if (validateProfilesOnly) {
+    await writeFile(join(evidenceDir, 'route-profile-validation.json'), JSON.stringify({
+      schema: 'cep.browser-route-profile-validation.v1',
+      status: 'PASS',
+      source: routeProfilePath,
+      requiredProfiles: routeProfiles.requiredProfiles,
+      selectedProfiles,
+      enumeratedRoutes: selectedRoutes,
+      productAssurance: 'NOT ESTABLISHED',
+    }, null, 2) + '\n');
+  } else {
+  if (password.length < 20) throw new Error('BROWSER_PASSWORD must be a synthetic value of at least 20 characters.');
+  profileDir = await mkdtemp(join(tmpdir(), 'cep-browser-'));
   chromium = spawn(chromiumPath, [
     '--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--disable-background-networking',
     '--disable-default-apps', '--disable-extensions', '--disable-sync', '--metrics-recording-only',
@@ -150,7 +374,7 @@ try {
     }, sessionId);
   }
 
-  await setViewport({ width: 1440, height: 1000, mobile: false });
+  await setViewport(viewports[0]);
   await navigate('/login');
   const loginScreenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true }, sessionId);
   await writeFile(join(evidenceDir, 'screenshots', 'desktop-login.png'), Buffer.from(loginScreenshot.data, 'base64'));
@@ -174,21 +398,10 @@ try {
   await waitForCondition(client, sessionId, `location.pathname !== '/login'`, 30000);
   await delay(750);
 
-  const pages = [
-    '/', '/release/',
-    '/vs001/sources', '/vs001/lesson', '/vs001/lab', '/vs001/evidence',
-    '/vs002/sources', '/vs002/lesson', '/vs002/lab', '/vs002/evidence',
-    '/vs003/lab',
-  ];
-  const viewports = [
-    { name: 'desktop', width: 1440, height: 1000, mobile: false },
-    { name: 'mobile', width: 390, height: 844, mobile: true },
-  ];
-  const pageResults = [];
-
   for (const viewport of viewports) {
     await setViewport(viewport);
-    for (const pathname of pages) {
+    for (const route of selectedRoutes) {
+      const pathname = route.path;
       await navigate(pathname);
       const currentPath = await evaluate(client, sessionId, 'location.pathname');
       if (currentPath === '/login') throw new Error(`Authentication was not retained for ${pathname}.`);
@@ -229,45 +442,89 @@ try {
         'permissions-policy': headers['permissions-policy'] ?? null,
       };
       const focusVisible = Boolean(dom.focus && ((dom.focus.outlineStyle !== 'none' && dom.focus.outlineWidth !== '0px') || dom.focus.boxShadow !== 'none'));
+      const genericFailures = [];
+      if ((documentResponse?.status ?? null) !== 200) genericFailures.push(`http-${documentResponse?.status ?? 'missing'}`);
+      if (dom.lang !== 'ar') genericFailures.push('lang-not-ar');
+      if (dom.dir !== 'rtl') genericFailures.push('dir-not-rtl');
+      if (!dom.arabicVisible) genericFailures.push('arabic-not-visible');
+      if (!focusVisible) genericFailures.push('focus-not-visible');
+      if (dom.overflowX) genericFailures.push('document-overflow-x');
+      if (consoleEntries.length) genericFailures.push('console-errors');
+      if (networkFailures.length) genericFailures.push('network-failures');
+      if (unnamedInteractive.length) genericFailures.push('unnamed-interactive');
+      for (const header of ['content-security-policy', 'x-content-type-options', 'x-frame-options', 'referrer-policy']) {
+        if (!securityHeaders[header]) genericFailures.push(`missing-${header}`);
+      }
       pageResults.push({
-        viewport: viewport.name, path: pathname, status: documentResponse?.status ?? null, dom, focusVisible,
-        consoleErrors: consoleEntries, failedNetworkRequests: networkFailures,
-        accessibility: { nodeCount: ax.nodes?.length ?? 0, unnamedInteractive }, securityHeaders,
+        viewport: viewport.name,
+        path: pathname,
+        routeProfiles: route.profiles,
+        assuranceScope: 'GENERIC_BROWSER_ROUTE_EVIDENCE',
+        productAssurance: 'NOT ESTABLISHED',
+        status: documentResponse?.status ?? null,
+        genericChecks: genericFailures.length ? 'FAIL' : 'PASS',
+        genericFailures,
+        dom,
+        focusVisible,
+        consoleErrors: consoleEntries,
+        failedNetworkRequests: networkFailures,
+        accessibility: { nodeCount: ax.nodes?.length ?? 0, unnamedInteractive },
+        securityHeaders,
         screenshot: `screenshots/${slug}.png`,
       });
+      await writeRouteProfileEvidence();
     }
   }
 
-  const requiredHeaders = ['content-security-policy', 'x-content-type-options', 'x-frame-options', 'referrer-policy'];
   const failures = [];
   for (const page of pageResults) {
-    if (page.status !== 200) failures.push(`${page.viewport}:${page.path}:http-${page.status}`);
-    if (page.dom.lang !== 'ar') failures.push(`${page.viewport}:${page.path}:lang-not-ar`);
-    if (page.dom.dir !== 'rtl') failures.push(`${page.viewport}:${page.path}:dir-not-rtl`);
-    if (!page.dom.arabicVisible) failures.push(`${page.viewport}:${page.path}:arabic-not-visible`);
-    if (!page.focusVisible) failures.push(`${page.viewport}:${page.path}:focus-not-visible`);
-    if (page.dom.overflowX) failures.push(`${page.viewport}:${page.path}:document-overflow-x`);
-    if (page.consoleErrors.length) failures.push(`${page.viewport}:${page.path}:console-errors`);
-    if (page.failedNetworkRequests.length) failures.push(`${page.viewport}:${page.path}:network-failures`);
-    if (page.accessibility.unnamedInteractive.length) failures.push(`${page.viewport}:${page.path}:unnamed-interactive`);
-    for (const header of requiredHeaders) if (!page.securityHeaders[header]) failures.push(`${page.viewport}:${page.path}:missing-${header}`);
+    for (const failure of page.genericFailures) failures.push(`${page.viewport}:${page.path}:${failure}`);
   }
   if (!pageResults.some(page => page.dom.technicalLtrCount > 0)) failures.push('technical-ltr-content-not-detected');
 
   const result = {
-    schema: 'cep.browser-evidence.v1', browser: version.Browser, protocolVersion: version['Protocol-Version'], baseUrl,
-    status: failures.length ? 'FAIL' : 'PASS', authenticatedFlow: { email, passwordRecorded: false, result: 'PASS' },
-    pages: pageResults, failures,
+    schema: 'cep.browser-evidence.v2',
+    browser: version.Browser,
+    protocolVersion: version['Protocol-Version'],
+    baseUrl,
+    status: failures.length ? 'FAIL' : 'PASS',
+    assuranceScope: 'GENERIC_BROWSER_ROUTE_EVIDENCE',
+    productAssurance: 'NOT ESTABLISHED',
+    routeProfiles: selectedProfiles,
+    authenticatedFlow: { email, passwordRecorded: false, result: 'PASS' },
+    pages: pageResults,
+    failures,
   };
   await writeFile(join(evidenceDir, 'browser-result.json'), JSON.stringify(result, null, 2) + '\n');
   await writeFile(join(evidenceDir, 'accessibility-result.json'), JSON.stringify({
     schema: 'cep.accessibility-evidence.v1',
     status: failures.some(item => item.includes('focus') || item.includes('overflow') || item.includes('unnamed') || item.includes('lang-') || item.includes('dir-')) ? 'FAIL' : 'PASS',
-    pages: pageResults.map(({ viewport, path, dom, focusVisible, accessibility }) => ({ viewport, path, lang: dom.lang, dir: dom.dir, overflowX: dom.overflowX, focusVisible, accessibility })),
+    assuranceScope: 'GENERIC_BROWSER_ROUTE_EVIDENCE',
+    productAssurance: 'NOT ESTABLISHED',
+    pages: pageResults.map(({ viewport, path, routeProfiles: profiles, dom, focusVisible, accessibility }) => ({ viewport, path, routeProfiles: profiles, lang: dom.lang, dir: dom.dir, overflowX: dom.overflowX, focusVisible, accessibility })),
+  }, null, 2) + '\n');
+  await writeFile(join(evidenceDir, 'console-network-result.json'), JSON.stringify({
+    schema: 'cep.console-network-evidence.v1',
+    status: pageResults.some(page => page.consoleErrors.length || page.failedNetworkRequests.length) ? 'FAIL' : 'PASS',
+    assuranceScope: 'GENERIC_BROWSER_ROUTE_EVIDENCE',
+    productAssurance: 'NOT ESTABLISHED',
+    pages: pageResults.map(({ viewport, path, routeProfiles: profiles, consoleErrors, failedNetworkRequests }) => ({ viewport, path, routeProfiles: profiles, consoleErrors, failedNetworkRequests })),
+  }, null, 2) + '\n');
+  await writeFile(join(evidenceDir, 'compatibility-result.json'), JSON.stringify({
+    schema: 'cep.browser-compatibility-evidence.v1',
+    status: pageResults.some(page => page.dom.overflowX || page.dom.lang !== 'ar' || page.dom.dir !== 'rtl') ? 'FAIL' : 'PASS',
+    assuranceScope: 'GENERIC_BROWSER_ROUTE_EVIDENCE',
+    productAssurance: 'NOT ESTABLISHED',
+    requiredViewports: viewports.map(({ name, width, height, mobile }) => ({ name, width, height, mobile })),
+    pages: pageResults.map(({ viewport, path, routeProfiles: profiles, dom }) => ({ viewport, path, routeProfiles: profiles, pathname: dom.pathname, lang: dom.lang, dir: dom.dir, overflowX: dom.overflowX })),
   }, null, 2) + '\n');
   await writeFile(join(evidenceDir, 'security-header-snapshot.json'), JSON.stringify({
-    schema: 'cep.security-headers.v1', pages: pageResults.map(({ viewport, path, status, securityHeaders }) => ({ viewport, path, status, securityHeaders })),
+    schema: 'cep.security-headers.v1',
+    assuranceScope: 'GENERIC_BROWSER_ROUTE_EVIDENCE',
+    productAssurance: 'NOT ESTABLISHED',
+    pages: pageResults.map(({ viewport, path, routeProfiles: profiles, status, securityHeaders }) => ({ viewport, path, routeProfiles: profiles, status, securityHeaders })),
   }, null, 2) + '\n');
+  await writeRouteProfileEvidence(failures.length ? 'generic-browser-checks-failed' : null);
 
   if (failures.length) {
     const diagnostics = await evaluate(client, sessionId, `({ url: location.href, title: document.title, html: document.documentElement.outerHTML.slice(0, 200000) })`);
@@ -275,13 +532,40 @@ try {
     throw new Error(`Browser evidence failed: ${failures.join(', ')}`);
   }
   client.close();
+  }
+  mainBodyStatus = 'PASS';
 } catch (error) {
+  mainBodyStatus = 'FAIL';
+  mainBodyError = error;
+  await writeRouteProfileEvidence('browser-harness-aborted-before-route-completed');
   await writeFile(join(evidenceDir, 'browser-harness-error.json'), JSON.stringify({
-    schema: 'cep.browser-harness-error.v1', status: 'FAIL', message: error instanceof Error ? error.message : String(error),
+    schema: 'cep.browser-harness-error.v1',
+    status: 'FAIL',
+    assuranceScope: 'GENERIC_BROWSER_ROUTE_EVIDENCE',
+    productAssurance: 'NOT ESTABLISHED',
+    selectedProfiles,
+    causalClass: 'MAIN_BODY',
+    message: errorMessage(error),
   }, null, 2) + '\n');
-  throw error;
 } finally {
-  chromium?.kill('SIGTERM');
-  await writeFile(join(evidenceDir, 'chromium-sanitized.log'), browserLog.join('').replaceAll(password, '[REDACTED]'));
-  await rm(profileDir, { recursive: true, force: true });
+  await runFinalizationOperation('chromium-termination', async () => {
+    if (!chromium) return { attempted: false, signalSent: false };
+    return await terminateChromium(chromium);
+  });
+  await runFinalizationOperation('chromium-sanitized-log-write', async () => {
+    const sanitizedLog = password ? browserLog.join('').replaceAll(password, '[REDACTED]') : browserLog.join('');
+    await writeFile(join(evidenceDir, 'chromium-sanitized.log'), sanitizedLog);
+    return { bytes: Buffer.byteLength(sanitizedLog) };
+  });
+  await runFinalizationOperation('temporary-profile-cleanup', async () => {
+    if (!profileDir) return { attempted: false };
+    await rm(profileDir, { recursive: true, force: true });
+    return { attempted: true };
+  });
+  await writeHarnessLifecycle();
+}
+
+if (mainBodyError) throw mainBodyError;
+if (finalizationFailures.length) {
+  throw new Error(`Browser evidence finalization failed: ${finalizationFailures.map(item => `${item.operation}: ${item.message}`).join('; ')}`);
 }
