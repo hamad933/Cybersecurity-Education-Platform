@@ -11,6 +11,8 @@ use RuntimeException;
 
 final class LessonRevisionWorkflow
 {
+    private const MAX_BLOCK_DEPTH = 3;
+
     public function __construct(private readonly AuditWriter $audit) {}
 
     /**
@@ -187,16 +189,31 @@ final class LessonRevisionWorkflow
         if ($blocks === [] || ! array_is_list($blocks) || ! array_is_list($citations) || $citations === []) {
             throw new InvalidArgumentException('Lesson blocks and citations are required lists.');
         }
-        foreach ($blocks as $block) {
+
+        $previousDepth = 0;
+        foreach ($blocks as $index => $block) {
             if (! is_array($block) || ! in_array($block['type'] ?? null, ['heading', 'paragraph', 'callout', 'rules', 'boundaries', 'code', 'request', 'response', 'log'], true)) {
                 throw new InvalidArgumentException('Unregistered lesson block type.');
             }
-            if (array_diff(array_keys($block), ['type', 'body']) !== []) {
+            if (array_diff(array_keys($block), ['type', 'body', 'depth']) !== []) {
                 throw new InvalidArgumentException('Unknown lesson block key.');
             }
             if (! is_string($block['body'] ?? null) || mb_strlen($block['body']) > 4000) {
                 throw new InvalidArgumentException('Lesson block body is invalid or too large.');
             }
+
+            $depth = $block['depth'] ?? 0;
+            if (! is_int($depth) || $depth < 0 || $depth > self::MAX_BLOCK_DEPTH) {
+                throw new InvalidArgumentException('Lesson block depth is invalid or out of bounds.');
+            }
+            if ($index === 0 && $depth !== 0) {
+                throw new InvalidArgumentException('The first lesson block must be at root depth.');
+            }
+            if ($index > 0 && $depth > $previousDepth + 1) {
+                throw new InvalidArgumentException('Lesson block depth cannot jump more than one level.');
+            }
+            $previousDepth = $depth;
+
             $proseBlock = in_array($block['type'], ['heading', 'paragraph', 'callout', 'rules', 'boundaries'], true);
             if ($proseBlock && preg_match('/<\s*script\b|\bon[a-z]+\s*=|javascript\s*:/iu', $block['body']) === 1) {
                 throw new InvalidArgumentException('Unsafe active lesson content is rejected.');
