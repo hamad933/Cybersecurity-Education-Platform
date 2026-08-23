@@ -1,0 +1,70 @@
+name: CEP Fast Control Plane (Jules Supervision)
+
+on:
+  schedule:
+    # Fallback execution approximately every 10 minutes, offset from top of hour
+    - cron: '17,27,37,47,57 * * * *'
+  workflow_run:
+    workflows: ["Core CI Verification", "Release Verification & Browser Evidence"]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Perform dry-run evaluation without external mutation'
+        required: false
+        type: boolean
+        default: true
+      observed_tasks:
+        description: 'Observed starting Jules task count'
+        required: false
+        type: string
+        default: ''
+
+concurrency:
+  group: cep-jules-controller
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  control-cycle:
+    name: Run CEP Fast Control Plane Cycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run Fast Control Plane Cycle
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DRY_RUN_ARG=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.dry_run }}" = "true" ]; then
+            DRY_RUN_ARG="--dry-run"
+          fi
+
+          OBSERVED_TASKS_ARG=""
+          if [ -n "${{ inputs.observed_tasks }}" ]; then
+            OBSERVED_TASKS_ARG="--observed-tasks ${{ inputs.observed_tasks }}"
+          fi
+
+          python3 scripts/controller/main.py $DRY_RUN_ARG $OBSERVED_TASKS_ARG --receipt-out /tmp/cep_control_receipt.json
+
+      - name: Upload Control Cycle Receipt Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cep-control-receipt
+          path: /tmp/cep_control_receipt.json
+          retention-days: 7
