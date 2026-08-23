@@ -23,10 +23,10 @@ Stop reading unrelated historical task folders once the active workstream has en
 The Controller must provide the applicable accepted authority. Current accepted identifiers are:
 
 - `CEP v0.3.1` preserved product architecture baseline.
-- `CEP-PRD-001-A01 â€” APPROVED`.
-- `CEP-PRD-001-A02 â€” APPROVED`.
-- `CEP-PRD-001-A03 â€” APPROVED`.
-- `CEP-VIS-001-FINAL â€” APPROVED â€” CEP-DEC-027`.
+- `CEP-PRD-001-A01 — APPROVED`.
+- `CEP-PRD-001-A02 — APPROVED`.
+- `CEP-PRD-001-A03 — APPROVED`.
+- `CEP-VIS-001-FINAL — APPROVED — CEP-DEC-027`.
 
 Do not copy or modify the canonical Drive records in the repository. Use them as external governing references supplied by the Controller.
 
