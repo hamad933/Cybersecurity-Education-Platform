@@ -91,7 +91,7 @@ final class SystemOperationsWorkspaceTest extends TestCase
             ->where('state.packages.records.0.scope.handling', 'technical-validation')
             ->where('state.packages.records.0.manifest.package_digest', $package['digest']));
 
-        $this->actingAs($owner)->post('/system/validation/knowledge/decide')->assertNotFound();
+        $this->actingAs($owner)->post('/system/validation/knowledge/decide')->assertStatus(405);
     }
 
     public function test_manual_ai_bridge_exposes_complete_result_and_authoritative_provenance_before_decision(): void
@@ -179,7 +179,7 @@ final class SystemOperationsWorkspaceTest extends TestCase
             ->where('state.results.0.returned_package_scope.input_digest', $inputDigest)
             ->where('state.results.0.status', 'pending_review'));
 
-        $this->actingAs($owner)->post('/system/ai-bridge/providers/run')->assertNotFound();
+        $this->actingAs($owner)->post('/system/ai-bridge/providers/run')->assertStatus(405);
     }
 
     public function test_restore_is_stage_only_and_no_destructive_activation_route_is_exposed(): void
@@ -190,7 +190,7 @@ final class SystemOperationsWorkspaceTest extends TestCase
             ->where('state.safety.web_restore_mode', 'STAGE_AND_VERIFY_ONLY')
             ->where('state.safety.activation_route_available', false));
 
-        $this->actingAs($owner)->post('/system/backups/restores/activate')->assertNotFound();
+        $this->actingAs($owner)->post('/system/backups/restores/activate')->assertStatus(405);
     }
 
     public function test_audit_records_expose_investigation_context_and_remain_append_only(): void
@@ -222,7 +222,7 @@ final class SystemOperationsWorkspaceTest extends TestCase
             $this->assertSame('Audit records are append-only.', $exception->getMessage());
         }
 
-        $this->actingAs($owner)->delete('/system/audit/'.$record->id)->assertNotFound();
+        $this->actingAs($owner)->delete('/system/audit/'.$record->id)->assertStatus(405);
     }
 
     public function test_release_surface_exposes_package_follow_up_context_without_deployment_authority(): void
@@ -242,7 +242,7 @@ final class SystemOperationsWorkspaceTest extends TestCase
             ->where('state.packages.0.scope.handling', 'package-and-release-validation-only')
             ->where('state.packages.0.manifest.package_digest', $package['digest']));
 
-        $this->actingAs($owner)->post('/system/releases/deploy')->assertNotFound();
+        $this->actingAs($owner)->post('/system/releases/deploy')->assertStatus(405);
     }
 
     /** @return array{id: string, digest: string} */

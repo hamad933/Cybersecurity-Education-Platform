@@ -50,7 +50,7 @@ final class SystemOperationsCompletionTest extends TestCase
             ->assertSessionHasErrors('processing');
         $this->actingAs($owner)
             ->post('/system/processing/runs/'.$run->id.'/retry')
-            ->assertNotFound();
+            ->assertStatus(405);
     }
 
     public function test_processing_surface_declares_bounded_cancellation_without_knowledge_decision_authority(): void
@@ -64,7 +64,7 @@ final class SystemOperationsCompletionTest extends TestCase
 
         $this->actingAs($owner)
             ->post('/system/processing/knowledge/decide')
-            ->assertNotFound();
+            ->assertStatus(405);
     }
 
     public function test_configuration_surface_is_a_non_secret_read_only_whitelist(): void
@@ -78,7 +78,7 @@ final class SystemOperationsCompletionTest extends TestCase
 
         $this->actingAs($owner)
             ->post('/system/configuration')
-            ->assertNotFound();
+            ->assertStatus(405);
     }
 
     public function test_validation_and_release_package_context_is_scoped_to_current_actor(): void
