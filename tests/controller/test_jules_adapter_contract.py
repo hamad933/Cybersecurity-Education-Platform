@@ -2,6 +2,8 @@ import unittest
 
 from scripts.controller.jules_adapter import JulesAdapter
 
+# One-shot canary trigger revision: 1
+
 
 class RecordingAdapter(JulesAdapter):
     def __init__(self):
