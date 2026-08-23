@@ -6,6 +6,7 @@ Standard library only (Python 3.10+). Target API: https://jules.googleapis.com/v
 import json
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional
 from scripts.controller.models import JulesSessionInfo, JulesState
@@ -118,11 +119,45 @@ class JulesAdapter:
             latest_user_feedback=s.get("latestUserFeedback"),
         )
 
+    def list_activities(self, session_id: str, page_size: int = 100) -> List[Dict[str, Any]]:
+        """List all activities for a session using Jules pagination."""
+        if page_size < 1 or page_size > 100:
+            raise ValueError("page_size must be between 1 and 100")
+
+        resource_path = session_id if session_id.startswith("sessions/") else f"sessions/{session_id}"
+        activities: List[Dict[str, Any]] = []
+        page_token: Optional[str] = None
+
+        while True:
+            params = {"pageSize": str(page_size)}
+            if page_token:
+                params["pageToken"] = page_token
+            endpoint = f"{resource_path}/activities?{urllib.parse.urlencode(params)}"
+            response = self._make_request(endpoint)
+            page = response.get("activities", [])
+            if not isinstance(page, list):
+                raise JulesAdapterError(
+                    "Jules Activities response is malformed.",
+                    classification="JULES_PROTOCOL_CHANGED",
+                )
+            activities.extend(item for item in page if isinstance(item, dict))
+            next_token = response.get("nextPageToken")
+            if not next_token:
+                break
+            if not isinstance(next_token, str):
+                raise JulesAdapterError(
+                    "Jules Activities pagination token is malformed.",
+                    classification="JULES_PROTOCOL_CHANGED",
+                )
+            page_token = next_token
+
+        return activities
+
     def send_message(self, session_id: str, message: str) -> Dict[str, Any]:
-        """Send message to an active Jules session."""
+        """Send feedback to an active Jules session using the current API contract."""
         resource_path = session_id if session_id.startswith("sessions/") else f"sessions/{session_id}"
         endpoint = f"{resource_path}:sendMessage"
-        payload = {"message": message}
+        payload = {"prompt": message}
         return self._make_request(endpoint, method="POST", payload=payload)
 
     def create_session(
@@ -135,6 +170,7 @@ class JulesAdapter:
     ) -> JulesSessionInfo:
         """
         Create a new Jules session bound to a workstream/branch.
+        Creation remains subject to Parent Controller task-budget/authority policy.
         """
         endpoint = "sessions"
         payload = {
