@@ -1,0 +1,109 @@
+name: CEP W04 Jules Waiting Canary
+
+on:
+  push:
+    branches:
+      - ci/cep-jules-control-plane-r01-6545870808418194176
+    paths:
+      - .github/workflows/cep-w04-jules-canary.yml
+      - scripts/controller/jules_adapter.py
+      - scripts/controller/w04_waiting_canary.py
+      - tests/controller/test_jules_adapter_contract.py
+
+concurrency:
+  group: cep-w04-jules-waiting-canary
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    name: Parent-authorized W04 same-session canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout trusted AUTO branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate Jules adapter contract
+        run: python3 tests/controller/test_jules_adapter_contract.py
+
+      - name: Send bounded W04 continuation if exact waiting state matches
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+        run: |
+          python3 scripts/controller/w04_waiting_canary.py \
+            --receipt-out /tmp/w04-canary-receipt.json
+
+      - name: Upload sanitized canary receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cep-w04-jules-canary-receipt
+          path: /tmp/w04-canary-receipt.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  receipt:
+    name: Publish sanitized control receipt
+    needs: canary
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Download sanitized receipt
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: cep-w04-jules-canary-receipt
+          path: /tmp/w04-canary
+
+      - name: Post safe receipt to AUTO PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = '/tmp/w04-canary/w04-canary-receipt.json';
+            let r = { outcome: 'CANARY_JOB_FAILED_BEFORE_RECEIPT', delivery_verified: false };
+            if (fs.existsSync(path)) {
+              r = JSON.parse(fs.readFileSync(path, 'utf8'));
+            }
+            const safe = {
+              session_id: r.session_id || '3785206839989471108',
+              workstream: r.workstream || 'W04',
+              pr: r.pr || 30,
+              expected_remote_head: r.expected_remote_head || '2fa90272fd2c8be030220fd185ec5565b0d89822',
+              before_state: r.before_state || null,
+              after_state: r.after_state || null,
+              outcome: r.outcome || 'UNKNOWN',
+              delivery_verified: r.delivery_verified === true,
+              send_attempted: r.send_attempted === true,
+              operation_key: r.operation_key || null,
+              question_digest: r.question_digest || null,
+              answer_digest: r.answer_digest || null,
+              send_error_classification: r.send_error_classification || null,
+              send_http_status: r.send_http_status || null,
+              secret_persisted: false,
+            };
+            const body = [
+              '## CEP W04 Jules canary receipt',
+              '',
+              '```json',
+              JSON.stringify(safe, null, 2),
+              '```',
+              '',
+              'This receipt contains safe control metadata only. No Jules API credential, raw authenticated headers, or raw waiting-message text is included.'
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 39,
+              body,
+            });
