@@ -99,7 +99,7 @@ describe('LibraryHierarchyTree', () => {
       },
     });
 
-    const hrefs = wrapper.findAll('a').map((anchor) => anchor.attributes('href'));
+    const hrefs = wrapper.findAll('[href]').map((anchor) => anchor.attributes('href'));
     expect(hrefs).toContain('/knowledge?object=KU-AUTH-001');
     expect(hrefs).toContain('/knowledge?object=KU-ORPHAN-001');
   });
