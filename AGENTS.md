@@ -23,10 +23,10 @@ Stop reading unrelated historical task folders once the active workstream has en
 The Controller must provide the applicable accepted authority. Current accepted identifiers are:
 
 - `CEP v0.3.1` preserved product architecture baseline.
-- `CEP-PRD-001-A01 — APPROVED`.
-- `CEP-PRD-001-A02 — APPROVED`.
-- `CEP-PRD-001-A03 — APPROVED`.
-- `CEP-VIS-001-FINAL — APPROVED — CEP-DEC-027`.
+- `CEP-PRD-001-A01 â€” APPROVED`.
+- `CEP-PRD-001-A02 â€” APPROVED`.
+- `CEP-PRD-001-A03 â€” APPROVED`.
+- `CEP-VIS-001-FINAL â€” APPROVED â€” CEP-DEC-027`.
 
 Do not copy or modify the canonical Drive records in the repository. Use them as external governing references supplied by the Controller.
 
@@ -145,3 +145,23 @@ Stop and return to the Controller when:
 - required tests cannot run or a required gate fails;
 - the work would require real external execution/connectors;
 - the workstream reaches its stated Stop Gate.
+
+<!-- CEP_EXECUTION_REFERENCE_MIRROR:BEGIN -->
+## CEP Execution Reference Mirror
+
+Authorized exception: `docs/reference/cep/` is a `NON_CANONICAL_EXECUTION_REFERENCE_MIRROR` published
+for GitHub-native executors and reviewers. It is not a second source of product truth, current state,
+or acceptance evidence. Google Drive remains canonical for the visual/reference library.
+
+For UI/product/reviewer work involving CEP visual references:
+- read `docs/reference/cep/README.md`;
+- read `docs/reference/cep/AI_RENDERING_EXCLUSIONS.md`;
+- read the applicable per-reference note before using an image;
+- use images for structure, hierarchy, information ownership, interaction intent, density, and visual grammar;
+- never copy AI-generation artifacts, fake data, malformed glyphs, duplicate/impossible controls, or accidental geometry/spacing;
+- resolve conflicts in favor of approved product architecture, real application semantics, the approved visual contract, then per-reference notes, then the image;
+- never treat visual similarity alone as acceptance evidence.
+
+Committed files under this one path are governed reference assets, not runtime screenshots, transient
+test evidence, CI artifacts, or executor handoff bundles.
+<!-- CEP_EXECUTION_REFERENCE_MIRROR:END -->

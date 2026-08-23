@@ -1,0 +1,196 @@
+{
+  "schema": "cep.execution-reference-mirror.v1",
+  "status": "NON_CANONICAL_EXECUTION_REFERENCE_MIRROR",
+  "repository": "hamad933/Cybersecurity-Education-Platform",
+  "publication_baseline": "b5d53d2d44c570ebf112c50bec966da01835e5d9",
+  "canonical_owner": "Google Drive",
+  "references": [
+    {
+      "id": "REF_01",
+      "slug": "knowledge-learning-library-ku-golden",
+      "authority": "GOLDEN_STRUCTURAL_REFERENCE",
+      "source_filename": "CEP_VIS_001_W03_LIBRARY_KU_GOLDEN_STRUCTURAL_REFERENCE_v1.0.png",
+      "source_sha256": "9d9e9ede804e43125813d5cf2a55b9837cbec9ce539cdab1e7303448563039a8",
+      "published_file": "images/REF_01_knowledge-learning-library-ku-golden.jpg",
+      "published_sha256": "f4a0103f0ee542ef9197130a51b3f8b99cd32bd68cdf674ac4929e54af276131",
+      "published_dimensions": [
+        1505,
+        1045
+      ],
+      "published_encoding": "JPEG quality 97, 4:4:4, full dimensions",
+      "note": "notes/REF_01_KNOWLEDGE_LEARNING_LIBRARY_KU.md",
+      "canonical_owner": "Google Drive — 07_REFERENCE_AND_VISUAL_LIBRARY / accepted CEP reference package",
+      "github_role": "NON_CANONICAL_EXECUTION_REFERENCE_MIRROR"
+    },
+    {
+      "id": "REF_02",
+      "slug": "enterprise-digital-twin",
+      "authority": "REFERENCE_ONLY",
+      "source_filename": "Enterprise Cybersecurity Topology Dashboard.png",
+      "source_sha256": "8b3b3e3b47693a54a8289d7d497bae5539e7d166c58e92b245936c919dc25c2e",
+      "published_file": "images/REF_02_enterprise-digital-twin.jpg",
+      "published_sha256": "115e64e2998d72b58ea1ac67e2f654334d7a8469418dc71c6594e405900f337e",
+      "published_dimensions": [
+        1503,
+        1046
+      ],
+      "published_encoding": "JPEG quality 97, 4:4:4, full dimensions",
+      "note": "notes/REF_02_SIMULATION_ENTERPRISE_ENTERPRISE_DIGITAL_TWIN.md",
+      "canonical_owner": "Google Drive — 07_REFERENCE_AND_VISUAL_LIBRARY / accepted CEP reference package",
+      "github_role": "NON_CANONICAL_EXECUTION_REFERENCE_MIRROR"
+    },
+    {
+      "id": "REF_03",
+      "slug": "scenario-studio",
+      "authority": "REFERENCE_ONLY",
+      "source_filename": "Cybersecurity Scenario Timeline Dashboard(1).png",
+      "source_sha256": "98a1c75226a20db052a930f33bc4ed36a2ce7e2a5eef2b246a34e391bafea48b",
+      "published_file": "images/REF_03_scenario-studio.jpg",
+      "published_sha256": "577b43aaa6e13b4becaad31944f770ba3691f0ec631edd31a733804d527195f1",
+      "published_dimensions": [
+        1505,
+        1045
+      ],
+      "published_encoding": "JPEG quality 97, 4:4:4, full dimensions",
+      "note": "notes/REF_03_SIMULATION_ENTERPRISE_SCENARIOS_SCENARIO_STUDIO.md",
+      "canonical_owner": "Google Drive — 07_REFERENCE_AND_VISUAL_LIBRARY / accepted CEP reference package",
+      "github_role": "NON_CANONICAL_EXECUTION_REFERENCE_MIRROR"
+    },
+    {
+      "id": "REF_04",
+      "slug": "lab-definition-studio",
+      "authority": "REFERENCE_ONLY",
+      "source_filename": "Cybersecurity Lab Task Graph Dashboard(2).png",
+      "source_sha256": "09f9d53b8d845ad374d084b60a5ed51a736b72607cdaa8445d07d74483aab46b",
+      "published_file": "images/REF_04_lab-definition-studio.jpg",
+      "published_sha256": "844365a63da5b9c89f0b490eef2fd2f6ec05ca66a6e6855e434bb060fb62a642",
+      "published_dimensions": [
+        1505,
+        1045
+      ],
+      "published_encoding": "JPEG quality 97, 4:4:4, full dimensions",
+      "note": "notes/REF_04_SIMULATION_ENTERPRISE_LABS_LAB_DEFINITION_STUDIO.md",
+      "canonical_owner": "Google Drive — 07_REFERENCE_AND_VISUAL_LIBRARY / accepted CEP reference package",
+      "github_role": "NON_CANONICAL_EXECUTION_REFERENCE_MIRROR"
+    },
+    {
+      "id": "REF_05",
+      "slug": "active-scenario-run-operations",
+      "authority": "REFERENCE_ONLY",
+      "source_filename": "image-gen-1(20260813-230627).png",
+      "source_sha256": "e875f6c592ce84d6fbddcb01cf5afddead891246168fa6019f3434aeb4f337a3",
+      "published_file": "images/REF_05_active-scenario-run-operations.jpg",
+      "published_sha256": "b681b9ab20d6faf935985b69f360e7729cf0ecd1a240695bb16523f80658fb1c",
+      "published_dimensions": [
+        1505,
+        1045
+      ],
+      "published_encoding": "JPEG quality 97, 4:4:4, full dimensions",
+      "note": "notes/REF_05_SIMULATION_ENTERPRISE_RUNS_ACTIVE_SCENARIO_RUN_OPERATIONS.md",
+      "canonical_owner": "Google Drive — 07_REFERENCE_AND_VISUAL_LIBRARY / accepted CEP reference package",
+      "github_role": "NON_CANONICAL_EXECUTION_REFERENCE_MIRROR"
+    },
+    {
+      "id": "REF_06",
+      "slug": "results-replay",
+      "authority": "REFERENCE_ONLY",
+      "source_filename": "Cybersecurity Replay Dashboard Timeline.png",
+      "source_sha256": "4d5af620a5b9887abba7b82d58244fb20d1fed891a7761e1fe8d56447f62dd4c",
+      "published_file": "images/REF_06_results-replay.jpg",
+      "published_sha256": "49ddcab527fbaf312af4fb3b40627f6571d683af72b0b5e4aa0087cdf9a6888a",
+      "published_dimensions": [
+        1505,
+        1045
+      ],
+      "published_encoding": "JPEG quality 97, 4:4:4, full dimensions",
+      "note": "notes/REF_06_SIMULATION_ENTERPRISE_RESULTS_REPLAY.md",
+      "canonical_owner": "Google Drive — 07_REFERENCE_AND_VISUAL_LIBRARY / accepted CEP reference package",
+      "github_role": "NON_CANONICAL_EXECUTION_REFERENCE_MIRROR"
+    },
+    {
+      "id": "REF_07",
+      "slug": "candidate-evidence-intake",
+      "authority": "REFERENCE_ONLY",
+      "source_filename": "Cybersecurity Evidence Dashboard in Arabic(1).png",
+      "source_sha256": "789deee01cd946d97d8e1ff59e583026bef733cf153a70c8765389a23aaacb69",
+      "published_file": "images/REF_07_candidate-evidence-intake.jpg",
+      "published_sha256": "89437e842896152b6ce781abaaada9fe985e6aac4356ce452557e608050e3da2",
+      "published_dimensions": [
+        1505,
+        1045
+      ],
+      "published_encoding": "JPEG quality 97, 4:4:4, full dimensions",
+      "note": "notes/REF_07_PROGRESS_EVIDENCE_EVIDENCE_INTAKE_CANDIDATE_EVIDENCE.md",
+      "canonical_owner": "Google Drive — 07_REFERENCE_AND_VISUAL_LIBRARY / accepted CEP reference package",
+      "github_role": "NON_CANONICAL_EXECUTION_REFERENCE_MIRROR"
+    },
+    {
+      "id": "REF_08",
+      "slug": "formal-evidence-review",
+      "authority": "REFERENCE_ONLY",
+      "source_filename": "Cybersecurity Evidence Review Dashboard.png",
+      "source_sha256": "f1b915d50866e5bc69f61c9ac2042fc3cb6e0c3a277a8ad61e98e268e566de70",
+      "published_file": "images/REF_08_formal-evidence-review.jpg",
+      "published_sha256": "c8948573acbbdd3a96703c0c5bc3284d72074e423c951b07f95561028fdd28d6",
+      "published_dimensions": [
+        1505,
+        1045
+      ],
+      "published_encoding": "JPEG quality 97, 4:4:4, full dimensions",
+      "note": "notes/REF_08_PROGRESS_EVIDENCE_REVIEWS_FORMAL_EVIDENCE_REVIEW.md",
+      "canonical_owner": "Google Drive — 07_REFERENCE_AND_VISUAL_LIBRARY / accepted CEP reference package",
+      "github_role": "NON_CANONICAL_EXECUTION_REFERENCE_MIRROR"
+    },
+    {
+      "id": "REF_09",
+      "slug": "mastery",
+      "authority": "REFERENCE_ONLY",
+      "source_filename": "Arabic Cybersecurity Mastery Dashboard.png",
+      "source_sha256": "7784568ef868bfefdad8dcd731e20c2dbbe95bd9cdd8d81daaca7b0723d82a54",
+      "published_file": "images/REF_09_mastery.jpg",
+      "published_sha256": "889b17642b51709ac05de9018b50a125f2b00a38fae91fd5d7b0322cda9feeef",
+      "published_dimensions": [
+        1505,
+        1045
+      ],
+      "published_encoding": "JPEG quality 97, 4:4:4, full dimensions",
+      "note": "notes/REF_09_PROGRESS_EVIDENCE_MASTERY.md",
+      "canonical_owner": "Google Drive — 07_REFERENCE_AND_VISUAL_LIBRARY / accepted CEP reference package",
+      "github_role": "NON_CANONICAL_EXECUTION_REFERENCE_MIRROR"
+    },
+    {
+      "id": "REF_10",
+      "slug": "portfolio",
+      "authority": "REFERENCE_ONLY",
+      "source_filename": "Cybersecurity Portfolio Evidence Dashboard.png",
+      "source_sha256": "3651bff6bee8098e8ab7633c3d5a9ebec0a0cb7e8701466932d21f53988ea37b",
+      "published_file": "images/REF_10_portfolio.jpg",
+      "published_sha256": "1838ce5abcba861bf44769dc660d8b6519e18c77624e78069b782d1504715b28",
+      "published_dimensions": [
+        1505,
+        1045
+      ],
+      "published_encoding": "JPEG quality 97, 4:4:4, full dimensions",
+      "note": "notes/REF_10_PROGRESS_EVIDENCE_PORTFOLIO.md",
+      "canonical_owner": "Google Drive — 07_REFERENCE_AND_VISUAL_LIBRARY / accepted CEP reference package",
+      "github_role": "NON_CANONICAL_EXECUTION_REFERENCE_MIRROR"
+    },
+    {
+      "id": "REF_11",
+      "slug": "system-operations-health",
+      "authority": "REFERENCE_ONLY",
+      "source_filename": "Arabic Operational Health Dashboard.png",
+      "source_sha256": "f5f789687f09f115a75e96a315d74ba5d664853b4430cc766fcc70eaf8aa17b6",
+      "published_file": "images/REF_11_system-operations-health.jpg",
+      "published_sha256": "513ae01844fe6bad65e9dbe02bbbf95723cbfa2a32fd30aabbf8c654ac4c39f9",
+      "published_dimensions": [
+        1505,
+        1045
+      ],
+      "published_encoding": "JPEG quality 97, 4:4:4, full dimensions",
+      "note": "notes/REF_11_SYSTEM_OPERATIONS_HEALTH.md",
+      "canonical_owner": "Google Drive — 07_REFERENCE_AND_VISUAL_LIBRARY / accepted CEP reference package",
+      "github_role": "NON_CANONICAL_EXECUTION_REFERENCE_MIRROR"
+    }
+  ]
+}
