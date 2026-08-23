@@ -1,9 +1,10 @@
 name: CEP W04 Jules Waiting Canary
 
 on:
-  push:
+  pull_request:
+    types: [synchronize]
     branches:
-      - ci/cep-jules-control-plane-r01-6545870808418194176
+      - build/cep-v1-integration
     paths:
       - .github/workflows/cep-w04-jules-canary.yml
       - scripts/controller/jules_adapter.py
@@ -17,13 +18,23 @@ concurrency:
 jobs:
   canary:
     name: Parent-authorized W04 same-session canary
+    if: >-
+      github.event.pull_request.number == 39 &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'ci/cep-jules-control-plane-r01-6545870808418194176'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read
     steps:
-      - name: Checkout trusted AUTO branch
+      - name: Checkout only trusted controller paths from exact PR head
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          sparse-checkout: |
+            scripts/controller
+            tests/controller
+          sparse-checkout-cone-mode: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
