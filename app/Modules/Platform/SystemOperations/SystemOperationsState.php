@@ -213,12 +213,13 @@ final class SystemOperationsState
     /** @return list<array<string, mixed>> */
     private function promptRevisionRows(string $actorId): array
     {
-        if (! $this->tablesAvailable(['prompt_package_revisions', 'prompt_packages', 'portable_packages'])) {
+        if (! $this->tablesAvailable(['prompt_packages', 'portable_packages'])) {
             return [];
         }
 
         return $this->safe(function () use ($actorId): array {
-            return DB::table('prompt_package_revisions as revision')
+            return \App\Modules\ManualAiBridge\Models\PromptPackageRevision::query()
+                ->from('prompt_package_revisions as revision')
                 ->join('prompt_packages as prompt', 'prompt.id', '=', 'revision.prompt_package_id')
                 ->join('portable_packages as package', 'package.id', '=', 'revision.portable_package_id')
                 ->where('prompt.actor_id', $actorId)
@@ -241,7 +242,7 @@ final class SystemOperationsState
                     'package.manifest as package_manifest',
                     'package.status as package_status',
                 ])
-                ->map(fn (object $row): array => $this->decodeJsonColumns((array) $row, [
+                ->map(fn ($row): array => $this->decodeJsonColumns((array) $row->getAttributes(), [
                     'declared_scope', 'package_scope', 'package_manifest',
                 ]))
                 ->all();
@@ -252,13 +253,14 @@ final class SystemOperationsState
     private function aiResultRows(string $actorId): array
     {
         if (! $this->tablesAvailable([
-            'imported_ai_results', 'prompt_package_revisions', 'prompt_packages', 'portable_packages',
+            'imported_ai_results', 'prompt_packages', 'portable_packages',
         ])) {
             return [];
         }
 
         return $this->safe(function () use ($actorId): array {
-            return DB::table('imported_ai_results as result')
+            return \App\Modules\ManualAiBridge\Models\ImportedAiResult::query()
+                ->from('imported_ai_results as result')
                 ->join('prompt_package_revisions as revision', 'revision.id', '=', 'result.prompt_package_revision_id')
                 ->join('prompt_packages as prompt', 'prompt.id', '=', 'revision.prompt_package_id')
                 ->join('portable_packages as returned_package', 'returned_package.id', '=', 'result.portable_package_id')
@@ -287,7 +289,7 @@ final class SystemOperationsState
                     'returned_package.manifest as returned_package_manifest',
                     'returned_package.status as returned_package_status',
                 ])
-                ->map(fn (object $row): array => $this->decodeJsonColumns((array) $row, [
+                ->map(fn ($row): array => $this->decodeJsonColumns((array) $row->getAttributes(), [
                     'structured_result', 'declared_scope', 'returned_package_scope', 'returned_package_manifest',
                 ]))
                 ->all();

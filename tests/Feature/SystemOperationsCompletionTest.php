@@ -84,9 +84,20 @@ final class SystemOperationsCompletionTest extends TestCase
     public function test_validation_and_release_package_context_is_scoped_to_current_actor(): void
     {
         $owner = $this->owner();
-        $foreignOwner = $this->owner();
+        // We cannot use CreateOwner::class again since an active owner already exists.
+        // So we create the foreign actor via the raw insert to bypass the invariant check.
+        $foreignOwnerId = (string) \Illuminate\Support\Str::uuid7();
+        \Illuminate\Support\Facades\DB::table('owner_accounts')->insert([
+            'id' => $foreignOwnerId,
+            'display_name' => 'Foreign Owner',
+            'email' => 'foreign-owner@example.test',
+            'password' => 'password',
+            'is_active' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         $actorId = (string) $owner->getAuthIdentifier();
-        $foreignActorId = (string) $foreignOwner->getAuthIdentifier();
+        $foreignActorId = $foreignOwnerId;
         $ownedPackageId = $this->portablePackage($actorId, 'owned-package');
         $foreignPackageId = $this->portablePackage($foreignActorId, 'foreign-package');
 
