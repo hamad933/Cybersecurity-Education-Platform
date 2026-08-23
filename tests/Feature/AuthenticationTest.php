@@ -53,7 +53,7 @@ class AuthenticationTest extends TestCase
         $this->get('/')->assertRedirect('/login');
         $this->post('/login', ['email' => 'owner@example.test', 'password' => 'VeryStrong!Pass9'])->assertRedirect('/');
         $this->assertAuthenticatedAs($owner);
-        $this->get('/')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Dashboard'));
+        $this->get('/')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Today/Index'));
         $this->assertDatabaseHas('audit_records', ['action' => 'auth.login', 'outcome' => 'success']);
         $this->assertStringContainsString('session()->regenerate()', file_get_contents(app_path('Modules/IdentityAccess/Http/Controllers/AuthenticatedSessionController.php')));
     }

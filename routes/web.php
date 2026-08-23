@@ -1,11 +1,9 @@
 <?php
 
-use App\Http\Controllers\ReleaseController;
 use App\Http\Controllers\Vs001Controller;
 use App\Http\Controllers\Vs002Controller;
 use App\Http\Controllers\Vs003Controller;
 use App\Modules\IdentityAccess\Http\Controllers\AuthenticatedSessionController;
-use App\Modules\Platform\Health\DashboardController;
 use App\Modules\Platform\Health\LivenessController;
 use Illuminate\Support\Facades\Route;
 
@@ -14,8 +12,17 @@ Route::middleware('guest')->group(function (): void {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('/login', [AuthenticatedSessionController::class, 'store'])->middleware('throttle:login');
 });
+
+// Parallel-safe real-application workspace route entry points.
+// Each file under routes/workspaces has exactly one Builder owner. Domain Builders must
+// not edit this loader or another workstream's route file.
+foreach (glob(__DIR__.'/workspaces/*.php') ?: [] as $workspaceRouteFile) {
+    require $workspaceRouteFile;
+}
+
+// Legacy vertical-slice routes remain reachable as REFERENCE_ONLY / REFACTOR_FOR_REUSE
+// inputs while the approved workspace routes are implemented in parallel.
 Route::middleware('auth')->group(function (): void {
-    Route::get('/', DashboardController::class)->name('dashboard');
     Route::prefix('vs001')->name('vs001.')->group(function (): void {
         Route::get('/sources', [Vs001Controller::class, 'sourceReview'])->name('sources');
         Route::get('/lesson/editor', [Vs001Controller::class, 'lessonEditor'])->name('lesson.editor');
@@ -66,17 +73,6 @@ Route::middleware('auth')->group(function (): void {
         Route::post('/containment/{proposal}/verify', [Vs003Controller::class, 'verifyContainment'])->middleware('throttle:10,1')->whereUuid('proposal')->name('containment.verify');
         Route::post('/practice', [Vs003Controller::class, 'practice'])->middleware('throttle:20,1')->name('practice');
         Route::post('/mastery/evaluate', [Vs003Controller::class, 'mastery'])->middleware('throttle:10,1')->name('mastery.evaluate');
-    });
-    Route::prefix('release')->name('release.')->group(function (): void {
-        Route::get('/', [ReleaseController::class, 'index'])->name('center');
-        Route::post('/sources/import', [ReleaseController::class, 'importSource'])->middleware('throttle:10,1')->name('sources.import');
-        Route::post('/ai/prompts/export', [ReleaseController::class, 'exportAiPrompt'])->middleware('throttle:10,1')->name('ai.prompts.export');
-        Route::post('/ai/results/import', [ReleaseController::class, 'importAiResult'])->middleware('throttle:10,1')->name('ai.results.import');
-        Route::post('/ai/results/{result}/decide', [ReleaseController::class, 'decideAi'])->middleware('throttle:10,1')->whereUuid('result')->name('ai.results.decide');
-        Route::post('/evidence/import', [ReleaseController::class, 'importEvidence'])->middleware('throttle:10,1')->name('evidence.import');
-        Route::post('/backups', [ReleaseController::class, 'createBackup'])->middleware('throttle:3,10')->name('backups.create');
-        Route::post('/restores/stage', [ReleaseController::class, 'stageRestore'])->middleware('throttle:3,10')->name('restores.stage');
-        Route::get('/packages/{package}', [ReleaseController::class, 'downloadPackage'])->middleware('throttle:20,1')->whereUuid('package')->name('packages.download');
     });
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 });

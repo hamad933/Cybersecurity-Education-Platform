@@ -16,6 +16,10 @@
         </testsuite>
         <testsuite name="Architecture">
             <directory>tests/Architecture</directory>
+            <exclude>tests/Architecture/RepositorySafetyTest.php</exclude>
+        </testsuite>
+        <testsuite name="Repository Safety">
+            <file>tests/Architecture/RepositorySafetyTest.php</file>
         </testsuite>
     </testsuites>
     <source>

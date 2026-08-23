@@ -46,7 +46,7 @@ $historyPatterns = [
     'aws-access-key' => 'AKIA[0-9A-Z]{16}',
     'github-token' => 'gh[pousr]_[A-Za-z0-9]{30,}',
     'provider-token' => 'sk-[A-Za-z0-9_-]{20,}',
-    'assigned-secret' => '(APP_KEY|DB_PASSWORD|PASSWORD|SECRET|TOKEN)=[^<${[:space:]]',
+    'assigned-secret' => '^(APP_KEY|DB_PASSWORD|PASSWORD|SECRET|TOKEN)=[A-Za-z0-9][A-Za-z0-9+/=_:-]{15,}$',
 ];
 $commits = preg_split('/\R/', trim($git('rev-list --all')), -1, PREG_SPLIT_NO_EMPTY);
 foreach ($commits as $commit) {

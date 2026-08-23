@@ -1,0 +1,366 @@
+name: Core CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'build/**'
+      - 'chore/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PHP_VERSION: '8.5.8'
+  COMPOSER_VERSION: '2.10.2'
+  COMPOSER_SHA256: '5EE7125F8A30A34D246CEFDC0BC85B8A783B28F2AEC968994118512350D28027'
+  NODE_VERSION: '24.18.0'
+  NPM_VERSION: '11.16.0'
+  POSTGRES_VERSION: '18.4'
+
+jobs:
+  frontend-assets:
+    name: Frontend manifest preparation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container:
+      image: node:24.18.0-bookworm-slim
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Verify exact Node and npm toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install --no-install-recommends -y ca-certificates git
+          rm -rf /var/lib/apt/lists/*
+          test "$(node --version)" = "v${NODE_VERSION}"
+          npm install --global --ignore-scripts "npm@${NPM_VERSION}"
+          test "$(npm --version)" = "${NPM_VERSION}"
+
+      - name: Build CI-only frontend manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+          test -s public/build/manifest.json
+
+      - name: Upload CI-only frontend assets
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Cybersecurity-Education-Platform-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-php-frontend-assets
+          path: public/build
+          if-no-files-found: error
+          retention-days: 14
+
+  php-quality:
+    name: PHP quality and tests
+    needs: frontend-assets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    container:
+      image: php:8.5.8-cli-bookworm
+    services:
+      postgres:
+        image: postgres:18.4-bookworm
+        env:
+          POSTGRES_DB: cyber_platform_test
+          POSTGRES_USER: task006_test
+          POSTGRES_PASSWORD: ci_test_only_password
+          PGDATA: /var/lib/postgresql/18/docker
+        options: >-
+          --health-cmd "pg_isready -U task006_test -d cyber_platform_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      APP_ENV: testing
+      APP_PROFILE: test
+      APP_KEY: base64:QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: '5432'
+      DB_DATABASE: cyber_platform_test
+      DB_USERNAME: task006_test
+      DB_PASSWORD: ci_test_only_password
+      TEST_DATABASE_ALLOWED_CONNECTIONS: pgsql
+      TEST_DATABASE_ALLOWED_HOSTS: postgres
+      QUEUE_CONNECTION: database
+      SESSION_DRIVER: database
+      CACHE_STORE: array
+    steps:
+      - name: Install checkout and PHP build prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install --no-install-recommends -y ca-certificates curl git libicu-dev libonig-dev libpq-dev libzip-dev unzip
+
+      - name: Check out full repository history
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Install exact PHP toolchain dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker-php-ext-install -j"$(nproc)" intl mbstring pdo_pgsql zip
+          curl --fail --silent --show-error --location "https://getcomposer.org/download/${COMPOSER_VERSION}/composer.phar" -o /usr/local/bin/composer
+          echo "${COMPOSER_SHA256}  /usr/local/bin/composer" | sha256sum --check --strict
+          chmod +x /usr/local/bin/composer
+          test "$(php -r 'echo PHP_VERSION;')" = "${PHP_VERSION}"
+          test "$(composer --version --no-ansi | awk '{print $3}')" = "${COMPOSER_VERSION}"
+
+      - name: Install locked Composer dependencies
+        shell: bash
+        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Download CI-only frontend assets
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: Cybersecurity-Education-Platform-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-php-frontend-assets
+          path: public/build
+
+      - name: Verify frontend manifest contract
+        shell: bash
+        run: test -s public/build/manifest.json
+
+      - name: Run PHP gates
+        shell: bash
+        run: bash scripts/ci/core_php.sh evidence/php
+
+      - name: Finalize PHP evidence
+        if: always()
+        shell: bash
+        run: bash scripts/ci/finalize_evidence.sh evidence/php
+
+      - name: Upload PHP evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Cybersecurity-Education-Platform-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-core-php
+          path: evidence/php
+          if-no-files-found: error
+          retention-days: 14
+
+  frontend-quality:
+    name: Frontend quality and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container:
+      image: node:24.18.0-bookworm-slim
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Verify exact Node and npm toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install --no-install-recommends -y ca-certificates git
+          rm -rf /var/lib/apt/lists/*
+          test "$(node --version)" = "v${NODE_VERSION}"
+          npm install --global --ignore-scripts "npm@${NPM_VERSION}"
+          test "$(npm --version)" = "${NPM_VERSION}"
+
+      - name: Run frontend gates
+        shell: bash
+        run: bash scripts/ci/core_frontend.sh evidence/frontend
+
+      - name: Finalize frontend evidence
+        if: always()
+        shell: bash
+        run: bash scripts/ci/finalize_evidence.sh evidence/frontend
+
+      - name: Upload frontend evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Cybersecurity-Education-Platform-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-core-frontend
+          path: evidence/frontend
+          if-no-files-found: error
+          retention-days: 14
+
+  compose-validation:
+    name: Compose structural validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Validate Compose definitions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/compose
+          APP_KEY="base64:$(openssl rand -base64 32 | tr -d '\n')"
+          DB_PASSWORD="$(openssl rand -hex 32)"
+          echo "::add-mask::${APP_KEY}"
+          echo "::add-mask::${DB_PASSWORD}"
+          export APP_KEY DB_PASSWORD APP_PORT=8081 RELEASE_IMAGE=cep-compose-validation:${GITHUB_SHA}
+          docker compose -f compose.yaml config --quiet
+          docker compose -f compose.yaml -f compose.dev.yaml config --quiet
+          docker compose -f compose.release.yaml config --quiet
+          docker run --rm -v "$PWD:/app:ro" -w /app php:8.5.8-cli-bookworm php scripts/validate_compose.php | tee evidence/compose/repository-compose-validator.log
+          cat > evidence/compose/gate-summary.json <<JSON
+          {
+            "schema": "cep.gate-summary.v1",
+            "suite": "compose-structure",
+            "status": "PASS",
+            "validated": ["compose.yaml", "compose.yaml+compose.dev.yaml", "compose.release.yaml", "scripts/validate_compose.php"]
+          }
+          JSON
+
+      - name: Finalize Compose evidence
+        if: always()
+        shell: bash
+        run: bash scripts/ci/finalize_evidence.sh evidence/compose
+
+      - name: Upload Compose evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Cybersecurity-Education-Platform-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-compose-validation
+          path: evidence/compose
+          if-no-files-found: error
+          retention-days: 14
+
+  secret-scan:
+    name: Repository secret scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Run pinned gitleaks repository-history scan
+        shell: bash
+        run: |
+          set -uo pipefail
+          evidence=evidence/secret-scan
+          image=ghcr.io/gitleaks/gitleaks:v8.28.0
+          mkdir -p "$evidence"
+          printf '[]\n' > "$evidence/gitleaks.json"
+          printf '%s\n' 'gitleaks git . --redact=100 --no-banner --report-format=json --report-path=/repo/evidence/secret-scan/gitleaks.json' > "$evidence/command.txt"
+
+          set +e
+          docker run --rm "$image" version >"$evidence/version.log" 2>&1
+          version_code=$?
+          docker run --rm "$image" git --help >"$evidence/git-help.log" 2>&1
+          help_code=$?
+          docker run --rm \
+            -v "$PWD:/repo" \
+            -w /repo \
+            "$image" \
+            git . --redact=100 --no-banner --report-format=json --report-path=/repo/evidence/secret-scan/gitleaks.json \
+            >"$evidence/stdout.log" 2>"$evidence/stderr.log"
+          scan_code=$?
+          set -e
+
+          cat "$evidence/version.log"
+          cat "$evidence/stdout.log"
+          cat "$evidence/stderr.log" >&2
+
+          status=ERROR
+          result=scanner_execution_failure
+          if [[ $version_code -eq 0 && $help_code -eq 0 && $scan_code -eq 0 ]]; then
+            status=PASS
+            result=no_secret_findings
+          elif [[ $version_code -eq 0 && $help_code -eq 0 && $scan_code -eq 1 ]]; then
+            status=FAIL
+            result=secret_findings
+          fi
+
+          jq -n \
+            --arg status "$status" \
+            --arg result "$result" \
+            --arg scanner "gitleaks" \
+            --arg version "8.28.0" \
+            --arg command "$(cat "$evidence/command.txt")" \
+            --argjson version_exit "$version_code" \
+            --argjson help_exit "$help_code" \
+            --argjson scan_exit "$scan_code" \
+            '{schema:"cep.gitleaks-result.v1",scanner:$scanner,version:$version,command:$command,status:$status,result:$result,exit_codes:{version:$version_exit,help:$help_exit,scan:$scan_exit},history_scan:true,redaction_percent:100}' \
+            > "$evidence/gitleaks-result.json"
+          jq -n \
+            --arg status "$status" \
+            --arg result "$result" \
+            '{schema:"cep.gate-summary.v1",suite:"repository-secret-scan",status:$status,result:$result,scanner:"gitleaks-v8.28.0"}' \
+            > "$evidence/gate-summary.json"
+          cat "$evidence/gitleaks-result.json"
+
+          if [[ $status == PASS ]]; then
+            exit 0
+          fi
+          if [[ $status == FAIL ]]; then
+            exit 1
+          fi
+          exit 2
+
+      - name: Finalize secret-scan evidence
+        if: always()
+        shell: bash
+        run: bash scripts/ci/finalize_evidence.sh evidence/secret-scan
+
+      - name: Upload secret-scan evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Cybersecurity-Education-Platform-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-secret-scan
+          path: evidence/secret-scan
+          if-no-files-found: error
+          retention-days: 14
+
+  required-gate-summary:
+    name: Required gate summary
+    if: always()
+    needs: [frontend-assets, php-quality, frontend-quality, compose-validation, secret-scan]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Create truthful aggregate result
+        shell: bash
+        env:
+          FRONTEND_ASSETS_RESULT: ${{ needs.frontend-assets.result }}
+          PHP_RESULT: ${{ needs.php-quality.result }}
+          FRONTEND_RESULT: ${{ needs.frontend-quality.result }}
+          COMPOSE_RESULT: ${{ needs.compose-validation.result }}
+          SECRET_RESULT: ${{ needs.secret-scan.result }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/core-summary
+          overall=PASS
+          for value in "$FRONTEND_ASSETS_RESULT" "$PHP_RESULT" "$FRONTEND_RESULT" "$COMPOSE_RESULT" "$SECRET_RESULT"; do
+            [[ "$value" == success ]] || overall=FAIL
+          done
+          jq -n --arg status "$overall" --arg assets "$FRONTEND_ASSETS_RESULT" --arg php "$PHP_RESULT" --arg frontend "$FRONTEND_RESULT" --arg compose "$COMPOSE_RESULT" --arg secret "$SECRET_RESULT" \
+            '{schema:"cep.gate-summary.v1",suite:"core-ci",status:$status,jobs:{frontend_manifest_preparation:$assets,php_quality:$php,frontend_quality:$frontend,compose_validation:$compose,secret_scan:$secret}}' \
+            > evidence/core-summary/gate-summary.json
+          bash scripts/ci/finalize_evidence.sh evidence/core-summary
+          [[ "$overall" == PASS ]]
+
+      - name: Upload aggregate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Cybersecurity-Education-Platform-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-core-summary
+          path: evidence/core-summary
+          if-no-files-found: error
+          retention-days: 14

@@ -10,4 +10,19 @@ export default withVueTs(
     vueTsConfigs.recommended,
     eslintConfigPrettier,
     { rules: { 'vue/multi-word-component-names': 'off', 'vue/one-component-per-file': 'off' } },
+    {
+        files: ['scripts/ci/browser_evidence.mjs'],
+        languageOptions: {
+            globals: {
+                Buffer: 'readonly',
+                WebSocket: 'readonly',
+                fetch: 'readonly',
+                process: 'readonly',
+                setTimeout: 'readonly',
+            },
+        },
+        rules: {
+            'no-empty': ['error', { allowEmptyCatch: true }],
+        },
+    },
 );
