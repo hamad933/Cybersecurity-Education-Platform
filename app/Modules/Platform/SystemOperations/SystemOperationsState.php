@@ -2,6 +2,8 @@
 
 namespace App\Modules\Platform\SystemOperations;
 
+use App\Modules\ManualAiBridge\Models\ImportedAiResult;
+use App\Modules\ManualAiBridge\Models\PromptPackageRevision;
 use App\Modules\Platform\Audit\AuditChainVerifier;
 use App\Modules\Platform\Health\FoundationHealth;
 use App\Modules\Platform\Release\ReleaseReadiness;
@@ -218,7 +220,7 @@ final class SystemOperationsState
         }
 
         return $this->safe(function () use ($actorId): array {
-            return \App\Modules\ManualAiBridge\Models\PromptPackageRevision::query()
+            return PromptPackageRevision::query()
                 ->from('prompt_package_revisions as revision')
                 ->join('prompt_packages as prompt', 'prompt.id', '=', 'revision.prompt_package_id')
                 ->join('portable_packages as package', 'package.id', '=', 'revision.portable_package_id')
@@ -259,7 +261,7 @@ final class SystemOperationsState
         }
 
         return $this->safe(function () use ($actorId): array {
-            return \App\Modules\ManualAiBridge\Models\ImportedAiResult::query()
+            return ImportedAiResult::query()
                 ->from('imported_ai_results as result')
                 ->join('prompt_package_revisions as revision', 'revision.id', '=', 'result.prompt_package_revision_id')
                 ->join('prompt_packages as prompt', 'prompt.id', '=', 'revision.prompt_package_id')

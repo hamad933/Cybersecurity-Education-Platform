@@ -86,8 +86,8 @@ final class SystemOperationsCompletionTest extends TestCase
         $owner = $this->owner();
         // We cannot use CreateOwner::class again since an active owner already exists.
         // So we create the foreign actor via the raw insert to bypass the invariant check.
-        $foreignOwnerId = (string) \Illuminate\Support\Str::uuid7();
-        \Illuminate\Support\Facades\DB::table('owner_accounts')->insert([
+        $foreignOwnerId = (string) Str::uuid7();
+        DB::table('owner_accounts')->insert([
             'id' => $foreignOwnerId,
             'display_name' => 'Foreign Owner',
             'email' => 'foreign-owner@example.test',
