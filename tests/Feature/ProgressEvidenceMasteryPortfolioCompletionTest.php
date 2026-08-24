@@ -349,6 +349,9 @@ class ProgressEvidenceMasteryPortfolioCompletionTest extends TestCase
     /** @return array<string, mixed> */
     private function handoff(array $overrides = []): array
     {
+        $ownerId = $overrides['_actor_id'] ?? $this->owner->id;
+        unset($overrides['_actor_id']);
+
         $handoff = [
             'source_type' => 'SYNTHETIC_TEST_HANDOFF',
             'source_id' => 'fixture:mastery:'.Str::lower(Str::random(12)),
@@ -363,7 +366,6 @@ class ProgressEvidenceMasteryPortfolioCompletionTest extends TestCase
             'metadata' => ['fixture' => true],
             ...$overrides,
         ];
-        $ownerId = $this->owner->id;
         $receipt = app(ProgressEvidenceService::class)
             ->registerSourceHandoffReceipt($ownerId, $ownerId, $handoff);
 
@@ -383,7 +385,7 @@ class ProgressEvidenceMasteryPortfolioCompletionTest extends TestCase
         $candidate = $this->progress->intakeCandidate(
             $this->owner->id,
             $this->owner->id,
-            $this->handoff($overrides),
+            $this->handoff(array_merge(['_actor_id' => $actorId], $overrides)),
         );
         $candidate = $this->progress->transitionCandidate($candidate['id'], $this->owner->id, 'PREPARED');
         $candidate = $this->progress->transitionCandidate($candidate['id'], $this->owner->id, 'SUBMITTED_FOR_INTAKE');

@@ -624,6 +624,9 @@ class ProgressEvidenceGovernanceTest extends TestCase
     /** @return array<string, mixed> */
     private function handoff(array $overrides = []): array
     {
+        $ownerId = $overrides['_actor_id'] ?? $this->owner->id;
+        unset($overrides['_actor_id']);
+
         $handoff = [
             'source_type' => 'SYNTHETIC_TEST_HANDOFF',
             'source_id' => 'fixture:result:'.Str::lower(Str::random(12)),
@@ -638,7 +641,6 @@ class ProgressEvidenceGovernanceTest extends TestCase
             'metadata' => ['fixture' => true],
             ...$overrides,
         ];
-        $ownerId = $this->owner->id;
         $receipt = app(ProgressEvidenceService::class)
             ->registerSourceHandoffReceipt($ownerId, $ownerId, $handoff);
 
@@ -658,7 +660,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
         return $this->service->intakeCandidate(
             $this->owner->id,
             $this->owner->id,
-            $this->handoff($overrides),
+            $this->handoff(array_merge(['_actor_id' => $actorId], $overrides)),
         );
     }
 
@@ -692,7 +694,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
     /** @return array{evidence: array<string, mixed>, revision: array<string, mixed>, decision: array<string, mixed>} */
     private function reviewedEvidenceForActor(string $actorId, string $decision, array $overrides = []): array
     {
-        $candidate = $this->service->intakeCandidate($actorId, $actorId, $this->handoff($overrides));
+        $candidate = $this->service->intakeCandidate($actorId, $actorId, $this->handoff(array_merge(['_actor_id' => $actorId], $overrides)));
         $candidate = $this->service->transitionCandidate($candidate['id'], $actorId, 'PREPARED');
         $candidate = $this->service->transitionCandidate($candidate['id'], $actorId, 'SUBMITTED_FOR_INTAKE');
         $bundle = $this->service->admitCandidate($candidate['id'], $actorId);
