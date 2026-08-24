@@ -5,11 +5,9 @@ namespace App\Modules\Simulator\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Enterprise\Application\SimulationEnterpriseStateReader;
 use App\Modules\Simulator\Application\SimulationEnterpriseService;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use Inertia\Response;
 use LogicException;
 use stdClass;
 
@@ -24,27 +22,27 @@ final class SimulationEnterpriseController extends Controller
         private readonly SimulationEnterpriseStateReader $enterpriseState,
     ) {}
 
-    public function index(): Response
+    public function index(): \Inertia\Response
     {
         return $this->render('enterprise');
     }
 
-    public function scenarios(): Response
+    public function scenarios(): \Inertia\Response
     {
         return $this->render('scenarios');
     }
 
-    public function labs(): Response
+    public function labs(): \Inertia\Response
     {
         return $this->render('labs');
     }
 
-    public function runs(): Response
+    public function runs(): \Inertia\Response
     {
         return $this->render('runs');
     }
 
-    public function results(): Response
+    public function results(): \Inertia\Response
     {
         return $this->render('results');
     }
@@ -168,7 +166,7 @@ final class SimulationEnterpriseController extends Controller
         ], $validated['intake_contract_ref'] ?? null, $this->actorId()), 'cep.simulation.results');
     }
 
-    private function render(string $section): Response
+    private function render(string $section): \Inertia\Response
     {
         return Inertia::render('SimulationEnterprise/Workspace', [
             'section' => $section,
@@ -194,7 +192,7 @@ final class SimulationEnterpriseController extends Controller
         ];
     }
 
-    /** @return list<array<string,mixed>> */
+    /** @return list<array<string, mixed>> */
     private function scenariosData(): array
     {
         return DB::table('simulation_scenario_definitions')->where('status', 'PUBLISHED')->orderByDesc('created_at')->get()->map(function (stdClass $scenario): array {
@@ -227,7 +225,7 @@ final class SimulationEnterpriseController extends Controller
         })->all();
     }
 
-    /** @return list<array<string,mixed>> */
+    /** @return list<array<string, mixed>> */
     private function labsData(): array
     {
         return DB::table('simulation_lab_definitions')->where('status', 'PUBLISHED')->orderByDesc('created_at')->get()->map(fn (stdClass $lab): array => [
@@ -243,7 +241,7 @@ final class SimulationEnterpriseController extends Controller
         ])->all();
     }
 
-    /** @return list<array<string,mixed>> */
+    /** @return list<array<string, mixed>> */
     private function runsData(): array
     {
         return DB::table('simulation_runs')->orderByDesc('created_at')->limit(50)->get()->map(function (stdClass $run): array {
@@ -303,7 +301,7 @@ final class SimulationEnterpriseController extends Controller
         })->all();
     }
 
-    /** @return list<array<string,mixed>> */
+    /** @return list<array<string, mixed>> */
     private function resultsData(): array
     {
         return DB::table('simulation_run_results')
