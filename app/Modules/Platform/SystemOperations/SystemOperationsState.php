@@ -2,10 +2,10 @@
 
 namespace App\Modules\Platform\SystemOperations;
 
-use App\Modules\ManualAiBridge\Application\ManualAiStateReader;
 use App\Modules\Platform\Audit\AuditChainVerifier;
 use App\Modules\Platform\Health\FoundationHealth;
 use App\Modules\Platform\Release\ReleaseReadiness;
+use App\Modules\Platform\SystemOperations\Contracts\ManualAiStateProvider;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
@@ -16,7 +16,7 @@ final class SystemOperationsState
         private readonly FoundationHealth $health,
         private readonly ReleaseReadiness $releaseReadiness,
         private readonly AuditChainVerifier $auditChain,
-        private readonly ManualAiStateReader $aiState,
+        private readonly ManualAiStateProvider $aiState,
     ) {
         // Constructor uses property promotion only.
     }
@@ -219,35 +219,7 @@ final class SystemOperationsState
             return [];
         }
 
-        return $this->safe(function () use ($actorId): array {
-            return $this->aiState->promptRevisions()
-                ->join('prompt_packages as prompt', 'prompt.id', '=', 'revision.prompt_package_id')
-                ->join('portable_packages as package', 'package.id', '=', 'revision.portable_package_id')
-                ->where('prompt.actor_id', $actorId)
-                ->orderByDesc('revision.exported_at')
-                ->limit(20)
-                ->get([
-                    'revision.id',
-                    'revision.prompt_package_id',
-                    'revision.revision',
-                    'revision.portable_package_id',
-                    'revision.input_digest',
-                    'revision.declared_scope',
-                    'revision.exported_at',
-                    'prompt.purpose as prompt_purpose',
-                    'prompt.status as prompt_status',
-                    'prompt.current_revision as prompt_current_revision',
-                    'package.package_type as package_type',
-                    'package.package_digest as package_digest',
-                    'package.scope as package_scope',
-                    'package.manifest as package_manifest',
-                    'package.status as package_status',
-                ])
-                ->map(fn ($row): array => $this->decodeJsonColumns((array) $row->getAttributes(), [
-                    'declared_scope', 'package_scope', 'package_manifest',
-                ]))
-                ->all();
-        }, []);
+        return $this->aiState->promptRevisionsForActor($actorId);
     }
 
     /** @return list<array<string, mixed>> */
@@ -259,41 +231,7 @@ final class SystemOperationsState
             return [];
         }
 
-        return $this->safe(function () use ($actorId): array {
-            return $this->aiState->importedResults()
-                ->join('prompt_package_revisions as revision', 'revision.id', '=', 'result.prompt_package_revision_id')
-                ->join('prompt_packages as prompt', 'prompt.id', '=', 'revision.prompt_package_id')
-                ->join('portable_packages as returned_package', 'returned_package.id', '=', 'result.portable_package_id')
-                ->where('result.actor_id', $actorId)
-                ->where('prompt.actor_id', $actorId)
-                ->orderByDesc('result.imported_at')
-                ->limit(20)
-                ->get([
-                    'result.id',
-                    'result.prompt_package_revision_id',
-                    'result.portable_package_id',
-                    'result.result_digest',
-                    'result.structured_result',
-                    'result.status',
-                    'result.imported_at',
-                    'revision.prompt_package_id',
-                    'revision.revision as prompt_revision',
-                    'revision.input_digest as prompt_input_digest',
-                    'revision.declared_scope',
-                    'revision.portable_package_id as prompt_portable_package_id',
-                    'prompt.purpose as prompt_purpose',
-                    'prompt.status as prompt_status',
-                    'returned_package.package_type as returned_package_type',
-                    'returned_package.package_digest as returned_package_digest',
-                    'returned_package.scope as returned_package_scope',
-                    'returned_package.manifest as returned_package_manifest',
-                    'returned_package.status as returned_package_status',
-                ])
-                ->map(fn ($row): array => $this->decodeJsonColumns((array) $row->getAttributes(), [
-                    'structured_result', 'declared_scope', 'returned_package_scope', 'returned_package_manifest',
-                ]))
-                ->all();
-        }, []);
+        return $this->aiState->importedResultsForActor($actorId);
     }
 
     /** @return array<string, int> */
