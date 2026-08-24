@@ -2,6 +2,7 @@
 
 namespace App\Modules\Evidence\Application;
 
+use App\Modules\Evidence\Models\EvidenceSourceHandoffReceipt;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -813,6 +814,9 @@ final class ProgressEvidenceService
      * @param  list<string>  $contradictingRevisionIds
      * @return array<string, mixed>
      */
+    public function workspace(string $actorId): array
+    {
+        $handoffReceipts = EvidenceSourceHandoffReceipt::query()
             ->where('subject_actor_id', $actorId)
             ->latest('registered_at')
             ->select(
@@ -1179,8 +1183,7 @@ final class ProgressEvidenceService
         bool $required = false,
         int $maxItems = 50,
         int $maxLength = 240,
-    ): array
-    {
+    ): array {
         if (! is_array($value)) {
             if ($required) {
                 throw new InvalidArgumentException("{$name} must be a non-empty array.");

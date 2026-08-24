@@ -43,9 +43,7 @@ final class MasteryPortfolioService
         'FRESHNESS_STATUS',
     ];
 
-    public function __construct(private readonly ProgressEvidenceService $progressEvidence)
-    {
-    }
+    public function __construct(private readonly ProgressEvidenceService $progressEvidence) {}
 
     /**
      * @param  array<string, mixed>  $rules

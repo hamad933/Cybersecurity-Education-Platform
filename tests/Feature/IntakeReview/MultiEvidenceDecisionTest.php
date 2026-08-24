@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\IntakeReview;
 
+use App\Modules\Evidence\Application\ProgressEvidenceService;
 use App\Modules\Evidence\IntakeReview\Application\EvidenceIntakeService;
 use App\Modules\Evidence\IntakeReview\Application\EvidenceReviewService;
 use App\Modules\Evidence\IntakeReview\Application\IntakeReviewReadModel;
@@ -95,20 +96,27 @@ final class MultiEvidenceDecisionTest extends TestCase
     /** @return array<string, mixed> */
     private function handoff(string $key): array
     {
-        return [
+        $owner = OwnerAccount::first() ?? $this->owner();
+        $handoff = [
             'source_type' => 'RUN_RESULT',
             'source_id' => "fixture:{$key}",
             'source_revision' => '1',
             'source_digest' => hash('sha256', $key),
             'selected_material_refs' => ["artifact:{$key}"],
             'capability_id' => 'CAP-DECISION',
+            'facts' => [['key' => 'fixture', 'value' => $key]],
+            'metadata' => ['synthetic' => true],
+        ];
+        $receipt = app(ProgressEvidenceService::class)
+            ->registerSourceHandoffReceipt($owner->id, $owner->id, $handoff);
+
+        return [
+            'handoff_receipt_id' => $receipt['id'],
             'evidence_claim' => "Governed formal-decision claim {$key}.",
             'criterion_scope' => ['CRIT-1'],
             'governed_purpose' => 'FORMAL_CAPABILITY_EVIDENCE',
             'title' => "Decision evidence {$key}",
             'summary' => 'Synthetic decision fixture.',
-            'facts' => ['fixture' => $key],
-            'metadata' => ['synthetic' => true],
         ];
     }
 }

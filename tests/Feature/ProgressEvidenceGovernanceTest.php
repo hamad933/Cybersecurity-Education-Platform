@@ -137,7 +137,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
         $revisionTwo = $this->service->createRevision($reviewed['evidence']['id'], $this->owner->id, [
             'title' => 'Governed input-validation evidence — corrected',
             'summary' => 'Correction of the same governed Evidence Claim while preserving Revision 1.',
-            'facts' => ['claim' => 'Corrected fact set'],
+            'facts' => [['key' => 'claim', 'value' => 'Corrected fact set']],
             'selected_material_refs' => ['artifact:fixture:corrected'],
             'criterion_scope' => ['CRIT-INPUT-VALIDATION'],
             'source_revision' => '2',
@@ -624,24 +624,33 @@ class ProgressEvidenceGovernanceTest extends TestCase
     /** @return array<string, mixed> */
     private function handoff(array $overrides = []): array
     {
-        return [
+        $ownerId = $overrides['_actor_id'] ?? $this->owner->id;
+        unset($overrides['_actor_id']);
+
+        $handoff = [
             'source_type' => 'SYNTHETIC_TEST_HANDOFF',
             'source_id' => 'fixture:result:'.Str::lower(Str::random(12)),
             'source_revision' => '1',
             'source_digest' => hash('sha256', Str::random(64)),
             'selected_material_refs' => ['artifact:fixture:primary'],
             'capability_id' => 'CAP-APPSEC-INPUT-VALIDATION',
-            'evidence_claim' => 'The learner identified and remediated an input-validation weakness.',
-            'criterion_scope' => ['CRIT-INPUT-VALIDATION'],
-            'governed_purpose' => 'FORMAL_CAPABILITY_EVIDENCE',
-            'title' => 'Governed input-validation evidence',
-            'summary' => 'Persisted synthetic fixture handed off through the W04 source contract.',
             'facts' => [
-                'claim' => 'The learner identified and remediated an input-validation weakness.',
-                'environment' => 'isolated-test-fixture',
+                ['key' => 'claim', 'value' => 'The learner identified and remediated an input-validation weakness.'],
+                ['key' => 'environment', 'value' => 'isolated-test-fixture'],
             ],
             'metadata' => ['fixture' => true],
             ...$overrides,
+        ];
+        $receipt = app(ProgressEvidenceService::class)
+            ->registerSourceHandoffReceipt($ownerId, $ownerId, $handoff);
+
+        return [
+            'handoff_receipt_id' => $receipt['id'],
+            'evidence_claim' => $overrides['evidence_claim'] ?? 'The learner identified and remediated an input-validation weakness.',
+            'criterion_scope' => $overrides['criterion_scope'] ?? ['CRIT-INPUT-VALIDATION'],
+            'governed_purpose' => $overrides['governed_purpose'] ?? 'FORMAL_CAPABILITY_EVIDENCE',
+            'title' => $overrides['title'] ?? 'Governed input-validation evidence',
+            'summary' => $overrides['summary'] ?? 'Persisted synthetic fixture handed off through the W04 source contract.',
         ];
     }
 
@@ -651,7 +660,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
         return $this->service->intakeCandidate(
             $this->owner->id,
             $this->owner->id,
-            $this->handoff($overrides),
+            $this->handoff(array_merge(['_actor_id' => $actorId], $overrides)),
         );
     }
 
@@ -685,7 +694,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
     /** @return array{evidence: array<string, mixed>, revision: array<string, mixed>, decision: array<string, mixed>} */
     private function reviewedEvidenceForActor(string $actorId, string $decision, array $overrides = []): array
     {
-        $candidate = $this->service->intakeCandidate($actorId, $actorId, $this->handoff($overrides));
+        $candidate = $this->service->intakeCandidate($actorId, $actorId, $this->handoff(array_merge(['_actor_id' => $actorId], $overrides)));
         $candidate = $this->service->transitionCandidate($candidate['id'], $actorId, 'PREPARED');
         $candidate = $this->service->transitionCandidate($candidate['id'], $actorId, 'SUBMITTED_FOR_INTAKE');
         $bundle = $this->service->admitCandidate($candidate['id'], $actorId);

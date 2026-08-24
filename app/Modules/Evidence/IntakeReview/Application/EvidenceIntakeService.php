@@ -7,6 +7,9 @@ use App\Modules\Evidence\IntakeReview\Domain\EvidenceLifecycle;
 use App\Modules\Evidence\IntakeReview\Domain\IntakeReviewAuthorizer;
 use App\Modules\Evidence\IntakeReview\Domain\IntakeReviewException;
 use App\Modules\Evidence\IntakeReview\Domain\ReviewStatus;
+use App\Modules\Evidence\Models\EvidenceAdmissionRecord;
+use App\Modules\Evidence\Models\EvidenceCandidateIntakeEvent;
+use App\Modules\Evidence\Models\EvidenceSourceHandoffReceipt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -16,11 +19,10 @@ final class EvidenceIntakeService
         private readonly CandidateLifecycle $lifecycle,
         private readonly IntakeReviewAuthorizer $authorizer,
         private readonly ProvenanceDigest $digest,
-    ) {
-    }
+    ) {}
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
     public function receive(string $subjectActorId, string $submittedBy, array $payload): array
@@ -31,8 +33,8 @@ final class EvidenceIntakeService
             throw new IntakeReviewException('Missing Handoff Receipt ID.');
         }
 
-        $receipt = DB::table('evidence_source_handoff_receipts')->where('id', $payload['handoff_receipt_id'])->first();
-        if (!$receipt || $receipt->subject_actor_id !== $subjectActorId) {
+        $receipt = EvidenceSourceHandoffReceipt::query()->where('id', $payload['handoff_receipt_id'])->first();
+        if (! $receipt || $receipt->subject_actor_id !== $subjectActorId) {
             throw new IntakeReviewException('Verified source Handoff receipt is outside the actor boundary.');
         }
 
@@ -45,7 +47,7 @@ final class EvidenceIntakeService
             ->first();
 
         if ($existing !== null) {
-            if (!hash_equals((string) $existing->source_digest, $candidate->sourceDigest)) {
+            if (! hash_equals((string) $existing->source_digest, $candidate->sourceDigest)) {
                 throw new IntakeReviewException('Candidate Evidence semantic identity conflicts with source integrity.');
             }
 
@@ -182,6 +184,7 @@ final class EvidenceIntakeService
                 'source_id' => $candidate->source_id,
                 'source_revision' => $candidate->source_revision,
                 'source_digest' => $candidate->source_digest,
+                'handoff_receipt_id' => $candidate->handoff_receipt_id,
                 'revision_reason' => 'INITIAL_ADMISSION',
                 'sealed_by' => $actorId,
                 'sealed_at' => $now->toISOString(),
@@ -202,6 +205,7 @@ final class EvidenceIntakeService
                 'source_id' => $candidate->source_id,
                 'source_revision' => $candidate->source_revision,
                 'source_digest' => $candidate->source_digest,
+                'handoff_receipt_id' => $candidate->handoff_receipt_id,
                 'revision_reason' => 'INITIAL_ADMISSION',
                 'content_digest' => $contentDigest,
                 'sealed_by' => $actorId,
@@ -236,7 +240,7 @@ final class EvidenceIntakeService
                 'source_digest' => (string) $candidate->source_digest,
             ]);
 
-            DB::table('evidence_admission_records')->insert([
+            EvidenceAdmissionRecord::query()->insert([
                 'id' => $admissionId,
                 'candidate_id' => $candidateId,
                 'evidence_id' => $evidenceId,
@@ -256,7 +260,7 @@ final class EvidenceIntakeService
                 'candidate' => $this->candidate($candidateId),
                 'evidence' => (array) DB::table('governed_evidence')->where('id', $evidenceId)->firstOrFail(),
                 'revision' => (array) DB::table('governed_evidence_revisions')->where('id', $revisionId)->firstOrFail(),
-                'admission' => (array) DB::table('evidence_admission_records')->where('id', $admissionId)->firstOrFail(),
+                'admission' => (array) EvidenceAdmissionRecord::query()->where('id', $admissionId)->firstOrFail(),
             ];
         });
     }
@@ -280,7 +284,7 @@ final class EvidenceIntakeService
         string $toState,
         string $reason,
     ): void {
-        $sequence = ((int) DB::table('evidence_candidate_intake_events')
+        $sequence = ((int) EvidenceCandidateIntakeEvent::query()
             ->where('candidate_id', $candidateId)
             ->max('sequence')) + 1;
         $occurredAt = now();
@@ -294,7 +298,7 @@ final class EvidenceIntakeService
             'occurred_at' => $occurredAt->toISOString(),
         ]);
 
-        DB::table('evidence_candidate_intake_events')->insert([
+        EvidenceCandidateIntakeEvent::query()->insert([
             'id' => (string) Str::uuid7(),
             'candidate_id' => $candidateId,
             'sequence' => $sequence,

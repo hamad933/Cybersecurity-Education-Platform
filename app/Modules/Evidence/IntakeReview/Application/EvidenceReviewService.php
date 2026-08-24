@@ -7,19 +7,18 @@ use App\Modules\Evidence\IntakeReview\Domain\IntakeReviewAuthorizer;
 use App\Modules\Evidence\IntakeReview\Domain\IntakeReviewException;
 use App\Modules\Evidence\IntakeReview\Domain\ReviewFindingOutcome;
 use App\Modules\Evidence\IntakeReview\Domain\ReviewStatus;
+use App\Modules\Evidence\Models\EvidenceReviewScopeItem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use ValueError;
 
 final class EvidenceReviewService
 {
-    public function __construct(private readonly IntakeReviewAuthorizer $authorizer)
-    {
-    }
+    public function __construct(private readonly IntakeReviewAuthorizer $authorizer) {}
 
     /**
-     * @param list<array{evidence_id:string,evidence_revision_id:string}> $items
-     * @param list<string> $criterionRefs
+     * @param  list<array{evidence_id:string,evidence_revision_id:string}>  $items
+     * @param  list<string>  $criterionRefs
      * @return array<string, mixed>
      */
     public function requestReview(
@@ -59,7 +58,7 @@ final class EvidenceReviewService
 
                 $subjectActorId ??= (string) $row->subject_actor_id;
 
-                if (!hash_equals($subjectActorId, (string) $row->subject_actor_id)) {
+                if (! hash_equals($subjectActorId, (string) $row->subject_actor_id)) {
                     throw new IntakeReviewException('A formal multi-Evidence Review cannot cross Evidence subject boundaries.');
                 }
             }
@@ -95,7 +94,7 @@ final class EvidenceReviewService
             ]);
 
             foreach ($references as $ordinal => $reference) {
-                DB::table('evidence_review_scope_items')->insert([
+                EvidenceReviewScopeItem::query()->insert([
                     'review_request_id' => $requestId,
                     'evidence_id' => $reference->evidenceId,
                     'evidence_revision_id' => $reference->evidenceRevisionId,
@@ -171,7 +170,7 @@ final class EvidenceReviewService
     }
 
     /**
-     * @param list<string> $supportingRevisionIds
+     * @param  list<string>  $supportingRevisionIds
      * @return array<string, mixed>
      */
     public function recordFinding(
@@ -203,14 +202,14 @@ final class EvidenceReviewService
             }
 
             $this->authorizer->assertReviewer((string) $review->reviewer_id, $reviewerId);
-            $allowed = DB::table('evidence_review_scope_items')
+            $allowed = EvidenceReviewScopeItem::query()
                 ->where('review_request_id', $review->review_request_id)
                 ->pluck('evidence_revision_id')
                 ->map(static fn (mixed $id): string => (string) $id)
                 ->all();
 
             foreach ($supportingRevisionIds as $revisionId) {
-                if (!in_array($revisionId, $allowed, true)) {
+                if (! in_array($revisionId, $allowed, true)) {
                     throw new IntakeReviewException('Review Finding references Evidence outside the formal Review scope.');
                 }
             }
@@ -252,7 +251,7 @@ final class EvidenceReviewService
     }
 
     /**
-     * @param list<array{evidence_id:string,evidence_revision_id:string}> $items
+     * @param  list<array{evidence_id:string,evidence_revision_id:string}>  $items
      * @return list<CanonicalEvidenceReference>
      */
     private function references(array $items): array

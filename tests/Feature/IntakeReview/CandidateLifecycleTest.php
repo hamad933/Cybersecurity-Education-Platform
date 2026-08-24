@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\IntakeReview;
 
+use App\Modules\Evidence\Application\ProgressEvidenceService;
 use App\Modules\Evidence\IntakeReview\Application\EvidenceIntakeService;
 use App\Modules\Evidence\IntakeReview\Application\IntakeReviewReadModel;
 use App\Modules\IdentityAccess\Actions\CreateOwner;
@@ -57,20 +58,28 @@ final class CandidateLifecycleTest extends TestCase
     /** @return array<string, mixed> */
     private function handoff(string $key): array
     {
-        return [
+        $owner = OwnerAccount::first() ?? $this->owner();
+
+        $handoff = [
             'source_type' => 'ASSESSMENT_RESULT',
             'source_id' => "fixture:{$key}",
             'source_revision' => '1',
             'source_digest' => hash('sha256', $key),
             'selected_material_refs' => ["artifact:{$key}"],
             'capability_id' => 'CAP-APPSEC-INPUT',
+            'facts' => [['key' => 'fixture', 'value' => $key]],
+            'metadata' => ['synthetic' => true],
+        ];
+        $receipt = app(ProgressEvidenceService::class)
+            ->registerSourceHandoffReceipt($owner->id, $owner->id, $handoff);
+
+        return [
+            'handoff_receipt_id' => $receipt['id'],
             'evidence_claim' => 'The subject demonstrated controlled input-validation reasoning.',
             'criterion_scope' => ['CRIT-INPUT-VALIDATION'],
             'governed_purpose' => 'FORMAL_CAPABILITY_EVIDENCE',
             'title' => 'Governed Evidence fixture',
             'summary' => 'Synthetic W04-C01 Candidate Evidence fixture.',
-            'facts' => ['fixture' => $key],
-            'metadata' => ['synthetic' => true],
         ];
     }
 }

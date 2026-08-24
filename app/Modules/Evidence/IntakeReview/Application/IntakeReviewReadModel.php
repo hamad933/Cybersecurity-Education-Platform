@@ -3,6 +3,9 @@
 namespace App\Modules\Evidence\IntakeReview\Application;
 
 use App\Modules\Evidence\IntakeReview\Domain\IntakeReviewException;
+use App\Modules\Evidence\Models\EvidenceCandidateIntakeEvent;
+use App\Modules\Evidence\Models\EvidenceReviewDecisionItem;
+use App\Modules\Evidence\Models\EvidenceReviewScopeItem;
 use Illuminate\Support\Facades\DB;
 
 final class IntakeReviewReadModel
@@ -10,7 +13,7 @@ final class IntakeReviewReadModel
     /** @return list<array<string, mixed>> */
     public function candidateTimeline(string $candidateId): array
     {
-        return DB::table('evidence_candidate_intake_events')
+        return EvidenceCandidateIntakeEvent::query()
             ->where('candidate_id', $candidateId)
             ->orderBy('sequence')
             ->get()
@@ -21,7 +24,7 @@ final class IntakeReviewReadModel
     /** @return list<array<string, mixed>> */
     public function reviewScope(string $reviewRequestId): array
     {
-        return DB::table('evidence_review_scope_items')
+        return EvidenceReviewScopeItem::query()
             ->where('review_request_id', $reviewRequestId)
             ->orderBy('ordinal')
             ->get()
@@ -40,7 +43,7 @@ final class IntakeReviewReadModel
 
         return [
             'decision' => (array) $decision,
-            'items' => DB::table('evidence_review_decision_items')
+            'items' => EvidenceReviewDecisionItem::query()
                 ->where('decision_id', $decisionId)
                 ->orderBy('ordinal')
                 ->get()
