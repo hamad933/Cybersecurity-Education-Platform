@@ -6,6 +6,8 @@ use App\Modules\Evidence\IntakeReview\Domain\IntakeReviewAuthorizer;
 use App\Modules\Evidence\IntakeReview\Domain\IntakeReviewException;
 use App\Modules\Evidence\IntakeReview\Domain\ReviewDecisionOutcome;
 use App\Modules\Evidence\IntakeReview\Domain\ReviewStatus;
+use App\Modules\Evidence\Models\EvidenceReviewDecisionItem;
+use App\Modules\Evidence\Models\EvidenceReviewScopeItem;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -14,9 +16,7 @@ use ValueError;
 
 final class ReviewDecisionService
 {
-    public function __construct(private readonly IntakeReviewAuthorizer $authorizer)
-    {
-    }
+    public function __construct(private readonly IntakeReviewAuthorizer $authorizer) {}
 
     /** @return array<string, mixed> */
     public function recordDecision(
@@ -62,7 +62,7 @@ final class ReviewDecisionService
             }
 
             if ($supersedesDecisionId !== null
-                && !DB::table('evidence_review_decisions')->where('id', $supersedesDecisionId)->exists()) {
+                && ! DB::table('evidence_review_decisions')->where('id', $supersedesDecisionId)->exists()) {
                 throw new IntakeReviewException('Superseded Review Decision was not found.');
             }
 
@@ -85,7 +85,7 @@ final class ReviewDecisionService
             ]);
 
             foreach ($items as $item) {
-                DB::table('evidence_review_decision_items')->insert([
+                EvidenceReviewDecisionItem::query()->insert([
                     'decision_id' => $decisionId,
                     'evidence_id' => $item->evidence_id,
                     'evidence_revision_id' => $item->evidence_revision_id,
@@ -119,7 +119,7 @@ final class ReviewDecisionService
     /** @return Collection<int, stdClass> */
     private function scopeItems(string $reviewRequestId): Collection
     {
-        return DB::table('evidence_review_scope_items')
+        return EvidenceReviewScopeItem::query()
             ->where('review_request_id', $reviewRequestId)
             ->orderBy('ordinal')
             ->get();

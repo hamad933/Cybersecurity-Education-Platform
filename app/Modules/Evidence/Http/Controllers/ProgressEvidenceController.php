@@ -3,17 +3,17 @@
 namespace App\Modules\Evidence\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Evidence\Application\ProgressEvidence\MasteryPortfolio\MasteryPortfolioService;
 use App\Modules\Evidence\Application\ProgressEvidenceService;
+use App\Modules\Evidence\IntakeReview\Application\EvidenceIntakeService;
+use App\Modules\Evidence\IntakeReview\Application\EvidenceReviewService;
+use App\Modules\Evidence\IntakeReview\Application\ReviewDecisionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use InvalidArgumentException;
 use LogicException;
-use App\Modules\Evidence\IntakeReview\Application\EvidenceIntakeService;
-use App\Modules\Evidence\IntakeReview\Application\EvidenceReviewService;
-use App\Modules\Evidence\IntakeReview\Application\ReviewDecisionService;
-use App\Modules\Evidence\Application\ProgressEvidence\MasteryPortfolio\MasteryPortfolioService;
 use Throwable;
 
 final class ProgressEvidenceController extends Controller
@@ -216,17 +216,17 @@ final class ProgressEvidenceController extends Controller
 
         return $this->workflow(function () use ($request, $data): void {
             $actor = $this->actorId($request);
-                $this->masteryService->evaluate(
-                    $actor,
-                    $actor,
-                    $data['policy_revision_id'],
-                    $data['judgment'],
-                    $data['freshness_status'],
-                    $data['review_decision_ids'],
-                    $data['supporting_evidence_revision_ids'],
-                    $data['contradicting_evidence_revision_ids'],
-                    $data['rationale'],
-                );
+            $this->masteryService->evaluate(
+                $actor,
+                $actor,
+                $data['policy_revision_id'],
+                $data['judgment'],
+                $data['freshness_status'],
+                $data['review_decision_ids'],
+                $data['supporting_evidence_revision_ids'],
+                $data['contradicting_evidence_revision_ids'],
+                $data['rationale'],
+            );
         }, 'تم حفظ Mastery State. بناءً على Decision/Evidence Revision provenance تم تحديث الإتقان.');
     }
 

@@ -349,24 +349,31 @@ class ProgressEvidenceMasteryPortfolioCompletionTest extends TestCase
     /** @return array<string, mixed> */
     private function handoff(array $overrides = []): array
     {
-        return [
+        $handoff = [
             'source_type' => 'SYNTHETIC_TEST_HANDOFF',
             'source_id' => 'fixture:mastery:'.Str::lower(Str::random(12)),
             'source_revision' => '1',
             'source_digest' => hash('sha256', Str::random(64)),
             'selected_material_refs' => ['artifact:fixture:primary'],
             'capability_id' => 'CAP-APPSEC-INPUT-VALIDATION',
-            'evidence_claim' => 'The learner demonstrated governed input-validation capability.',
-            'criterion_scope' => ['CRIT-INPUT-VALIDATION'],
-            'governed_purpose' => 'FORMAL_CAPABILITY_EVIDENCE',
-            'title' => 'Governed mastery evidence',
-            'summary' => 'Synthetic persisted fixture for Mastery and Portfolio completion tests.',
             'facts' => [
                 'environment' => 'isolated-test-fixture',
                 'attribution_confidence' => 0.95,
             ],
             'metadata' => ['fixture' => true],
             ...$overrides,
+        ];
+        $ownerId = $this->owner->id;
+        $receipt = app(ProgressEvidenceService::class)
+            ->registerSourceHandoffReceipt($ownerId, $ownerId, $handoff);
+
+        return [
+            'handoff_receipt_id' => $receipt['id'],
+            'evidence_claim' => $overrides['evidence_claim'] ?? 'The learner demonstrated governed input-validation capability.',
+            'criterion_scope' => $overrides['criterion_scope'] ?? ['CRIT-INPUT-VALIDATION'],
+            'governed_purpose' => $overrides['governed_purpose'] ?? 'FORMAL_CAPABILITY_EVIDENCE',
+            'title' => $overrides['title'] ?? 'Governed mastery evidence',
+            'summary' => $overrides['summary'] ?? 'Synthetic persisted fixture for Mastery and Portfolio completion tests.',
         ];
     }
 

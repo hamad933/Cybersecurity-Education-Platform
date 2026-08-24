@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\IntakeReview;
 
+use App\Modules\Evidence\Application\ProgressEvidenceService;
 use App\Modules\Evidence\IntakeReview\Application\EvidenceIntakeService;
 use App\Modules\Evidence\IntakeReview\Application\EvidenceReviewService;
 use App\Modules\IdentityAccess\Actions\CreateOwner;
@@ -62,20 +63,27 @@ final class MultiEvidenceReviewTest extends TestCase
     /** @return array<string, mixed> */
     private function handoff(string $key): array
     {
-        return [
+        $owner = OwnerAccount::first() ?? $this->owner();
+        $handoff = [
             'source_type' => 'ASSESSMENT_RESULT',
             'source_id' => "fixture:{$key}",
             'source_revision' => '1',
             'source_digest' => hash('sha256', $key),
             'selected_material_refs' => ["artifact:{$key}"],
             'capability_id' => 'CAP-APPSEC-REVIEW',
+            'facts' => ['fixture' => $key],
+            'metadata' => ['synthetic' => true],
+        ];
+        $receipt = app(ProgressEvidenceService::class)
+            ->registerSourceHandoffReceipt($owner->id, $owner->id, $handoff);
+
+        return [
+            'handoff_receipt_id' => $receipt['id'],
             'evidence_claim' => "Governed claim {$key}.",
             'criterion_scope' => ['CRIT-A', 'CRIT-B'],
             'governed_purpose' => 'FORMAL_CAPABILITY_EVIDENCE',
             'title' => "Evidence {$key}",
             'summary' => 'Synthetic formal-review fixture.',
-            'facts' => ['fixture' => $key],
-            'metadata' => ['synthetic' => true],
         ];
     }
 }

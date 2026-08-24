@@ -7,10 +7,10 @@ use App\Modules\Evidence\IntakeReview\Domain\IntakeReviewException;
 final readonly class IntakeCandidateData
 {
     /**
-     * @param list<string> $selectedMaterialRefs
-     * @param list<string> $criterionScope
-     * @param array<string, mixed> $facts
-     * @param array<string, mixed> $metadata
+     * @param  list<string>  $selectedMaterialRefs
+     * @param  list<string>  $criterionScope
+     * @param  array<string, mixed>  $facts
+     * @param  array<string, mixed>  $metadata
      */
     public function __construct(
         public string $handoffReceiptId,
@@ -27,11 +27,10 @@ final readonly class IntakeCandidateData
         public string $summary,
         public array $facts,
         public array $metadata,
-    ) {
-    }
+    ) {}
 
     /** @param array<string, mixed> $payload */
-    public static function fromArray(array $payload, \stdClass $receipt): self
+    public static function fromArray(array $payload, object $receipt): self
     {
         foreach ([
             'evidence_claim',
@@ -39,7 +38,7 @@ final readonly class IntakeCandidateData
             'title',
             'summary',
         ] as $required) {
-            if (!isset($payload[$required]) || trim((string) $payload[$required]) === '') {
+            if (! isset($payload[$required]) || trim((string) $payload[$required]) === '') {
                 throw new IntakeReviewException("Missing Candidate Evidence field: {$required}.");
             }
         }
@@ -79,7 +78,7 @@ final readonly class IntakeCandidateData
     /** @return list<string> */
     private static function stringList(mixed $value): array
     {
-        if (!is_array($value)) {
+        if (! is_array($value)) {
             throw new IntakeReviewException('Expected a list of string references.');
         }
 

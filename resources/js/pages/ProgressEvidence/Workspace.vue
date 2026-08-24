@@ -132,14 +132,7 @@ type Surface = 'evidence' | 'reviews' | 'mastery' | 'portfolio';
 type EvidenceFocus = 'candidate' | 'evidence';
 type ReviewFocus = 'request' | 'review';
 type Panel =
-  | 'intake'
-  | 'revision'
-  | 'finding'
-  | 'decision'
-  | 'mastery'
-  | 'portfolio'
-  | 'portfolio-add'
-  | null;
+  'intake' | 'revision' | 'finding' | 'decision' | 'mastery' | 'portfolio' | 'portfolio-add' | null;
 
 const props = defineProps<{
   surface: Surface;
@@ -184,11 +177,17 @@ const portfolioItemId = ref(props.portfolios[0]?.items[0]?.id ?? '');
 
 const activeNav = computed(() => nav.find((item) => item.key === props.surface) ?? nav[0]);
 const candidate = computed(() => props.candidates.find((item) => item.id === candidateId.value));
-const selectedEvidence = computed(() => props.evidence.find((item) => item.id === evidenceId.value));
-const selectedRequest = computed(() => props.review_requests.find((item) => item.id === requestId.value));
+const selectedEvidence = computed(() =>
+  props.evidence.find((item) => item.id === evidenceId.value),
+);
+const selectedRequest = computed(() =>
+  props.review_requests.find((item) => item.id === requestId.value),
+);
 const selectedReview = computed(() => props.reviews.find((item) => item.id === reviewId.value));
 const selectedMastery = computed(() => props.mastery.find((item) => item.id === masteryId.value));
-const selectedPortfolio = computed(() => props.portfolios.find((item) => item.id === portfolioId.value));
+const selectedPortfolio = computed(() =>
+  props.portfolios.find((item) => item.id === portfolioId.value),
+);
 const selectedPortfolioItem = computed(
   () =>
     selectedPortfolio.value?.items.find((item) => item.id === portfolioItemId.value) ??
@@ -345,7 +344,8 @@ function submitDecision(): void {
 function openMastery(): void {
   const item =
     props.evidence.find(
-      (evidence) => evidence.effective_review_decision_id !== null && evidence.lifecycle_state === 'ACTIVE',
+      (evidence) =>
+        evidence.effective_review_decision_id !== null && evidence.lifecycle_state === 'ACTIVE',
     ) ?? props.evidence[0];
   masteryForm.capability_id = item?.capability_id ?? selectedMastery.value?.target_id ?? '';
   masteryForm.policy_revision_id = props.mastery_policies?.[0]?.id ?? '';
@@ -380,20 +380,41 @@ function removePortfolioItem(): void {
         <p class="eyebrow"><bdi dir="ltr">PROGRESS &amp; EVIDENCE</bdi></p>
         <div>
           <h1>التقدم والأدلة</h1>
-          <p>{{ activeNav.ar }} <span>·</span> <bdi dir="ltr">{{ activeNav.en }}</bdi></p>
+          <p>
+            {{ activeNav.ar }} <span>·</span> <bdi dir="ltr">{{ activeNav.en }}</bdi>
+          </p>
         </div>
       </div>
 
       <div class="top-actions" aria-label="إجراءات سير العمل الحالي">
         <template v-if="surface === 'evidence'">
-          <button class="button secondary" type="button" :disabled="!handoff_receipts.length" @click="panel = 'intake'">Candidate إدخال</button>
+          <button
+            class="button secondary"
+            type="button"
+            :disabled="!handoff_receipts.length"
+            @click="panel = 'intake'"
+          >
+            Candidate إدخال
+          </button>
           <template v-if="evidenceFocus === 'candidate'">
-            <button class="button primary" type="button" :disabled="!candidateAction" @click="runCandidateAction">
+            <button
+              class="button primary"
+              type="button"
+              :disabled="!candidateAction"
+              @click="runCandidateAction"
+            >
               {{ candidateAction?.label ?? 'لا يوجد انتقال متاح' }}
             </button>
           </template>
           <template v-else>
-            <button class="button secondary" type="button" :disabled="!selectedEvidence" @click="openRevision">Revision جديدة</button>
+            <button
+              class="button secondary"
+              type="button"
+              :disabled="!selectedEvidence"
+              @click="openRevision"
+            >
+              Revision جديدة
+            </button>
             <button
               class="button primary"
               type="button"
@@ -419,7 +440,10 @@ function removePortfolioItem(): void {
             <button
               class="button secondary"
               type="button"
-              :disabled="!selectedReview || !['IN_REVIEW', 'READY_FOR_DECISION'].includes(selectedReview.status)"
+              :disabled="
+                !selectedReview ||
+                !['IN_REVIEW', 'READY_FOR_DECISION'].includes(selectedReview.status)
+              "
               @click="openFinding"
             >
               إضافة Finding
@@ -427,7 +451,9 @@ function removePortfolioItem(): void {
             <button
               class="button primary"
               type="button"
-              :disabled="selectedReview?.status !== 'READY_FOR_DECISION' || !selectedReview.findings.length"
+              :disabled="
+                selectedReview?.status !== 'READY_FOR_DECISION' || !selectedReview.findings.length
+              "
               @click="panel = 'decision'"
             >
               Issue Decision
@@ -435,16 +461,36 @@ function removePortfolioItem(): void {
           </template>
         </template>
 
-        <button v-else-if="surface === 'mastery'" class="button primary" type="button" :disabled="!mastery_policies.length" @click="openMastery">
+        <button
+          v-else-if="surface === 'mastery'"
+          class="button primary"
+          type="button"
+          :disabled="!mastery_policies.length"
+          @click="openMastery"
+        >
           إلحاق Mastery State
         </button>
 
         <template v-else>
-          <button class="button secondary" type="button" @click="panel = 'portfolio'">إنشاء Portfolio View</button>
-          <button class="button primary" type="button" :disabled="!selectedPortfolio || !evidence.length" @click="openPortfolioAdd">
+          <button class="button secondary" type="button" @click="panel = 'portfolio'">
+            إنشاء Portfolio View
+          </button>
+          <button
+            class="button primary"
+            type="button"
+            :disabled="!selectedPortfolio || !evidence.length"
+            @click="openPortfolioAdd"
+          >
             إضافة Evidence Reference
           </button>
-          <button class="button ghost" type="button" :disabled="!selectedPortfolioItem" @click="removePortfolioItem">إزالة المرجع</button>
+          <button
+            class="button ghost"
+            type="button"
+            :disabled="!selectedPortfolioItem"
+            @click="removePortfolioItem"
+          >
+            إزالة المرجع
+          </button>
         </template>
       </div>
     </header>
@@ -476,16 +522,24 @@ function removePortfolioItem(): void {
             <p class="eyebrow">مساحة العمل الأساسية</p>
             <h2>{{ activeNav.ar }}</h2>
           </div>
-          <p v-if="surface === 'evidence'">Candidate ليست Evidence، وAdmission لا يعني Review أو Acceptance أو Mastery.</p>
-          <p v-else-if="surface === 'reviews'">CENTER هو موضع Findings والعمل الرسمي وReview Decision.</p>
-          <p v-else-if="surface === 'mastery'">Judgment وFreshness بعدان مستقلان، ولا توجد نقاط أو نسب إكمال بديلة عن الحكم.</p>
+          <p v-if="surface === 'evidence'">
+            Candidate ليست Evidence، وAdmission لا يعني Review أو Acceptance أو Mastery.
+          </p>
+          <p v-else-if="surface === 'reviews'">
+            CENTER هو موضع Findings والعمل الرسمي وReview Decision.
+          </p>
+          <p v-else-if="surface === 'mastery'">
+            Judgment وFreshness بعدان مستقلان، ولا توجد نقاط أو نسب إكمال بديلة عن الحكم.
+          </p>
           <p v-else>Portfolio عرض مُنسّق فوق المراجع الكنسية، وليس مخزن Evidence ثانياً.</p>
         </div>
 
         <div v-if="surface === 'evidence'" class="workbench-grid">
           <aside class="record-browser" aria-label="قائمة Evidence">
             <div class="browser-group candidate-group">
-              <div class="browser-title"><span>Candidate Evidence</span><bdi dir="ltr">{{ candidates.length }}</bdi></div>
+              <div class="browser-title">
+                <span>Candidate Evidence</span><bdi dir="ltr">{{ candidates.length }}</bdi>
+              </div>
               <button
                 v-for="item in candidates"
                 :key="item.id"
@@ -494,14 +548,19 @@ function removePortfolioItem(): void {
                 type="button"
                 @click="selectCandidate(item.id)"
               >
-                <span><strong>{{ item.proposed_title }}</strong><small>{{ item.evidence_claim }}</small></span>
+                <span
+                  ><strong>{{ item.proposed_title }}</strong
+                  ><small>{{ item.evidence_claim }}</small></span
+                >
                 <bdi dir="ltr" class="state candidate-state">{{ item.state }}</bdi>
               </button>
               <p v-if="!candidates.length" class="empty-state">لا توجد Candidate Evidence.</p>
             </div>
 
             <div class="browser-group canonical-group">
-              <div class="browser-title"><span>Canonical Evidence</span><bdi dir="ltr">{{ evidence.length }}</bdi></div>
+              <div class="browser-title">
+                <span>Canonical Evidence</span><bdi dir="ltr">{{ evidence.length }}</bdi>
+              </div>
               <button
                 v-for="item in evidence"
                 :key="item.id"
@@ -510,14 +569,21 @@ function removePortfolioItem(): void {
                 type="button"
                 @click="selectEvidence(item.id)"
               >
-                <span><strong>{{ item.title }}</strong><small>{{ item.evidence_claim }}</small></span>
+                <span
+                  ><strong>{{ item.title }}</strong
+                  ><small>{{ item.evidence_claim }}</small></span
+                >
                 <bdi dir="ltr" class="state">R{{ item.current_revision_number }}</bdi>
               </button>
               <p v-if="!evidence.length" class="empty-state">لا توجد Evidence مقبولة عبر Intake.</p>
             </div>
           </aside>
 
-          <article v-if="evidenceFocus === 'candidate' && candidate" class="object-workbench" data-testid="candidate-detail">
+          <article
+            v-if="evidenceFocus === 'candidate' && candidate"
+            class="object-workbench"
+            data-testid="candidate-detail"
+          >
             <div class="object-heading">
               <div>
                 <p class="eyebrow">Candidate Evidence · قبل Admission</p>
@@ -527,7 +593,10 @@ function removePortfolioItem(): void {
             </div>
             <div class="truth-banner candidate-banner">
               <strong>حقيقة الحالة</strong>
-              <span>هذا سجل Candidate فقط. لم تُنشأ منه Evidence كنسية بعد، لذلك لا تُعرض عليه أبعاد Evidence الكنسية.</span>
+              <span
+                >هذا سجل Candidate فقط. لم تُنشأ منه Evidence كنسية بعد، لذلك لا تُعرض عليه أبعاد
+                Evidence الكنسية.</span
+              >
             </div>
             <section class="detail-block">
               <span class="label">Evidence Claim المقترحة</span>
@@ -536,7 +605,9 @@ function removePortfolioItem(): void {
             <div class="detail-grid">
               <section class="detail-block compact">
                 <span class="label">Source Handoff Reference</span>
-                <bdi dir="ltr" class="identifier">{{ candidate.source_id }}@{{ candidate.source_revision }}</bdi>
+                <bdi dir="ltr" class="identifier"
+                  >{{ candidate.source_id }}@{{ candidate.source_revision }}</bdi
+                >
                 <p class="muted">مرجع إلى المصدر؛ لا توجد نسخة ثانية من Result هنا.</p>
               </section>
               <section class="detail-block compact">
@@ -548,19 +619,27 @@ function removePortfolioItem(): void {
               <section class="detail-block compact">
                 <span class="label">Selected Material References</span>
                 <ul class="reference-list">
-                  <li v-for="reference in candidate.selected_material_refs" :key="reference"><bdi dir="ltr">{{ reference }}</bdi></li>
+                  <li v-for="reference in candidate.selected_material_refs" :key="reference">
+                    <bdi dir="ltr">{{ reference }}</bdi>
+                  </li>
                 </ul>
               </section>
               <section class="detail-block compact">
                 <span class="label">Criterion Scope</span>
                 <ul class="reference-list">
-                  <li v-for="criterion in candidate.criterion_scope" :key="criterion"><bdi dir="ltr">{{ criterion }}</bdi></li>
+                  <li v-for="criterion in candidate.criterion_scope" :key="criterion">
+                    <bdi dir="ltr">{{ criterion }}</bdi>
+                  </li>
                 </ul>
               </section>
             </div>
           </article>
 
-          <article v-else-if="selectedEvidence" class="object-workbench" data-testid="evidence-detail">
+          <article
+            v-else-if="selectedEvidence"
+            class="object-workbench"
+            data-testid="evidence-detail"
+          >
             <div class="object-heading">
               <div>
                 <p class="eyebrow">Canonical Evidence · sealed</p>
@@ -574,28 +653,47 @@ function removePortfolioItem(): void {
               <p class="muted">{{ selectedEvidence.summary }}</p>
             </section>
             <div class="dimension-grid" aria-label="أبعاد حالة Evidence المستقلة">
-              <section class="dimension-card"><span>Evidence Lifecycle</span><bdi dir="ltr">{{ selectedEvidence.lifecycle_state }}</bdi></section>
-              <section class="dimension-card"><span>Review Status</span><bdi dir="ltr">{{ selectedEvidence.review_status }}</bdi></section>
-              <section class="dimension-card"><span>Effective Review Decision</span><bdi dir="ltr">{{ selectedEvidence.effective_review_decision }}</bdi></section>
+              <section class="dimension-card">
+                <span>Evidence Lifecycle</span
+                ><bdi dir="ltr">{{ selectedEvidence.lifecycle_state }}</bdi>
+              </section>
+              <section class="dimension-card">
+                <span>Review Status</span><bdi dir="ltr">{{ selectedEvidence.review_status }}</bdi>
+              </section>
+              <section class="dimension-card">
+                <span>Effective Review Decision</span
+                ><bdi dir="ltr">{{ selectedEvidence.effective_review_decision }}</bdi>
+              </section>
             </div>
             <section class="detail-block">
               <span class="label">Sealed Revision History</span>
               <ol class="timeline-list">
                 <li v-for="item in selectedEvidence.revisions" :key="item.id">
                   <span class="timeline-marker" aria-hidden="true"></span>
-                  <div><bdi dir="ltr">R{{ item.revision }} · {{ item.id }}</bdi><p>{{ item.revision_reason }}</p></div>
+                  <div>
+                    <bdi dir="ltr">R{{ item.revision }} · {{ item.id }}</bdi>
+                    <p>{{ item.revision_reason }}</p>
+                  </div>
                 </li>
               </ol>
             </section>
           </article>
 
-          <div v-else class="empty-workbench">اختر Candidate أو Evidence لعرض العمل الكنسي المناسب.</div>
+          <div v-else class="empty-workbench">
+            اختر Candidate أو Evidence لعرض العمل الكنسي المناسب.
+          </div>
         </div>
 
-        <div v-else-if="surface === 'reviews'" class="workbench-grid" data-testid="review-workbench">
+        <div
+          v-else-if="surface === 'reviews'"
+          class="workbench-grid"
+          data-testid="review-workbench"
+        >
           <aside class="record-browser" aria-label="قائمة المراجعات">
             <div class="browser-group">
-              <div class="browser-title"><span>Review Requests</span><bdi dir="ltr">{{ review_requests.length }}</bdi></div>
+              <div class="browser-title">
+                <span>Review Requests</span><bdi dir="ltr">{{ review_requests.length }}</bdi>
+              </div>
               <button
                 v-for="item in review_requests"
                 :key="item.id"
@@ -604,13 +702,20 @@ function removePortfolioItem(): void {
                 type="button"
                 @click="selectRequest(item.id)"
               >
-                <span><strong>{{ evidenceTitle(item.evidence_id) }}</strong><small><bdi dir="ltr">{{ item.review_scope_key }}</bdi></small></span>
+                <span
+                  ><strong>{{ evidenceTitle(item.evidence_id) }}</strong
+                  ><small
+                    ><bdi dir="ltr">{{ item.review_scope_key }}</bdi></small
+                  ></span
+                >
                 <bdi dir="ltr" class="state request-state">{{ item.status }}</bdi>
               </button>
               <p v-if="!review_requests.length" class="empty-state">لا توجد Review Requests.</p>
             </div>
             <div class="browser-group">
-              <div class="browser-title"><span>Formal Reviews</span><bdi dir="ltr">{{ reviews.length }}</bdi></div>
+              <div class="browser-title">
+                <span>Formal Reviews</span><bdi dir="ltr">{{ reviews.length }}</bdi>
+              </div>
               <button
                 v-for="item in reviews"
                 :key="item.id"
@@ -619,7 +724,10 @@ function removePortfolioItem(): void {
                 type="button"
                 @click="selectReview(item.id)"
               >
-                <span><strong>{{ evidenceTitle(item.evidence_id) }}</strong><small>{{ item.findings.length }} Finding(s)</small></span>
+                <span
+                  ><strong>{{ evidenceTitle(item.evidence_id) }}</strong
+                  ><small>{{ item.findings.length }} Finding(s)</small></span
+                >
                 <bdi dir="ltr" class="state review-state">{{ item.status }}</bdi>
               </button>
               <p v-if="!reviews.length" class="empty-state">لم تبدأ Formal Review بعد.</p>
@@ -628,29 +736,56 @@ function removePortfolioItem(): void {
 
           <article v-if="reviewFocus === 'request' && selectedRequest" class="object-workbench">
             <div class="object-heading">
-              <div><p class="eyebrow">Review Request</p><h3>{{ evidenceTitle(selectedRequest.evidence_id) }}</h3></div>
+              <div>
+                <p class="eyebrow">Review Request</p>
+                <h3>{{ evidenceTitle(selectedRequest.evidence_id) }}</h3>
+              </div>
               <bdi dir="ltr" class="state request-state">{{ selectedRequest.status }}</bdi>
             </div>
-            <div class="truth-banner"><strong>حد بدء المراجعة</strong><span>الطلب يثبت Evidence Revision ونطاق العمل فقط. Findings وDecision لا توجد قبل بدء Formal Review.</span></div>
+            <div class="truth-banner">
+              <strong>حد بدء المراجعة</strong
+              ><span
+                >الطلب يثبت Evidence Revision ونطاق العمل فقط. Findings وDecision لا توجد قبل بدء
+                Formal Review.</span
+              >
+            </div>
             <div class="detail-grid">
-              <section class="detail-block compact"><span class="label">Pinned Evidence Revision</span><bdi dir="ltr" class="identifier">{{ selectedRequest.evidence_revision_id }}</bdi></section>
-              <section class="detail-block compact"><span class="label">Review Scope</span><bdi dir="ltr" class="identifier">{{ selectedRequest.review_scope_key }}</bdi></section>
+              <section class="detail-block compact">
+                <span class="label">Pinned Evidence Revision</span
+                ><bdi dir="ltr" class="identifier">{{ selectedRequest.evidence_revision_id }}</bdi>
+              </section>
+              <section class="detail-block compact">
+                <span class="label">Review Scope</span
+                ><bdi dir="ltr" class="identifier">{{ selectedRequest.review_scope_key }}</bdi>
+              </section>
             </div>
           </article>
 
           <article v-else-if="selectedReview" class="object-workbench">
             <div class="object-heading">
-              <div><p class="eyebrow">Formal Evidence Review</p><h3>{{ evidenceTitle(selectedReview.evidence_id) }}</h3></div>
+              <div>
+                <p class="eyebrow">Formal Evidence Review</p>
+                <h3>{{ evidenceTitle(selectedReview.evidence_id) }}</h3>
+              </div>
               <bdi dir="ltr" class="state review-state">{{ selectedReview.status }}</bdi>
             </div>
             <section class="detail-block">
               <span class="label">Review Findings</span>
               <div class="finding-stack">
-                <article v-for="item in selectedReview.findings" :key="item.id" class="finding-card">
-                  <div class="finding-heading"><bdi dir="ltr">{{ item.criterion_key }}</bdi><bdi dir="ltr" class="finding-value">{{ item.finding }}</bdi></div>
+                <article
+                  v-for="item in selectedReview.findings"
+                  :key="item.id"
+                  class="finding-card"
+                >
+                  <div class="finding-heading">
+                    <bdi dir="ltr">{{ item.criterion_key }}</bdi
+                    ><bdi dir="ltr" class="finding-value">{{ item.finding }}</bdi>
+                  </div>
                   <p>{{ item.statement }}</p>
                 </article>
-                <p v-if="!selectedReview.findings.length" class="empty-state">لا توجد Findings مسجلة بعد.</p>
+                <p v-if="!selectedReview.findings.length" class="empty-state">
+                  لا توجد Findings مسجلة بعد.
+                </p>
               </div>
             </section>
             <section class="decision-block">
@@ -668,7 +803,9 @@ function removePortfolioItem(): void {
 
         <div v-else-if="surface === 'mastery'" class="workbench-grid mastery-grid">
           <aside class="record-browser" aria-label="حالات Mastery">
-            <div class="browser-title"><span>Mastery Targets</span><bdi dir="ltr">{{ mastery.length }}</bdi></div>
+            <div class="browser-title">
+              <span>Mastery Targets</span><bdi dir="ltr">{{ mastery.length }}</bdi>
+            </div>
             <button
               v-for="item in mastery"
               :key="item.id"
@@ -677,7 +814,11 @@ function removePortfolioItem(): void {
               type="button"
               @click="masteryId = item.id"
             >
-              <span><strong><bdi dir="ltr">{{ item.target_id }}</bdi></strong><small>Policy-governed state</small></span>
+              <span
+                ><strong
+                  ><bdi dir="ltr">{{ item.target_id }}</bdi></strong
+                ><small>Policy-governed state</small></span
+              >
               <bdi dir="ltr" class="state">{{ item.id }}</bdi>
             </button>
             <p v-if="!mastery.length" class="empty-state">لا توجد Mastery State محكومة.</p>
@@ -685,21 +826,82 @@ function removePortfolioItem(): void {
 
           <article v-if="selectedMastery" class="object-workbench" data-testid="mastery-detail">
             <div class="object-heading">
-              <div><p class="eyebrow">Canonical Mastery Target</p><h3><bdi dir="ltr">{{ selectedMastery.target_id }}</bdi></h3></div>
+              <div>
+                <p class="eyebrow">Canonical Mastery Target</p>
+                <h3>
+                  <bdi dir="ltr">{{ selectedMastery.target_id }}</bdi>
+                </h3>
+              </div>
               <bdi dir="ltr" class="state">{{ selectedMastery.id }}</bdi>
             </div>
-            <div class="truth-banner mastery-banner"><strong>Judgment ≠ Freshness</strong><span>يمكن أن تكون الحالة <bdi dir="ltr">MASTERED + REVALIDATION_REQUIRED</bdi> بصورة قانونية؛ Completion لا تساوي Mastery.</span></div>
+            <div class="truth-banner mastery-banner">
+              <strong>Judgment ≠ Freshness</strong
+              ><span
+                >يمكن أن تكون الحالة <bdi dir="ltr">MASTERED + REVALIDATION_REQUIRED</bdi> بصورة
+                قانونية؛ Completion لا تساوي Mastery.</span
+              >
+            </div>
             <div class="mastery-dimensions">
-              <section class="mastery-dimension judgment-card"><span>الحكم · Judgment</span><bdi dir="ltr">{{ selectedMastery.judgment }}</bdi></section>
-              <section class="mastery-dimension freshness-card"><span>الحداثة · Freshness</span><bdi dir="ltr">{{ selectedMastery.freshness_status }}</bdi></section>
+              <section class="mastery-dimension judgment-card">
+                <span>الحكم · Judgment</span><bdi dir="ltr">{{ selectedMastery.judgment }}</bdi>
+              </section>
+              <section class="mastery-dimension freshness-card">
+                <span>الحداثة · Freshness</span
+                ><bdi dir="ltr">{{ selectedMastery.freshness_status }}</bdi>
+              </section>
             </div>
             <section class="detail-block">
               <span class="label">Causal Evaluation Trace</span>
               <ol class="causal-steps">
-                <li><span class="step-number">01</span><div><strong>Mastery Policy</strong><bdi dir="ltr">{{ selectedMastery.policy_revision_id }}</bdi></div></li>
-                <li><span class="step-number">02</span><div><strong>Effective Review Decisions</strong><ul class="reference-list"><li v-for="id in selectedMastery.review_decision_ids" :key="id"><bdi dir="ltr">{{ id }}</bdi></li></ul></div></li>
-                <li><span class="step-number">03</span><div><strong>Supporting Evidence</strong><ul class="reference-list"><li v-for="id in selectedMastery.supporting_evidence_revision_ids" :key="id"><bdi dir="ltr">{{ id }}</bdi></li></ul></div></li>
-                <li><span class="step-number">04</span><div><strong>Contradicting Evidence</strong><ul class="reference-list"><li v-for="id in selectedMastery.contradicting_evidence_revision_ids" :key="id"><bdi dir="ltr">{{ id }}</bdi></li><li v-if="!selectedMastery.contradicting_evidence_revision_ids.length" class="muted">لا توجد مراجع متعارضة مسجلة.</li></ul></div></li>
+                <li>
+                  <span class="step-number">01</span>
+                  <div>
+                    <strong>Mastery Policy</strong
+                    ><bdi dir="ltr">{{ selectedMastery.policy_revision_id }}</bdi>
+                  </div>
+                </li>
+                <li>
+                  <span class="step-number">02</span>
+                  <div>
+                    <strong>Effective Review Decisions</strong>
+                    <ul class="reference-list">
+                      <li v-for="id in selectedMastery.review_decision_ids" :key="id">
+                        <bdi dir="ltr">{{ id }}</bdi>
+                      </li>
+                    </ul>
+                  </div>
+                </li>
+                <li>
+                  <span class="step-number">03</span>
+                  <div>
+                    <strong>Supporting Evidence</strong>
+                    <ul class="reference-list">
+                      <li v-for="id in selectedMastery.supporting_evidence_revision_ids" :key="id">
+                        <bdi dir="ltr">{{ id }}</bdi>
+                      </li>
+                    </ul>
+                  </div>
+                </li>
+                <li>
+                  <span class="step-number">04</span>
+                  <div>
+                    <strong>Contradicting Evidence</strong>
+                    <ul class="reference-list">
+                      <li
+                        v-for="id in selectedMastery.contradicting_evidence_revision_ids"
+                        :key="id"
+                      >
+                        <bdi dir="ltr">{{ id }}</bdi>
+                      </li>
+                      <li
+                        v-if="!selectedMastery.contradicting_evidence_revision_ids.length"
+                        class="muted"
+                      >
+                        لا توجد مراجع متعارضة مسجلة.
+                      </li>
+                    </ul>
+                  </div>
+                </li>
               </ol>
             </section>
           </article>
@@ -708,16 +910,24 @@ function removePortfolioItem(): void {
 
         <div v-else class="workbench-grid portfolio-grid">
           <aside class="record-browser" aria-label="عروض Portfolio">
-            <div class="browser-title"><span>Saved Views</span><bdi dir="ltr">{{ portfolios.length }}</bdi></div>
+            <div class="browser-title">
+              <span>Saved Views</span><bdi dir="ltr">{{ portfolios.length }}</bdi>
+            </div>
             <button
               v-for="item in portfolios"
               :key="item.id"
               class="record-row"
               :class="{ selected: item.id === portfolioId }"
               type="button"
-              @click="portfolioId = item.id; portfolioItemId = item.items[0]?.id ?? ''"
+              @click="
+                portfolioId = item.id;
+                portfolioItemId = item.items[0]?.id ?? '';
+              "
             >
-              <span><strong>{{ item.name }}</strong><small>{{ item.items.length }} reference(s)</small></span>
+              <span
+                ><strong>{{ item.name }}</strong
+                ><small>{{ item.items.length }} reference(s)</small></span
+              >
               <bdi dir="ltr" class="state projection-state">VIEW</bdi>
             </button>
             <p v-if="!portfolios.length" class="empty-state">لا توجد Portfolio Views.</p>
@@ -725,10 +935,19 @@ function removePortfolioItem(): void {
 
           <article v-if="selectedPortfolio" class="object-workbench" data-testid="portfolio-detail">
             <div class="object-heading">
-              <div><p class="eyebrow">Curated Projection</p><h3>{{ selectedPortfolio.name }}</h3></div>
+              <div>
+                <p class="eyebrow">Curated Projection</p>
+                <h3>{{ selectedPortfolio.name }}</h3>
+              </div>
               <bdi dir="ltr" class="state projection-state">REFERENCE VIEW</bdi>
             </div>
-            <div class="truth-banner portfolio-banner"><strong>لا يوجد Evidence store ثانٍ</strong><span>كل عنصر أدناه Canonical Evidence Reference. إزالة العنصر من العرض لا تمس Evidence أو Review أو Mastery history.</span></div>
+            <div class="truth-banner portfolio-banner">
+              <strong>لا يوجد Evidence store ثانٍ</strong
+              ><span
+                >كل عنصر أدناه Canonical Evidence Reference. إزالة العنصر من العرض لا تمس Evidence
+                أو Review أو Mastery history.</span
+              >
+            </div>
             <section class="detail-block">
               <span class="label">Canonical Evidence References</span>
               <div class="portfolio-reference-list">
@@ -740,10 +959,15 @@ function removePortfolioItem(): void {
                   type="button"
                   @click="portfolioItemId = entry.id"
                 >
-                  <span><strong>{{ entry.title }}</strong><small>Canonical Evidence Reference</small></span>
+                  <span
+                    ><strong>{{ entry.title }}</strong
+                    ><small>Canonical Evidence Reference</small></span
+                  >
                   <bdi dir="ltr">{{ entry.current_revision_id }}</bdi>
                 </button>
-                <p v-if="!selectedPortfolio.items.length" class="empty-state">هذا العرض لا يحتوي مراجع بعد.</p>
+                <p v-if="!selectedPortfolio.items.length" class="empty-state">
+                  هذا العرض لا يحتوي مراجع بعد.
+                </p>
               </div>
             </section>
           </article>
@@ -751,18 +975,40 @@ function removePortfolioItem(): void {
         </div>
       </section>
 
-      <aside class="right-context panel" data-testid="context-panel" aria-label="السياق الفريد للاختيار الحالي">
+      <aside
+        class="right-context panel"
+        data-testid="context-panel"
+        aria-label="السياق الفريد للاختيار الحالي"
+      >
         <template v-if="surface === 'evidence'">
           <p class="eyebrow">السياق الفريد</p>
           <template v-if="evidenceFocus === 'candidate' && candidate">
             <h2>حدود Intake</h2>
-            <div class="context-callout warning-context"><span class="context-icon">!</span><p>Candidate لم تعبر Admission بعد. لا يجوز إسناد قيم أبعاد Evidence الكنسية إليها قبل Admission.</p></div>
-            <div class="context-section"><span class="label">المعنى الحاكم</span><p>Admission ينشئ Evidence Revision 1 مختومة، لكنه لا يبدأ Review ولا يصدر Decision ولا يغيّر Mastery.</p></div>
+            <div class="context-callout warning-context">
+              <span class="context-icon">!</span>
+              <p>
+                Candidate لم تعبر Admission بعد. لا يجوز إسناد قيم أبعاد Evidence الكنسية إليها قبل
+                Admission.
+              </p>
+            </div>
+            <div class="context-section">
+              <span class="label">المعنى الحاكم</span>
+              <p>
+                Admission ينشئ Evidence Revision 1 مختومة، لكنه لا يبدأ Review ولا يصدر Decision ولا
+                يغيّر Mastery.
+              </p>
+            </div>
           </template>
           <template v-else-if="selectedEvidence">
             <h2>سياق الحوكمة</h2>
-            <div class="context-callout"><span class="context-icon">i</span><p>الحالات الثلاث المعروضة في CENTER مستقلة. لا تُختزل في Status واحد.</p></div>
-            <div class="context-section"><span class="label">Review eligibility</span><p>طلب المراجعة عملية صريحة على Evidence النشطة؛ لا تُنشأ تلقائيًا عند Admission.</p></div>
+            <div class="context-callout">
+              <span class="context-icon">i</span>
+              <p>الحالات الثلاث المعروضة في CENTER مستقلة. لا تُختزل في Status واحد.</p>
+            </div>
+            <div class="context-section">
+              <span class="label">Review eligibility</span>
+              <p>طلب المراجعة عملية صريحة على Evidence النشطة؛ لا تُنشأ تلقائيًا عند Admission.</p>
+            </div>
           </template>
         </template>
 
@@ -770,32 +1016,72 @@ function removePortfolioItem(): void {
           <p class="eyebrow">Authority Context</p>
           <template v-if="reviewFocus === 'review' && selectedReview">
             <h2>سلطة المراجعة</h2>
-            <div class="authority-block"><span>Reviewer</span><bdi dir="ltr" class="identifier">{{ selectedReview.reviewer_id }}</bdi></div>
-            <div class="context-section"><span class="label">Review Scope</span><bdi dir="ltr" class="identifier">{{ selectedReview.review_scope_key }}</bdi></div>
-            <div class="context-section"><span class="label">Criterion Authority</span><ul class="reference-list context-references"><li v-for="criterion in selectedReview.criterion_refs" :key="criterion"><bdi dir="ltr">{{ criterion }}</bdi></li></ul></div>
+            <div class="authority-block">
+              <span>Reviewer</span
+              ><bdi dir="ltr" class="identifier">{{ selectedReview.reviewer_id }}</bdi>
+            </div>
+            <div class="context-section">
+              <span class="label">Review Scope</span
+              ><bdi dir="ltr" class="identifier">{{ selectedReview.review_scope_key }}</bdi>
+            </div>
+            <div class="context-section">
+              <span class="label">Criterion Authority</span>
+              <ul class="reference-list context-references">
+                <li v-for="criterion in selectedReview.criterion_refs" :key="criterion">
+                  <bdi dir="ltr">{{ criterion }}</bdi>
+                </li>
+              </ul>
+            </div>
           </template>
           <template v-else-if="selectedRequest">
             <h2>سياق الطلب</h2>
-            <div class="context-callout"><span class="context-icon">i</span><p>لا يوجد Reviewer أو Finding أو Decision كحقيقة للمراجعة قبل بدء Formal Review.</p></div>
-            <div class="context-section"><span class="label">Pinned Revision</span><bdi dir="ltr" class="identifier">{{ selectedRequest.evidence_revision_id }}</bdi></div>
+            <div class="context-callout">
+              <span class="context-icon">i</span>
+              <p>لا يوجد Reviewer أو Finding أو Decision كحقيقة للمراجعة قبل بدء Formal Review.</p>
+            </div>
+            <div class="context-section">
+              <span class="label">Pinned Revision</span
+              ><bdi dir="ltr" class="identifier">{{ selectedRequest.evidence_revision_id }}</bdi>
+            </div>
           </template>
         </template>
 
         <template v-else-if="surface === 'mastery' && selectedMastery">
           <p class="eyebrow">State Provenance</p>
           <h2>السجل التاريخي</h2>
-          <p class="context-intro">هذه السلسلة توضّح append-only provenance فقط؛ الحكم والحداثة لهما Home دائم في CENTER.</p>
+          <p class="context-intro">
+            هذه السلسلة توضّح append-only provenance فقط؛ الحكم والحداثة لهما Home دائم في CENTER.
+          </p>
           <ol class="history-chain">
-            <li v-for="state in selectedMasteryHistory" :key="state.id"><bdi dir="ltr">{{ state.id }}</bdi><small v-if="state.previous_state_id">previous: <bdi dir="ltr">{{ state.previous_state_id }}</bdi></small><small v-else>initial state</small></li>
+            <li v-for="state in selectedMasteryHistory" :key="state.id">
+              <bdi dir="ltr">{{ state.id }}</bdi
+              ><small v-if="state.previous_state_id"
+                >previous: <bdi dir="ltr">{{ state.previous_state_id }}</bdi></small
+              ><small v-else>initial state</small>
+            </li>
           </ol>
         </template>
 
         <template v-else-if="surface === 'portfolio' && selectedPortfolio">
           <p class="eyebrow">View Configuration</p>
           <h2>سياق الإسقاط</h2>
-          <div class="context-section no-border"><span class="label">View Scope</span><bdi dir="ltr" class="identifier">{{ selectedPortfolio.view_scope || 'UNSCOPED' }}</bdi></div>
-          <div class="context-section"><span class="label">Grouping</span><bdi dir="ltr" class="identifier">{{ selectedPortfolio.grouping }}</bdi></div>
-          <div class="context-callout"><span class="context-icon">i</span><p>Portfolio يحتفظ بالتنظيم والـcuration فقط. الحقيقة القانونية تبقى في Evidence وMastery.</p></div>
+          <div class="context-section no-border">
+            <span class="label">View Scope</span
+            ><bdi dir="ltr" class="identifier">{{
+              selectedPortfolio.view_scope || 'UNSCOPED'
+            }}</bdi>
+          </div>
+          <div class="context-section">
+            <span class="label">Grouping</span
+            ><bdi dir="ltr" class="identifier">{{ selectedPortfolio.grouping }}</bdi>
+          </div>
+          <div class="context-callout">
+            <span class="context-icon">i</span>
+            <p>
+              Portfolio يحتفظ بالتنظيم والـcuration فقط. الحقيقة القانونية تبقى في Evidence
+              وMastery.
+            </p>
+          </div>
         </template>
 
         <p v-else class="empty-state">لا يوجد سياق فريد للاختيار الحالي.</p>
@@ -804,37 +1090,66 @@ function removePortfolioItem(): void {
 
     <section v-if="panel" class="bottom-workspace panel" aria-label="مساحة العمل المؤقتة">
       <div class="bottom-header">
-        <div><p class="eyebrow">Temporary Deep Workspace</p><h2>{{ panelTitle }}</h2></div>
+        <div>
+          <p class="eyebrow">Temporary Deep Workspace</p>
+          <h2>{{ panelTitle }}</h2>
+        </div>
         <button class="button ghost" type="button" @click="panel = null">إغلاق</button>
       </div>
 
-      <form v-if="panel === 'intake'" class="form-grid" @submit.prevent="intake.post('/progress/intake', { onSuccess: () => (panel = null) })">
+      <form
+        v-if="panel === 'intake'"
+        class="form-grid"
+        @submit.prevent="intake.post('/progress/intake', { onSuccess: () => (panel = null) })"
+      >
         <p v-if="!handoff_receipts.length" class="empty-state">
-          لا يوجد Handoff/Submission موثوق متاح للاستلام؛ لا يمكن إنشاء Candidate من بيانات مصدر يكتبها المتصفح.
+          لا يوجد Handoff/Submission موثوق متاح للاستلام؛ لا يمكن إنشاء Candidate من بيانات مصدر
+          يكتبها المتصفح.
         </p>
         <label>
           Verified Handoff Receipt
           <select v-model="intake.handoff_receipt_id" dir="ltr" required>
             <option v-for="receipt in handoff_receipts" :key="receipt.id" :value="receipt.id">
-              {{ receipt.source_type }}/{{ receipt.source_id }}@{{ receipt.source_revision }} · {{ receipt.capability_id }}
+              {{ receipt.source_type }}/{{ receipt.source_id }}@{{ receipt.source_revision }} ·
+              {{ receipt.capability_id }}
             </option>
           </select>
         </label>
-        <label class="wide">Evidence Claim<textarea v-model="intake.evidence_claim" required /></label>
-        <label>Criterion Reference<input v-model="intake.criterion_scope[0]" dir="ltr" required /></label>
-        <label>Governed Purpose<input v-model="intake.governed_purpose" dir="ltr" required /></label>
+        <label class="wide"
+          >Evidence Claim<textarea v-model="intake.evidence_claim" required />
+        </label>
+        <label
+          >Criterion Reference<input v-model="intake.criterion_scope[0]" dir="ltr" required
+        /></label>
+        <label
+          >Governed Purpose<input v-model="intake.governed_purpose" dir="ltr" required
+        /></label>
         <label>العنوان<input v-model="intake.title" required /></label>
         <label class="wide">الملخص<textarea v-model="intake.summary" required /></label>
-        <button class="button primary form-submit" type="submit">إنشاء Candidate في RECEIVED</button>
+        <button class="button primary form-submit" type="submit">
+          إنشاء Candidate في RECEIVED
+        </button>
       </form>
 
-      <form v-else-if="panel === 'revision' && selectedEvidence" class="form-grid" @submit.prevent="revision.post(`/progress/evidence/${selectedEvidence.id}/revisions`, { onSuccess: () => (panel = null) })">
+      <form
+        v-else-if="panel === 'revision' && selectedEvidence"
+        class="form-grid"
+        @submit.prevent="
+          revision.post(`/progress/evidence/${selectedEvidence.id}/revisions`, {
+            onSuccess: () => (panel = null),
+          })
+        "
+      >
         <label>العنوان<input v-model="revision.title" required /></label>
         <label>
           Superseding Handoff Receipt (optional)
           <select v-model="revision.handoff_receipt_id" dir="ltr">
             <option value="">Retain current pinned source</option>
-            <option v-for="receipt in revisionHandoffReceipts" :key="receipt.id" :value="receipt.id">
+            <option
+              v-for="receipt in revisionHandoffReceipts"
+              :key="receipt.id"
+              :value="receipt.id"
+            >
               {{ receipt.source_type }}/{{ receipt.source_id }}@{{ receipt.source_revision }}
             </option>
           </select>
@@ -844,20 +1159,48 @@ function removePortfolioItem(): void {
         <button class="button primary form-submit" type="submit">Seal Superseding Revision</button>
       </form>
 
-      <form v-else-if="panel === 'finding' && selectedReview" class="form-grid" @submit.prevent="submitFinding">
+      <form
+        v-else-if="panel === 'finding' && selectedReview"
+        class="form-grid"
+        @submit.prevent="submitFinding"
+      >
         <label>Criterion Key<input v-model="finding.criterion_key" dir="ltr" required /></label>
-        <label>Finding<select v-model="finding.finding" dir="ltr"><option>SATISFIED</option><option>PARTIALLY_SATISFIED</option><option>NOT_SATISFIED</option><option>NOT_ASSESSABLE</option></select></label>
+        <label
+          >Finding<select v-model="finding.finding" dir="ltr">
+            <option>SATISFIED</option>
+            <option>PARTIALLY_SATISFIED</option>
+            <option>NOT_SATISFIED</option>
+            <option>NOT_ASSESSABLE</option>
+          </select></label
+        >
         <label class="wide">البيان<textarea v-model="finding.statement" required /></label>
         <button class="button primary form-submit" type="submit">تسجيل Finding</button>
       </form>
 
-      <form v-else-if="panel === 'decision' && selectedReview" class="form-grid" @submit.prevent="submitDecision">
-        <label>Review Decision<select v-model="decision.decision" dir="ltr"><option>ACCEPT</option><option>ACCEPT_WITH_LIMITATIONS</option><option>MORE_EVIDENCE_REQUIRED</option><option>REJECT</option></select></label>
+      <form
+        v-else-if="panel === 'decision' && selectedReview"
+        class="form-grid"
+        @submit.prevent="submitDecision"
+      >
+        <label
+          >Review Decision<select v-model="decision.decision" dir="ltr">
+            <option>ACCEPT</option>
+            <option>ACCEPT_WITH_LIMITATIONS</option>
+            <option>MORE_EVIDENCE_REQUIRED</option>
+            <option>REJECT</option>
+          </select></label
+        >
         <label class="wide">المسوّغ<textarea v-model="decision.rationale" required /></label>
         <button class="button primary form-submit" type="submit">Seal Decision</button>
       </form>
 
-      <form v-else-if="panel === 'mastery'" class="form-grid" @submit.prevent="masteryForm.post('/progress/mastery/evaluate', { onSuccess: () => (panel = null) })">
+      <form
+        v-else-if="panel === 'mastery'"
+        class="form-grid"
+        @submit.prevent="
+          masteryForm.post('/progress/mastery/evaluate', { onSuccess: () => (panel = null) })
+        "
+      >
         <label>Capability ID<input v-model="masteryForm.capability_id" dir="ltr" required /></label>
         <p v-if="!mastery_policies.length" class="empty-state">
           لا توجد Mastery Policy Revision معتمدة؛ لن يُنشأ حكم إتقان من Policy ID حر.
@@ -872,21 +1215,48 @@ function removePortfolioItem(): void {
             </option>
           </select>
         </label>
-        <label>Freshness<select v-model="masteryForm.freshness_status" dir="ltr"><option>CURRENT</option><option>REVALIDATION_REQUIRED</option></select></label>
+        <label
+          >Freshness<select v-model="masteryForm.freshness_status" dir="ltr">
+            <option>CURRENT</option>
+            <option>REVALIDATION_REQUIRED</option>
+          </select></label
+        >
         <label class="wide">المسوّغ<textarea v-model="masteryForm.rationale" required /></label>
-        <p class="wide form-note"><bdi dir="ltr">MASTERED + REVALIDATION_REQUIRED</bdi> حالة قانونية؛ البعدان مستقلان.</p>
+        <p class="wide form-note">
+          <bdi dir="ltr">MASTERED + REVALIDATION_REQUIRED</bdi> حالة قانونية؛ البعدان مستقلان.
+        </p>
         <button class="button primary form-submit" type="submit">Append Mastery State</button>
       </form>
 
-      <form v-else-if="panel === 'portfolio'" class="form-grid" @submit.prevent="portfolioForm.post('/progress/portfolio', { onSuccess: () => (panel = null) })">
+      <form
+        v-else-if="panel === 'portfolio'"
+        class="form-grid"
+        @submit.prevent="
+          portfolioForm.post('/progress/portfolio', { onSuccess: () => (panel = null) })
+        "
+      >
         <label>اسم العرض<input v-model="portfolioForm.name" required /></label>
         <label>View Scope<input v-model="portfolioForm.view_scope" dir="ltr" /></label>
         <label>Grouping<input v-model="portfolioForm.grouping" dir="ltr" required /></label>
         <button class="button primary form-submit" type="submit">إنشاء Reference Projection</button>
       </form>
 
-      <form v-else-if="panel === 'portfolio-add' && selectedPortfolio" class="form-grid" @submit.prevent="portfolioAdd.post(`/progress/portfolio/${selectedPortfolio.id}/evidence`, { onSuccess: () => (panel = null) })">
-        <label>Evidence<select v-model="portfolioAdd.evidence_id"><option v-for="item in evidence" :key="item.id" :value="item.id">{{ item.title }}</option></select></label>
+      <form
+        v-else-if="panel === 'portfolio-add' && selectedPortfolio"
+        class="form-grid"
+        @submit.prevent="
+          portfolioAdd.post(`/progress/portfolio/${selectedPortfolio.id}/evidence`, {
+            onSuccess: () => (panel = null),
+          })
+        "
+      >
+        <label
+          >Evidence<select v-model="portfolioAdd.evidence_id">
+            <option v-for="item in evidence" :key="item.id" :value="item.id">
+              {{ item.title }}
+            </option>
+          </select></label
+        >
         <label class="wide">ملاحظة<textarea v-model="portfolioAdd.annotation" /></label>
         <button class="button primary form-submit" type="submit">إضافة Canonical Reference</button>
       </form>
@@ -909,8 +1279,7 @@ function removePortfolioItem(): void {
   padding: 1rem;
   color: #d6e1ea;
   background:
-    radial-gradient(circle at 55% -20%, rgba(36, 99, 116, 0.15), transparent 34rem),
-    #050b12;
+    radial-gradient(circle at 55% -20%, rgba(36, 99, 116, 0.15), transparent 34rem), #050b12;
 }
 
 .panel,
@@ -1056,7 +1425,7 @@ h3 {
 .workspace-grid {
   direction: ltr;
   display: grid;
-  grid-template-areas: "left center right";
+  grid-template-areas: 'left center right';
   grid-template-columns: 12rem minmax(0, 1fr) 17.5rem;
   gap: 0.75rem;
   align-items: start;
@@ -1696,7 +2065,7 @@ bdi {
 
 @media (max-width: 1240px) {
   .workspace-grid {
-    grid-template-areas: "left center" "left right";
+    grid-template-areas: 'left center' 'left right';
     grid-template-columns: 11.5rem minmax(0, 1fr);
   }
 
@@ -1722,7 +2091,7 @@ bdi {
   }
 
   .workspace-grid {
-    grid-template-areas: "left" "center" "right";
+    grid-template-areas: 'left' 'center' 'right';
     grid-template-columns: minmax(0, 1fr);
   }
 

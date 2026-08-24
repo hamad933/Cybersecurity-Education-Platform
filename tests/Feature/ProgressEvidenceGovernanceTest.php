@@ -624,24 +624,31 @@ class ProgressEvidenceGovernanceTest extends TestCase
     /** @return array<string, mixed> */
     private function handoff(array $overrides = []): array
     {
-        return [
+        $handoff = [
             'source_type' => 'SYNTHETIC_TEST_HANDOFF',
             'source_id' => 'fixture:result:'.Str::lower(Str::random(12)),
             'source_revision' => '1',
             'source_digest' => hash('sha256', Str::random(64)),
             'selected_material_refs' => ['artifact:fixture:primary'],
             'capability_id' => 'CAP-APPSEC-INPUT-VALIDATION',
-            'evidence_claim' => 'The learner identified and remediated an input-validation weakness.',
-            'criterion_scope' => ['CRIT-INPUT-VALIDATION'],
-            'governed_purpose' => 'FORMAL_CAPABILITY_EVIDENCE',
-            'title' => 'Governed input-validation evidence',
-            'summary' => 'Persisted synthetic fixture handed off through the W04 source contract.',
             'facts' => [
                 'claim' => 'The learner identified and remediated an input-validation weakness.',
                 'environment' => 'isolated-test-fixture',
             ],
             'metadata' => ['fixture' => true],
             ...$overrides,
+        ];
+        $ownerId = $this->owner->id;
+        $receipt = app(ProgressEvidenceService::class)
+            ->registerSourceHandoffReceipt($ownerId, $ownerId, $handoff);
+
+        return [
+            'handoff_receipt_id' => $receipt['id'],
+            'evidence_claim' => $overrides['evidence_claim'] ?? 'The learner identified and remediated an input-validation weakness.',
+            'criterion_scope' => $overrides['criterion_scope'] ?? ['CRIT-INPUT-VALIDATION'],
+            'governed_purpose' => $overrides['governed_purpose'] ?? 'FORMAL_CAPABILITY_EVIDENCE',
+            'title' => $overrides['title'] ?? 'Governed input-validation evidence',
+            'summary' => $overrides['summary'] ?? 'Persisted synthetic fixture handed off through the W04 source contract.',
         ];
     }
 

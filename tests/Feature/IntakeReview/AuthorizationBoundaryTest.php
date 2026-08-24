@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\IntakeReview;
 
+use App\Modules\Evidence\Application\ProgressEvidenceService;
 use App\Modules\Evidence\IntakeReview\Application\EvidenceIntakeService;
 use App\Modules\Evidence\IntakeReview\Domain\IntakeReviewException;
 use App\Modules\IdentityAccess\Actions\CreateOwner;
@@ -25,20 +26,26 @@ final class AuthorizationBoundaryTest extends TestCase
         );
         $otherActorId = (string) Str::uuid7();
         $service = app(EvidenceIntakeService::class);
-        $candidate = $service->receive($otherActorId, $otherActorId, [
+        $handoff = [
             'source_type' => 'ASSESSMENT_RESULT',
             'source_id' => 'fixture:actor-boundary',
             'source_revision' => '1',
             'source_digest' => hash('sha256', 'actor-boundary'),
             'selected_material_refs' => ['artifact:actor-boundary'],
             'capability_id' => 'CAP-ACTOR',
+            'facts' => ['synthetic' => true],
+            'metadata' => [],
+        ];
+        $receipt = app(ProgressEvidenceService::class)
+            ->registerSourceHandoffReceipt($otherActorId, $otherActorId, $handoff);
+
+        $candidate = $service->receive($otherActorId, $otherActorId, [
+            'handoff_receipt_id' => $receipt['id'],
             'evidence_claim' => 'Evidence owned by a different subject actor.',
             'criterion_scope' => ['CRIT-ACTOR'],
             'governed_purpose' => 'FORMAL_CAPABILITY_EVIDENCE',
             'title' => 'Actor-boundary fixture',
             'summary' => 'Synthetic actor-boundary fixture.',
-            'facts' => ['synthetic' => true],
-            'metadata' => [],
         ]);
 
         $this->expectException(IntakeReviewException::class);
