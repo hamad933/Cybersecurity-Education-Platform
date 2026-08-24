@@ -2,8 +2,7 @@
 
 namespace App\Modules\Platform\SystemOperations;
 
-use App\Modules\ManualAiBridge\Models\ImportedAiResult;
-use App\Modules\ManualAiBridge\Models\PromptPackageRevision;
+use App\Modules\ManualAiBridge\Application\ManualAiStateReader;
 use App\Modules\Platform\Audit\AuditChainVerifier;
 use App\Modules\Platform\Health\FoundationHealth;
 use App\Modules\Platform\Release\ReleaseReadiness;
@@ -17,6 +16,7 @@ final class SystemOperationsState
         private readonly FoundationHealth $health,
         private readonly ReleaseReadiness $releaseReadiness,
         private readonly AuditChainVerifier $auditChain,
+        private readonly ManualAiStateReader $aiState,
     ) {
         // Constructor uses property promotion only.
     }
@@ -220,8 +220,7 @@ final class SystemOperationsState
         }
 
         return $this->safe(function () use ($actorId): array {
-            return PromptPackageRevision::query()
-                ->from('prompt_package_revisions as revision')
+            return $this->aiState->promptRevisions()
                 ->join('prompt_packages as prompt', 'prompt.id', '=', 'revision.prompt_package_id')
                 ->join('portable_packages as package', 'package.id', '=', 'revision.portable_package_id')
                 ->where('prompt.actor_id', $actorId)
@@ -261,8 +260,7 @@ final class SystemOperationsState
         }
 
         return $this->safe(function () use ($actorId): array {
-            return ImportedAiResult::query()
-                ->from('imported_ai_results as result')
+            return $this->aiState->importedResults()
                 ->join('prompt_package_revisions as revision', 'revision.id', '=', 'result.prompt_package_revision_id')
                 ->join('prompt_packages as prompt', 'prompt.id', '=', 'revision.prompt_package_id')
                 ->join('portable_packages as returned_package', 'returned_package.id', '=', 'result.portable_package_id')
