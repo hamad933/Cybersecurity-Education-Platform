@@ -147,10 +147,11 @@ final class SimulationEnterpriseDomainTest extends TestCase
         ], self::ACTOR);
 
         $initialSnapshot = DB::table('simulation_runtime_snapshots')->where('run_id', $run['id'])->orderBy('sequence')->firstOrFail();
+        $nextSequence = (int) DB::table('simulation_runtime_snapshots')->where('run_id', $run['id'])->max('sequence') + 1;
         DB::table('simulation_runtime_snapshots')->insert([
             'id' => (string) Str::uuid7(),
             'run_id' => $run['id'],
-            'sequence' => 2,
+            'sequence' => $nextSequence,
             'event_sequence' => 4,
             'digital_twin_id' => $run['digital_twin_id'],
             'digital_twin_revision_id' => $run['digital_twin_revision_id'],
