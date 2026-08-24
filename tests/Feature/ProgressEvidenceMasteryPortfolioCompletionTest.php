@@ -357,8 +357,8 @@ class ProgressEvidenceMasteryPortfolioCompletionTest extends TestCase
             'selected_material_refs' => ['artifact:fixture:primary'],
             'capability_id' => 'CAP-APPSEC-INPUT-VALIDATION',
             'facts' => [
-                'environment' => 'isolated-test-fixture',
-                'attribution_confidence' => 0.95,
+                ['key' => 'environment', 'value' => 'isolated-test-fixture'],
+                ['key' => 'attribution_confidence', 'value' => '0.95'],
             ],
             'metadata' => ['fixture' => true],
             ...$overrides,

@@ -33,7 +33,7 @@ final class AuthorizationBoundaryTest extends TestCase
             'source_digest' => hash('sha256', 'actor-boundary'),
             'selected_material_refs' => ['artifact:actor-boundary'],
             'capability_id' => 'CAP-ACTOR',
-            'facts' => ['synthetic' => true],
+            'facts' => [['key' => 'synthetic', 'value' => 'true']],
             'metadata' => [],
         ];
         $receipt = app(ProgressEvidenceService::class)

@@ -67,7 +67,7 @@ final class CandidateLifecycleTest extends TestCase
             'source_digest' => hash('sha256', $key),
             'selected_material_refs' => ["artifact:{$key}"],
             'capability_id' => 'CAP-APPSEC-INPUT',
-            'facts' => ['fixture' => $key],
+            'facts' => [['key' => 'fixture', 'value' => $key]],
             'metadata' => ['synthetic' => true],
         ];
         $receipt = app(ProgressEvidenceService::class)

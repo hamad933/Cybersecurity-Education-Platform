@@ -104,7 +104,7 @@ final class MultiEvidenceDecisionTest extends TestCase
             'source_digest' => hash('sha256', $key),
             'selected_material_refs' => ["artifact:{$key}"],
             'capability_id' => 'CAP-DECISION',
-            'facts' => ['fixture' => $key],
+            'facts' => [['key' => 'fixture', 'value' => $key]],
             'metadata' => ['synthetic' => true],
         ];
         $receipt = app(ProgressEvidenceService::class)

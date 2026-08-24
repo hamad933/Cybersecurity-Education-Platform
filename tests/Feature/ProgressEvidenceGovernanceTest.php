@@ -632,8 +632,8 @@ class ProgressEvidenceGovernanceTest extends TestCase
             'selected_material_refs' => ['artifact:fixture:primary'],
             'capability_id' => 'CAP-APPSEC-INPUT-VALIDATION',
             'facts' => [
-                'claim' => 'The learner identified and remediated an input-validation weakness.',
-                'environment' => 'isolated-test-fixture',
+                ['key' => 'claim', 'value' => 'The learner identified and remediated an input-validation weakness.'],
+                ['key' => 'environment', 'value' => 'isolated-test-fixture'],
             ],
             'metadata' => ['fixture' => true],
             ...$overrides,

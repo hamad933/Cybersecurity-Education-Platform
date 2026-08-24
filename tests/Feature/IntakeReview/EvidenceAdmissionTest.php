@@ -56,7 +56,7 @@ final class EvidenceAdmissionTest extends TestCase
             'source_digest' => hash('sha256', $key),
             'selected_material_refs' => ["artifact:{$key}:one", "artifact:{$key}:two"],
             'capability_id' => 'CAP-IR-001',
-            'facts' => ['fixture' => $key],
+            'facts' => [['key' => 'fixture', 'value' => $key]],
             'metadata' => ['synthetic' => true],
         ];
         $receipt = app(ProgressEvidenceService::class)
