@@ -49,7 +49,7 @@ final class SimulationEnterpriseController extends Controller
         return $this->render('results');
     }
 
-    public function prepareScenario(Request $request, string $scenario): RedirectResponse
+    public function prepareScenario(Request $request, string $scenario): \Illuminate\Http\RedirectResponse
     {
         $validated = $request->validate([
             'seed' => ['required', 'integer', 'min:0', 'max:2147483647'],
@@ -64,7 +64,7 @@ final class SimulationEnterpriseController extends Controller
         ), 'cep.simulation.runs');
     }
 
-    public function prepareLab(Request $request, string $lab): RedirectResponse
+    public function prepareLab(Request $request, string $lab): \Illuminate\Http\RedirectResponse
     {
         $validated = $request->validate([
             'seed' => ['required', 'integer', 'min:0', 'max:2147483647'],
@@ -79,42 +79,42 @@ final class SimulationEnterpriseController extends Controller
         ), 'cep.simulation.runs');
     }
 
-    public function ready(string $run): RedirectResponse
+    public function ready(string $run): \Illuminate\Http\RedirectResponse
     {
         return $this->runTransition(fn () => $this->simulation->markReady($run, $this->actorId()));
     }
 
-    public function start(string $run): RedirectResponse
+    public function start(string $run): \Illuminate\Http\RedirectResponse
     {
         return $this->runTransition(fn () => $this->simulation->start($run, $this->actorId()));
     }
 
-    public function pause(string $run): RedirectResponse
+    public function pause(string $run): \Illuminate\Http\RedirectResponse
     {
         return $this->runTransition(fn () => $this->simulation->pause($run, $this->actorId()));
     }
 
-    public function resume(string $run): RedirectResponse
+    public function resume(string $run): \Illuminate\Http\RedirectResponse
     {
         return $this->runTransition(fn () => $this->simulation->resume($run, $this->actorId()));
     }
 
-    public function stop(string $run): RedirectResponse
+    public function stop(string $run): \Illuminate\Http\RedirectResponse
     {
         return $this->runTransition(fn () => $this->simulation->stop($run, $this->actorId()));
     }
 
-    public function complete(string $run): RedirectResponse
+    public function complete(string $run): \Illuminate\Http\RedirectResponse
     {
         return $this->runTransition(fn () => $this->simulation->completeInternalSimulation($run, $this->actorId()));
     }
 
-    public function snapshot(string $run): RedirectResponse
+    public function snapshot(string $run): \Illuminate\Http\RedirectResponse
     {
         return $this->runTransition(fn () => $this->simulation->captureSnapshot($run, $this->actorId()));
     }
 
-    public function operate(Request $request, string $run): RedirectResponse
+    public function operate(Request $request, string $run): \Illuminate\Http\RedirectResponse
     {
         $validated = $request->validate([
             'operation_key' => ['required', 'string', 'min:12', 'max:120', 'regex:/^[A-Za-z0-9._:-]+$/'],
@@ -131,7 +131,7 @@ final class SimulationEnterpriseController extends Controller
         ], $this->actorId()), 'cep.simulation.runs');
     }
 
-    public function sealResult(Request $request, string $run): RedirectResponse
+    public function sealResult(Request $request, string $run): \Illuminate\Http\RedirectResponse
     {
         $validated = $request->validate([
             'outcome' => ['required', 'string', 'in:ACHIEVED,PARTIAL,NOT_ACHIEVED,INCONCLUSIVE,NOT_EVALUATED'],
@@ -148,12 +148,12 @@ final class SimulationEnterpriseController extends Controller
         ), 'cep.simulation.results');
     }
 
-    public function replayCompare(string $result): RedirectResponse
+    public function replayCompare(string $result): \Illuminate\Http\RedirectResponse
     {
         return $this->mutate(fn () => $this->simulation->replayAndCompareResult($result, $this->actorId()), 'cep.simulation.results');
     }
 
-    public function candidateEvidenceHandoff(Request $request, string $result): RedirectResponse
+    public function candidateEvidenceHandoff(Request $request, string $result): \Illuminate\Http\RedirectResponse
     {
         $validated = $request->validate([
             'claim_ar' => ['required', 'string', 'max:1000'],
@@ -358,7 +358,7 @@ final class SimulationEnterpriseController extends Controller
     }
 
     /** @param callable():mixed $action */
-    private function mutate(callable $action, string $route): RedirectResponse
+    private function mutate(callable $action, string $route): \Illuminate\Http\RedirectResponse
     {
         try {
             $action();
@@ -370,7 +370,7 @@ final class SimulationEnterpriseController extends Controller
     }
 
     /** @param callable():mixed $action */
-    private function runTransition(callable $action): RedirectResponse
+    private function runTransition(callable $action): \Illuminate\Http\RedirectResponse
     {
         return $this->mutate($action, 'cep.simulation.runs');
     }

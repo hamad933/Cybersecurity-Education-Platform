@@ -50,7 +50,7 @@ final class SimulationEnterpriseService
     /**
      * @param  array<string, mixed>  $orchestration
      * @param  array<string, mixed>  $validation
-     * @return array<string, mixed>
+     * @return array{id: string, enterprise_id: string, baseline_id: string, slug: string, title_ar: string, title_en: string|null, revision: int, status: string, orchestration: string, validation: string, digest: string, created_by: string|null, created_at: string, updated_at: string}
      */
     public function publishScenario(
         string $enterpriseId,
@@ -92,7 +92,7 @@ final class SimulationEnterpriseService
     /**
      * @param  array<string, mixed>  $configuration
      * @param  array<string, mixed>  $validation
-     * @return array<string, mixed>
+     * @return array{id: string, enterprise_id: string, baseline_id: string, slug: string, title_ar: string, title_en: string|null, revision: int, status: string, configuration: string, validation: string, digest: string, created_by: string|null, created_at: string, updated_at: string}
      */
     public function publishLab(
         string $enterpriseId,
@@ -133,7 +133,7 @@ final class SimulationEnterpriseService
 
     /**
      * @param  array<string, mixed>  $policy
-     * @return array<string, mixed>
+     * @return array{id: string, scenario_definition_id: string, lab_definition_id: string, module_key: string, ordinal: int, policy: string, created_at: string, updated_at: string}
      */
     public function attachLabModule(string $scenarioDefinitionId, string $labDefinitionId, string $moduleKey, array $policy = []): array
     {
@@ -164,7 +164,7 @@ final class SimulationEnterpriseService
 
     /**
      * @param  array<string, mixed>  $executionPolicies
-     * @return array<string, mixed>
+     * @return array{id: string, run_type: string, lifecycle: string, enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, scenario_definition_id: string|null, standalone_lab_definition_id: string|null, seed: int, execution_policies: string, runtime_state: string, input_digest: string, definition_digest: string, provenance: string, source_fixture: bool, started_at: string|null, ready_at: string|null, stopped_at: string|null, completed_at: string|null, failed_at: string|null, created_at: string, updated_at: string}
      */
     public function prepareScenarioRun(string $scenarioDefinitionId, int $seed, array $executionPolicies, string $actorId): array
     {
@@ -195,7 +195,7 @@ final class SimulationEnterpriseService
 
     /**
      * @param  array<string, mixed>  $executionPolicies
-     * @return array<string, mixed>
+     * @return array{id: string, run_type: string, lifecycle: string, enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, scenario_definition_id: string|null, standalone_lab_definition_id: string|null, seed: int, execution_policies: string, runtime_state: string, input_digest: string, definition_digest: string, provenance: string, source_fixture: bool, started_at: string|null, ready_at: string|null, stopped_at: string|null, completed_at: string|null, failed_at: string|null, created_at: string, updated_at: string}
      */
     public function prepareStandaloneLabRun(string $labDefinitionId, int $seed, array $executionPolicies, string $actorId): array
     {
@@ -219,31 +219,31 @@ final class SimulationEnterpriseService
         });
     }
 
-    /** @return array<string,mixed> */
+    /** @return array{id: string, run_type: string, lifecycle: string, enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, scenario_definition_id: string|null, standalone_lab_definition_id: string|null, seed: int, execution_policies: string, runtime_state: string, input_digest: string, definition_digest: string, provenance: string, source_fixture: bool, started_at: string|null, ready_at: string|null, stopped_at: string|null, completed_at: string|null, failed_at: string|null, created_at: string, updated_at: string} */
     public function markReady(string $runId, string $actorId): array
     {
         return $this->transition($runId, 'READY', 'RUN_READY', $actorId);
     }
 
-    /** @return array<string,mixed> */
+    /** @return array{id: string, run_type: string, lifecycle: string, enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, scenario_definition_id: string|null, standalone_lab_definition_id: string|null, seed: int, execution_policies: string, runtime_state: string, input_digest: string, definition_digest: string, provenance: string, source_fixture: bool, started_at: string|null, ready_at: string|null, stopped_at: string|null, completed_at: string|null, failed_at: string|null, created_at: string, updated_at: string} */
     public function start(string $runId, string $actorId): array
     {
         return $this->transition($runId, 'RUNNING', 'RUN_STARTED', $actorId);
     }
 
-    /** @return array<string,mixed> */
+    /** @return array{id: string, run_type: string, lifecycle: string, enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, scenario_definition_id: string|null, standalone_lab_definition_id: string|null, seed: int, execution_policies: string, runtime_state: string, input_digest: string, definition_digest: string, provenance: string, source_fixture: bool, started_at: string|null, ready_at: string|null, stopped_at: string|null, completed_at: string|null, failed_at: string|null, created_at: string, updated_at: string} */
     public function pause(string $runId, string $actorId): array
     {
         return $this->transition($runId, 'PAUSED', 'RUN_PAUSED', $actorId);
     }
 
-    /** @return array<string,mixed> */
+    /** @return array{id: string, run_type: string, lifecycle: string, enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, scenario_definition_id: string|null, standalone_lab_definition_id: string|null, seed: int, execution_policies: string, runtime_state: string, input_digest: string, definition_digest: string, provenance: string, source_fixture: bool, started_at: string|null, ready_at: string|null, stopped_at: string|null, completed_at: string|null, failed_at: string|null, created_at: string, updated_at: string} */
     public function resume(string $runId, string $actorId): array
     {
         return $this->transition($runId, 'RUNNING', 'RUN_RESUMED', $actorId);
     }
 
-    /** @return array<string,mixed> */
+    /** @return array{id: string, run_type: string, lifecycle: string, enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, scenario_definition_id: string|null, standalone_lab_definition_id: string|null, seed: int, execution_policies: string, runtime_state: string, input_digest: string, definition_digest: string, provenance: string, source_fixture: bool, started_at: string|null, ready_at: string|null, stopped_at: string|null, completed_at: string|null, failed_at: string|null, created_at: string, updated_at: string} */
     public function stop(string $runId, string $actorId): array
     {
         return $this->transition($runId, 'STOPPED', 'RUN_STOPPED', $actorId);
@@ -251,7 +251,7 @@ final class SimulationEnterpriseService
 
     /**
      * @param  array{operation_key: string, verb: string, target: string, value: mixed}  $operation
-     * @return array<string, mixed>
+     * @return array{id: string, run_id: string, operation_key: string, grammar_version: string, verb: string, target: string, value: string, pre_state_digest: string, post_state_digest: string, telemetry: string, actor_id: string, occurred_at: string}
      */
     public function applyOperation(string $runId, array $operation, string $actorId): array
     {
@@ -321,7 +321,7 @@ final class SimulationEnterpriseService
         });
     }
 
-    /** @return array<string,mixed> */
+    /** @return array{id: string, run_type: string, lifecycle: string, enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, scenario_definition_id: string|null, standalone_lab_definition_id: string|null, seed: int, execution_policies: string, runtime_state: string, input_digest: string, definition_digest: string, provenance: string, source_fixture: bool, started_at: string|null, ready_at: string|null, stopped_at: string|null, completed_at: string|null, failed_at: string|null, created_at: string, updated_at: string} */
     public function completeInternalSimulation(string $runId, string $actorId): array
     {
         $this->assertActor($actorId);
@@ -367,7 +367,7 @@ final class SimulationEnterpriseService
         });
     }
 
-    /** @return array<string,mixed> */
+    /** @return array{id: string, run_id: string, sequence: int, event_sequence: int, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, state: string, state_digest: string, captured_by: string, captured_at: string, created_at: string} */
     public function captureSnapshot(string $runId, string $actorId): array
     {
         $this->assertActor($actorId);
@@ -392,7 +392,7 @@ final class SimulationEnterpriseService
 
     /**
      * @param  list<array<string, mixed>>  $artifacts
-     * @return array<string, mixed>
+     * @return array{id: string, run_id: string, outcome: string, score: float|null, summary_ar: string, sealed_payload: string, replay_timeline: string, artifacts: string, result_revision: int, result_digest: string, provenance: string, source_fixture: bool, sealed_by: string, sealed_at: string, created_at: string}
      */
     public function sealResult(string $runId, string $outcome, string $summaryAr, ?float $score, string $actorId, array $artifacts = []): array
     {
@@ -510,7 +510,7 @@ final class SimulationEnterpriseService
         });
     }
 
-    /** @return array<string,mixed> */
+    /** @return array{id: string, result_id: string, reconstruction: string, sealed_result_digest: string, reconstructed_state_digest: string, integrity_match: bool, actor_id: string, compared_at: string, created_at: string} */
     public function replayAndCompareResult(string $resultId, string $actorId): array
     {
         $this->assertActor($actorId);
@@ -700,7 +700,7 @@ final class SimulationEnterpriseService
 
     /**
      * @param  array<string, mixed>  $candidateManifest
-     * @return array<string, mixed>
+     * @return array{id: string, result_id: string, status: string, candidate_manifest: string, source_result_revision: int, source_result_digest: string, provenance: string, source_fixture: bool, manifest_digest: string, created_by: string, intake_contract_ref: string|null, handed_off_at: string|null, created_at: string, updated_at: string}
      */
     public function createCandidateEvidenceHandoff(string $resultId, array $candidateManifest, ?string $intakeContractRef, string $actorId): array
     {
@@ -785,7 +785,7 @@ final class SimulationEnterpriseService
     /**
      * @param  array<string, mixed>  $lineage
      * @param  array<string, mixed>  $executionPolicies
-     * @return array<string, mixed>
+     * @return array{id: string, run_type: string, lifecycle: string, enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, scenario_definition_id: string|null, standalone_lab_definition_id: string|null, seed: int, execution_policies: string, runtime_state: string, input_digest: string, definition_digest: string, provenance: string, source_fixture: bool, started_at: string|null, ready_at: string|null, stopped_at: string|null, completed_at: string|null, failed_at: string|null, created_at: string, updated_at: string}
      */
     private function insertRun(
         string $runType,
@@ -851,7 +851,7 @@ final class SimulationEnterpriseService
         return $this->row('simulation_runs', $id);
     }
 
-    /** @return array<string,mixed> */
+    /** @return array{enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, baseline_state: string, provenance: string, source_fixture: bool} */
     private function lineage(string $enterpriseId, string $baselineId): array
     {
         $state = $this->requirePublishedBaseline($enterpriseId, $baselineId);
@@ -898,7 +898,7 @@ final class SimulationEnterpriseService
         ]);
     }
 
-    /** @return array<string,mixed> */
+    /** @return array{id: string, run_type: string, lifecycle: string, enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, scenario_definition_id: string|null, standalone_lab_definition_id: string|null, seed: int, execution_policies: string, runtime_state: string, input_digest: string, definition_digest: string, provenance: string, source_fixture: bool, started_at: string|null, ready_at: string|null, stopped_at: string|null, completed_at: string|null, failed_at: string|null, created_at: string, updated_at: string} */
     private function transition(string $runId, string $to, string $eventType, string $actorId): array
     {
         $this->assertActor($actorId);
@@ -913,7 +913,7 @@ final class SimulationEnterpriseService
         });
     }
 
-    /** @return array<string,mixed> */
+    /** @return array{id: string, run_type: string, lifecycle: string, enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, scenario_definition_id: string|null, standalone_lab_definition_id: string|null, seed: int, execution_policies: string, runtime_state: string, input_digest: string, definition_digest: string, provenance: string, source_fixture: bool, started_at: string|null, ready_at: string|null, stopped_at: string|null, completed_at: string|null, failed_at: string|null, created_at: string, updated_at: string} */
     private function transitionLocked(string $runId, string $from, string $to, string $eventType, string $actorId): array
     {
         if (! in_array($to, self::TRANSITIONS[$from] ?? [], true)) {
@@ -943,7 +943,7 @@ final class SimulationEnterpriseService
 
     /**
      * @param  array<string, mixed>  $payload
-     * @return array<string, mixed>
+     * @return array{id: string, run_id: string, sequence: int, event_type: string, payload: string, actor_id: string, occurred_at: string, created_at: string}
      */
     private function appendEvent(string $runId, string $eventType, array $payload, string $actorId): array
     {
@@ -964,7 +964,7 @@ final class SimulationEnterpriseService
         return $this->row('simulation_run_events', $id);
     }
 
-    /** @return array<string,mixed> */
+    /** @return array{id: string, run_id: string, sequence: int, event_sequence: int, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, state: string, state_digest: string, captured_by: string, captured_at: string, created_at: string} */
     private function insertSnapshot(stdClass $run, string $actorId): array
     {
         $sequence = (int) DB::table('simulation_runtime_snapshots')->where('run_id', $run->id)->max('sequence') + 1;
@@ -1043,7 +1043,7 @@ final class SimulationEnterpriseService
         return [$state, $telemetry];
     }
 
-    /** @return array<string,mixed> */
+    /** @return array{runId: string, outcome: string, score: float|null, summaryAr: string, sealedPayload: array<array-key, mixed>, timeline: list<array<array-key, mixed>>, artifacts: list<array<array-key, mixed>>, revision: int, provenance: string, sourceFixture: bool} */
     private function resultDigestPayloadFromRow(stdClass $result): array
     {
         return $this->resultDigestPayload(
@@ -1064,7 +1064,7 @@ final class SimulationEnterpriseService
      * @param  array<string, mixed>  $sealedPayload
      * @param  list<array<string, mixed>>  $timeline
      * @param  list<array<string, mixed>>  $artifacts
-     * @return array<string, mixed>
+     * @return array{runId: string, outcome: string, score: float|null, summaryAr: string, sealedPayload: array<array-key, mixed>, timeline: list<array<array-key, mixed>>, artifacts: list<array<array-key, mixed>>, revision: int, provenance: string, sourceFixture: bool}
      */
     private function resultDigestPayload(
         string $runId,
@@ -1102,7 +1102,7 @@ final class SimulationEnterpriseService
         }
     }
 
-    /** @return array<string,mixed> */
+    /** @return array{id: string, [key: string]: mixed} */
     private function row(string $table, string $id): array
     {
         return (array) $this->requireRow($table, $id);
