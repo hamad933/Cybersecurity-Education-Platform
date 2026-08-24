@@ -137,7 +137,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
         $revisionTwo = $this->service->createRevision($reviewed['evidence']['id'], $this->owner->id, [
             'title' => 'Governed input-validation evidence — corrected',
             'summary' => 'Correction of the same governed Evidence Claim while preserving Revision 1.',
-            'facts' => ['claim' => 'Corrected fact set'],
+            'facts' => [['key' => 'claim', 'value' => 'Corrected fact set']],
             'selected_material_refs' => ['artifact:fixture:corrected'],
             'criterion_scope' => ['CRIT-INPUT-VALIDATION'],
             'source_revision' => '2',
