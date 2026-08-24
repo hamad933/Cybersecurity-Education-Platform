@@ -1102,7 +1102,7 @@ final class SimulationEnterpriseService
         }
     }
 
-    /** @return array{id: string, [key: string]: mixed} */
+    /** @return array<string, mixed> */
     private function row(string $table, string $id): array
     {
         return (array) $this->requireRow($table, $id);
