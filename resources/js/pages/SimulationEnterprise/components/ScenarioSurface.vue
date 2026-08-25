@@ -26,111 +26,13 @@ const phases = computed(() => orderedItems(props.scenario?.orchestration.phases,
     </div>
 
     <div v-else class="sim-flow-workbench" data-testid="scenario-orchestration">
-      <!-- Canvas Sub-Toolbar -->
-      <div class="sim-canvas-subtoolbar">
-        <div class="sim-canvas-subtoolbar__left">
-          <button type="button" class="sim-tool-btn sim-tool-btn--active" title="تحديد">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path d="M3 3l7 18 3-7 7-3L3 3z" />
-            </svg>
-            <span>Select</span>
-          </button>
-          <button type="button" class="sim-tool-btn" title="إضافة مرحلة">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 8v8M8 12h8" />
-            </svg>
-            <span>Add Phase</span>
-          </button>
-          <button type="button" class="sim-tool-btn" title="إضافة حدث">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <path d="M12 8v8M8 12h8" />
-            </svg>
-            <span>Add Event</span>
-          </button>
-          <button type="button" class="sim-tool-btn" title="إضافة Inject">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-            <span>Add Inject</span>
-          </button>
-          <button type="button" class="sim-tool-btn" title="إضافة قرار">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <polygon points="12 2 22 12 12 22 2 12" />
-            </svg>
-            <span>Add Decision</span>
-          </button>
-          <button type="button" class="sim-tool-btn" title="إضافة وحدة مختبر">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path d="M10 2v7.31M14 2v7.31M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0" />
-            </svg>
-            <span>Add Lab Module</span>
-          </button>
-          <button type="button" class="sim-tool-btn" title="توصيل">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-            </svg>
-            <span>Connect</span>
-          </button>
-        </div>
-      </div>
+      <div class="sim-rule-note">عرض تعريف محكوم للقراءة؛ تحرير orchestration غير متاح هنا.</div>
 
       <!-- Canvas Banner / Title -->
       <div class="sim-canvas-caption">
         <div class="sim-caption-main">
           <strong>{{ scenario.title_ar }}</strong>
-          <span class="sim-badge sim-badge--draft">Draft Revision {{ scenario.revision }}</span>
+          <span class="sim-badge">Revision {{ scenario.revision }}</span>
         </div>
         <div class="sim-canvas-counts">
           <span>{{ phases.length }} PHASES</span>
@@ -191,7 +93,7 @@ const phases = computed(() => orderedItems(props.scenario?.orchestration.phases,
               </svg>
             </div>
 
-            <!-- Secondary Module / Inject / Decision Card -->
+            <!-- Governed module-reference lane -->
             <div class="sim-phase-module-lane">
               <!-- Governed Lab Module Reference if present for this phase -->
               <template
@@ -238,22 +140,6 @@ const phases = computed(() => orderedItems(props.scenario?.orchestration.phases,
               >
                 <span class="sim-muted">لم يتم العثور على عقد مرتبطة</span>
               </div>
-
-              <!-- Add Element Slot Placeholder -->
-              <button type="button" class="sim-add-element-slot" title="إضافة عنصر إضافي">
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-                <span>Add Element</span>
-              </button>
             </div>
           </li>
         </ol>
@@ -286,7 +172,6 @@ const phases = computed(() => orderedItems(props.scenario?.orchestration.phases,
       <!-- Flow Legend -->
       <footer class="sim-canvas-legend">
         <span><i class="sim-legend-line sim-legend-line--solid" />Sequence / Flow</span>
-        <span><i class="sim-legend-line sim-legend-line--dashed" />Conditional Flow</span>
         <span>Scenario ≠ Lab · target materializes only during Run Preparation</span>
       </footer>
     </div>

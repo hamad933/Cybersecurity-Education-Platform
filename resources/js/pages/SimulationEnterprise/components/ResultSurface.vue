@@ -113,24 +113,6 @@ function step(offset: number): void {
         <div class="sim-replay-controls" aria-label="تنقل محلي في سجل Replay">
           <button
             type="button"
-            class="sim-player-btn sim-player-btn--primary"
-            title="إيقاف / تشغيل Replay"
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <rect x="6" y="4" width="4" height="16" />
-              <rect x="14" y="4" width="4" height="16" />
-            </svg>
-            <span>Pause Replay</span>
-          </button>
-          <button
-            type="button"
             class="sim-player-btn"
             :disabled="selectedIndex === 0"
             title="خطوة للخلف"
@@ -189,8 +171,6 @@ function step(offset: number): void {
               <path d="M8 16H3v5" />
             </svg>
           </button>
-          <span class="sim-speed-tag">1x ▾</span>
-          <span class="sim-marker-tag">Jump to Marker ▾</span>
         </div>
 
         <span class="sim-readonly-control">READ-ONLY INSPECTION · NO RUN MUTATION</span>

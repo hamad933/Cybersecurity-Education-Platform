@@ -1824,7 +1824,7 @@
   white-space: nowrap;
 }
 
-.sim-tool-btn:hover {
+.sim-tool-btn:hover:not(:disabled) {
   border-color: var(--cep-accent);
   color: var(--cep-accent);
   background: var(--cep-accent-soft);
@@ -1850,9 +1850,15 @@
   transition: all 0.15s ease;
 }
 
-.sim-tool-icon-btn:hover {
+.sim-tool-icon-btn:hover:not(:disabled) {
   border-color: var(--cep-accent);
   color: var(--cep-accent);
+}
+
+.sim-tool-btn:disabled,
+.sim-tool-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .sim-zoom-value {

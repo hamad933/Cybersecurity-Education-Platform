@@ -8,7 +8,6 @@ import type { EventItem, RunItem } from '../types';
 const props = defineProps<{ run: RunItem | null }>();
 
 const lifecycleSteps = ['PREPARED', 'READY', 'RUNNING', 'PAUSED', 'COMPLETED'];
-const activeTab = ref<'siem' | 'webapp' | 'database'>('siem');
 const selectedSequence = ref<number | null>(null);
 
 const selectedEvent = computed<EventItem | null>(
@@ -24,10 +23,7 @@ watch(
 );
 
 function reached(run: RunItem, step: string): boolean {
-  const current = lifecycleSteps.indexOf(run.lifecycle);
-  const target = lifecycleSteps.indexOf(step);
-  if (['STOPPED', 'FAILED'].includes(run.lifecycle)) return target <= Math.max(current, 2);
-  return current >= target;
+  return run.lifecycle === step;
 }
 </script>
 
@@ -101,158 +97,11 @@ function reached(run: RunItem, step: string): boolean {
         </div>
       </div>
 
-      <!-- Sub-Navigation Views -->
-      <div class="sim-ops-subtabs">
-        <div class="sim-subtab-group">
-          <button
-            type="button"
-            class="sim-subtab-btn"
-            :class="{ 'sim-subtab-btn--active': activeTab === 'siem' }"
-            @click="activeTab = 'siem'"
-          >
-            SIEM / Monitoring
-          </button>
-          <button
-            type="button"
-            class="sim-subtab-btn"
-            :class="{ 'sim-subtab-btn--active': activeTab === 'webapp' }"
-            @click="activeTab = 'webapp'"
-          >
-            Web Application
-          </button>
-          <button
-            type="button"
-            class="sim-subtab-btn"
-            :class="{ 'sim-subtab-btn--active': activeTab === 'database' }"
-            @click="activeTab = 'database'"
-          >
-            Database
-          </button>
-        </div>
-
-        <button type="button" class="sim-split-view-btn" title="تقسيم العرض">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <line x1="12" y1="3" x2="12" y2="21" />
-          </svg>
-          <span>Split View</span>
-        </button>
-      </div>
-
-      <!-- Multi-Pane SIEM / Monitoring Workspace from Reference 04 -->
-      <div class="sim-ops-grid">
-        <!-- Left Pane: Events Feed -->
-        <section class="sim-alerts-panel">
-          <div class="sim-alerts-panel__header">
-            <div class="sim-flex-row">
-              <h3>Events</h3>
-              <span class="sim-badge sim-badge--cyan">{{ run.events.length }}</span>
-            </div>
-          </div>
-
-          <div class="sim-alerts-table-container">
-            <table class="sim-alerts-table">
-              <thead>
-                <tr>
-                  <th>Occurred At (UTC)</th>
-                  <th>Event Type</th>
-                  <th>Actor</th>
-                  <th>Sequence</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="event in run.events"
-                  :key="event.sequence"
-                  :class="{ 'is-selected': event.sequence === selectedSequence }"
-                  @click="selectedSequence = event.sequence"
-                >
-                  <td class="sim-technical">{{ event.occurred_at }}</td>
-                  <td>
-                    <strong>{{ event.event_type }}</strong>
-                  </td>
-                  <td class="sim-technical">{{ event.actor_id || 'غير متاح' }}</td>
-                  <td class="sim-technical">{{ event.sequence }}</td>
-                </tr>
-                <tr v-if="!run.events.length">
-                  <td colspan="4" class="sim-muted">لم تتم ملاحظة أحداث بعد.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- Right Pane: Event Details / Inspector -->
-        <section class="sim-alert-inspector-panel">
-          <div class="sim-inspector-panel__header">
-            <h3>Event Details</h3>
-            <span class="sim-badge sim-badge--cyan" v-if="selectedEvent"
-              >SEQ {{ selectedEvent.sequence }}</span
-            >
-          </div>
-
-          <template v-if="selectedEvent">
-            <!-- Event Key-Values Grid -->
-            <div class="sim-alert-kv-grid">
-              <div>
-                <dt>Event Type</dt>
-                <dd>{{ selectedEvent.event_type }}</dd>
-              </div>
-              <div>
-                <dt>Sequence</dt>
-                <dd class="sim-technical">{{ selectedEvent.sequence }}</dd>
-              </div>
-              <div>
-                <dt>Actor ID</dt>
-                <dd class="sim-technical">{{ selectedEvent.actor_id }}</dd>
-              </div>
-              <div>
-                <dt>Occurred At</dt>
-                <dd class="sim-technical">{{ selectedEvent.occurred_at }}</dd>
-              </div>
-            </div>
-
-            <!-- Sub-Tabs inside Event Inspector -->
-            <div class="sim-inspector-tabs">
-              <button type="button" class="is-active">Payload</button>
-            </div>
-
-            <!-- Event Payload Table -->
-            <div class="sim-inspector-timeline-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Key</th>
-                    <th>Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(value, key) in selectedEvent.payload" :key="String(key)">
-                    <td class="sim-technical">{{ key }}</td>
-                    <td class="sim-technical">{{ displayValue(value) }}</td>
-                  </tr>
-                  <tr v-if="!selectedEvent.payload || !Object.keys(selectedEvent.payload).length">
-                    <td colspan="2" class="sim-muted">لا يوجد حمولة (Payload)</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </template>
-          <div v-else class="sim-empty" style="padding: 2rem; text-align: center">
-            <span class="sim-muted">اختر حدثًا لعرض التفاصيل.</span>
-          </div>
-        </section>
-      </div>
-
-      <!-- Core Governed Operations Workbench maintaining all tests -->
-      <div class="sim-operations-workbench" data-testid="run-operational-truth">
+      <div
+        class="sim-operations-workbench"
+        data-testid="run-operational-truth"
+        aria-label="مساحة أحداث التشغيل الوحيدة"
+      >
         <section class="sim-event-stream">
           <header class="sim-pane-heading">
             <div>

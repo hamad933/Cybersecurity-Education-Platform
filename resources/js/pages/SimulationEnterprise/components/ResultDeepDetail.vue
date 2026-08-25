@@ -15,9 +15,13 @@ defineProps<{ result: ResultItem | null }>();
       <h3>Artifacts</h3>
       <pre class="sim-json">{{ jsonText(result.artifacts) }}</pre>
     </section>
-    <section class="sim-deep-section">
+    <section v-if="result.replay_compare" class="sim-deep-section">
       <h3>Replay Reconstruction</h3>
-      <pre class="sim-json">{{ jsonText(result.replay_compare?.reconstruction ?? {}) }}</pre>
+      <pre class="sim-json">{{ jsonText(result.replay_compare.reconstruction) }}</pre>
+    </section>
+    <section v-else class="sim-deep-section">
+      <h3>Replay Reconstruction</h3>
+      <p class="sim-muted">لا توجد replay_compare محكومة لهذه النتيجة.</p>
     </section>
     <section v-if="result.candidate_evidence_handoff" class="sim-deep-section">
       <h3>Candidate Handoff Manifest</h3>

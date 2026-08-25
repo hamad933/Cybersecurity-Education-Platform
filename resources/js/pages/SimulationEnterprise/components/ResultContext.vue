@@ -19,7 +19,6 @@ const handoffClaim = ref(
         <p class="sim-kicker">RIGHT · CONTEXT</p>
         <h2>السياق</h2>
       </div>
-      <button type="button" class="sim-close-btn" aria-label="إغلاق السياق" title="إغلاق">✕</button>
     </div>
 
     <template v-if="result">
@@ -27,40 +26,6 @@ const handoffClaim = ref(
         <strong>IMMUTABLE</strong>
         <span>الهوية والمراجعة والـ digest مقفلة تاريخيًا.</span>
       </div>
-
-      <!-- Analytical Summary from Reference 05 -->
-      <section class="sim-context-section">
-        <div class="sim-context-section__header">
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            class="sim-section-icon sim-text-cyan"
-          >
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="16" y1="13" x2="8" y2="13" />
-            <line x1="16" y1="17" x2="8" y2="17" />
-            <polyline points="10 9 9 9 8 9" />
-          </svg>
-          <h3>Analytical Summary</h3>
-        </div>
-        <div class="sim-context-card">
-          <div class="sim-context-field">
-            <small class="sim-field-label">Primary finding</small>
-            <p class="sim-context-copy">
-              Simulated injection attempt detected and contained without persistent data compromise.
-            </p>
-          </div>
-          <div class="sim-context-field">
-            <small class="sim-field-label">Timeline integrity</small>
-            <p class="sim-context-copy">Replay sequence fully verified against execution digest.</p>
-          </div>
-        </div>
-      </section>
 
       <!-- Semantic Replay / Compare -->
       <section class="sim-context-section">
@@ -96,6 +61,14 @@ const handoffClaim = ref(
           <small class="sim-technical">{{ result.replay_compare.compared_at }}</small>
         </div>
         <p v-else class="sim-muted">لم تُحفظ مقارنة Replay لهذه النتيجة بعد.</p>
+      </section>
+
+      <section class="sim-context-section" data-testid="result-interpretation-boundary">
+        <h3>حدود النتيجة</h3>
+        <p class="sim-context-copy">
+          Outcome والملخص حقول Result محكومة، وليسا Evidence أو ضمانًا لتفسير أمني. تظهر مقارنة
+          إعادة البناء فقط عند وجود replay_compare محفوظة.
+        </p>
       </section>
 
       <!-- Candidate Evidence Handoff -->

@@ -52,39 +52,10 @@ watch(
 
 function getNodeRole(node: TopologyNode): {
   icon: string;
-  theme: 'blue' | 'purple' | 'green' | 'teal' | 'red' | 'navy';
+  theme: 'blue';
   badge?: string;
   displayType: string;
 } {
-  const k = (node.kind + ' ' + node.id + ' ' + node.label).toLowerCase();
-  if (k.includes('edge') || k.includes('gateway') || k.includes('attacker')) {
-    return {
-      icon: 'terminal',
-      theme: 'red',
-      badge: 'Simulation-local',
-      displayType: 'Workstation',
-    };
-  }
-  if (k.includes('waf') || k.includes('firewall') || k.includes('security')) {
-    return {
-      icon: 'shield',
-      theme: 'purple',
-      badge: 'Security Control',
-      displayType: 'Security Control',
-    };
-  }
-  if (k.includes('app') || k.includes('web')) {
-    return { icon: 'globe', theme: 'blue', displayType: 'Web Application' };
-  }
-  if (k.includes('db') || k.includes('database') || k.includes('data')) {
-    return { icon: 'database', theme: 'green', displayType: 'Database' };
-  }
-  if (k.includes('idp') || k.includes('identity') || k.includes('auth')) {
-    return { icon: 'user-check', theme: 'teal', displayType: 'Identity Service' };
-  }
-  if (k.includes('siem') || k.includes('monitor') || k.includes('log')) {
-    return { icon: 'activity', theme: 'navy', displayType: 'Monitoring' };
-  }
   return { icon: 'server', theme: 'blue', displayType: node.kind };
 }
 
@@ -124,15 +95,7 @@ function point(nodeId: string): { x: number; y: number } {
 }
 
 function getLinkLabel(link: { from: string; to: string; label: string | null }): string {
-  if (link.label) return link.label;
-  const fromK = link.from.toLowerCase();
-  const toK = link.to.toLowerCase();
-  if (fromK.includes('edge') && toK.includes('app')) return 'CONNECTS_TO';
-  if (fromK.includes('app') && toK.includes('idp')) return 'AUTHENTICATES_WITH';
-  if (toK.includes('waf') || fromK.includes('waf')) return 'PROTECTED_BY';
-  if (fromK.includes('app') && toK.includes('db')) return 'DEPENDS_ON';
-  if (toK.includes('siem') || toK.includes('mon')) return 'SENDS_LOGS';
-  return 'CONNECTS_TO';
+  return link.label ?? 'UNLABELED';
 }
 </script>
 
@@ -174,7 +137,12 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
     <div v-else class="sim-topology-workbench" data-testid="enterprise-topology">
       <div class="sim-canvas-subtoolbar">
         <div class="sim-canvas-subtoolbar__left">
-          <button type="button" class="sim-tool-btn sim-tool-btn--active" title="تحديد">
+          <button
+            type="button"
+            class="sim-tool-btn"
+            disabled
+            title="تحرير topology غير متاح في مساحة القراءة"
+          >
             <svg
               width="14"
               height="14"
@@ -187,7 +155,12 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
             </svg>
             <span>Select</span>
           </button>
-          <button type="button" class="sim-tool-btn" title="إضافة عقدة">
+          <button
+            type="button"
+            class="sim-tool-btn"
+            disabled
+            title="إضافة العقد غير متاحة في مساحة القراءة"
+          >
             <svg
               width="14"
               height="14"
@@ -201,7 +174,12 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
             </svg>
             <span>Add</span>
           </button>
-          <button type="button" class="sim-tool-btn" title="توصيل">
+          <button
+            type="button"
+            class="sim-tool-btn"
+            disabled
+            title="تحرير الروابط غير متاح في مساحة القراءة"
+          >
             <svg
               width="14"
               height="14"
@@ -216,7 +194,7 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
             <span>Connect</span>
           </button>
           <div class="sim-subtoolbar-divider" />
-          <button type="button" class="sim-tool-icon-btn" title="تراجع">
+          <button type="button" class="sim-tool-icon-btn" disabled title="التراجع غير متاح">
             <svg
               width="13"
               height="13"
@@ -229,7 +207,7 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
               <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13" />
             </svg>
           </button>
-          <button type="button" class="sim-tool-icon-btn" title="إعادة">
+          <button type="button" class="sim-tool-icon-btn" disabled title="الإعادة غير متاحة">
             <svg
               width="13"
               height="13"
@@ -242,7 +220,7 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
               <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7" />
             </svg>
           </button>
-          <button type="button" class="sim-tool-icon-btn" title="حذف">
+          <button type="button" class="sim-tool-icon-btn" disabled title="الحذف غير متاح">
             <svg
               width="13"
               height="13"
@@ -259,7 +237,12 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
         </div>
 
         <div class="sim-canvas-subtoolbar__right">
-          <button type="button" class="sim-tool-icon-btn" title="شبكة المحاذاة">
+          <button
+            type="button"
+            class="sim-tool-icon-btn"
+            disabled
+            title="تغيير شبكة المحاذاة غير متاح"
+          >
             <svg
               width="14"
               height="14"
@@ -314,7 +297,7 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
               <line x1="8" y1="11" x2="14" y2="11" />
             </svg>
           </button>
-          <button type="button" class="sim-tool-icon-btn" title="ملء الشاشة">
+          <button type="button" class="sim-tool-icon-btn" disabled title="ملء الشاشة غير متاح">
             <svg
               width="14"
               height="14"
@@ -334,9 +317,7 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
       <div class="sim-canvas-caption">
         <div class="sim-caption-main">
           <strong>{{ selectedTwin?.name_ar }} — {{ enterprise.name_ar }}</strong>
-          <span class="sim-badge sim-badge--draft"
-            >Draft Revision {{ selectedRevision.revision }}</span
-          >
+          <span class="sim-badge">Revision {{ selectedRevision.revision }}</span>
         </div>
         <div class="sim-canvas-counts">
           <span>{{ nodes.length }} NODES</span>
@@ -352,6 +333,7 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
           viewBox="0 0 950 490"
           role="img"
           aria-label="مخطط topology مبني من العقد والروابط المنشورة"
+          :style="{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'center' }"
         >
           <defs>
             <pattern id="sim-dot-grid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -382,11 +364,6 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
                 :y1="point(link.from).y"
                 :x2="point(link.to).x"
                 :y2="point(link.to).y"
-                :class="{
-                  'sim-link-dashed':
-                    getLinkLabel(link) === 'AUTHENTICATES_WITH' ||
-                    getLinkLabel(link) === 'SENDS_LOGS',
-                }"
                 marker-end="url(#sim-arrow-cyan)"
               />
               <g
@@ -421,6 +398,7 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
             data-testid="topology-node"
             @click="selectedNodeId = node.id"
             @keydown.enter="selectedNodeId = node.id"
+            @keydown.space.prevent="selectedNodeId = node.id"
           >
             <rect width="200" height="80" rx="10" class="sim-node-card-bg" />
             <circle cx="32" cy="40" r="16" class="sim-node-icon-circle" />
@@ -472,18 +450,6 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
             </g>
           </g>
         </svg>
-
-        <div class="sim-floating-legend">
-          <div class="sim-legend-heading">Legend</div>
-          <div class="sim-legend-row">
-            <span class="sim-legend-line sim-legend-line--solid" />
-            <span>Typed Relationship</span>
-          </div>
-          <div class="sim-legend-row">
-            <span class="sim-legend-line sim-legend-line--dashed" />
-            <span>Derived / Optional Relationship</span>
-          </div>
-        </div>
       </div>
 
       <div v-if="nodes.length" class="sim-graph-mobile" aria-label="Topology مبسطة للشاشة الضيقة">
@@ -504,7 +470,7 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
       <footer class="sim-canvas-legend">
         <span><i class="sim-legend-line" />رابط topology منشور</span>
         <span><i class="sim-legend-node" />عقدة Digital Twin</span>
-        <span>Enterprise-backed definition · runtime state remains separate</span>
+        <span>Published definition · runtime state remains separate</span>
       </footer>
     </div>
   </section>

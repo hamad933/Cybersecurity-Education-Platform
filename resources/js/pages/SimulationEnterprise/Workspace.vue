@@ -281,7 +281,7 @@ const temporaryLabel = computed(
       enterprise: 'البنية والتعريفات الخام',
       scenarios: 'Environment Contract وOrchestration الخام',
       labs: 'إعداد المختبر والتحقق الخام',
-      runs: 'Raw Events / Runtime State / Snapshot Payloads',
+      runs: 'Runtime State / Snapshot Payloads / Operations',
       results: 'Frozen Payload / Artifacts / Reconstruction',
     })[props.section],
 );
