@@ -142,6 +142,16 @@ type Portfolio = {
 type Surface = 'evidence' | 'reviews' | 'mastery' | 'portfolio';
 type EvidenceFocus = 'candidate' | 'evidence';
 type ReviewFocus = 'request' | 'review';
+type StatusGroup =
+  | 'candidate'
+  | 'evidenceLifecycle'
+  | 'evidenceReview'
+  | 'reviewWorkflow'
+  | 'finding'
+  | 'decision'
+  | 'masteryJudgment'
+  | 'freshness';
+type StatusTone = 'positive' | 'info' | 'warning' | 'danger' | 'neutral';
 type Panel =
   | 'intake'
   | 'revision'
@@ -174,6 +184,71 @@ const nav = [
   { key: 'portfolio', href: '/progress/portfolio', ar: 'الملف المهني', en: 'Portfolio' },
 ] as const;
 
+const statusTones: Record<StatusGroup, Record<string, StatusTone>> = {
+  candidate: {
+    RECEIVED: 'neutral',
+    DRAFT: 'neutral',
+    PREPARED: 'info',
+    SUBMITTED_FOR_INTAKE: 'info',
+    RETURNED_FOR_CONTEXT: 'warning',
+    ADMITTED: 'positive',
+    DECLINED: 'danger',
+  },
+  evidenceLifecycle: {
+    ACTIVE: 'info',
+    SUPERSEDED: 'neutral',
+    WITHDRAWN: 'warning',
+  },
+  evidenceReview: {
+    UNREVIEWED: 'neutral',
+    IN_REVIEW: 'info',
+    REVIEWED: 'positive',
+  },
+  reviewWorkflow: {
+    REQUESTED: 'info',
+    ASSIGNED: 'info',
+    IN_REVIEW: 'info',
+    READY_FOR_DECISION: 'warning',
+    CLOSED: 'neutral',
+    CANCELLED: 'neutral',
+  },
+  finding: {
+    SATISFIED: 'positive',
+    PARTIALLY_SATISFIED: 'warning',
+    NOT_SATISFIED: 'danger',
+    NOT_ASSESSABLE: 'neutral',
+  },
+  decision: {
+    NONE: 'neutral',
+    ACCEPT: 'positive',
+    ACCEPT_WITH_LIMITATIONS: 'warning',
+    MORE_EVIDENCE_REQUIRED: 'warning',
+    REJECT: 'danger',
+  },
+  masteryJudgment: {
+    NOT_EVALUATED: 'neutral',
+    INSUFFICIENT_EVIDENCE: 'warning',
+    INCONCLUSIVE: 'warning',
+    NOT_MASTERED: 'danger',
+    MASTERED: 'positive',
+  },
+  freshness: {
+    CURRENT: 'info',
+    REVALIDATION_REQUIRED: 'warning',
+  },
+};
+
+function statusClass(group: StatusGroup, value: string | null | undefined): string[] {
+  const tone = value ? (statusTones[group][value] ?? 'neutral') : 'neutral';
+  return ['semantic-status', `tone-${tone}`];
+}
+
+function displayValue(value: unknown): string {
+  if (typeof value === 'string' && value.trim() !== '') return value;
+  if (typeof value === 'number') return String(value);
+  return 'غير متوفر';
+}
+
 const page = usePage<{ flash?: { status?: string }; errors?: Record<string, string> }>();
 const panel = ref<Panel>(null);
 const evidenceFocus = ref<EvidenceFocus>(props.candidates.length ? 'candidate' : 'evidence');
@@ -189,8 +264,7 @@ const requestId = ref(
 );
 const reviewId = ref(
   props.reviews.find(
-    (item) =>
-      item.id.includes('REV-0084') || ['IN_REVIEW', 'READY_FOR_DECISION'].includes(item.status),
+    (item) => item.decision === null && ['IN_REVIEW', 'READY_FOR_DECISION'].includes(item.status),
   )?.id ??
     props.reviews[0]?.id ??
     '',
@@ -204,10 +278,18 @@ const candidate = computed(() => props.candidates.find((item) => item.id === can
 const selectedEvidence = computed(() =>
   props.evidence.find((item) => item.id === evidenceId.value),
 );
+const selectedEvidenceCurrentRevision = computed(() =>
+  selectedEvidence.value?.revisions.find(
+    (revision) => revision.id === selectedEvidence.value?.current_revision_id,
+  ),
+);
 const selectedRequest = computed(() =>
   props.review_requests.find((item) => item.id === requestId.value),
 );
 const selectedReview = computed(() => props.reviews.find((item) => item.id === reviewId.value));
+const selectedReviewEvidence = computed(() =>
+  props.evidence.find((item) => item.id === selectedReview.value?.evidence_id),
+);
 const selectedMastery = computed(() => props.mastery.find((item) => item.id === masteryId.value));
 const selectedPortfolio = computed(() =>
   props.portfolios.find((item) => item.id === portfolioId.value),
@@ -232,6 +314,15 @@ const selectedPortfolioFilters = computed(() =>
     key,
     value: Array.isArray(value) ? value.join(', ') : String(value),
   })),
+);
+const canRecordFinding = computed(
+  () =>
+    selectedReview.value?.decision === null &&
+    ['IN_REVIEW', 'READY_FOR_DECISION'].includes(selectedReview.value.status),
+);
+const canIssueDecision = computed(
+  () =>
+    selectedReview.value?.decision === null && selectedReview.value.status === 'READY_FOR_DECISION',
 );
 
 // Grouped portfolio items are reference-only projections. Group membership does not infer status.
@@ -508,7 +599,7 @@ function admitRequest(): void {
 
 function openFinding(): void {
   const item = selectedReview.value;
-  if (!item || !['IN_REVIEW', 'READY_FOR_DECISION'].includes(item.status)) return;
+  if (!item || !canRecordFinding.value) return;
   finding.criterion_key = item.criterion_refs[0] ?? '';
   finding.supporting_evidence_revision_ids = [item.evidence_revision_id];
   panel.value = 'finding';
@@ -516,13 +607,18 @@ function openFinding(): void {
 
 function submitFinding(): void {
   const item = selectedReview.value;
-  if (!item) return;
+  if (!item || !canRecordFinding.value) return;
   finding.post(`/progress/reviews/${item.id}/findings`, { onSuccess: () => (panel.value = null) });
+}
+
+function openDecision(): void {
+  if (!canIssueDecision.value) return;
+  panel.value = 'decision';
 }
 
 function submitDecision(): void {
   const item = selectedReview.value;
-  if (!item) return;
+  if (!item || !canIssueDecision.value) return;
   decision.post(`/progress/reviews/${item.id}/decision`, { onSuccess: () => (panel.value = null) });
 }
 
@@ -697,25 +793,10 @@ function removePortfolioItem(): void {
             <span>بدء Review الرسمي</span>
           </button>
           <template v-else>
-            <button class="toolbar-btn outline" type="button" @click="panel = 'finding'">
-              <svg
-                class="mr-1 inline h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              <span>Request More Evidence</span>
-            </button>
             <button
               class="toolbar-btn outline"
               type="button"
-              :disabled="
-                !selectedReview ||
-                !['IN_REVIEW', 'READY_FOR_DECISION'].includes(selectedReview.status)
-              "
+              :disabled="!canRecordFinding"
               @click="openFinding"
             >
               <svg
@@ -730,13 +811,13 @@ function removePortfolioItem(): void {
                 <path d="M21 3l-7 7" />
                 <path d="M3 21l7-7" />
               </svg>
-              <span>Compare Prior Evidence</span>
+              <span>Record Review Finding</span>
             </button>
             <button
               class="toolbar-btn primary"
               type="button"
-              :disabled="!selectedReview"
-              @click="panel = 'decision'"
+              :disabled="!canIssueDecision"
+              @click="openDecision"
             >
               <svg
                 class="mr-1 inline h-4 w-4"
@@ -805,7 +886,7 @@ function removePortfolioItem(): void {
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
             </svg>
-            <span>Edit View</span>
+            <span>Create View</span>
           </button>
           <button
             class="toolbar-btn primary"
@@ -925,7 +1006,7 @@ function removePortfolioItem(): void {
               <span class="menu-counter">{{ evidence.length }}</span>
             </button>
 
-            <button class="rail-menu-item" type="button">
+            <button class="rail-menu-item" type="button" disabled title="لا توجد تصفية مرتبطة بعد">
               <svg
                 class="menu-icon"
                 viewBox="0 0 24 24"
@@ -942,7 +1023,7 @@ function removePortfolioItem(): void {
               <span class="menu-label">المسحوبة</span>
             </button>
 
-            <button class="rail-menu-item" type="button">
+            <button class="rail-menu-item" type="button" disabled title="لا توجد تصفية مرتبطة بعد">
               <svg
                 class="menu-icon"
                 viewBox="0 0 24 24"
@@ -974,7 +1055,9 @@ function removePortfolioItem(): void {
                 <strong>{{ item.proposed_title }}</strong>
                 <small>{{ item.evidence_claim }}</small>
               </span>
-              <bdi dir="ltr" class="state candidate-state">{{ item.state }}</bdi>
+              <bdi dir="ltr" class="state" :class="statusClass('candidate', item.state)">{{
+                item.state
+              }}</bdi>
             </button>
             <p v-if="!candidates.length" class="empty-state">لا توجد Candidate Evidence.</p>
           </div>
@@ -1001,7 +1084,12 @@ function removePortfolioItem(): void {
           </div>
 
           <div class="rail-footer">
-            <button class="rail-footer-btn" type="button">
+            <button
+              class="rail-footer-btn"
+              type="button"
+              disabled
+              title="إعدادات الأدلة غير متاحة في مساحة العمل الحالية"
+            >
               <svg
                 class="h-4 w-4"
                 viewBox="0 0 24 24"
@@ -1042,7 +1130,7 @@ function removePortfolioItem(): void {
               <span class="menu-counter">{{ review_requests.length }}</span>
             </button>
 
-            <button class="rail-menu-item" type="button">
+            <button class="rail-menu-item" type="button" disabled title="لا توجد تصفية مرتبطة بعد">
               <svg
                 class="menu-icon"
                 viewBox="0 0 24 24"
@@ -1078,7 +1166,7 @@ function removePortfolioItem(): void {
               <span class="menu-counter">{{ reviews.length }}</span>
             </button>
 
-            <button class="rail-menu-item" type="button">
+            <button class="rail-menu-item" type="button" disabled title="لا توجد تصفية مرتبطة بعد">
               <svg
                 class="menu-icon"
                 viewBox="0 0 24 24"
@@ -1112,7 +1200,9 @@ function removePortfolioItem(): void {
                   ><bdi dir="ltr">{{ item.review_scope_key }}</bdi></small
                 >
               </span>
-              <bdi dir="ltr" class="state request-state">{{ item.status }}</bdi>
+              <bdi dir="ltr" class="state" :class="statusClass('reviewWorkflow', item.status)">{{
+                item.status
+              }}</bdi>
             </button>
             <p v-if="!review_requests.length" class="empty-state">لا توجد Review Requests.</p>
           </div>
@@ -1133,7 +1223,9 @@ function removePortfolioItem(): void {
                 <strong>{{ evidenceTitle(item.evidence_id) }}</strong>
                 <small>{{ item.findings.length }} Finding(s)</small>
               </span>
-              <bdi dir="ltr" class="state review-state">{{ item.status }}</bdi>
+              <bdi dir="ltr" class="state" :class="statusClass('reviewWorkflow', item.status)">{{
+                item.status
+              }}</bdi>
             </button>
             <p v-if="!reviews.length" class="empty-state">لم تبدأ Formal Review بعد.</p>
           </div>
@@ -1157,83 +1249,6 @@ function removePortfolioItem(): void {
             </div>
           </div>
 
-          <div class="mastery-tree-nav">
-            <div class="tree-node expanded">
-              <div class="tree-node-header">
-                <svg
-                  class="h-3.5 w-3.5 text-slate-400"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-                <svg
-                  class="h-4 w-4 text-amber-400"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path
-                    d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
-                  />
-                </svg>
-                <span class="tree-label">Application Security</span>
-              </div>
-
-              <div class="tree-children">
-                <div class="tree-subnode">
-                  <svg
-                    class="h-3.5 w-3.5 text-slate-500"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
-                    />
-                  </svg>
-                  <span>Web Security</span>
-                </div>
-
-                <div class="tree-subnode active">
-                  <svg
-                    class="h-3.5 w-3.5 text-cyan-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="22" y1="12" x2="18" y2="12" />
-                    <line x1="6" y1="12" x2="2" y2="12" />
-                    <line x1="12" y1="6" x2="12" y2="2" />
-                    <line x1="12" y1="22" x2="12" y2="18" />
-                  </svg>
-                  <span>Application Security Investigation</span>
-                </div>
-
-                <div class="tree-subnode">
-                  <svg
-                    class="h-3.5 w-3.5 text-slate-500"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
-                    />
-                  </svg>
-                  <span>Secure Development</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div class="browser-group">
             <div class="browser-title">
               <span>Mastery Targets</span><bdi dir="ltr">{{ mastery.length }}</bdi>
@@ -1252,7 +1267,9 @@ function removePortfolioItem(): void {
                 >
                 <small>Policy-governed state</small>
               </span>
-              <bdi dir="ltr" class="state">{{ item.judgment }}</bdi>
+              <bdi dir="ltr" class="state" :class="statusClass('masteryJudgment', item.judgment)">{{
+                item.judgment
+              }}</bdi>
             </button>
             <p v-if="!mastery.length" class="empty-state">لا توجد Mastery State محكومة.</p>
           </div>
@@ -1307,7 +1324,12 @@ function removePortfolioItem(): void {
           </div>
 
           <div class="rail-menu-list sub-dense">
-            <button class="rail-menu-item" type="button">
+            <button
+              class="rail-menu-item"
+              type="button"
+              disabled
+              title="استخدم Portfolio View محفوظًا"
+            >
               <svg
                 class="menu-icon"
                 viewBox="0 0 24 24"
@@ -1319,7 +1341,12 @@ function removePortfolioItem(): void {
               </svg>
               <span class="menu-label">By Capability</span>
             </button>
-            <button class="rail-menu-item" type="button">
+            <button
+              class="rail-menu-item"
+              type="button"
+              disabled
+              title="استخدم Portfolio View محفوظًا"
+            >
               <svg
                 class="menu-icon"
                 viewBox="0 0 24 24"
@@ -1331,7 +1358,12 @@ function removePortfolioItem(): void {
               </svg>
               <span class="menu-label">By Project</span>
             </button>
-            <button class="rail-menu-item" type="button">
+            <button
+              class="rail-menu-item"
+              type="button"
+              disabled
+              title="استخدم Portfolio View محفوظًا"
+            >
               <svg
                 class="menu-icon"
                 viewBox="0 0 24 24"
@@ -1343,7 +1375,12 @@ function removePortfolioItem(): void {
               </svg>
               <span class="menu-label">By Learning Objective</span>
             </button>
-            <button class="rail-menu-item" type="button">
+            <button
+              class="rail-menu-item"
+              type="button"
+              disabled
+              title="استخدم Portfolio View محفوظًا"
+            >
               <svg
                 class="menu-icon"
                 viewBox="0 0 24 24"
@@ -1355,7 +1392,12 @@ function removePortfolioItem(): void {
               </svg>
               <span class="menu-label">By Evidence Type</span>
             </button>
-            <button class="rail-menu-item" type="button">
+            <button
+              class="rail-menu-item"
+              type="button"
+              disabled
+              title="استخدم Portfolio View محفوظًا"
+            >
               <svg
                 class="menu-icon"
                 viewBox="0 0 24 24"
@@ -1367,7 +1409,12 @@ function removePortfolioItem(): void {
               </svg>
               <span class="menu-label">By Time</span>
             </button>
-            <button class="rail-menu-item" type="button">
+            <button
+              class="rail-menu-item"
+              type="button"
+              disabled
+              title="استخدم Portfolio View محفوظًا"
+            >
               <svg
                 class="menu-icon"
                 viewBox="0 0 24 24"
@@ -1473,7 +1520,7 @@ function removePortfolioItem(): void {
                   <line x1="16" y1="17" x2="8" y2="17" />
                 </svg>
                 <h2 class="card-main-title">{{ candidate.proposed_title }}</h2>
-                <span class="badge-pill purple-pill"
+                <span class="badge-pill" :class="statusClass('candidate', candidate.state)"
                   ><bdi dir="ltr">{{ candidate.state }}</bdi></span
                 >
               </div>
@@ -1507,25 +1554,6 @@ function removePortfolioItem(): void {
                   stroke="currentColor"
                   stroke-width="2"
                 >
-                  <circle cx="12" cy="8" r="5" />
-                  <path d="M20 21a8 8 0 1 0-16 0" />
-                </svg>
-                <span>Subject</span>
-              </div>
-              <div class="field-value-col">
-                <strong>Ahmed</strong>
-              </div>
-            </div>
-
-            <div class="meta-field-row">
-              <div class="field-label-col">
-                <svg
-                  class="h-4 w-4 text-slate-400"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
                   <circle cx="12" cy="12" r="10" />
                   <circle cx="12" cy="12" r="6" />
                   <circle cx="12" cy="12" r="2" />
@@ -1533,10 +1561,7 @@ function removePortfolioItem(): void {
                 <span>Purpose</span>
               </div>
               <div class="field-value-col muted-text">
-                {{
-                  candidate.proposed_summary ||
-                  'Demonstrate applied investigation skills and interpretation of detection context in a simulated scenario.'
-                }}
+                {{ displayValue(candidate.proposed_summary) }}
               </div>
             </div>
 
@@ -1558,65 +1583,6 @@ function removePortfolioItem(): void {
                   ><bdi dir="ltr">{{ candidate.capability_id }}</bdi></span
                 >
                 <span class="subtext-note">Canonical Capability Reference</span>
-              </div>
-            </div>
-
-            <!-- Sub-section: Source Handoff -->
-            <div class="subcard-section">
-              <div class="subcard-header">
-                <svg
-                  class="h-4 w-4 text-cyan-400"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                </svg>
-                <h4>Source Handoff</h4>
-              </div>
-
-              <div class="handoff-grid">
-                <div class="handoff-cell">
-                  <span class="cell-label">Source Domain</span
-                  ><span class="cell-val">Simulation & Enterprise</span>
-                </div>
-                <div class="handoff-cell">
-                  <span class="cell-label">Source Type</span
-                  ><span class="cell-val"
-                    ><bdi dir="ltr">{{ candidate.source_type }}</bdi></span
-                  >
-                </div>
-                <div class="handoff-cell">
-                  <span class="cell-label">Source</span
-                  ><span class="cell-val"
-                    ><bdi dir="ltr"
-                      >{{ candidate.source_id }} / Revision {{ candidate.source_revision }}</bdi
-                    ></span
-                  >
-                </div>
-                <div class="handoff-cell">
-                  <span class="cell-label">Scenario</span
-                  ><span class="cell-val">Web Application Breach & Response</span>
-                </div>
-                <div class="handoff-cell">
-                  <span class="cell-label">Handoff</span
-                  ><span class="cell-val">Candidate Evidence Handoff</span>
-                </div>
-                <div class="handoff-cell">
-                  <span class="cell-label">Handoff Received</span
-                  ><span class="cell-val"><bdi dir="ltr">2025-05-14 10:45:12 UTC</bdi></span>
-                </div>
-                <div class="handoff-cell">
-                  <span class="cell-label">Submitted By</span><span class="cell-val">Ahmed</span>
-                </div>
-                <div class="handoff-cell">
-                  <span class="cell-label">Submission Note</span
-                  ><span class="cell-val"
-                    >Includes alert event, timeline context, and analyst observation.</span
-                  >
-                </div>
               </div>
             </div>
 
@@ -1708,7 +1674,7 @@ function removePortfolioItem(): void {
             <div class="card-top-bar">
               <div class="card-title-group">
                 <svg
-                  class="h-6 w-6 text-emerald-400"
+                  class="h-6 w-6 text-cyan-400"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -1729,19 +1695,25 @@ function removePortfolioItem(): void {
             <div class="dimension-bar-grid">
               <div class="dimension-stat-cell">
                 <span class="stat-label">Evidence Lifecycle</span>
-                <span class="stat-badge green-badge"
+                <span
+                  class="stat-badge"
+                  :class="statusClass('evidenceLifecycle', selectedEvidence.lifecycle_state)"
                   ><bdi dir="ltr">{{ selectedEvidence.lifecycle_state }}</bdi></span
                 >
               </div>
               <div class="dimension-stat-cell">
                 <span class="stat-label">Review Status</span>
-                <span class="stat-badge purple-badge"
+                <span
+                  class="stat-badge"
+                  :class="statusClass('evidenceReview', selectedEvidence.review_status)"
                   ><bdi dir="ltr">{{ selectedEvidence.review_status }}</bdi></span
                 >
               </div>
               <div class="dimension-stat-cell">
                 <span class="stat-label">Effective Review Decision</span>
-                <span class="stat-badge amber-badge"
+                <span
+                  class="stat-badge"
+                  :class="statusClass('decision', selectedEvidence.effective_review_decision)"
                   ><bdi dir="ltr">{{ selectedEvidence.effective_review_decision }}</bdi></span
                 >
               </div>
@@ -1782,12 +1754,12 @@ function removePortfolioItem(): void {
               </div>
               <div class="reference-item-list">
                 <div
-                  v-for="mat in selectedEvidence.revisions[0]?.selected_material_refs || []"
+                  v-for="mat in selectedEvidenceCurrentRevision?.selected_material_refs || []"
                   :key="mat"
                   class="reference-item-row"
                 >
                   <span class="ref-name">{{ mat }}</span>
-                  <span class="ref-badge">Verified Material</span>
+                  <span class="ref-badge">Pinned Material Reference</span>
                 </div>
               </div>
             </div>
@@ -1816,7 +1788,9 @@ function removePortfolioItem(): void {
                 <h2 class="card-main-title">
                   Review Request · {{ evidenceTitle(selectedRequest.evidence_id) }}
                 </h2>
-                <span class="badge-pill cyan-pill"
+                <span
+                  class="badge-pill"
+                  :class="statusClass('reviewWorkflow', selectedRequest.status)"
                   ><bdi dir="ltr">{{ selectedRequest.status }}</bdi></span
                 >
               </div>
@@ -1863,7 +1837,9 @@ function removePortfolioItem(): void {
                 <h2 class="card-main-title">
                   Evidence Review <bdi dir="ltr">{{ selectedReview.id }}</bdi>
                 </h2>
-                <span class="badge-pill purple-pill"
+                <span
+                  class="badge-pill"
+                  :class="statusClass('reviewWorkflow', selectedReview.status)"
                   ><bdi dir="ltr">Review Workflow: {{ selectedReview.status }}</bdi></span
                 >
               </div>
@@ -1874,11 +1850,21 @@ function removePortfolioItem(): void {
               <div class="review-stat-col">
                 <div class="stat-pair">
                   <span class="stat-label">Evidence Lifecycle</span>
-                  <span class="stat-badge green-badge"><bdi dir="ltr">ACTIVE</bdi></span>
+                  <span
+                    class="stat-badge"
+                    :class="
+                      statusClass('evidenceLifecycle', selectedReviewEvidence?.lifecycle_state)
+                    "
+                    ><bdi dir="ltr">{{
+                      displayValue(selectedReviewEvidence?.lifecycle_state)
+                    }}</bdi></span
+                  >
                 </div>
                 <div class="stat-pair mt-2">
                   <span class="stat-label">Evidence Review Status</span>
-                  <span class="stat-badge purple-badge"
+                  <span
+                    class="stat-badge"
+                    :class="statusClass('reviewWorkflow', selectedReview.status)"
                     ><bdi dir="ltr">{{ selectedReview.status }}</bdi></span
                   >
                 </div>
@@ -1894,16 +1880,14 @@ function removePortfolioItem(): void {
                     ></span
                   >
                 </div>
-                <div class="stat-pair mt-2">
-                  <span class="stat-label">Subject</span>
-                  <strong class="text-white">Subject</strong>
-                </div>
               </div>
 
               <div class="review-stat-col">
                 <div class="stat-pair">
                   <span class="stat-label">Effective Review Decision</span>
-                  <span class="stat-badge amber-badge"
+                  <span
+                    class="stat-badge"
+                    :class="statusClass('decision', selectedReview.decision?.decision ?? 'NONE')"
                     ><bdi dir="ltr">{{ selectedReview.decision?.decision ?? 'NONE' }}</bdi></span
                   >
                 </div>
@@ -1914,7 +1898,7 @@ function removePortfolioItem(): void {
             <div class="meta-field-row mt-4">
               <div class="field-label-col">
                 <svg
-                  class="h-4 w-4 text-emerald-400"
+                  class="h-4 w-4 text-cyan-400"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -1925,8 +1909,7 @@ function removePortfolioItem(): void {
                 <span>Evidence Claim</span>
               </div>
               <div class="field-value-col claim-text">
-                Demonstrated ability to investigate suspicious SQL activity and interpret correlated
-                detection signals.
+                {{ displayValue(selectedReviewEvidence?.evidence_claim) }}
               </div>
             </div>
 
@@ -1982,7 +1965,7 @@ function removePortfolioItem(): void {
                     <tr>
                       <th>المعيار</th>
                       <th>Finding</th>
-                      <th>Supporting Evidence</th>
+                      <th>Finding Statement</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1993,7 +1976,7 @@ function removePortfolioItem(): void {
                       <td>
                         <span
                           class="finding-state-pill"
-                          :class="fItem.finding === 'SATISFIED' ? 'satisfied' : 'partial'"
+                          :class="statusClass('finding', fItem.finding)"
                         >
                           {{ fItem.finding }}
                           <svg
@@ -2006,37 +1989,10 @@ function removePortfolioItem(): void {
                           >
                             <polyline points="20 6 9 17 4 12" />
                           </svg>
-                          <svg
-                            v-else
-                            class="ml-1 inline h-3.5 w-3.5"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="3"
-                          >
-                            <line x1="5" y1="12" x2="19" y2="12" />
-                          </svg>
                         </span>
                       </td>
                       <td>
-                        <span class="doc-link">
-                          <svg
-                            class="mr-1 inline h-3.5 w-3.5 text-slate-400"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                          >
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                          </svg>
-                          {{
-                            fIdx === 0
-                              ? 'Investigation Report §2.1'
-                              : fIdx === 1
-                                ? 'Detection Correlations §3.2'
-                                : 'Root Cause Analysis §4.3'
-                          }}
-                        </span>
+                        <span>{{ displayValue(fItem.statement) }}</span>
                       </td>
                     </tr>
                   </tbody>
@@ -2062,10 +2018,7 @@ function removePortfolioItem(): void {
                 <h4>Reviewer Rationale</h4>
               </div>
               <p class="rationale-body">
-                {{
-                  selectedReview.decision?.rationale ||
-                  'The evidence demonstrates strong capability in identifying suspicious web-input behavior and correlating detection telemetry across multiple data sources. The reasoning presented to establish investigation rationale is present but lacks full justification for alternative hypotheses and risk prioritization. Additional clarity is needed on why competing explanations were eliminated and how confidence levels were determined. Overall, the evidence shows solid performance with one area requiring further development to meet the criterion in full.'
-                }}
+                {{ selectedReview.decision?.rationale || 'لا يوجد مسوّغ قرار مورّد.' }}
               </p>
             </div>
 
@@ -2085,7 +2038,9 @@ function removePortfolioItem(): void {
                 <h4>Review Decision</h4>
               </div>
               <div v-if="selectedReview.decision" class="decision-issued-box">
-                <span class="decision-pill"
+                <span
+                  class="decision-pill"
+                  :class="statusClass('decision', selectedReview.decision.decision)"
                   ><bdi dir="ltr">{{ selectedReview.decision.decision }}</bdi></span
                 >
                 <p class="decision-rationale-text">{{ selectedReview.decision.rationale }}</p>
@@ -2103,7 +2058,12 @@ function removePortfolioItem(): void {
                 </svg>
                 <div>
                   <strong>Decision not yet issued</strong>
-                  <p>Ready for decision after remaining review work.</p>
+                  <p v-if="selectedReview.status === 'READY_FOR_DECISION'">
+                    تسمح حالة سير العمل الحالية بإصدار القرار.
+                  </p>
+                  <p v-else>
+                    لا تسمح حالة <bdi dir="ltr">{{ selectedReview.status }}</bdi> بإصدار القرار.
+                  </p>
                 </div>
               </div>
             </div>
@@ -2135,66 +2095,32 @@ function removePortfolioItem(): void {
                 </svg>
                 <div>
                   <h2 class="mastery-main-title">
-                    {{
-                      selectedMastery.target_id === 'CAP-APPSEC-INVESTIGATION'
-                        ? 'Application Security Investigation'
-                        : selectedMastery.target_id
-                    }}
+                    <bdi dir="ltr">{{ selectedMastery.target_id }}</bdi>
                   </h2>
-                  <div class="mastery-subject-line">
-                    <svg
-                      class="h-4 w-4 text-slate-400"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <circle cx="12" cy="8" r="5" />
-                      <path d="M20 21a8 8 0 1 0-16 0" />
-                    </svg>
-                    <span>Subject: <strong>Ahmed</strong></span>
-                  </div>
                 </div>
               </div>
 
               <!-- Top-right Badges -->
               <div class="mastery-status-badges">
-                <div class="mastery-judgment-badge">
-                  <svg
-                    class="h-5 w-5 text-emerald-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    <polyline points="9 12 11 14 15 10" />
-                  </svg>
+                <div
+                  class="mastery-judgment-badge"
+                  :class="statusClass('masteryJudgment', selectedMastery.judgment)"
+                >
                   <div>
                     <span class="badge-sub">الحكم · Judgment</span>
-                    <strong class="badge-main text-emerald-400"
+                    <strong class="badge-main"
                       ><bdi dir="ltr">{{ selectedMastery.judgment }}</bdi></strong
                     >
                   </div>
                 </div>
 
-                <div class="mastery-freshness-badge">
-                  <svg
-                    class="h-5 w-5 text-amber-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"
-                    />
-                    <line x1="12" y1="9" x2="12" y2="13" />
-                    <line x1="12" y1="17" x2="12.01" y2="17" />
-                  </svg>
+                <div
+                  class="mastery-freshness-badge"
+                  :class="statusClass('freshness', selectedMastery.freshness_status)"
+                >
                   <div>
                     <span class="badge-sub">الحداثة · Freshness</span>
-                    <strong class="badge-main text-amber-400"
+                    <strong class="badge-main"
                       ><bdi dir="ltr">{{ selectedMastery.freshness_status }}</bdi></strong
                     >
                   </div>
@@ -2217,10 +2143,7 @@ function removePortfolioItem(): void {
               </svg>
               <div>
                 <strong>Judgment ≠ Freshness: </strong>
-                <span>{{
-                  selectedMastery.rationale ||
-                  'يتطلب الإصدار الحالي من السياسة تحليلاً وأدلة اكتشاف حديثة لإعادة التحقق من الكفاءة.'
-                }}</span>
+                <span>{{ selectedMastery.rationale || 'لا يوجد مسوّغ مورّد لهذه الحالة.' }}</span>
               </div>
             </div>
 
@@ -2261,9 +2184,7 @@ function removePortfolioItem(): void {
                         <td>
                           <span
                             v-if="row.findingState"
-                            :class="
-                              row.findingState === 'SATISFIED' ? 'satisfied-text' : 'text-slate-300'
-                            "
+                            :class="statusClass('finding', row.findingState)"
                           >
                             {{ row.findingLabel }}
                             <bdi dir="ltr" class="ml-1 text-xs text-slate-400"
@@ -2461,12 +2382,16 @@ function removePortfolioItem(): void {
                       v-for="item in grp.items"
                       :key="item.id"
                       :class="{ selected: item.id === portfolioItemId }"
-                      @click="portfolioItemId = item.id"
                     >
                       <td>
-                        <span class="cyan-link"
-                          ><bdi dir="ltr">{{ item.evidence_id }}</bdi></span
+                        <button
+                          class="reference-select-button"
+                          type="button"
+                          :aria-pressed="item.id === portfolioItemId"
+                          @click="portfolioItemId = item.id"
                         >
+                          <bdi dir="ltr">{{ item.evidence_id }}</bdi>
+                        </button>
                       </td>
                       <td>
                         <span class="evidence-title-ref">
@@ -2493,22 +2418,14 @@ function removePortfolioItem(): void {
                       </td>
                       <td>
                         <span
-                          v-if="
-                            item.effectiveDecision === 'ACCEPT' ||
-                            item.effectiveDecision === 'ACCEPT_WITH_LIMITATIONS'
-                          "
-                          class="stat-badge green-badge"
+                          v-if="item.effectiveDecision"
+                          class="stat-badge"
+                          :class="statusClass('decision', item.effectiveDecision)"
                           ><bdi dir="ltr">{{ item.effectiveDecision }}</bdi></span
                         >
-                        <span
-                          v-else-if="item.effectiveDecision === 'NONE'"
-                          class="stat-badge gray-badge"
-                          ><bdi dir="ltr">{{ item.effectiveDecision }}</bdi></span
+                        <span v-else class="stat-badge semantic-status tone-neutral"
+                          >غير متوفر</span
                         >
-                        <span v-else-if="item.effectiveDecision" class="stat-badge red-badge"
-                          ><bdi dir="ltr">{{ item.effectiveDecision }}</bdi></span
-                        >
-                        <span v-else class="stat-badge gray-badge">غير متوفر</span>
                       </td>
                       <td>
                         <span class="notes-text" v-if="item.annotationText">{{
@@ -2550,181 +2467,78 @@ function removePortfolioItem(): void {
         <template v-if="surface === 'evidence'">
           <div class="context-panel-header">
             <h3>السياق</h3>
-            <span class="close-icon">×</span>
           </div>
 
           <template v-if="evidenceFocus === 'candidate' && candidate">
-            <h4 class="context-subheading">حدود Intake</h4>
+            <h4 class="context-subheading">Candidate Evidence · بيانات مورّدة</h4>
             <div class="context-cards-stack">
-              <!-- Card 1: Source Integrity -->
               <div class="context-item-card">
-                <div class="item-card-header">
-                  <div class="card-icon-title">
-                    <svg
-                      class="h-4 w-4 text-emerald-400"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    </svg>
-                    <h5>سلامة المصدر</h5>
+                <h5>Supplied Source Fields</h5>
+                <div class="provenance-details-grid mt-2">
+                  <div class="prov-row">
+                    <span class="prov-k">Type</span>
+                    <bdi dir="ltr" class="prov-v">{{ displayValue(candidate.source_type) }}</bdi>
                   </div>
-                  <svg
-                    class="h-4 w-4 text-emerald-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="3"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
+                  <div class="prov-row">
+                    <span class="prov-k">Source ID</span>
+                    <bdi dir="ltr" class="prov-v">{{ displayValue(candidate.source_id) }}</bdi>
+                  </div>
+                  <div class="prov-row">
+                    <span class="prov-k">Revision</span>
+                    <bdi dir="ltr" class="prov-v">{{
+                      displayValue(candidate.source_revision)
+                    }}</bdi>
+                  </div>
+                  <div class="prov-row">
+                    <span class="prov-k">Digest</span>
+                    <bdi dir="ltr" class="prov-v breakable-value">{{
+                      displayValue(candidate.source_digest)
+                    }}</bdi>
+                  </div>
                 </div>
-                <ul class="context-bullet-list">
-                  <li>إصدار المصدر مثبت.</li>
-                  <li>سجل التسليم غير قابل للتعديل.</li>
-                  <li>حقول المصدر المطلوبة تم التحقق منها.</li>
+              </div>
+
+              <div class="context-item-card">
+                <h5>Criterion Scope References</h5>
+                <ul v-if="candidate.criterion_scope.length" class="context-bullet-list mt-2">
+                  <li v-for="criterion in candidate.criterion_scope" :key="criterion">
+                    <bdi dir="ltr">{{ criterion }}</bdi>
+                  </li>
                 </ul>
+                <p v-else class="context-text-single">غير متوفر</p>
               </div>
 
-              <!-- Card 2: Criterion Reference -->
-              <div class="context-item-card">
-                <div class="item-card-header">
-                  <div class="card-icon-title">
-                    <svg
-                      class="h-4 w-4 text-emerald-400"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <circle cx="12" cy="8" r="7" />
-                      <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
-                    </svg>
-                    <h5>مرجعية المعيار</h5>
-                  </div>
-                  <svg
-                    class="h-4 w-4 text-emerald-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="3"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </div>
-                <ul class="context-bullet-list">
-                  <li>المرجع الكنشي متحقق.</li>
-                  <li>الإصدار المرجعي مثبت.</li>
-                  <li>لا توجد تعارضات.</li>
-                </ul>
-              </div>
-
-              <!-- Card 3: Duplicate Check -->
-              <div class="context-item-card">
-                <div class="item-card-header">
-                  <div class="card-icon-title">
-                    <svg
-                      class="h-4 w-4 text-emerald-400"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                    </svg>
-                    <h5>فحص التكرار</h5>
-                  </div>
-                  <svg
-                    class="h-4 w-4 text-emerald-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="3"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </div>
-                <p class="context-text-single">لم يتم العثور على مرشحة مطابقة تمامًا.</p>
-              </div>
-
-              <!-- Card 4: Source State -->
-              <div class="context-item-card">
-                <div class="item-card-header">
-                  <div class="card-icon-title">
-                    <svg
-                      class="h-4 w-4 text-emerald-400"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-                    </svg>
-                    <h5>حالة المصدر</h5>
-                  </div>
-                  <svg
-                    class="h-4 w-4 text-emerald-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="3"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </div>
-                <ul class="context-bullet-list">
-                  <li>إصدار المصدر الحالي.</li>
-                  <li>لا توجد إشارة إلى استبدال المصدر.</li>
-                </ul>
-              </div>
-
-              <!-- Card 5: Attribution Completeness -->
-              <div class="context-item-card">
-                <div class="item-card-header">
-                  <div class="card-icon-title">
-                    <svg
-                      class="h-4 w-4 text-emerald-400"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
-                      <path
-                        d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"
-                      />
-                    </svg>
-                    <h5>اكتمال الإسناد</h5>
-                  </div>
-                  <svg
-                    class="h-4 w-4 text-emerald-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="3"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </div>
-                <ul class="context-bullet-list">
-                  <li>جميع حقول الإسناد الإلزامية متوفرة.</li>
-                  <li>فحوصات السلامة مكتملة.</li>
-                </ul>
-              </div>
-
-              <!-- Technical Provenance for tests -->
               <div v-if="selectedCandidateReceipt" class="technical-receipt-box">
-                <span class="label">Trusted Handoff Receipt</span>
+                <span class="label">Referenced Handoff Receipt</span>
                 <bdi dir="ltr" class="identifier">{{ selectedCandidateReceipt.id }}</bdi>
-                <p class="digest" dir="ltr">sha256:{{ selectedCandidateReceipt.source_digest }}</p>
+                <div class="provenance-details-grid mt-2">
+                  <div class="prov-row">
+                    <span class="prov-k">Source</span>
+                    <bdi dir="ltr" class="prov-v"
+                      >{{ displayValue(selectedCandidateReceipt.source_type) }} /
+                      {{ displayValue(selectedCandidateReceipt.source_id) }}</bdi
+                    >
+                  </div>
+                  <div class="prov-row">
+                    <span class="prov-k">Revision</span>
+                    <bdi dir="ltr" class="prov-v">{{
+                      displayValue(selectedCandidateReceipt.source_revision)
+                    }}</bdi>
+                  </div>
+                </div>
+                <p class="digest" dir="ltr">
+                  {{ displayValue(selectedCandidateReceipt.source_digest) }}
+                </p>
+              </div>
+              <div v-else class="context-item-card">
+                <h5>Handoff Receipt Binding</h5>
+                <p class="context-text-single">
+                  غير متوفر: لم يُورَّد سجل يطابق مرجع
+                  <bdi dir="ltr">{{ displayValue(candidate.handoff_receipt_id) }}</bdi
+                  >.
+                </p>
               </div>
 
-              <!-- Bottom Callout Note -->
               <div class="context-info-callout">
                 <svg
                   class="h-5 w-5 shrink-0 text-cyan-400"
@@ -2738,19 +2552,24 @@ function removePortfolioItem(): void {
                   <line x1="12" y1="8" x2="12.01" y2="8" />
                 </svg>
                 <span
-                  >هذه المرشحة لم تُدرج بعد كدليل ولا تبدأ المراجعة الرسمية إلا بعد الإدراج.</span
+                  >هذه Candidate Evidence وليست Canonical Evidence. عرض مرجع المصدر لا يثبت سلامته
+                  أو حداثته أو تفرده.</span
                 >
               </div>
             </div>
           </template>
 
           <template v-else-if="selectedEvidence">
-            <h4 class="context-subheading">الأصل والإصدار المختوم</h4>
+            <h4 class="context-subheading">الإصدار ومراجع المصدر</h4>
             <div class="context-cards-stack">
               <div class="context-item-card">
-                <h5>Current Sealed Revision</h5>
-                <bdi dir="ltr" class="identifier">{{ selectedEvidence.current_revision_id }}</bdi>
-                <p class="digest" dir="ltr">sha256:{{ selectedEvidence.source_digest }}</p>
+                <h5>Current Evidence Revision</h5>
+                <bdi dir="ltr" class="identifier">{{
+                  displayValue(selectedEvidence.current_revision_id)
+                }}</bdi>
+                <p class="digest" dir="ltr">
+                  Source digest: {{ displayValue(selectedEvidence.source_digest) }}
+                </p>
               </div>
 
               <div class="context-item-card">
@@ -2773,159 +2592,42 @@ function removePortfolioItem(): void {
         <template v-else-if="surface === 'reviews'">
           <div class="context-panel-header">
             <h3>السياق</h3>
-            <span class="close-icon">×</span>
           </div>
 
           <div class="context-cards-stack">
-            <!-- Review Scope -->
-            <div class="context-item-card">
-              <div class="item-card-header">
-                <div class="card-icon-title">
-                  <svg
-                    class="h-4 w-4 text-cyan-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <circle cx="12" cy="12" r="6" />
-                    <circle cx="12" cy="12" r="2" />
-                  </svg>
-                  <h5>Review Scope</h5>
+            <template v-if="reviewFocus === 'request' && selectedRequest">
+              <div class="context-item-card">
+                <h5>Review Request Binding</h5>
+                <div class="provenance-details-grid mt-2">
+                  <div class="prov-row">
+                    <span class="prov-k">Request</span>
+                    <bdi dir="ltr" class="prov-v">{{ selectedRequest.id }}</bdi>
+                  </div>
                 </div>
               </div>
-              <p class="context-text-single">
-                Formal competency Evidence review against 3 pinned criteria.
-              </p>
-            </div>
+            </template>
 
-            <!-- Reviewer Authority -->
-            <div class="context-item-card">
-              <div class="item-card-header">
-                <div class="card-icon-title">
-                  <svg
-                    class="h-4 w-4 text-emerald-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  </svg>
-                  <h5>Reviewer Authority · سلطة المراجعة</h5>
+            <template v-else-if="selectedReview">
+              <div class="context-item-card">
+                <h5>Review Binding</h5>
+                <div class="provenance-details-grid mt-2">
+                  <div class="prov-row">
+                    <span class="prov-k">Reviewer Reference</span>
+                    <bdi dir="ltr" class="prov-v">{{
+                      displayValue(selectedReview.reviewer_id)
+                    }}</bdi>
+                  </div>
+                  <div class="prov-row">
+                    <span class="prov-k">Review Scope</span>
+                    <bdi dir="ltr" class="prov-v">{{
+                      displayValue(selectedReview.review_scope_key)
+                    }}</bdi>
+                  </div>
                 </div>
               </div>
-              <div class="reviewer-info-box">
-                <span
-                  >Reviewer:
-                  <strong
-                    ><bdi dir="ltr">{{
-                      selectedReview?.reviewer_id ?? 'reviewer-owner-1'
-                    }}</bdi></strong
-                  ></span
-                >
-                <p>Authorized for this scope and decision authority.</p>
-              </div>
-            </div>
+            </template>
 
-            <!-- Criterion Authority -->
-            <div class="context-item-card">
-              <div class="item-card-header">
-                <div class="card-icon-title">
-                  <svg
-                    class="h-4 w-4 text-cyan-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
-                    <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
-                    <path d="M7 21h10" />
-                    <path d="M12 3v18" />
-                    <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
-                  </svg>
-                  <h5>Criterion Authority · مرجعية المعايير</h5>
-                </div>
-              </div>
-              <p class="context-text-single">
-                Defined in Cybersecurity Investigation Standard v2.1. Effective: 2024-01-01.
-              </p>
-              <ul class="context-bullet-list mt-2">
-                <li v-for="cRef in selectedReview?.criterion_refs" :key="cRef">
-                  <bdi dir="ltr">{{ cRef }}</bdi>
-                </li>
-              </ul>
-            </div>
-
-            <!-- Prior Review Context -->
-            <div class="context-item-card">
-              <div class="item-card-header">
-                <div class="card-icon-title">
-                  <svg
-                    class="h-4 w-4 text-slate-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
-                  </svg>
-                  <h5>Prior Review Context · السياق السابق للمراجعة</h5>
-                </div>
-              </div>
-              <p class="context-text-single">
-                Prior effective Decision: none. No previous final decision issued.
-              </p>
-            </div>
-
-            <!-- Provenance Warnings -->
-            <div class="context-item-card">
-              <div class="item-card-header">
-                <div class="card-icon-title">
-                  <svg
-                    class="h-4 w-4 text-amber-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"
-                    />
-                  </svg>
-                  <h5>Provenance Warnings · تحذيرات المصادر</h5>
-                </div>
-              </div>
-              <p class="context-text-single">
-                No provenance integrity warnings. All artifacts available and verified.
-              </p>
-            </div>
-
-            <!-- Conflict Context -->
-            <div class="context-item-card">
-              <div class="item-card-header">
-                <div class="card-icon-title">
-                  <svg
-                    class="h-4 w-4 text-rose-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  <h5>Conflict Context · سياق التعارض</h5>
-                </div>
-              </div>
-              <p class="context-text-single">
-                Decision issuance remains pending until the open rationale gap is resolved.
-              </p>
-            </div>
+            <p v-else class="empty-state">لا يوجد Review أو Review Request محدد.</p>
           </div>
         </template>
 
@@ -2933,133 +2635,39 @@ function removePortfolioItem(): void {
         <template v-else-if="surface === 'mastery'">
           <div class="context-panel-header">
             <h3>السياق</h3>
-            <span class="close-icon">×</span>
           </div>
 
           <div class="context-cards-stack">
-            <!-- Revalidation Trigger -->
-            <div class="context-item-card">
-              <div class="item-card-header">
-                <div class="card-icon-title">
-                  <svg
-                    class="h-4 w-4 text-cyan-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
+            <template v-if="selectedMastery">
+              <div class="context-item-card">
+                <h5>State Lineage</h5>
+                <div class="provenance-details-grid mt-2">
+                  <div class="prov-row">
+                    <span class="prov-k">Previous State</span>
+                    <bdi dir="ltr" class="prov-v">{{
+                      displayValue(selectedMastery.previous_state_id)
+                    }}</bdi>
+                  </div>
+                </div>
+              </div>
+
+              <div class="context-item-card">
+                <h5>Contradicting Evidence Revisions</h5>
+                <ul
+                  v-if="selectedMastery.contradicting_evidence_revision_ids.length"
+                  class="context-bullet-list mt-2"
+                >
+                  <li
+                    v-for="revisionId in selectedMastery.contradicting_evidence_revision_ids"
+                    :key="revisionId"
                   >
-                    <circle cx="12" cy="12" r="10" />
-                    <circle cx="12" cy="12" r="6" />
-                    <circle cx="12" cy="12" r="2" />
-                  </svg>
-                  <h5>Revalidation Trigger</h5>
-                </div>
+                    <bdi dir="ltr">{{ revisionId }}</bdi>
+                  </li>
+                </ul>
+                <p v-else class="context-text-single">لا توجد مراجع مورّدة.</p>
               </div>
-              <p class="context-text-single">
-                تتطلب سياسة الكفاءة إعادة تحليل واكتشاف حديثة لإعادة التحقق.
-              </p>
-            </div>
-
-            <!-- Last State-Change Cause -->
-            <div class="context-item-card">
-              <div class="item-card-header">
-                <div class="card-icon-title">
-                  <svg
-                    class="h-4 w-4 text-slate-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  </svg>
-                  <h5>Last State-Change Cause</h5>
-                </div>
-              </div>
-              <p class="context-text-single">
-                تم إدخال إصدار أحدث من السياسة وأصبح يتطلب إعادة التحقق بناءً على تحليل وأدلة اكتشاف
-                حديثة.
-              </p>
-            </div>
-
-            <!-- Conflict Status -->
-            <div class="context-item-card">
-              <div class="item-card-header">
-                <div class="card-icon-title">
-                  <svg
-                    class="h-4 w-4 text-emerald-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  </svg>
-                  <h5>Conflict Status</h5>
-                </div>
-              </div>
-              <p class="context-text-single font-bold text-emerald-400">لا يوجد تعارض</p>
-            </div>
-
-            <!-- Evaluation Provenance -->
-            <div class="context-item-card">
-              <div class="item-card-header">
-                <div class="card-icon-title">
-                  <svg
-                    class="h-4 w-4 text-cyan-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                    <polyline points="2 17 12 22 22 17" />
-                    <polyline points="2 12 12 17 22 12" />
-                  </svg>
-                  <h5>Evaluation Provenance</h5>
-                </div>
-              </div>
-              <div class="provenance-details-grid">
-                <div class="prov-row">
-                  <span class="prov-k">Source of Truth:</span
-                  ><span class="prov-v">CEP Mastery Service</span>
-                </div>
-                <div class="prov-row">
-                  <span class="prov-k">Evaluation Time:</span
-                  ><span class="prov-v"><bdi dir="ltr">2025-05-18 09:42:11 UTC</bdi></span>
-                </div>
-                <div class="prov-row">
-                  <span class="prov-k">Evaluated By:</span
-                  ><span class="prov-v"><bdi dir="ltr">mastery-engine@cep</bdi></span>
-                </div>
-                <div class="prov-row">
-                  <span class="prov-k">Policy Set:</span><span class="prov-v">APPSEC</span>
-                </div>
-                <div class="prov-row">
-                  <span class="prov-k">Computation ID:</span
-                  ><span class="prov-v"><bdi dir="ltr">MSC-7f2a9e1b</bdi></span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Technical details for tests -->
-            <div v-if="selectedMastery" class="technical-receipt-box">
-              <span class="label">Published Policy Revision</span>
-              <bdi dir="ltr" class="identifier">{{ selectedMastery.policy_revision_id }}</bdi>
-            </div>
-
-            <button class="context-action-btn" type="button">
-              <span>عرض تفاصيل الاستيفاء</span>
-              <svg
-                class="mr-1 inline h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </button>
+            </template>
+            <p v-else class="empty-state">لا توجد Mastery State محددة.</p>
           </div>
         </template>
 
@@ -3067,7 +2675,6 @@ function removePortfolioItem(): void {
         <template v-else>
           <div class="context-panel-header">
             <h3>السياق</h3>
-            <span class="close-icon">×</span>
           </div>
 
           <div class="context-cards-stack">
@@ -3227,8 +2834,8 @@ function removePortfolioItem(): void {
               </div>
             </div>
 
-            <button class="context-action-btn" type="button">
-              <span>فتح إعدادات العرض</span>
+            <button class="context-action-btn" type="button" @click="panel = 'portfolio'">
+              <span>إنشاء إعدادات عرض جديدة</span>
             </button>
           </div>
         </template>
@@ -3246,10 +2853,10 @@ function removePortfolioItem(): void {
           <ol class="history-table" aria-label="سجل Mastery التاريخي">
             <li v-for="state in selectedMasteryHistory" :key="state.id">
               <bdi dir="ltr">{{ state.id }}</bdi>
-              <span
+              <span :class="statusClass('masteryJudgment', state.judgment)"
                 ><bdi dir="ltr">{{ state.judgment }}</bdi></span
               >
-              <span
+              <span :class="statusClass('freshness', state.freshness_status)"
                 ><bdi dir="ltr">{{ state.freshness_status }}</bdi></span
               >
               <small v-if="state.previous_state_id">
@@ -3266,11 +2873,11 @@ function removePortfolioItem(): void {
           @submit.prevent="intake.post('/progress/intake', { onSuccess: () => (panel = null) })"
         >
           <p v-if="!handoff_receipts.length" class="empty-state">
-            لا يوجد Handoff/Submission موثوق متاح للاستلام؛ لا يمكن إنشاء Candidate من بيانات مصدر
+            لا يوجد Handoff/Submission مورّد متاح للاستلام؛ لا يمكن إنشاء Candidate من بيانات مصدر
             يكتبها المتصفح.
           </p>
           <label>
-            Verified Handoff Receipt
+            Handoff Receipt Reference
             <select v-model="intake.handoff_receipt_id" dir="ltr" required>
               <option v-for="receipt in handoff_receipts" :key="receipt.id" :value="receipt.id">
                 {{ receipt.source_type }}/{{ receipt.source_id }}@{{ receipt.source_revision }} ·
@@ -3325,7 +2932,7 @@ function removePortfolioItem(): void {
         </form>
 
         <form
-          v-else-if="panel === 'finding' && selectedReview"
+          v-else-if="panel === 'finding' && selectedReview && canRecordFinding"
           class="form-grid"
           @submit.prevent="submitFinding"
         >
@@ -3344,7 +2951,7 @@ function removePortfolioItem(): void {
         </form>
 
         <form
-          v-else-if="panel === 'decision' && selectedReview"
+          v-else-if="panel === 'decision' && selectedReview && canIssueDecision"
           class="form-grid"
           @submit.prevent="submitDecision"
         >
@@ -4967,6 +4574,72 @@ function removePortfolioItem(): void {
   border-radius: 0.5rem;
 }
 
+.semantic-status {
+  border: 1px solid var(--pe-border);
+  background: var(--pe-bg-card);
+  color: var(--pe-text-muted);
+}
+
+.tone-positive {
+  border-color: var(--pe-emerald);
+  background: var(--pe-emerald-soft);
+  color: var(--pe-emerald);
+}
+
+.tone-info {
+  border-color: var(--pe-cyan);
+  background: var(--pe-cyan-soft);
+  color: var(--pe-cyan);
+}
+
+.tone-warning {
+  border-color: var(--pe-amber);
+  background: var(--pe-amber-soft);
+  color: var(--pe-amber);
+}
+
+.tone-danger {
+  border-color: var(--pe-rose);
+  background: var(--pe-rose-soft);
+  color: var(--pe-rose);
+}
+
+.tone-neutral {
+  border-color: var(--pe-border);
+  background: var(--pe-bg-card);
+  color: var(--pe-text-muted);
+}
+
+.breakable-value {
+  overflow-wrap: anywhere;
+}
+
+.reference-select-button {
+  border: 0;
+  background: transparent;
+  color: var(--pe-cyan);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.surface-tab:focus-visible,
+.toolbar-btn:focus-visible,
+.record-row:focus-visible,
+.rail-menu-item:focus-visible,
+.rail-footer-btn:focus-visible,
+.context-action-btn:focus-visible,
+.reference-select-button:focus-visible {
+  outline: 2px solid var(--pe-cyan);
+  outline-offset: 2px;
+}
+
+.rail-menu-item:disabled,
+.rail-footer-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 /* RTL and text helpers */
 bdi {
   unicode-bidi: isolate;
@@ -5006,6 +4679,43 @@ bdi {
 
   .history-table li {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 30rem) {
+  :global(.progress-evidence-shell .cep-primary-navigation) {
+    justify-content: flex-start;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    padding-inline: 0.65rem;
+    scroll-padding-inline: 0.65rem;
+    scroll-snap-type: inline mandatory;
+    scrollbar-gutter: stable;
+  }
+
+  .surface-tab {
+    flex: 0 0 auto;
+    min-width: 8.5rem;
+    flex-direction: column;
+    gap: 0.1rem;
+    scroll-snap-align: start;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .tab-ar,
+  .tab-en {
+    overflow-wrap: normal;
+    white-space: nowrap;
+    word-break: keep-all;
+  }
+
+  .top-actions {
+    width: 100%;
+  }
+
+  .toolbar-btn {
+    min-height: 2.75rem;
   }
 }
 </style>

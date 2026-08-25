@@ -159,7 +159,7 @@ describe('Progress & Evidence governed workspace', () => {
     document.documentElement.removeAttribute('data-theme');
   });
 
-  it('keeps Candidate Evidence distinct from canonical Evidence and shows trusted handoff truth', async () => {
+  it('keeps Candidate Evidence distinct from canonical Evidence and shows only supplied source references', async () => {
     const wrapper = mount(Workspace, { props: propsFor('evidence') });
 
     expect(wrapper.findAll('.surface-tab')).toHaveLength(4);
@@ -172,6 +172,8 @@ describe('Progress & Evidence governed workspace', () => {
     const right = wrapper.get('[data-testid="context-panel"]');
     expect(right.text()).toContain('handoff-1');
     expect(right.text()).toContain(sourceDigest);
+    expect(right.text()).not.toContain('Trusted');
+    expect(right.text()).not.toContain('Verified');
 
     await wrapper.get('.canonical-group .record-row').trigger('click');
     const evidenceDetail = wrapper.get('[data-testid="evidence-detail"]');
@@ -194,10 +196,124 @@ describe('Progress & Evidence governed workspace', () => {
     expect(center.text()).toContain('القبول محكوم بالنطاق الحالي فقط.');
 
     const right = wrapper.get('[data-testid="context-panel"]');
-    expect(right.text()).toContain('سلطة المراجعة');
+    expect(right.text()).toContain('Review Binding');
     expect(right.text()).toContain('reviewer-owner-1');
-    expect(right.text()).toContain('CRIT-AUTH-01');
     expect(right.text()).not.toContain('ACCEPT_WITH_LIMITATIONS');
+    expect(right.text()).not.toContain('Cybersecurity Investigation Standard');
+    expect(right.text()).not.toContain('Authorized');
+  });
+
+  it('renders missing candidate provenance as unavailable without inventing verification claims', () => {
+    const props = {
+      ...propsFor('evidence'),
+      candidates: [
+        {
+          ...candidate,
+          handoff_receipt_id: 'handoff-missing',
+          source_type: '',
+          source_id: '',
+          source_revision: '',
+          source_digest: '',
+          criterion_scope: [],
+        },
+      ],
+      handoff_receipts: [],
+    };
+
+    const wrapper = mount(Workspace, { props });
+    const right = wrapper.get('[data-testid="context-panel"]');
+
+    expect(right.text()).toContain('handoff-missing');
+    expect(right.text()).toContain('غير متوفر');
+    expect(right.text()).not.toContain('Trusted');
+    expect(right.text()).not.toContain('Verified');
+    expect(right.text()).not.toContain('integrity');
+    expect(right.text()).not.toContain('duplicate');
+  });
+
+  it('maps unresolved and negative governed enums to non-success visual tones', () => {
+    const masteryCases = [
+      ['NOT_EVALUATED', 'tone-neutral'],
+      ['INSUFFICIENT_EVIDENCE', 'tone-warning'],
+      ['INCONCLUSIVE', 'tone-warning'],
+      ['NOT_MASTERED', 'tone-danger'],
+    ] as const;
+
+    for (const [judgment, tone] of masteryCases) {
+      const props = { ...propsFor('mastery'), mastery: [{ ...mastery, judgment }] };
+      const wrapper = mount(Workspace, { props });
+      const badge = wrapper.get('.mastery-judgment-badge');
+
+      expect(badge.classes()).toContain(tone);
+      expect(badge.classes()).not.toContain('tone-positive');
+    }
+
+    for (const [outcome, tone] of [
+      ['MORE_EVIDENCE_REQUIRED', 'tone-warning'],
+      ['REJECT', 'tone-danger'],
+    ] as const) {
+      const props = {
+        ...propsFor('reviews'),
+        reviews: [{ ...review, decision: { ...review.decision, decision: outcome } }],
+      };
+      const wrapper = mount(Workspace, { props });
+      const badge = wrapper.get('.decision-pill');
+
+      expect(badge.classes()).toContain(tone);
+      expect(badge.classes()).not.toContain('tone-positive');
+    }
+
+    const findingProps = {
+      ...propsFor('reviews'),
+      reviews: [
+        {
+          ...review,
+          findings: [{ ...review.findings[0], finding: 'NOT_SATISFIED' }],
+        },
+      ],
+    };
+    const findingWrapper = mount(Workspace, { props: findingProps });
+    expect(findingWrapper.get('.finding-state-pill').classes()).toContain('tone-danger');
+  });
+
+  it('disables review mutation actions for closed and already-decided reviews', async () => {
+    const governedStops = [
+      { ...review, status: 'CLOSED' },
+      { ...review, status: 'READY_FOR_DECISION' },
+    ];
+
+    for (const stoppedReview of governedStops) {
+      const wrapper = mount(Workspace, {
+        props: { ...propsFor('reviews'), reviews: [stoppedReview] },
+      });
+      const findingButton = wrapper
+        .findAll('.top-actions button')
+        .find((button) => button.text().includes('Record Review Finding'))!;
+      const decisionButton = wrapper
+        .findAll('.top-actions button')
+        .find((button) => button.text().includes('Issue Decision'))!;
+
+      expect((findingButton.element as HTMLButtonElement).disabled).toBe(true);
+      expect((decisionButton.element as HTMLButtonElement).disabled).toBe(true);
+      await decisionButton.trigger('click');
+      expect(wrapper.find('[data-cep-region="bottom"]').exists()).toBe(false);
+    }
+  });
+
+  it('selects reviews by governed lifecycle without REV-0084 identifier logic', () => {
+    const props = {
+      ...propsFor('reviews'),
+      reviews: [
+        { ...review, id: 'REV-0084-legacy', status: 'CLOSED' },
+        { ...review, id: 'review-current', status: 'IN_REVIEW', decision: null },
+      ],
+    };
+
+    const wrapper = mount(Workspace, { props });
+    const center = wrapper.get('[data-testid="review-workbench"]');
+
+    expect(center.text()).toContain('review-current');
+    expect(center.text()).not.toContain('REV-0084-legacy');
   });
 
   it('renders Mastery Judgment and Freshness as separate governed dimensions without percentages', () => {
@@ -255,6 +371,46 @@ describe('Progress & Evidence governed workspace', () => {
     expect(right.text()).toContain('ACCEPT_WITH_LIMITATIONS');
     expect(right.text()).not.toContain('Accepted Evidence');
     expect(right.text()).not.toContain('revision-1');
+  });
+
+  it('keeps mobile surface navigation labels intact and exposes native keyboard controls', async () => {
+    const props = propsFor('portfolio');
+    props.portfolios = [
+      {
+        ...portfolio,
+        items: [
+          ...portfolio.items,
+          {
+            ...portfolio.items[0],
+            id: 'portfolio-item-2',
+            title: 'مرجع ثانٍ',
+          },
+        ],
+      },
+    ];
+    const wrapper = mount(Workspace, { props });
+    const tabs = wrapper.findAll('.surface-tab');
+
+    expect(tabs.map((tab) => tab.attributes('href'))).toEqual([
+      '/progress',
+      '/progress/reviews',
+      '/progress/mastery',
+      '/progress/portfolio',
+    ]);
+    expect(tabs.every((tab) => tab.element.tagName === 'A')).toBe(true);
+    expect(tabs.every((tab) => tab.find('.tab-ar').text().length > 1)).toBe(true);
+
+    const selectors = wrapper.findAll('.reference-select-button');
+    expect(selectors).toHaveLength(2);
+    expect(selectors.every((button) => button.attributes('type') === 'button')).toBe(true);
+    expect(selectors[1].attributes('aria-pressed')).toBe('false');
+    await selectors[1].trigger('click');
+    expect(selectors[1].attributes('aria-pressed')).toBe('true');
+
+    const settings = wrapper.get('.context-action-btn');
+    expect(settings.attributes('type')).toBe('button');
+    await settings.trigger('click');
+    expect(wrapper.get('[data-cep-region="bottom"]').find('form').exists()).toBe(true);
   });
 
   it('assigns TOP, LEFT, CENTER, RIGHT, and BOTTOM to their governed owners', () => {
