@@ -234,92 +234,70 @@ const portfolioGroups = computed(() => {
   const items = selectedPortfolio.value?.items ?? [];
   if (!items.length) return [];
 
-  // Group items into meaningful curated blocks
-  const groups: Array<{
-    id: number;
-    title: string;
-    projection: string;
-    statusBadge?: { text: string; type: 'success' | 'warning' | 'info' };
-    lastVerifiedDate: string;
-    verifiedOk: boolean;
-    items: Array<typeof items[0] & { typeLabel?: string; dateLabel?: string; annotationText?: string }>;
-  }> = [];
+  const groupingStrategy = selectedPortfolio.value?.grouping;
 
-  // 1. Group 1: Secure Coding Fundamentals
-  const group1Items = items.filter((i) =>
-    ['EV-0138', 'EV-0140', 'EV-0145', 'Secure Coding Analysis', 'Input Validation Review', 'Authentication Logic Review'].some(k => i.title.includes(k) || i.id.includes(k))
-  );
-  if (group1Items.length) {
-    groups.push({
-      id: 1,
-      title: 'مراجعة الكود الآمن',
-      projection: 'SECURE CODING FUNDAMENTALS — MASTERED',
-      lastVerifiedDate: '10 أبريل 2024',
-      verifiedOk: true,
-      items: group1Items.map((item, idx) => ({
+  if (groupingStrategy === 'CAPABILITY') {
+    const groupsMap = new Map<string, any>();
+
+    items.forEach((item) => {
+      const ev = props.evidence.find((e) => e.id === item.evidence_id);
+      const capId = ev ? ev.capability_id : 'UNKNOWN_CAPABILITY';
+      const masteryState = props.mastery.find((m) => m.target_id === capId);
+
+      if (!groupsMap.has(capId)) {
+        groupsMap.set(capId, {
+          id: capId,
+          title: capId,
+          projection: 'PORTFOLIO_CAPABILITY_PROJECTION',
+          statusBadge: null,
+          items: [],
+        });
+      }
+
+      groupsMap.get(capId).items.push({
         ...item,
-        typeLabel: 'تحليل',
-        dateLabel: idx === 0 ? '28 أبريل 2024' : idx === 1 ? '14 أبريل 2024' : '07 أبريل 2024',
-        annotationText: idx === 0 ? 'عرض في المتطلبات الفنية' : idx === 1 ? 'مثال على التحقق من المدخلات' : 'تغطية المكتبات المستخدمة',
-      })),
+        typeLabel: ev?.source_type ?? 'UNKNOWN',
+        effectiveDecision: ev?.effective_review_decision ?? 'NONE',
+        annotationText: item.annotation ?? '',
+      });
     });
+
+    return Array.from(groupsMap.values());
   }
 
-  // 2. Group 2: AppSec Investigation
-  const group2Items = items.filter((i) =>
-    ['EV-0142', 'EV-0143', 'EV-0147', 'SQL Investigation Evidence', 'IDOR Investigation Evidence', 'Session Management Analysis'].some(k => i.title.includes(k) || i.id.includes(k))
-  );
-  if (group2Items.length) {
-    groups.push({
-      id: 2,
-      title: 'استقصاء أمني للتطبيقات',
-      projection: 'APPLICATION SECURITY INVESTIGATION — MASTERED',
-      statusBadge: { text: 'REVALIDATION_REQUIRED', type: 'warning' },
-      lastVerifiedDate: '10 أبريل 2024',
-      verifiedOk: false,
-      items: group2Items.map((item, idx) => ({
-        ...item,
-        typeLabel: 'تحقيق',
-        dateLabel: idx === 0 ? '22 أبريل 2024' : idx === 1 ? '18 أبريل 2024' : '11 أبريل 2024',
-        annotationText: idx === 0 ? 'تحقيق في حقن SQL' : idx === 1 ? 'تحقيق في الوصول غير المصرح' : 'تحليل إدارة الجلسة',
-      })),
-    });
-  }
-
-  // 3. Group 3: Incident Analysis
-  const group3Items = items.filter((i) =>
-    ['EV-0150', 'EV-0151', 'EV-0152', 'Incident Analysis Evidence', 'Root Cause Analysis', 'Response Effectiveness Review'].some(k => i.title.includes(k) || i.id.includes(k))
-  );
-  if (group3Items.length) {
-    groups.push({
-      id: 3,
-      title: 'تحليل الحوادث والاستجابة',
-      projection: 'INSUFFICIENT_EVIDENCE',
-      statusBadge: { text: 'مطلوب أدلة إضافية', type: 'warning' },
-      lastVerifiedDate: '10 أبريل 2024',
-      verifiedOk: false,
-      items: group3Items.map((item, idx) => ({
-        ...item,
-        typeLabel: 'حادث',
-        dateLabel: idx === 0 ? '26 أبريل 2024' : idx === 1 ? '20 أبريل 2024' : '13 أبريل 2024',
-        annotationText: idx === 0 ? 'تحليل الحوادث الأمني' : idx === 1 ? 'تحليل السبب الجذري' : 'مراجعة فعالية الاستجابة',
-      })),
-    });
-  }
-
-  // Fallback if generic single/custom item
-  if (!groups.length) {
-    groups.push({
-      id: 1,
+  // Fallback single group
+  return [
+    {
+      id: selectedPortfolio.value?.id || 'group-1',
       title: selectedPortfolio.value?.name ?? 'Curated Capability References',
-      projection: 'CAPABILITY PROJECTION',
-      lastVerifiedDate: '10 أبريل 2024',
-      verifiedOk: true,
-      items: items.map(i => ({ ...i, typeLabel: 'تحليل', dateLabel: '2024 أبريل 28', annotationText: 'عرض في المتطلبات الفنية' })),
-    });
-  }
+      projection: 'PORTFOLIO_PROJECTION',
+      statusBadge: null,
+      items: items.map((item) => {
+        const ev = props.evidence.find((e) => e.id === item.evidence_id);
+        return {
+          ...item,
+          typeLabel: ev?.source_type ?? 'UNKNOWN',
+          effectiveDecision: ev?.effective_review_decision ?? 'NONE',
+          annotationText: item.annotation ?? '',
+        };
+      }),
+    },
+  ];
+});
 
-  return groups;
+// Computed properties for Mastery Step 2 and 4 dynamic data
+const selectedMasteryEvidenceRevisions = computed(() => {
+  if (!selectedMastery.value) return [];
+  const revIds = selectedMastery.value.supporting_evidence_revision_ids;
+  return props.evidence.flatMap((e) => e.revisions).filter((r) => revIds.includes(r.id));
+});
+
+const selectedMasteryCriteria = computed(() => {
+  const criteria = new Set<string>();
+  selectedMasteryEvidenceRevisions.value.forEach((r) => {
+    r.criterion_scope.forEach((c) => criteria.add(c));
+  });
+  return Array.from(criteria);
 });
 
 const panelTitle = computed(() => {
@@ -1237,7 +1215,7 @@ function removePortfolioItem(): void {
             <div class="card-top-bar">
               <div class="card-title-group">
                 <svg class="w-6 h-6 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                <h2 class="card-main-title">Evidence Review REV-0084</h2>
+                <h2 class="card-main-title">Evidence Review <bdi dir="ltr">{{ selectedReview.id }}</bdi></h2>
                 <span class="badge-pill purple-pill"><bdi dir="ltr">Review Workflow: {{ selectedReview.status }}</bdi></span>
               </div>
             </div>
@@ -1258,11 +1236,11 @@ function removePortfolioItem(): void {
               <div class="review-stat-col border-x border-slate-800 px-4">
                 <div class="stat-pair">
                   <span class="stat-label">Evidence Under Review</span>
-                  <span class="cyan-link"><bdi dir="ltr">EV-0142 / Revision 1</bdi></span>
+                  <span class="cyan-link"><bdi dir="ltr">{{ selectedReview.evidence_id }} / {{ selectedReview.evidence_revision_id }}</bdi></span>
                 </div>
                 <div class="stat-pair mt-2">
                   <span class="stat-label">Subject</span>
-                  <strong class="text-white">Ahmed</strong>
+                  <strong class="text-white">Subject</strong>
                 </div>
               </div>
 
@@ -1444,26 +1422,24 @@ function removePortfolioItem(): void {
               <div class="stepper-block">
                 <div class="stepper-num">2</div>
                 <div class="stepper-content">
-                  <span class="stepper-title">Required Criteria</span>
+                  <span class="stepper-title">Required Criteria Scope</span>
                   <table class="stepper-table mt-2">
                     <thead>
                       <tr>
                         <th>Criterion</th>
-                        <th>Satisfaction State</th>
+                        <th>Status</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td>C1 — Investigate suspicious application behavior</td>
-                        <td><span class="satisfied-text">مستوفى <svg class="w-4 h-4 inline text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span></td>
+                      <tr v-for="crit in selectedMasteryCriteria" :key="crit">
+                        <td>{{ crit }}</td>
+                        <td>
+                          <span v-if="selectedMastery.judgment === 'MASTERED'" class="satisfied-text">مستوفى <svg class="w-4 h-4 inline text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>
+                          <span v-else class="text-slate-400">Peding / Unavailable</span>
+                        </td>
                       </tr>
-                      <tr>
-                        <td>C2 — Interpret security telemetry</td>
-                        <td><span class="satisfied-text">مستوفى <svg class="w-4 h-4 inline text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span></td>
-                      </tr>
-                      <tr>
-                        <td>C3 — Establish defensible investigation rationale</td>
-                        <td><span class="satisfied-text">مستوفى <svg class="w-4 h-4 inline text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span></td>
+                      <tr v-if="selectedMasteryCriteria.length === 0">
+                        <td colspan="2" class="text-slate-500 italic">No Criteria Available</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1480,21 +1456,14 @@ function removePortfolioItem(): void {
                     <thead>
                       <tr>
                         <th>Review ID</th>
-                        <th>Decision</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td><span class="cyan-link">REV-0081</span></td>
-                        <td><span class="stat-badge green-badge">ACCEPT</span></td>
+                      <tr v-for="revId in selectedMastery.review_decision_ids" :key="revId">
+                        <td><span class="cyan-link">{{ revId }}</span></td>
                       </tr>
-                      <tr>
-                        <td><span class="cyan-link">REV-0082</span></td>
-                        <td><span class="stat-badge amber-badge">ACCEPT_WITH_LIMITATIONS</span></td>
-                      </tr>
-                      <tr>
-                        <td><span class="cyan-link">REV-0083</span></td>
-                        <td><span class="stat-badge green-badge">ACCEPT</span></td>
+                      <tr v-if="selectedMastery.review_decision_ids.length === 0">
+                        <td class="text-slate-500 italic">No Review Decisions</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1506,18 +1475,13 @@ function removePortfolioItem(): void {
               <div class="stepper-block">
                 <div class="stepper-num">4</div>
                 <div class="stepper-content">
-                  <span class="stepper-title">Supporting Evidence</span>
+                  <span class="stepper-title">Supporting Evidence Revisions</span>
                   <div class="evidence-pill-stack mt-2">
-                    <div class="evidence-ref-pill">
-                      <span>EV-0138</span>
-                    </div>
-                    <div class="evidence-ref-pill">
-                      <span>EV-0142</span>
-                    </div>
-                    <div class="evidence-ref-pill">
-                      <span>EV-0150</span>
+                    <div class="evidence-ref-pill" v-for="evId in selectedMastery.supporting_evidence_revision_ids" :key="evId">
+                      <span>{{ evId }}</span>
                     </div>
                   </div>
+                  <div v-if="selectedMastery.supporting_evidence_revision_ids.length === 0" class="text-slate-500 italic mt-2">No Supporting Evidence</div>
                 </div>
               </div>
               <div class="stepper-arrow">↓</div>
@@ -1567,26 +1531,20 @@ function removePortfolioItem(): void {
             <!-- Curated Capability Blocks -->
             <div class="portfolio-groups-list">
               <div
-                v-for="grp in portfolioGroups"
+                v-for="(grp, grpIdx) in portfolioGroups"
                 :key="grp.id"
                 class="portfolio-group-card"
               >
                 <div class="group-card-header">
                   <div class="group-num-title">
-                    <span class="group-num-badge">{{ grp.id }}</span>
-                    <svg v-if="grp.id === 1" class="w-5 h-5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                    <svg v-else-if="grp.id === 2" class="w-5 h-5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                    <svg v-else class="w-5 h-5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/></svg>
+                    <span class="group-num-badge">{{ grpIdx + 1 }}</span>
+                    <svg class="w-5 h-5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                     <h3 class="group-title">{{ grp.title }}</h3>
                   </div>
 
                   <div class="group-badges-area">
                     <span class="projection-tag">{{ grp.projection }}</span>
                     <span v-if="grp.statusBadge" class="status-warning-tag">{{ grp.statusBadge.text }}</span>
-                    <div class="verification-date-tag">
-                      <span>آخر تحقق {{ grp.lastVerifiedDate }}</span>
-                      <svg v-if="grp.verifiedOk" class="w-4 h-4 text-emerald-400 inline ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                    </div>
                   </div>
                 </div>
 
@@ -1597,7 +1555,6 @@ function removePortfolioItem(): void {
                       <th>الهدف</th>
                       <th>عنوان الدليل (مرجع)</th>
                       <th>النوع</th>
-                      <th>تاريخ الدليل</th>
                       <th>قرار المراجعة</th>
                       <th>ملاحظة سرعة (تغذية)</th>
                     </tr>
@@ -1609,7 +1566,7 @@ function removePortfolioItem(): void {
                       :class="{ selected: item.id === portfolioItemId }"
                       @click="portfolioItemId = item.id"
                     >
-                      <td><span class="cyan-link"><bdi dir="ltr">{{ 'EV-01' + (38 + (grp.id - 1) * 4 + idx * 2) }}</bdi></span></td>
+                      <td><span class="cyan-link"><bdi dir="ltr">{{ item.evidence_id }}</bdi></span></td>
                       <td>
                         <span class="evidence-title-ref">
                           {{ item.title }}
@@ -1617,10 +1574,13 @@ function removePortfolioItem(): void {
                         </span>
                         <small class="block text-slate-400 text-xs mt-0.5">Canonical Evidence Reference · {{ item.current_revision_id }}</small>
                       </td>
-                      <td><span class="type-badge">{{ item.typeLabel ?? 'تحليل' }}</span></td>
-                      <td><span class="date-text">{{ item.dateLabel ?? '2024 أبريل 28' }}</span></td>
-                      <td><span class="stat-badge green-badge">ACCEPT</span></td>
-                      <td><span class="notes-text">{{ item.annotationText ?? 'عرض في المتطلبات الفنية' }}</span></td>
+                      <td><span class="type-badge">{{ item.typeLabel }}</span></td>
+                      <td>
+                        <span v-if="item.effectiveDecision === 'ACCEPT' || item.effectiveDecision === 'ACCEPT_WITH_LIMITATIONS'" class="stat-badge green-badge">{{ item.effectiveDecision }}</span>
+                        <span v-else-if="item.effectiveDecision === 'NONE'" class="stat-badge gray-badge">{{ item.effectiveDecision }}</span>
+                        <span v-else class="stat-badge red-badge">{{ item.effectiveDecision }}</span>
+                      </td>
+                      <td><span class="notes-text" v-if="item.annotationText">{{ item.annotationText }}</span><span class="notes-text text-slate-500" v-else>بدون ملاحظة</span></td>
                     </tr>
                   </tbody>
                 </table>
@@ -1879,7 +1839,6 @@ function removePortfolioItem(): void {
                 </div>
               </div>
               <p class="context-text-single">تم إدخال إصدار أحدث من السياسة وأصبح يتطلب إعادة التحقق بناءً على تحليل وأدلة اكتشاف حديثة.</p>
-              <span class="date-tag-sub">2024-12-15</span>
             </div>
 
             <!-- Conflict Status -->
@@ -1976,8 +1935,8 @@ function removePortfolioItem(): void {
                 </div>
               </div>
               <div class="prov-row"><span class="prov-k">المالك:</span><span class="prov-v">Ahmed</span></div>
-              <div class="prov-row"><span class="prov-k">إنشاء العرض:</span><span class="prov-v">15 أبريل 2024</span></div>
-              <div class="prov-row"><span class="prov-k">آخر تحديث:</span><span class="prov-v"><bdi dir="ltr">12 يوليو 2024 - 09:32</bdi></span></div>
+              <div class="prov-row"><span class="prov-k">إنشاء العرض:</span><span class="prov-v">غير متوفر</span></div>
+              <div class="prov-row"><span class="prov-k">آخر تحديث:</span><span class="prov-v"><bdi dir="ltr">غير متوفر</bdi></span></div>
               <div class="prov-row"><span class="prov-k">وضع التخصيص:</span><span class="prov-v"><span class="status-dot green-dot"></span>تخصيص</span></div>
             </div>
 
