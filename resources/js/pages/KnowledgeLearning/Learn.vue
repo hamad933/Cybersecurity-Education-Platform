@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import KnowledgeTabs from './components/KnowledgeTabs.vue';
@@ -142,92 +142,21 @@ const toggleShelf = () => {
           <div class="border-b border-slate-800/80 pb-3">
             <div class="flex items-center justify-between">
               <h2 class="text-xs font-bold text-slate-200">مسار التعلم</h2>
-              <span class="font-mono text-[11px] font-bold text-cyan-300">التقدم الكلي 28%</span>
+              <span class="font-mono text-[11px] font-bold text-slate-400">النسبة غير متوفرة</span>
             </div>
             <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
-              <div class="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-300" style="width: 28%"></div>
+              <div class="h-full rounded-full bg-slate-700 transition-all duration-300" style="width: 0%"></div>
             </div>
             <p class="mt-2.5 text-xs font-semibold text-slate-300 truncate">
               {{ selectedStep?.capability_id ?? 'أمن تطبيقات الويب' }}
             </p>
           </div>
 
-          <!-- Timeline Stepper List -->
+          <!-- Timeline Stepper List (Neutral State) -->
           <div class="mt-3 flex-1 space-y-2 overflow-y-auto pr-0.5 text-xs">
-            <!-- Step 1: HTTP Basics (Completed) -->
-            <div class="flex items-center justify-between rounded-lg p-2 hover:bg-slate-900/60 transition">
-              <div class="flex items-center gap-2">
-                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">✓</span>
-                <span class="font-medium text-slate-300">HTTP Basics</span>
-              </div>
-              <span class="text-[10px] text-emerald-400 font-medium">مكتمل</span>
-            </div>
-
-            <!-- Step 2: SQL Basics (Completed) -->
-            <div class="flex items-center justify-between rounded-lg p-2 hover:bg-slate-900/60 transition">
-              <div class="flex items-center gap-2">
-                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">✓</span>
-                <span class="font-medium text-slate-300">SQL Basics</span>
-              </div>
-              <span class="text-[10px] text-emerald-400 font-medium">مكتمل</span>
-            </div>
-
-            <!-- Step 3: Active Module (SQL Injection) -->
-            <div class="rounded-xl border border-cyan-500/40 bg-cyan-950/30 p-2.5 space-y-2 shadow-sm shadow-cyan-950/40">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <span class="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-slate-950 text-[10px] font-black">●</span>
-                  <span class="font-bold text-cyan-200">{{ active?.title_ar ?? 'SQL Injection' }}</span>
-                </div>
-                <span class="font-mono text-[10px] text-cyan-400">3/7</span>
-              </div>
-
-              <!-- Sub-steps list inside active module -->
-              <div class="space-y-1 ms-3 border-s-2 border-cyan-700/50 ps-2.5 text-[11px]">
-                <div class="flex items-center justify-between py-1 text-slate-300">
-                  <span class="truncate">01 SQL Injection المقدمة</span>
-                  <span class="text-emerald-400 text-[10px]">✓</span>
-                </div>
-                <div class="flex items-center justify-between rounded-md bg-cyan-500/20 px-2 py-1 font-semibold text-cyan-100 border border-cyan-500/30">
-                  <span class="truncate">02 فهم الاستعلامات الضعيفة</span>
-                  <span class="text-[9px] font-bold text-cyan-300">الحالي</span>
-                </div>
-                <div class="flex items-center justify-between py-1 text-slate-400">
-                  <span class="truncate">03 أنماط الإدخال الضار</span>
-                  <span class="text-slate-600">○</span>
-                </div>
-                <div class="flex items-center justify-between py-1 text-slate-400">
-                  <span class="truncate">04 الأثر وإساءة الاستخدام</span>
-                  <span class="text-slate-600">○</span>
-                </div>
-                <div class="flex items-center justify-between py-1 text-slate-400">
-                  <span class="truncate">05 التخفيف</span>
-                  <span class="text-slate-600">○</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Subsequent Steps in Track Sequence -->
-            <div class="flex items-center justify-between rounded-lg p-2 text-slate-400 hover:bg-slate-900/60 transition">
-              <div class="flex items-center gap-2">
-                <span class="text-purple-400 text-xs">⚡</span>
-                <span>Practice</span>
-              </div>
-              <span class="text-[10px] text-slate-500">التالي: تدريب مهاري</span>
-            </div>
-            <div class="flex items-center justify-between rounded-lg p-2 text-slate-400 hover:bg-slate-900/60 transition">
-              <div class="flex items-center gap-2">
-                <span class="text-blue-400 text-xs">📝</span>
-                <span>Assessment</span>
-              </div>
-              <span class="text-[10px] text-slate-500">التالي: اختبار وتحقق</span>
-            </div>
-            <div class="flex items-center justify-between rounded-lg p-2 text-slate-400 hover:bg-slate-900/60 transition">
-              <div class="flex items-center gap-2">
-                <span class="text-cyan-400 text-xs">🧪</span>
-                <span>Lab</span>
-              </div>
-              <span class="text-[10px] text-slate-500">التالي: بيئة معملية</span>
+            <div class="rounded-xl border border-dashed border-slate-800 bg-slate-950/40 p-4 text-center text-slate-500">
+              <span class="text-xl block mb-2">⏳</span>
+              <p>لا يوجد تقدم مسجل في مسار الدرس الحالي.</p>
             </div>
 
             <!-- Dynamic Journey Items from Props -->
@@ -311,23 +240,9 @@ const toggleShelf = () => {
                     <h1 class="text-2xl font-black text-slate-100 sm:text-3xl tracking-tight">
                       {{ active.title_ar }}
                     </h1>
-                    <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-950/70 px-3 py-0.5 text-xs font-bold text-emerald-300 shadow-sm">
-                      <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-                      نشط الآن
-                    </span>
-                    <span class="inline-flex items-center rounded-full border border-cyan-500/40 bg-cyan-950/60 px-2.5 py-0.5 text-xs font-semibold text-cyan-300">
-                      مستوى 1
-                    </span>
                   </div>
                   <div class="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-400 font-mono">
                     <bdi dir="ltr" class="text-cyan-300 font-bold">{{ active.id }}</bdi>
-                    <span class="text-slate-600">·</span>
-                    <span class="text-slate-400">مستكمل من التعلم 3</span>
-                    <span class="text-slate-600">·</span>
-                    <span class="text-emerald-400 font-semibold flex items-center gap-1">
-                      <span>✓</span>
-                      <span>تم حفظ التقدم</span>
-                    </span>
                   </div>
                 </div>
               </div>
@@ -368,9 +283,9 @@ const toggleShelf = () => {
                 </div>
                 <div class="flex items-center gap-2 text-xs text-slate-400 font-mono">
                   <span>التقدم في الدرس</span>
-                  <span class="text-cyan-300 font-bold">3/7</span>
+                  <span class="text-slate-500">-/-</span>
                   <div class="h-1.5 w-24 overflow-hidden rounded-full bg-slate-800">
-                    <div class="h-full rounded-full bg-cyan-400" style="width: 43%"></div>
+                    <div class="h-full rounded-full bg-slate-700" style="width: 0%"></div>
                   </div>
                 </div>
               </div>
@@ -378,42 +293,36 @@ const toggleShelf = () => {
 
             <!-- Structured Lesson Cards -->
             <div class="mt-6 flex-1 space-y-4">
-              <!-- Card 01: SQL Injection (Completed) -->
+              <!-- Card 01: Introduction -->
               <article class="rounded-xl border border-slate-800/80 bg-slate-950/50 p-4 transition">
                 <header class="flex items-center justify-between cursor-pointer" @click="toggleLessonSection('01')">
                   <div class="flex items-center gap-2.5">
-                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">✓</span>
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-slate-400 text-[10px] font-bold">-</span>
                     <bdi dir="ltr" class="font-mono text-xs font-bold text-slate-400">01</bdi>
                     <h3 class="font-bold text-sm text-slate-200">SQL Injection</h3>
                   </div>
                   <div class="flex items-center gap-2">
-                    <span class="text-xs text-emerald-400">فهم المفهوم وأمثلة مبسطة</span>
+                    <span class="text-xs text-slate-500">فهم المفهوم وأمثلة مبسطة</span>
                     <span class="text-slate-500 text-xs">{{ openLessonSections['01'] ? '▲' : '▼' }}</span>
                   </div>
                 </header>
               </article>
 
-              <!-- Card 02: Understanding Vulnerable Queries (Active Expanded) -->
-              <article class="rounded-xl border-2 border-cyan-500/60 bg-slate-950/80 p-5 shadow-lg shadow-cyan-950/30 transition">
+              <!-- Card 02: Understanding Vulnerable Queries -->
+              <article class="rounded-xl border border-slate-800/80 bg-slate-950/50 p-4 transition">
                 <header class="flex items-center justify-between cursor-pointer border-b border-slate-800/80 pb-3" @click="toggleLessonSection('02')">
                   <div class="flex items-center gap-2.5">
-                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-slate-950 text-[10px] font-black">●</span>
-                    <bdi dir="ltr" class="font-mono text-xs font-bold text-cyan-300">02</bdi>
-                    <h3 class="font-bold text-base text-cyan-100">فهم الاستعلامات الضعيفة</h3>
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-slate-400 text-[10px] font-black">-</span>
+                    <bdi dir="ltr" class="font-mono text-xs font-bold text-slate-400">02</bdi>
+                    <h3 class="font-bold text-sm text-slate-200">فهم الاستعلامات الضعيفة</h3>
                   </div>
                   <div class="flex items-center gap-2">
-                    <span class="text-xs text-cyan-300 font-medium">كيف تنشأ نقاط الضعف في الاستعلامات</span>
+                    <span class="text-xs text-slate-500 font-medium">كيف تنشأ نقاط الضعف في الاستعلامات</span>
                     <span class="text-slate-400 text-xs">{{ openLessonSections['02'] ? '▲' : '▼' }}</span>
                   </div>
                 </header>
 
                 <div v-if="openLessonSections['02']" class="mt-4 space-y-4 text-sm leading-relaxed text-slate-300">
-                  <!-- Current Goal Callout Box -->
-                  <div class="flex items-center gap-2.5 rounded-xl border border-cyan-500/40 bg-cyan-950/30 px-4 py-3 text-xs text-cyan-200">
-                    <span class="text-base select-none">🎯</span>
-                    <p class="font-semibold">الهدف الحالي: تحديد سبب قابلية الاستعلام لحقن SQL</p>
-                  </div>
-
                   <p>
                     يحدث حقن SQL عندما يتم إدخال بيانات غير موثوقة من المستخدم في الاستعلام، مما قد يسمح للمهاجم بتغيير المنطق إلى الوضيعات
                     حساسة، أو تنفيذ أوامر غير متوقعة.
@@ -587,13 +496,13 @@ const toggleShelf = () => {
 
           <div class="mt-3 flex-1 space-y-4 overflow-y-auto pr-0.5 text-xs">
             <!-- Goal Section -->
-            <section class="rounded-xl border border-cyan-500/40 bg-cyan-950/30 p-3.5 space-y-1.5">
-              <div class="flex items-center gap-1.5 text-cyan-300 font-bold">
+            <section class="rounded-xl border border-dashed border-slate-800 bg-slate-950/40 p-3.5 space-y-1.5 text-slate-500">
+              <div class="flex items-center gap-1.5 font-bold">
                 <span>🎯</span>
                 <h3>الهدف الحالي</h3>
               </div>
-              <p class="text-slate-200 leading-relaxed">
-                تحديد سبب قابلية الاستعلام لحقن SQL
+              <p class="text-[11px]">
+                لم يتم تحديد هدف للمسار الحالي.
               </p>
             </section>
 
@@ -724,25 +633,25 @@ const toggleShelf = () => {
               نظرة عامة
             </button>
             <button type="button" class="focus-ring rounded-lg px-2.5 py-1 text-slate-400 hover:text-slate-200">
-              المعرفة <span class="ms-1 font-mono text-[10px] text-cyan-400">23</span>
+              المعرفة <span class="ms-1 font-mono text-[10px] text-cyan-400">-</span>
             </button>
             <button type="button" class="focus-ring rounded-lg px-2.5 py-1 text-slate-400 hover:text-slate-200">
-              العلاقات <span class="ms-1 font-mono text-[10px] text-cyan-400">18</span>
+              العلاقات <span class="ms-1 font-mono text-[10px] text-cyan-400">-</span>
             </button>
             <button type="button" class="focus-ring rounded-lg px-2.5 py-1 text-slate-400 hover:text-slate-200">
-              Practice <span class="ms-1 font-mono text-[10px] text-purple-400">7</span>
+              Practice <span class="ms-1 font-mono text-[10px] text-purple-400">-</span>
             </button>
             <button type="button" class="focus-ring rounded-lg px-2.5 py-1 text-slate-400 hover:text-slate-200">
-              Assessment <span class="ms-1 font-mono text-[10px] text-blue-400">4</span>
+              Assessment <span class="ms-1 font-mono text-[10px] text-blue-400">-</span>
             </button>
             <button type="button" class="focus-ring rounded-lg px-2.5 py-1 text-slate-400 hover:text-slate-200">
-              Labs <span class="ms-1 font-mono text-[10px] text-cyan-400">3</span>
+              Labs <span class="ms-1 font-mono text-[10px] text-cyan-400">-</span>
             </button>
             <button type="button" class="focus-ring rounded-lg px-2.5 py-1 text-slate-400 hover:text-slate-200">
-              الأدلة <span class="ms-1 font-mono text-[10px] text-emerald-400">12</span>
+              الأدلة <span class="ms-1 font-mono text-[10px] text-emerald-400">-</span>
             </button>
             <button type="button" class="focus-ring rounded-lg px-2.5 py-1 text-slate-400 hover:text-slate-200">
-              الشواهد <span class="ms-1 font-mono text-[10px] text-amber-400">5</span>
+              الشواهد <span class="ms-1 font-mono text-[10px] text-amber-400">-</span>
             </button>
           </div>
         </div>

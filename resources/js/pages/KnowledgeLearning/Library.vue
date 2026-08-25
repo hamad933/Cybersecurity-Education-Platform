@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import KnowledgeTabs from './components/KnowledgeTabs.vue';
@@ -1310,23 +1310,23 @@ const loadComparison = async () => {
           <!-- 5 Metric Cards Grid -->
           <div class="mt-3 grid grid-cols-5 gap-1.5 text-center">
             <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
-              <span class="block font-mono text-sm font-bold text-slate-100">1</span>
+              <span class="block font-mono text-sm font-bold text-slate-100">-</span>
               <span class="block text-[9px] text-slate-500">المشاريع</span>
             </div>
             <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
-              <span class="block font-mono text-sm font-bold text-emerald-300">23</span>
+              <span class="block font-mono text-sm font-bold text-emerald-300">-</span>
               <span class="block text-[9px] text-slate-500">الأدلة</span>
             </div>
             <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
-              <span class="block font-mono text-sm font-bold text-cyan-300">2</span>
+              <span class="block font-mono text-sm font-bold text-cyan-300">-</span>
               <span class="block text-[9px] text-slate-500">المختبرات</span>
             </div>
             <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
-              <span class="block font-mono text-sm font-bold text-indigo-300">23</span>
+              <span class="block font-mono text-sm font-bold text-indigo-300">-</span>
               <span class="block text-[9px] text-slate-500">العلاقات</span>
             </div>
             <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
-              <span class="block font-mono text-sm font-bold text-amber-300">2</span>
+              <span class="block font-mono text-sm font-bold text-amber-300">-</span>
               <span class="block text-[9px] text-slate-500">المصادر</span>
             </div>
           </div>
@@ -1516,7 +1516,7 @@ const loadComparison = async () => {
               type="button"
               class="focus-ring rounded-lg px-2.5 py-1 transition text-slate-400 hover:text-slate-200"
             >
-              العلاقات <span class="ms-1 font-mono text-[10px] text-cyan-400">23</span>
+              العلاقات <span class="ms-1 font-mono text-[10px] text-cyan-400">-</span>
             </button>
             <button
               type="button"
