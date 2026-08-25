@@ -190,6 +190,7 @@ final class LessonRevisionWorkflow
             if (is_array($block)) {
                 $block['depth'] = isset($block['depth']) ? (int) $block['depth'] : 0;
             }
+
             return $block;
         }, $blocks);
     }

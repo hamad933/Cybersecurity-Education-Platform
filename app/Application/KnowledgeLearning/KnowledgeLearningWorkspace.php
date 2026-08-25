@@ -40,7 +40,7 @@ final class KnowledgeLearningWorkspace
 
         return [
             'catalog' => $catalog,
-            'structure' => $this->knowledge->hierarchyProjection($placements, $this->knowledge->capabilityManifest()),
+            'structure' => $this->knowledge->hierarchyProjection($placements, []),
             'active' => $active,
             'context' => [
                 'placements' => $this->curriculum->placementsForUnit($activeUnitId),
@@ -83,7 +83,7 @@ final class KnowledgeLearningWorkspace
         $catalog = $this->knowledge->catalog();
         $activeUnitId = $this->knowledge->resolveUnitId($requestedUnitId);
         $active = $this->knowledge->unit($activeUnitId);
-        
+
         $visualization = $this->curriculum->visualization($active, [], null);
 
         return [

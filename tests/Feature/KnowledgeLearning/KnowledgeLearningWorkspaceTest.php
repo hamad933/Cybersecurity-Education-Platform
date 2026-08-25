@@ -80,6 +80,29 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
     }
 
     #[Test]
+    public function library_keeps_capability_context_unresolved_when_parent_context_is_unavailable(): void
+    {
+        $unit = $this->knowledgeUnit();
+        $this->draft($unit->id);
+
+        CurriculumPlacement::query()->create([
+            'capability_id' => 'CAP-W02-UNRESOLVED',
+            'knowledge_unit_id' => $unit->id,
+            'revision' => 1,
+            'lifecycle' => ['state' => 'active'],
+        ]);
+
+        $this->actingAs($this->owner)->get("/knowledge?object={$unit->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('structure.domains', 0)
+                ->has('structure.unresolved_capabilities', 1)
+                ->where('structure.unresolved_capabilities.0.capability_id', 'CAP-W02-UNRESOLVED')
+                ->where('structure.unresolved_capabilities.0.integration_state', 'missing_hierarchy_context')
+                ->where('structure.unresolved_capabilities.0.items.0.canonical_ref.id', $unit->id));
+    }
+
+    #[Test]
     public function library_reads_real_revisions_and_updates_only_drafts_with_optimistic_locking(): void
     {
         $unit = $this->knowledgeUnit();

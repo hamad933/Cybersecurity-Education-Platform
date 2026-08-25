@@ -61,11 +61,16 @@ final class KnowledgeJourneyService
             $practiceAttempts = $attempts->get((string) $practice->id, collect());
             $latest = $practiceAttempts->first();
             $correctCount = $practiceAttempts->where('outcome', 'correct')->count();
-            
-            $definition = $practice->definition ?? [];
-            if (isset($definition['lab_reference'])) {
+
+            $definitionValue = $practice->getAttribute('definition');
+            /** @var array<string, mixed> $definition */
+            $definition = is_array($definitionValue) && ! array_is_list($definitionValue)
+                ? $definitionValue
+                : [];
+            $labReference = $definition['lab_reference'] ?? null;
+            if (is_array($labReference) && is_string($labReference['id'] ?? null) && trim($labReference['id']) !== '') {
                 $labs[] = [
-                    'id' => $definition['lab_reference']['id'],
+                    'id' => $labReference['id'],
                     'preview_state' => 'REFERENCE_ONLY_FROM_LEARNING_DEFINITION',
                     'canonical_owner' => 'simulation_enterprise',
                     'prepare_run_handoff' => [
@@ -73,12 +78,12 @@ final class KnowledgeJourneyService
                         'target_area' => 'labs',
                         'state' => 'PARENT_INTEGRATION_REQUIRED',
                         'href' => null,
-                    ]
+                    ],
                 ];
             }
 
             $activityCompleted = $correctCount > 0;
-            if (!$activityCompleted && $nextPracticeId === null) {
+            if (! $activityCompleted && $nextPracticeId === null) {
                 $nextPracticeId = $practice->practice_id;
             }
 
@@ -93,7 +98,7 @@ final class KnowledgeJourneyService
                 'latest_outcome' => $latest instanceof PracticeAttempt ? (string) $latest->outcome : null,
                 'latest_activity_at' => $latest?->created_at?->toIso8601String(),
                 'activity_state' => $practiceAttempts->isEmpty() ? 'NOT_STARTED' : ($activityCompleted ? 'COMPLETED' : 'IN_PROGRESS'),
-                'recent_attempts' => $practiceAttempts->take(5)->map(fn($a) => [
+                'recent_attempts' => $practiceAttempts->take(5)->map(fn ($a) => [
                     'case_id' => $a->case_id,
                     'outcome' => $a->outcome,
                     'created_at' => $a->created_at?->toIso8601String(),

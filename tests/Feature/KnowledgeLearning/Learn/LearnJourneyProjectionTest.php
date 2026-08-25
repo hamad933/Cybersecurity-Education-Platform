@@ -200,6 +200,27 @@ final class LearnJourneyProjectionTest extends TestCase
     }
 
     #[Test]
+    public function non_object_definition_is_normalized_before_lab_reference_is_read(): void
+    {
+        $unit = $this->knowledgeUnit('KU-W02-C02-NON-OBJECT');
+        MicroPractice::query()->create([
+            'practice_id' => 'PRACTICE-C02-NON-OBJECT',
+            'revision' => 1,
+            'capability_id' => 'CAP-W02-C02',
+            'knowledge_unit_id' => $unit->id,
+            'definition' => 'legacy-string-definition',
+            'digest' => hash('sha256', 'PRACTICE-C02-NON-OBJECT-1'),
+        ]);
+
+        $this->actingAs($this->owner)->get("/knowledge/learn?object={$unit->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('journey.items', 1)
+                ->where('journey.items.0.definition', [])
+                ->has('journey.labs', 0));
+    }
+
+    #[Test]
     public function assessment_gap_is_truthful_and_does_not_relabel_practice_activity_as_assessment_results(): void
     {
         $unit = $this->knowledgeUnit('KU-W02-C02-005');
