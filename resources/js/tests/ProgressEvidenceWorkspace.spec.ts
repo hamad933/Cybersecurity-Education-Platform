@@ -209,8 +209,30 @@ describe('Progress & Evidence governed workspace', () => {
     expect(detail.text()).toContain('الحداثة · Freshness');
     expect(detail.text()).toContain('REVALIDATION_REQUIRED');
     expect(detail.text()).toContain('Judgment ≠ Freshness');
+    expect(detail.text()).toContain('Supporting Evidence Criterion Scope');
+    expect(detail.text()).toContain('Governed Review Finding');
+    expect(detail.text()).toContain('CRIT-AUTH-01');
+    expect(detail.text()).toContain('SATISFIED');
+    expect(detail.text()).toContain('Review Decision ID');
+    expect(detail.text()).toContain('decision-1');
+    expect(detail.text()).toContain('Supporting Evidence Revisions');
+    expect(detail.text()).toContain('revision-1');
+    expect(detail.text()).not.toContain('Peding / Unavailable');
     expect(detail.text()).not.toContain('%');
     expect(detail.text()).not.toContain('نقطة');
+  });
+
+  it('does not infer criterion satisfaction from aggregate Mastery Judgment', () => {
+    const props = propsFor('mastery');
+    props.reviews = [{ ...review, findings: [] }];
+
+    const wrapper = mount(Workspace, { props });
+    const detail = wrapper.get('[data-testid="mastery-detail"]');
+
+    expect(detail.text()).toContain('MASTERED');
+    expect(detail.text()).toContain('CRIT-AUTH-01');
+    expect(detail.text()).toContain('غير محسوم على مستوى المعيار');
+    expect(detail.text()).not.toContain('مستوفى (SATISFIED)');
   });
 
   it('keeps Portfolio as a curated canonical-reference projection rather than a second Evidence store', () => {
@@ -220,6 +242,8 @@ describe('Progress & Evidence governed workspace', () => {
     expect(center.text()).toContain('تحليل المصادقة المحكوم');
     expect(center.text()).toContain('revision-1');
     expect(center.text()).toContain('Canonical Evidence Reference');
+    expect(center.text()).toContain('Reference-only curated projection');
+    expect(center.text()).toContain('Evidence ID');
     expect(center.text()).not.toContain(evidence.evidence_claim);
     expect(center.text()).not.toContain(evidence.summary);
     expect(center.text()).not.toContain('MASTERED');
@@ -227,6 +251,9 @@ describe('Progress & Evidence governed workspace', () => {
     const right = wrapper.get('[data-testid="context-panel"]');
     expect(right.text()).toContain('CAP-WEB');
     expect(right.text()).toContain('CAPABILITY');
+    expect(right.text()).toContain('review_decisions');
+    expect(right.text()).toContain('ACCEPT_WITH_LIMITATIONS');
+    expect(right.text()).not.toContain('Accepted Evidence');
     expect(right.text()).not.toContain('revision-1');
   });
 
