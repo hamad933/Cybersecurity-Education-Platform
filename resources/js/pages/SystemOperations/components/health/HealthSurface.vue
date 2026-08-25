@@ -33,8 +33,10 @@ const activeSubsystem = computed<SubsystemKey>({
 });
 
 const count = (counts: Counts | undefined, key: string): number => counts?.[key] ?? 0;
+const displayCount = (counts: Counts | undefined, key: string): number | string =>
+  !hasKeys(counts) ? '—' : count(counts, key);
 
-const packageCounts = computed<Counts>(() => {
+const packageCounts = computed<Counts | undefined>(() => {
   if (Array.isArray(props.state.packages)) {
     const counts: Counts = {};
     for (const p of props.state.packages) {
@@ -42,7 +44,7 @@ const packageCounts = computed<Counts>(() => {
     }
     return counts;
   }
-  return props.state.packages?.counts ?? {};
+  return props.state.packages?.counts;
 });
 
 const hasKeys = (obj: Record<string, unknown> | undefined | null) =>
@@ -59,14 +61,25 @@ const packagesHasCounts = computed(() => hasKeys(packageCounts.value));
 const packagesRejected = computed(() => count(packageCounts.value, 'rejected'));
 const packagesExported = computed(() => count(packageCounts.value, 'exported'));
 
-const releaseReady = computed(
-  () => props.state.release_gate?.ready ?? props.state.readiness?.ready ?? false,
-);
-const checksObj = computed(() => props.state.release_gate?.checks || props.state.readiness?.checks);
+const releaseGate = computed(() => props.state.release_gate ?? props.state.readiness);
+const checksObj = computed(() => releaseGate.value?.checks);
 const releaseHasChecks = computed(() => hasKeys(checksObj.value));
+const releaseReady = computed(() => releaseHasChecks.value && releaseGate.value?.ready === true);
 
 const backupsAvailable = computed(() => props.state.backups !== undefined);
-const storageOk = computed(() => props.state.foundation?.checks?.storage === 'ok');
+const backupFailed = computed(
+  () => props.state.backups?.filter((backup) => backup.status === 'failed').length ?? 0,
+);
+const backupVerified = computed(
+  () => props.state.backups?.filter((backup) => backup.status === 'verified').length ?? 0,
+);
+const backupHasRecords = computed(() => (props.state.backups?.length ?? 0) > 0);
+const backupsHealthy = computed(
+  () =>
+    backupHasRecords.value &&
+    backupFailed.value === 0 &&
+    backupVerified.value === props.state.backups?.length,
+);
 
 const subsystems = computed(() => [
   {
@@ -144,18 +157,32 @@ const subsystems = computed(() => [
   {
     id: 'backups' as const,
     name: 'حالة النسخ الاحتياطي',
-    status: backupsAvailable.value ? (storageOk.value ? 'سليم' : 'يتطلب انتباهاً') : 'غير متاح',
-    statusVariant: backupsAvailable.value
-      ? storageOk.value
-        ? ('ok' as const)
-        : ('danger' as const)
-      : ('neutral' as const),
+    status: !backupsAvailable.value
+      ? 'غير متاح'
+      : backupFailed.value > 0
+        ? 'يتطلب انتباهاً'
+        : backupsHealthy.value
+          ? 'سليم'
+          : backupHasRecords.value
+            ? 'غير مكتمل'
+            : 'لم تسجل نسخ',
+    statusVariant: !backupsAvailable.value
+      ? ('neutral' as const)
+      : backupFailed.value > 0
+        ? ('danger' as const)
+        : backupsHealthy.value
+          ? ('ok' as const)
+          : ('neutral' as const),
     lastCheck: 'لم تتم ملاحظته',
     note: !backupsAvailable.value
       ? 'بيانات النسخ الاحتياطي غير متوفرة.'
-      : storageOk.value
-        ? 'جاهزية التخزين المحلي للنسخ الاحتياطي.'
-        : 'فحص وحدة التخزين المحلي غير سليم.',
+      : backupFailed.value > 0
+        ? `توجد ${backupFailed.value} نسخة احتياطية فاشلة في السجل.`
+        : backupsHealthy.value
+          ? `تم رصد ${backupVerified.value} نسخة احتياطية بحالة verified.`
+          : backupHasRecords.value
+            ? 'توجد بيانات نسخ احتياطية دون اكتمال حالة verified لجميع السجلات.'
+            : 'تمت ملاحظة سجل النسخ الاحتياطي ولم تسجل فيه نسخ.',
     actionLabel: 'فتح النسخ الاحتياطي',
     href: '/system/backups',
   },
@@ -211,9 +238,21 @@ const inspectorDetails = computed(() => {
             : []),
         ],
         card2Title: 'حالة الحجب',
-        card2Tag: packagesRejected.value > 0 ? 'نشطة' : 'غير نشطة',
-        card2TagVariant: packagesRejected.value > 0 ? 'danger' : 'ok',
-        card2Type: packagesRejected.value > 0 ? 'حجب الحزم المرفوضة' : 'لا يوجد حجب نشط',
+        card2Tag: !packagesHasCounts.value
+          ? 'غير متاح'
+          : packagesRejected.value > 0
+            ? 'نشطة'
+            : 'غير نشطة',
+        card2TagVariant: !packagesHasCounts.value
+          ? 'neutral'
+          : packagesRejected.value > 0
+            ? 'danger'
+            : 'ok',
+        card2Type: !packagesHasCounts.value
+          ? 'غير متاح — لم تتم ملاحظة حالة الحجب'
+          : packagesRejected.value > 0
+            ? 'حجب الحزم المرفوضة'
+            : 'لا يوجد حجب نشط',
         card2Source: 'سجل الحزم (portable_packages)',
         card3Details:
           packagesRejected.value > 0
@@ -226,7 +265,7 @@ const inspectorDetails = computed(() => {
             ? 'مراجعة سبب رفض الحزم في واجهة التحقق التقني.'
             : packagesHasCounts.value
               ? 'لا يتطلب أي إجراء في الوقت الحالي.'
-              : 'لا يلزم أي إجراء.',
+              : 'تعذر تحديد الإجراء المطلوب قبل توفر بيانات التحقق.',
       };
 
     case 'processing':
@@ -263,9 +302,21 @@ const inspectorDetails = computed(() => {
             : []),
         ],
         card2Title: 'حالة الحجب',
-        card2Tag: processingFailed.value > 0 ? 'نشطة' : 'غير نشطة',
-        card2TagVariant: processingFailed.value > 0 ? 'danger' : 'ok',
-        card2Type: processingFailed.value > 0 ? 'تعثر مهام في الطابور' : 'لا يوجد حجب نشط',
+        card2Tag: !processingHasCounts.value
+          ? 'غير متاح'
+          : processingFailed.value > 0
+            ? 'نشطة'
+            : 'غير نشطة',
+        card2TagVariant: !processingHasCounts.value
+          ? 'neutral'
+          : processingFailed.value > 0
+            ? 'danger'
+            : 'ok',
+        card2Type: !processingHasCounts.value
+          ? 'غير متاح — لم تتم ملاحظة حالة الحجب'
+          : processingFailed.value > 0
+            ? 'تعثر مهام في الطابور'
+            : 'لا يوجد حجب نشط',
         card2Source: 'طابور المعالجة (processing_runs)',
         card3Details:
           processingFailed.value > 0
@@ -278,7 +329,7 @@ const inspectorDetails = computed(() => {
             ? 'فحص سجلات الأخطاء في واجهة المعالجة والطوابير.'
             : processingHasCounts.value
               ? 'لا يتطلب أي إجراء في الوقت الحالي.'
-              : 'لا يلزم أي إجراء.',
+              : 'تعذر تحديد الإجراء المطلوب قبل توفر بيانات المعالجة.',
       };
 
     case 'releases':
@@ -298,9 +349,17 @@ const inspectorDetails = computed(() => {
               : { text: 'لم تتم ملاحظته', variant: 'neutral' },
         ],
         card2Title: 'حالة الحجب',
-        card2Tag: releaseReady.value ? 'غير نشطة' : 'حظر الإطلاق',
+        card2Tag: !releaseHasChecks.value
+          ? 'غير متاح'
+          : releaseReady.value
+            ? 'غير نشطة'
+            : 'حظر الإطلاق',
         card2TagVariant: releaseReady.value ? 'ok' : 'neutral',
-        card2Type: releaseReady.value ? 'لا يوجد حجب نشط' : 'سياسة حظر الإطلاق التلقائي',
+        card2Type: !releaseHasChecks.value
+          ? 'غير متاح — لم تتم ملاحظة حالة البوابة'
+          : releaseReady.value
+            ? 'لا يوجد حجب نشط'
+            : 'سياسة حظر الإطلاق التلقائي',
         card2Source: 'بوابة الجاهزية (release_gate)',
         card3Details: releaseReady.value
           ? 'تم التحقق من جاهزية الإصدار وحزم الأدلة المرفقة.'
@@ -311,7 +370,7 @@ const inspectorDetails = computed(() => {
           ? 'مراجعة حزم الأدلة في مركز الإصدار.'
           : releaseHasChecks.value
             ? 'استيفاء الفحوص غير المكتملة في واجهة الإصدار.'
-            : 'لا يلزم أي إجراء.',
+            : 'تعذر تحديد الإجراء المطلوب قبل توفر فحوص الجاهزية.',
       };
 
     case 'ai-bridge': {
@@ -347,7 +406,7 @@ const inspectorDetails = computed(() => {
           : 'بيانات المكوّن المحدد غير متوفرة في الحالة الحالية.',
         card3NextAction: hasAi
           ? 'متابعة حزم Prompts أو مراجعة النتائج المستوردة عبر واجهة الجسر.'
-          : 'لا يلزم أي إجراء.',
+          : 'تعذر تحديد الإجراء المطلوب قبل توفر بيانات الجسر.',
       };
     }
 
@@ -355,17 +414,24 @@ const inspectorDetails = computed(() => {
       return {
         subsystemName: 'حالة النسخ الاحتياطي',
         card1Title: 'ملخص الفحص',
-        card1Result: backupsAvailable.value
-          ? storageOk.value
-            ? 'وحدة التخزين متاحة'
-            : props.state.foundation?.checks?.storage === 'failed'
-              ? 'فحص التخزين غير سليم'
-              : 'غير متاح'
-          : 'غير متاح',
+        card1Result: !backupsAvailable.value
+          ? 'غير متاح'
+          : backupFailed.value > 0
+            ? `توجد نسخ فاشلة (${backupFailed.value})`
+            : backupsHealthy.value
+              ? `نسخ متحققة (${backupVerified.value})`
+              : backupHasRecords.value
+                ? 'حالة النسخ غير مكتملة'
+                : 'لم تسجل نسخ احتياطية',
         card1Badges: [
-          backupsAvailable.value && storageOk.value
-            ? { text: '✓ سليم', variant: 'ok' }
-            : { text: 'لم تتم ملاحظته', variant: 'neutral' },
+          backupFailed.value > 0
+            ? { text: `✕ ${backupFailed.value} فاشلة`, variant: 'danger' }
+            : backupsHealthy.value
+              ? { text: `✓ ${backupVerified.value} verified`, variant: 'ok' }
+              : {
+                  text: backupsAvailable.value ? 'لم تسجل حالة صحية' : 'لم تتم ملاحظته',
+                  variant: 'neutral',
+                },
         ],
         card2Title: 'حالة الحجب',
         card2Tag: 'حظر الاستعادة عبر الويب',
@@ -377,7 +443,7 @@ const inspectorDetails = computed(() => {
           : 'بيانات المكوّن المحدد غير متوفرة في الحالة الحالية.',
         card3NextAction: backupsAvailable.value
           ? 'إدارة النسخ الاحتياطية وإجراء الفحص المرحلي عبر واجهة النسخ.'
-          : 'لا يلزم أي إجراء.',
+          : 'تعذر تحديد الإجراء المطلوب قبل توفر بيانات النسخ الاحتياطي.',
       };
 
     default:
@@ -387,12 +453,12 @@ const inspectorDetails = computed(() => {
         card1Result: 'غير متاح',
         card1Badges: [{ text: 'لم تتم ملاحظته', variant: 'neutral' }],
         card2Title: 'حالة الحجب',
-        card2Tag: 'غير نشطة',
+        card2Tag: 'غير متاح',
         card2TagVariant: 'neutral',
-        card2Type: 'لا يوجد حجب نشط',
+        card2Type: 'غير متاح — لم تتم ملاحظة حالة الحجب',
         card2Source: 'سجل النظام',
         card3Details: 'بيانات المكوّن المحدد غير متوفرة في الحالة الحالية.',
-        card3NextAction: 'لا يلزم أي إجراء.',
+        card3NextAction: 'تعذر تحديد الإجراء المطلوب قبل توفر بيانات المكوّن.',
       };
   }
 });
@@ -570,23 +636,33 @@ const inspectorDetails = computed(() => {
       <div class="metric-strip">
         <div class="metric-card">
           <span class="metric-label">قيد المعالجة</span>
-          <strong class="metric-value">{{ count(state.processing?.counts, 'running') }}</strong>
+          <strong class="metric-value" data-testid="metric-processing-running">{{
+            displayCount(state.processing?.counts, 'running')
+          }}</strong>
         </div>
         <div class="metric-card">
           <span class="metric-label">بانتظار المعالجة</span>
-          <strong class="metric-value">{{ count(state.processing?.counts, 'pending') }}</strong>
+          <strong class="metric-value" data-testid="metric-processing-pending">{{
+            displayCount(state.processing?.counts, 'pending')
+          }}</strong>
         </div>
         <div class="metric-card">
           <span class="metric-label">فشل معالجة</span>
-          <strong class="metric-value">{{ count(state.processing?.counts, 'failed') }}</strong>
+          <strong class="metric-value" data-testid="metric-processing-failed">{{
+            displayCount(state.processing?.counts, 'failed')
+          }}</strong>
         </div>
         <div class="metric-card">
           <span class="metric-label">رسائل Outbox فاشلة</span>
-          <strong class="metric-value">{{ count(state.outbox?.counts, 'failed') }}</strong>
+          <strong class="metric-value" data-testid="metric-outbox-failed">{{
+            displayCount(state.outbox?.counts, 'failed')
+          }}</strong>
         </div>
         <div class="metric-card">
           <span class="metric-label">حزم مرفوضة</span>
-          <strong class="metric-value">{{ count(packageCounts, 'rejected') }}</strong>
+          <strong class="metric-value" data-testid="metric-packages-rejected">{{
+            displayCount(packageCounts, 'rejected')
+          }}</strong>
         </div>
       </div>
     </section>

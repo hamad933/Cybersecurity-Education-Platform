@@ -54,16 +54,15 @@ describe('System Operations Components & Surfaces', () => {
       backups: [],
     };
 
-    const mockTrueEmptyState = {
+    const mockUnavailableState = {
       foundation: { checks: {}, healthy: false, failed_checks: [] },
       processing: { counts: {} },
       outbox: { counts: {} },
       packages: { counts: {}, records: [] },
       release_gate: { ready: false, checks: {} },
-      // no policy, no results, no backups
     };
 
-    it('proves observed zero state renders healthy/compliant and unblocked claims', async () => {
+    it('renders OBSERVED_ZERO as numeric zero with bounded unblocked claims', async () => {
       const wrapper = mount(HealthSurface, {
         props: { state: mockObservedZeroState, selectedSubsystem: 'validation' },
       });
@@ -78,37 +77,51 @@ describe('System Operations Components & Surfaces', () => {
       expect(wrapper.text()).toContain('يدوي فقط'); // AI bridge policy observed
 
       await wrapper.setProps({ selectedSubsystem: 'backups' });
-      expect(wrapper.text()).toContain('وحدة التخزين متاحة'); // Backups observed
+      expect(wrapper.text()).toContain('لم تسجل نسخ احتياطية');
+      expect(wrapper.text()).not.toContain('وحدة التخزين متاحة');
+
+      expect(wrapper.get('[data-testid="metric-processing-running"]').text()).toBe('0');
+      expect(wrapper.get('[data-testid="metric-outbox-failed"]').text()).toBe('0');
+      expect(wrapper.get('[data-testid="metric-packages-rejected"]').text()).toBe('0');
 
       const contextWrapper = mount(HealthContext, {
         props: { state: mockObservedZeroState, selectedSubsystem: 'validation' },
       });
-      expect(contextWrapper.text()).toContain('الفحوص المسجلة للنظام في حالة طبيعية');
+      expect(contextWrapper.text()).toContain('لم يتم رصد حزم مرفوضة');
     });
 
-    it('proves true empty state rejects healthy wording and strictly reports unavailable/unobserved', () => {
+    it('renders UNAVAILABLE without zero, no-block, or no-action claims', async () => {
       const wrapper = mount(HealthSurface, {
-        props: { state: mockTrueEmptyState },
+        props: { state: mockUnavailableState, selectedSubsystem: 'validation' },
       });
 
-      const text = wrapper.text();
-      // Must not claim compliance without observation
-      expect(text).not.toContain('جميع الحزم المسجلة مطابقة');
-      expect(text).not.toContain('الطابور في حالة طبيعية');
-      expect(text).not.toContain('لا توجد مهام نشطة');
+      expect(wrapper.text()).toContain('غير متاح — لم تتم ملاحظة حالة الحجب');
+      expect(wrapper.text()).toContain('تعذر تحديد الإجراء المطلوب قبل توفر بيانات التحقق');
+      expect(wrapper.text()).not.toContain('لا يوجد حجب نشط');
+      expect(wrapper.text()).not.toContain('لا يلزم أي إجراء');
+      expect(wrapper.get('[data-testid="metric-processing-running"]').text()).toBe('—');
+      expect(wrapper.get('[data-testid="metric-outbox-failed"]').text()).toBe('—');
+      expect(wrapper.get('[data-testid="metric-packages-rejected"]').text()).toBe('—');
 
-      expect(text).toContain('لم تتم ملاحظته');
-      expect(text).toContain('غير متاح');
-      expect(text).toContain('بيانات المكوّن المحدد غير متوفرة');
+      await wrapper.setProps({ selectedSubsystem: 'processing' });
+      expect(wrapper.text()).toContain('تعذر تحديد الإجراء المطلوب قبل توفر بيانات المعالجة');
+      expect(wrapper.text()).not.toContain('الطابور في حالة طبيعية');
+      expect(wrapper.text()).not.toContain('لا توجد مهام نشطة');
 
       const contextWrapper = mount(HealthContext, {
-        props: { state: mockTrueEmptyState, selectedSubsystem: 'validation' },
+        props: {
+          state: {
+            foundation: { checks: { storage: 'ok' }, healthy: true, failed_checks: [] },
+            processing: { counts: { failed: 0 } },
+          },
+          selectedSubsystem: 'validation',
+        },
       });
       expect(contextWrapper.text()).toContain('غير متاح — لم تتم ملاحظة أية فحوص تشغيلية');
-      expect(contextWrapper.text()).not.toContain('حالة طبيعية');
+      expect(contextWrapper.text()).not.toContain('لم يتم رصد مهام معالجة فاشلة');
     });
 
-    it('proves projected failures and counts drive truthful UI reactively', async () => {
+    it('renders OBSERVED_NONZERO failures and counts reactively', () => {
       const mockFailureState = {
         foundation: {
           checks: { database: 'failed', queue: 'ok', storage: 'ok' },
@@ -118,7 +131,10 @@ describe('System Operations Components & Surfaces', () => {
         processing: { counts: { running: 1, pending: 2, failed: 4 } },
         outbox: { counts: { failed: 1 } },
         packages: { counts: { rejected: 3, exported: 8 }, records: [] },
-        release_gate: { ready: false, checks: {} },
+        release_gate: {
+          ready: false,
+          checks: { migrations: { status: 'failed', detail: 'Pending migration.' } },
+        },
       };
 
       // Test processing selection
@@ -149,6 +165,107 @@ describe('System Operations Components & Surfaces', () => {
       expect(wrapperValidation.text()).toContain('✕ 3 مرفوضة');
       expect(wrapperValidation.text()).toContain('✓ 8 مقبولة');
       expect(wrapperValidation.text()).toContain('حجب الحزم المرفوضة');
+    });
+
+    it('isolates selected-subsystem health from unrelated observations', () => {
+      const validationContext = mount(HealthContext, {
+        props: {
+          state: { processing: { counts: { running: 0, pending: 0, failed: 0 } } },
+          selectedSubsystem: 'validation',
+        },
+      });
+
+      expect(validationContext.text()).toContain('غير متاح — لم تتم ملاحظة أية فحوص تشغيلية');
+      expect(validationContext.text()).not.toContain('لم يتم رصد مهام معالجة فاشلة');
+
+      const processingContext = mount(HealthContext, {
+        props: {
+          state: { packages: { counts: { rejected: 0, exported: 0 }, records: [] } },
+          selectedSubsystem: 'processing',
+        },
+      });
+
+      expect(processingContext.text()).toContain('غير متاح — لم تتم ملاحظة أية فحوص تشغيلية');
+      expect(processingContext.text()).not.toContain('لم يتم رصد حزم مرفوضة');
+    });
+
+    it('derives backup health only from backup manifests, independently of storage health', () => {
+      const storageOnly = mount(HealthSurface, {
+        props: {
+          state: {
+            foundation: { checks: { storage: 'ok' }, healthy: true, failed_checks: [] },
+          },
+          selectedSubsystem: 'backups',
+        },
+      });
+      const storageOnlyRow = storageOnly
+        .findAll('tbody tr')
+        .find((row) => row.text().includes('حالة النسخ الاحتياطي'))!;
+      expect(storageOnlyRow.text()).toContain('غير متاح');
+      expect(storageOnlyRow.text()).not.toContain('سليم');
+
+      const verifiedBackup = mount(HealthSurface, {
+        props: {
+          state: {
+            foundation: {
+              checks: { storage: 'failed' },
+              healthy: false,
+              failed_checks: ['storage'],
+            },
+            backups: [
+              {
+                id: 'backup-verified',
+                portable_package_id: 'pkg-backup',
+                status: 'verified',
+                database_driver: 'pgsql',
+                content_digest: 'a'.repeat(64),
+                created_at: '2026-08-25T01:00:00Z',
+              },
+            ],
+          },
+          selectedSubsystem: 'backups',
+        },
+      });
+      const verifiedRow = verifiedBackup
+        .findAll('tbody tr')
+        .find((row) => row.text().includes('حالة النسخ الاحتياطي'))!;
+      expect(verifiedRow.text()).toContain('سليم');
+      expect(verifiedRow.text()).toContain('verified');
+      expect(verifiedBackup.text()).not.toContain('وحدة التخزين متاحة');
+    });
+
+    it('distinguishes absent release checks from an observed closed gate', () => {
+      const absentChecks = mount(HealthSurface, {
+        props: {
+          state: { release_gate: { ready: false, checks: {} } },
+          selectedSubsystem: 'releases',
+        },
+      });
+      expect(absentChecks.text()).toContain('غير متاح — لم تتم ملاحظة حالة البوابة');
+      expect(absentChecks.text()).not.toContain('سياسة حظر الإطلاق التلقائي');
+
+      const observedClosed = mount(HealthSurface, {
+        props: {
+          state: {
+            release_gate: {
+              ready: false,
+              checks: { migrations: { status: 'failed', detail: 'Pending migration.' } },
+            },
+          },
+          selectedSubsystem: 'releases',
+        },
+      });
+      expect(observedClosed.text()).toContain('سياسة حظر الإطلاق التلقائي');
+      expect(observedClosed.text()).toContain('بانتظار استيفاء الفحوص');
+
+      const absentContext = mount(HealthContext, {
+        props: {
+          state: { release_gate: { ready: false, checks: {} } },
+          selectedSubsystem: 'releases',
+        },
+      });
+      expect(absentContext.text()).not.toContain('بوابة الإصدار مغلقة');
+      expect(absentContext.text()).toContain('غير متاح — لم تتم ملاحظة أية فحوص تشغيلية');
     });
 
     it('renders HealthContext with state-driven impact and dependencies based on selected subsystem', () => {
@@ -238,6 +355,29 @@ describe('System Operations Components & Surfaces', () => {
       expect(wrapper.text()).toContain('محرك الطوابير');
       expect(wrapper.text()).toContain('نمط Outbox');
     });
+
+    it('distinguishes unavailable processing counts from observed zero', () => {
+      const unavailable = mount(ProcessingSurface, { props: { state: {} } });
+      expect(unavailable.get('[data-testid="processing-count-pending"]').text()).toBe('—');
+      expect(unavailable.get('[data-testid="processing-count-running"]').text()).toBe('—');
+      expect(unavailable.get('[data-testid="processing-count-completed"]').text()).toBe('—');
+      expect(unavailable.get('[data-testid="processing-count-failed"]').text()).toBe('—');
+
+      const observedZero = mount(ProcessingSurface, {
+        props: {
+          state: {
+            processing: {
+              counts: { pending: 0, running: 0, completed: 0, failed: 0 },
+              runs: [],
+            },
+          },
+        },
+      });
+      expect(observedZero.get('[data-testid="processing-count-pending"]').text()).toBe('0');
+      expect(observedZero.get('[data-testid="processing-count-running"]').text()).toBe('0');
+      expect(observedZero.get('[data-testid="processing-count-completed"]').text()).toBe('0');
+      expect(observedZero.get('[data-testid="processing-count-failed"]').text()).toBe('0');
+    });
   });
 
   describe('ValidationSurface & ValidationContext', () => {
@@ -297,6 +437,24 @@ describe('System Operations Components & Surfaces', () => {
       expect(wrapper.text()).toContain('حدود التحقق التقني');
       expect(wrapper.text()).toContain('فحص تقني فقط');
       expect(wrapper.text()).toContain('حراسة المصادر');
+    });
+
+    it('distinguishes unavailable validation counts from observed zero', () => {
+      const unavailable = mount(ValidationSurface, {
+        props: { state: { packages: { records: [] } } },
+      });
+      expect(unavailable.get('[data-testid="validation-count-accepted"]').text()).toBe('—');
+      expect(unavailable.get('[data-testid="validation-count-rejected"]').text()).toBe('—');
+
+      const observedZero = mount(ValidationSurface, {
+        props: {
+          state: {
+            packages: { counts: { exported: 0, valid: 0, rejected: 0 }, records: [] },
+          },
+        },
+      });
+      expect(observedZero.get('[data-testid="validation-count-accepted"]').text()).toBe('0');
+      expect(observedZero.get('[data-testid="validation-count-rejected"]').text()).toBe('0');
     });
   });
 
@@ -538,6 +696,27 @@ describe('System Operations Components & Surfaces', () => {
       expect(wrapper.text()).toContain('ضوابط جاهزية الإصدار');
       expect(wrapper.text()).toContain('حظر الإطلاق التلقائي');
       expect(wrapper.text()).toContain('حزم الأدلة الموثقة');
+    });
+
+    it('does not turn ready=false into an observed closed release gate without checks', () => {
+      const unavailable = mount(ReleasesSurface, {
+        props: { state: { readiness: { ready: false, checks: {} } } },
+      });
+      expect(unavailable.text()).toContain('UNAVAILABLE');
+      expect(unavailable.text()).not.toContain('NOT_READY');
+
+      const observedClosed = mount(ReleasesSurface, {
+        props: {
+          state: {
+            readiness: {
+              ready: false,
+              checks: { migrations: { status: 'failed', detail: 'Pending migration.' } },
+            },
+          },
+        },
+      });
+      expect(observedClosed.text()).toContain('NOT_READY');
+      expect(observedClosed.text()).toContain('Pending migration.');
     });
   });
 

@@ -17,7 +17,7 @@ const props = withDefaults(
 
 const count = (counts: Counts | undefined, key: string): number => counts?.[key] ?? 0;
 
-const packageCounts = computed<Counts>(() => {
+const packageCounts = computed<Counts | undefined>(() => {
   if (Array.isArray(props.state.packages)) {
     const counts: Counts = {};
     for (const p of props.state.packages) {
@@ -25,7 +25,7 @@ const packageCounts = computed<Counts>(() => {
     }
     return counts;
   }
-  return props.state.packages?.counts ?? {};
+  return props.state.packages?.counts;
 });
 
 const activeSubsystem = computed<SubsystemKey>(() => props.selectedSubsystem ?? 'validation');
@@ -36,16 +36,50 @@ const totalFoundationChecks = computed(
 );
 const failedProcessing = computed(() => count(props.state.processing?.counts, 'failed'));
 const rejectedPackages = computed(() => count(packageCounts.value, 'rejected'));
+const hasKeys = (counts: Counts | undefined): boolean =>
+  Boolean(counts && Object.keys(counts).length > 0);
+const processingObserved = computed(() => hasKeys(props.state.processing?.counts));
+const packagesObserved = computed(() => hasKeys(packageCounts.value));
+const releaseGate = computed(() => props.state.release_gate ?? props.state.readiness);
+const releaseHasChecks = computed(() =>
+  Boolean(releaseGate.value?.checks && Object.keys(releaseGate.value.checks).length > 0),
+);
 
-const hasAnyObservations = computed(() => {
-  if (totalFoundationChecks.value > 0) return true;
-  if (props.state.processing?.counts && Object.keys(props.state.processing.counts).length > 0)
-    return true;
-  if (Object.keys(packageCounts.value).length > 0) return true;
-  if (props.state.release_gate?.checks && Object.keys(props.state.release_gate.checks).length > 0)
-    return true;
-  if (props.state.backups !== undefined) return true;
-  return false;
+const selectedObservationSummary = computed<string | null>(() => {
+  switch (activeSubsystem.value) {
+    case 'validation':
+      return packagesObserved.value
+        ? 'لم يتم رصد حزم مرفوضة في بيانات التحقق المتاحة للمكوّن المحدد.'
+        : null;
+    case 'processing':
+      return processingObserved.value
+        ? 'لم يتم رصد مهام معالجة فاشلة في بيانات الطابور المتاحة للمكوّن المحدد.'
+        : null;
+    case 'releases':
+      return releaseHasChecks.value && releaseGate.value?.ready === true
+        ? 'فحوص الجاهزية المرصودة للمكوّن المحدد مستوفاة بالكامل.'
+        : null;
+    case 'backups': {
+      if (props.state.backups === undefined) return null;
+      if (props.state.backups.length === 0) {
+        return 'تمت ملاحظة سجل النسخ الاحتياطي دون وجود نسخ؛ لا يمكن استنتاج صحة النسخ من توفر التخزين العام.';
+      }
+      const failed = props.state.backups.filter((backup) => backup.status === 'failed').length;
+      const verified = props.state.backups.filter((backup) => backup.status === 'verified').length;
+      if (failed === 0 && verified === props.state.backups.length) {
+        return `تمت ملاحظة ${verified} نسخة احتياطية بحالة verified للمكوّن المحدد.`;
+      }
+      return 'بيانات النسخ الاحتياطي متاحة، لكن حالتها لا تثبت سلامة جميع النسخ المسجلة.';
+    }
+    case 'ai-bridge':
+      return props.state.policy?.execution ||
+        props.state.prompts !== undefined ||
+        props.state.results !== undefined
+        ? 'تمت ملاحظة بيانات تشغيل الجسر للمكوّن المحدد؛ لا تمثل هذه الملاحظة فحص صحة تشغيلياً.'
+        : null;
+    default:
+      return null;
+  }
 });
 
 // 1. Contextual Impact Block
@@ -76,8 +110,8 @@ const impactInfo = computed(() => {
 
   if (
     activeSubsystem.value === 'releases' &&
-    props.state.release_gate &&
-    !props.state.release_gate.ready
+    releaseHasChecks.value &&
+    releaseGate.value?.ready === false
   ) {
     return {
       hasIncident: false,
@@ -86,11 +120,11 @@ const impactInfo = computed(() => {
     };
   }
 
-  if (hasAnyObservations.value) {
+  if (selectedObservationSummary.value) {
     return {
       hasIncident: false,
       heading: 'التأثير التشغيلي',
-      body: 'لم يتم رصد أي حجب أو تعطل تشغيلي في السجل الحالي؛ الفحوص المسجلة للنظام في حالة طبيعية.',
+      body: selectedObservationSummary.value,
     };
   }
 
@@ -146,10 +180,10 @@ const validationContextInfo = computed(() => {
     };
   }
 
-  if (props.state.release_gate?.checks && Object.keys(props.state.release_gate.checks).length > 0) {
+  if (releaseHasChecks.value) {
     return {
       heading: 'آخر سياق تحقق',
-      body: `فحوص الجاهزية: ${props.state.release_gate.ready ? 'مستوفاة بالكامل' : 'غير مكتملة'}.`,
+      body: `فحوص الجاهزية: ${releaseGate.value?.ready ? 'مستوفاة بالكامل' : 'غير مكتملة'}.`,
     };
   }
 

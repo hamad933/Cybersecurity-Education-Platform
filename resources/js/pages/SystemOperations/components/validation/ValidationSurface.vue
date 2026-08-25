@@ -29,7 +29,8 @@ const submitSource = () => {
   });
 };
 
-const count = (counts: Counts | undefined, key: string): number => counts?.[key] ?? 0;
+const count = (counts: Counts | undefined, key: string): number | string =>
+  !counts || Object.keys(counts).length === 0 ? '—' : (counts[key] ?? 0);
 const when = (value: string | null | undefined): string =>
   value ? new Date(value).toLocaleString('ar-YE') : '—';
 const formatBytes = (bytes: number): string => {
@@ -46,8 +47,8 @@ const packageRecords = computed<PackageRecord[]>(() =>
     : (props.state.packages?.records ?? []),
 );
 
-const packageCounts = computed<Counts>(() =>
-  Array.isArray(props.state.packages) ? {} : (props.state.packages?.counts ?? {}),
+const packageCounts = computed<Counts | undefined>(() =>
+  Array.isArray(props.state.packages) ? undefined : props.state.packages?.counts,
 );
 
 const inspectPackage = (pkg: PackageRecord) => {
@@ -118,12 +119,17 @@ const inspectPackage = (pkg: PackageRecord) => {
         <div class="header-counts">
           <span
             >المقبولة:
-            <strong>{{
-              count(packageCounts, 'exported') + count(packageCounts, 'valid')
+            <strong data-testid="validation-count-accepted">{{
+              packageCounts === undefined || Object.keys(packageCounts).length === 0
+                ? '—'
+                : Number(count(packageCounts, 'exported')) + Number(count(packageCounts, 'valid'))
             }}</strong></span
           >
           <span
-            >المرفوضة: <strong>{{ count(packageCounts, 'rejected') }}</strong></span
+            >المرفوضة:
+            <strong data-testid="validation-count-rejected">{{
+              count(packageCounts, 'rejected')
+            }}</strong></span
           >
         </div>
       </div>

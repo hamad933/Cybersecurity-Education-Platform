@@ -21,7 +21,10 @@ const packageRecords = computed<PackageRecord[]>(() =>
     : (props.state.packages?.records ?? []),
 );
 
-const isReady = computed(() => props.state.readiness?.ready ?? false);
+const hasObservedChecks = computed(() =>
+  Boolean(props.state.readiness?.checks && Object.keys(props.state.readiness.checks).length > 0),
+);
+const isReady = computed(() => hasObservedChecks.value && props.state.readiness?.ready === true);
 
 const inspectPackage = (pkg: PackageRecord) => {
   emit('openDeep', `فحص حزمة أدلة الإصدار — ${pkg.id}`, [
@@ -60,8 +63,8 @@ const inspectPackage = (pkg: PackageRecord) => {
       <div class="readiness-card">
         <span class="readiness-card__label">حالة بوابة الإصدار:</span>
         <StatusPill
-          :status="isReady ? 'READY' : 'NOT_READY'"
-          :variant="isReady ? 'ok' : 'warning'"
+          :status="!hasObservedChecks ? 'UNAVAILABLE' : isReady ? 'READY' : 'NOT_READY'"
+          :variant="!hasObservedChecks ? 'neutral' : isReady ? 'ok' : 'warning'"
         />
       </div>
     </section>

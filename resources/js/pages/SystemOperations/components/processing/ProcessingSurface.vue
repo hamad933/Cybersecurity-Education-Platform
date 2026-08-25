@@ -12,7 +12,8 @@ const emit = defineEmits<{
   openDeep: [title: string, sections: DeepSection[]];
 }>();
 
-const count = (counts: Counts | undefined, key: string): number => counts?.[key] ?? 0;
+const count = (counts: Counts | undefined, key: string): number | string =>
+  !counts || Object.keys(counts).length === 0 ? '—' : (counts[key] ?? 0);
 const when = (value: string | null | undefined): string =>
   value ? new Date(value).toLocaleString('ar-YE') : '—';
 
@@ -57,19 +58,27 @@ const inspectRun = (run: ProcessingRun) => {
       <div class="metric-strip compact">
         <div class="metric-card">
           <span class="metric-label">Pending</span>
-          <strong class="metric-value">{{ count(state.processing?.counts, 'pending') }}</strong>
+          <strong class="metric-value" data-testid="processing-count-pending">{{
+            count(state.processing?.counts, 'pending')
+          }}</strong>
         </div>
         <div class="metric-card">
           <span class="metric-label">Running</span>
-          <strong class="metric-value">{{ count(state.processing?.counts, 'running') }}</strong>
+          <strong class="metric-value" data-testid="processing-count-running">{{
+            count(state.processing?.counts, 'running')
+          }}</strong>
         </div>
         <div class="metric-card">
           <span class="metric-label">Completed</span>
-          <strong class="metric-value">{{ count(state.processing?.counts, 'completed') }}</strong>
+          <strong class="metric-value" data-testid="processing-count-completed">{{
+            count(state.processing?.counts, 'completed')
+          }}</strong>
         </div>
         <div class="metric-card">
           <span class="metric-label">Failed</span>
-          <strong class="metric-value">{{ count(state.processing?.counts, 'failed') }}</strong>
+          <strong class="metric-value" data-testid="processing-count-failed">{{
+            count(state.processing?.counts, 'failed')
+          }}</strong>
         </div>
       </div>
     </section>
