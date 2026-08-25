@@ -192,7 +192,7 @@ const inspectPackage = (pkg: PackageRecord) => {
         <p class="cep-empty-state__title">لا توجد ملفات مصدرية مسجلة</p>
       </div>
 
-      <div v-else class="sources-table-wrapper">
+      <div v-else class="imports-table-wrapper">
         <table class="subsystem-table" aria-label="جدول المصادر المفحوصة">
           <thead>
             <tr>
@@ -206,8 +206,8 @@ const inspectPackage = (pkg: PackageRecord) => {
           </thead>
           <tbody>
             <tr v-for="src in state.source_imports.records" :key="src.id">
-              <td>
-                <strong>{{ src.original_name }}</strong>
+              <td class="file-name">
+                {{ src.original_name }}
               </td>
               <td>
                 <bdi dir="ltr">{{ src.detected_media_type }}</bdi>
@@ -237,15 +237,26 @@ const inspectPackage = (pkg: PackageRecord) => {
   gap: 1.5rem;
 }
 
+.cep-section-top {
+  padding: 1.35rem 1.6rem;
+  border-radius: var(--cep-radius-lg);
+  border: 1px solid var(--cep-border);
+  background: var(--cep-bg-panel-strong);
+  box-shadow: var(--cep-shadow);
+  position: relative;
+  overflow: hidden;
+}
+
 .cep-page-title-md {
-  margin: 0.25rem 0 0.4rem;
+  margin: 0.25rem 0 0.35rem;
   font-size: 1.35rem;
   font-weight: 800;
   color: var(--cep-text);
+  letter-spacing: -0.01em;
 }
 
 .cep-lede-sm {
-  margin: 0 0 1rem;
+  margin: 0 0 0.85rem;
   font-size: 0.88rem;
   color: var(--cep-text-muted);
   line-height: 1.6;
@@ -255,15 +266,14 @@ const inspectPackage = (pkg: PackageRecord) => {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-top: 0.65rem;
 }
 
 .scope-badge {
   font-size: 0.76rem;
-  font-weight: 700;
+  font-weight: 750;
   padding: 0.25rem 0.65rem;
   border-radius: var(--cep-radius-sm);
-  background: var(--cep-bg-panel-strong);
+  background: var(--cep-bg-panel);
   border: 1px solid var(--cep-border);
   color: var(--cep-text-muted);
 }
@@ -274,15 +284,32 @@ const inspectPackage = (pkg: PackageRecord) => {
   color: var(--cep-accent);
 }
 
-.upload-section {
-  padding: 1.1rem;
-  border-radius: var(--cep-radius-md);
+.action-box {
+  padding: 1.25rem;
+  border-radius: var(--cep-radius-lg);
   background: var(--cep-bg-panel-strong);
   border: 1px solid var(--cep-border);
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.2);
 }
 
-.import-form {
-  margin-top: 0.75rem;
+.action-box__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--cep-text);
+}
+
+.action-box__desc {
+  margin: 0 0 1rem;
+  font-size: 0.84rem;
+  color: var(--cep-text-muted);
+  line-height: 1.55;
+}
+
+.upload-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
 }
 
 .form-row {
@@ -295,12 +322,18 @@ const inspectPackage = (pkg: PackageRecord) => {
 .form-file-input {
   flex: 1;
   min-width: 15rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--cep-radius-sm);
+  padding: 0.55rem 0.85rem;
+  border-radius: var(--cep-radius-md);
   border: 1px solid var(--cep-border-strong);
   background: var(--cep-bg-panel);
   color: var(--cep-text);
   font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+.form-file-input:focus {
+  outline: 2px solid var(--cep-accent);
+  border-color: var(--cep-accent);
 }
 
 .btn-primary {
@@ -308,16 +341,19 @@ const inspectPackage = (pkg: PackageRecord) => {
   color: #020617;
   border-color: var(--cep-accent);
   font-weight: 750;
+  padding: 0.55rem 1.1rem;
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.2);
 }
 
 .btn-primary:hover:not(:disabled) {
   background: var(--cep-accent-hover);
+  border-color: var(--cep-accent-hover);
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.35);
 }
 
-.form-error {
-  margin: 0.5rem 0 0;
-  font-size: 0.8rem;
-  color: #f87171;
+:root[data-theme='light'] .btn-primary {
+  background: var(--cep-accent);
+  color: #ffffff;
 }
 
 .section-header-flex {
@@ -328,11 +364,28 @@ const inspectPackage = (pkg: PackageRecord) => {
   margin-bottom: 0.85rem;
 }
 
-.header-counts {
+.section-counts {
   display: flex;
-  gap: 0.85rem;
-  font-size: 0.82rem;
-  color: var(--cep-text-muted);
+  gap: 0.5rem;
+}
+
+.count-chip {
+  font-size: 0.76rem;
+  font-weight: 750;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--cep-radius-sm);
+}
+
+.count-chip--ok {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.count-chip--danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .package-list {
@@ -341,12 +394,18 @@ const inspectPackage = (pkg: PackageRecord) => {
 }
 
 .package-card {
-  padding: 1rem 1.1rem;
-  border-radius: var(--cep-radius-md);
+  padding: 1.25rem;
+  border-radius: var(--cep-radius-lg);
   border: 1px solid var(--cep-border);
   background: var(--cep-bg-panel-strong);
   display: grid;
-  gap: 0.75rem;
+  gap: 0.95rem;
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.2);
+  transition: all 140ms ease;
+}
+
+.package-card:hover {
+  border-color: var(--cep-border-strong);
 }
 
 .package-card__header {
@@ -354,23 +413,18 @@ const inspectPackage = (pkg: PackageRecord) => {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding-bottom: 0.55rem;
+  padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--cep-border);
 }
 
-.package-card__id-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.package-type {
-  font-size: 0.92rem;
-  font-weight: 750;
+.pkg-title {
+  font-size: 0.96rem;
+  font-weight: 800;
   color: var(--cep-text);
 }
 
-.package-id {
+.pkg-id {
+  display: block;
   font-size: 0.76rem;
   color: var(--cep-text-muted);
   font-family: ui-monospace, monospace;
@@ -379,15 +433,17 @@ const inspectPackage = (pkg: PackageRecord) => {
 .package-facts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
-  gap: 0.75rem;
+  gap: 0.85rem;
   margin: 0;
 }
 
 .package-fact dt {
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 0.7rem;
+  font-weight: 800;
   color: var(--cep-accent);
-  margin-bottom: 0.2rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
 }
 
 .package-fact dd {
@@ -401,11 +457,12 @@ const inspectPackage = (pkg: PackageRecord) => {
   justify-content: flex-end;
 }
 
-.sources-table-wrapper {
+.imports-table-wrapper {
   overflow-x: auto;
   border: 1px solid var(--cep-border);
-  border-radius: var(--cep-radius-md);
+  border-radius: var(--cep-radius-lg);
   background: var(--cep-bg-panel-strong);
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.25);
 }
 
 .subsystem-table {
@@ -416,12 +473,13 @@ const inspectPackage = (pkg: PackageRecord) => {
 }
 
 .subsystem-table th {
-  padding: 0.8rem 1rem;
+  padding: 0.9rem 1.1rem;
   background: var(--cep-bg-panel);
   color: var(--cep-text-muted);
-  font-weight: 700;
+  font-weight: 750;
   font-size: 0.8rem;
   border-bottom: 1px solid var(--cep-border);
+  letter-spacing: 0.02em;
 }
 
 .subsystem-table td {

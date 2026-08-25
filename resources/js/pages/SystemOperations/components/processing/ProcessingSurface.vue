@@ -226,15 +226,26 @@ const inspectRun = (run: ProcessingRun) => {
   gap: 1.5rem;
 }
 
+.cep-section-top {
+  padding: 1.35rem 1.6rem;
+  border-radius: var(--cep-radius-lg);
+  border: 1px solid var(--cep-border);
+  background: var(--cep-bg-panel-strong);
+  box-shadow: var(--cep-shadow);
+  position: relative;
+  overflow: hidden;
+}
+
 .cep-page-title-md {
-  margin: 0.25rem 0 0.4rem;
+  margin: 0.25rem 0 0.35rem;
   font-size: 1.35rem;
   font-weight: 800;
   color: var(--cep-text);
+  letter-spacing: -0.01em;
 }
 
 .cep-lede-sm {
-  margin: 0 0 1rem;
+  margin: 0 0 1.25rem;
   font-size: 0.88rem;
   color: var(--cep-text-muted);
   line-height: 1.6;
@@ -243,29 +254,44 @@ const inspectRun = (run: ProcessingRun) => {
 .metric-strip.compact {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-top: 0.85rem;
+  gap: 0.85rem;
+}
+
+@media (max-width: 48rem) {
+  .metric-strip.compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .metric-card {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  padding: 0.85rem 1rem;
-  border-radius: var(--cep-radius-sm);
+  padding: 0.95rem 1.1rem;
+  border-radius: var(--cep-radius-md);
   border: 1px solid var(--cep-border);
-  background: var(--cep-bg-panel-strong);
+  background: var(--cep-bg-panel);
+  transition: all 140ms ease;
+}
+
+.metric-card:hover {
+  border-color: var(--cep-border-strong);
+  transform: translateY(-1px);
 }
 
 .metric-label {
   font-size: 0.78rem;
+  font-weight: 750;
   color: var(--cep-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .metric-value {
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   font-weight: 800;
   color: var(--cep-text);
+  letter-spacing: -0.02em;
 }
 
 .section-header-flex {
@@ -287,12 +313,18 @@ const inspectRun = (run: ProcessingRun) => {
 }
 
 .trace-card {
-  padding: 1.1rem;
-  border-radius: var(--cep-radius-md);
+  padding: 1.25rem;
+  border-radius: var(--cep-radius-lg);
   border: 1px solid var(--cep-border);
   background: var(--cep-bg-panel-strong);
   display: grid;
-  gap: 0.85rem;
+  gap: 0.95rem;
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.2);
+  transition: all 140ms ease;
+}
+
+.trace-card:hover {
+  border-color: var(--cep-border-strong);
 }
 
 .trace-heading {
@@ -300,7 +332,7 @@ const inspectRun = (run: ProcessingRun) => {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding-bottom: 0.65rem;
+  padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--cep-border);
 }
 
@@ -311,30 +343,31 @@ const inspectRun = (run: ProcessingRun) => {
 }
 
 .trace-type {
-  font-size: 0.95rem;
-  font-weight: 750;
+  font-size: 0.96rem;
+  font-weight: 800;
   color: var(--cep-text);
 }
 
 .trace-id {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--cep-text-muted);
   font-family: ui-monospace, monospace;
 }
 
 .trace-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.85rem;
   margin: 0;
 }
 
 .trace-fact dt {
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 0.7rem;
+  font-weight: 800;
   color: var(--cep-accent);
   letter-spacing: 0.04em;
-  margin-bottom: 0.2rem;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
 }
 
 .trace-fact dd {
@@ -354,25 +387,51 @@ const inspectRun = (run: ProcessingRun) => {
 .trace-actions {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  justify-content: flex-end;
+  gap: 0.65rem;
   margin-top: 0.35rem;
 }
 
+.btn-inspect {
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--cep-radius-sm);
+  border: 1px solid var(--cep-border-strong);
+  background: var(--cep-bg-panel);
+  color: var(--cep-accent);
+  font-size: 0.8rem;
+  font-weight: 750;
+  transition: all 140ms ease;
+}
+
+.btn-inspect:hover {
+  border-color: var(--cep-accent);
+  background: var(--cep-accent-soft);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.2);
+}
+
 .btn-cancel {
-  border-color: rgba(239, 68, 68, 0.4);
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--cep-radius-sm);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.1);
   color: #f87171;
+  font-size: 0.8rem;
+  font-weight: 750;
+  transition: all 140ms ease;
 }
 
 .btn-cancel:hover {
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.2);
   border-color: #f87171;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
 }
 
 .outbox-table-wrapper {
   overflow-x: auto;
   border: 1px solid var(--cep-border);
-  border-radius: var(--cep-radius-md);
+  border-radius: var(--cep-radius-lg);
   background: var(--cep-bg-panel-strong);
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.25);
 }
 
 .subsystem-table {
@@ -383,18 +442,20 @@ const inspectRun = (run: ProcessingRun) => {
 }
 
 .subsystem-table th {
-  padding: 0.8rem 1rem;
+  padding: 0.9rem 1.1rem;
   background: var(--cep-bg-panel);
   color: var(--cep-text-muted);
-  font-weight: 700;
+  font-weight: 750;
   font-size: 0.8rem;
   border-bottom: 1px solid var(--cep-border);
+  letter-spacing: 0.02em;
 }
 
 .subsystem-table td {
-  padding: 0.85rem 1rem;
+  padding: 0.95rem 1.1rem;
   border-bottom: 1px solid var(--cep-border);
   color: var(--cep-text);
+  vertical-align: middle;
 }
 
 .subsystem-table tr:last-child td {
@@ -403,36 +464,45 @@ const inspectRun = (run: ProcessingRun) => {
 
 .policy-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
   gap: 0.85rem;
   margin-top: 0.85rem;
 }
 
 .policy-card {
   display: flex;
-  gap: 0.75rem;
-  padding: 0.85rem;
-  border-radius: var(--cep-radius-sm);
+  gap: 0.85rem;
+  padding: 1rem 1.15rem;
+  border-radius: var(--cep-radius-md);
   background: var(--cep-bg-panel-strong);
   border: 1px solid var(--cep-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .policy-card__icon {
-  font-size: 1.2rem;
+  font-size: 1.3rem;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: var(--cep-radius-sm);
+  background: rgba(34, 211, 238, 0.08);
+  border: 1px solid rgba(34, 211, 238, 0.2);
 }
 
 .policy-card__title {
   margin: 0 0 0.25rem;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-weight: 750;
   color: var(--cep-text);
 }
 
 .policy-card__desc {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   color: var(--cep-text-muted);
-  line-height: 1.5;
+  line-height: 1.55;
 }
 </style>

@@ -28,7 +28,7 @@ const isEmbeddings = computed(() => Boolean(policy.value.embeddings ?? false));
 
     <!-- 1. Execution Workflow Block -->
     <article class="context-block">
-      <div class="context-block__icon" aria-hidden="true">📑</div>
+      <div class="context-block__icon-box icon-box--info" aria-hidden="true">📑</div>
       <div class="context-block__content">
         <h4 class="context-block__heading">نمط التنفيذ: {{ executionMode }}</h4>
         <p class="context-block__body">
@@ -43,7 +43,11 @@ const isEmbeddings = computed(() => Boolean(policy.value.embeddings ?? false));
 
     <!-- 2. Provider Configuration Block (Bound to automatic_provider_enabled) -->
     <article class="context-block">
-      <div class="context-block__icon" aria-hidden="true">
+      <div
+        class="context-block__icon-box"
+        :class="isProviderEnabled ? 'icon-box--danger' : 'icon-box--accent'"
+        aria-hidden="true"
+      >
         {{ isProviderEnabled ? '🌐' : '🔒' }}
       </div>
       <div class="context-block__content">
@@ -63,7 +67,7 @@ const isEmbeddings = computed(() => Boolean(policy.value.embeddings ?? false));
 
     <!-- 3. Human Decision Gate Block (Bound to automatic_publish) -->
     <article class="context-block">
-      <div class="context-block__icon" aria-hidden="true">👤</div>
+      <div class="context-block__icon-box icon-box--warning" aria-hidden="true">👤</div>
       <div class="context-block__content">
         <h4 class="context-block__heading">بوابة القرار البشري</h4>
         <p class="context-block__body">
@@ -78,7 +82,7 @@ const isEmbeddings = computed(() => Boolean(policy.value.embeddings ?? false));
 
     <!-- 4. Polling and Embeddings Governance Block -->
     <article class="context-block">
-      <div class="context-block__icon" aria-hidden="true">⚙️</div>
+      <div class="context-block__icon-box icon-box--neutral" aria-hidden="true">⚙️</div>
       <div class="context-block__content">
         <h4 class="context-block__heading">سياسات الاستطلاع والتضمين</h4>
         <p class="context-block__body">
@@ -93,7 +97,7 @@ const isEmbeddings = computed(() => Boolean(policy.value.embeddings ?? false));
 <style scoped>
 .ai-bridge-context {
   display: grid;
-  gap: 1rem;
+  gap: 0.85rem;
 }
 
 .context-header {
@@ -103,33 +107,74 @@ const isEmbeddings = computed(() => Boolean(policy.value.embeddings ?? false));
 
 .context-block {
   display: flex;
-  gap: 0.75rem;
-  padding: 0.85rem;
-  border-radius: var(--cep-radius-sm);
+  gap: 0.85rem;
+  padding: 0.95rem 1rem;
+  border-radius: var(--cep-radius-md);
   background: var(--cep-bg-panel-strong);
   border: 1px solid var(--cep-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 140ms ease;
 }
 
-.context-block__icon {
-  font-size: 1.2rem;
+.context-block:hover {
+  border-color: var(--cep-border-strong);
+}
+
+.context-block__icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: var(--cep-radius-sm);
+  font-size: 1.15rem;
   flex-shrink: 0;
-  line-height: 1.2;
+  border: 1px solid transparent;
+}
+
+.icon-box--info {
+  background: rgba(34, 211, 238, 0.12);
+  border-color: rgba(34, 211, 238, 0.3);
+}
+
+.icon-box--accent {
+  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.icon-box--warning {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.icon-box--danger {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.icon-box--neutral {
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.25);
 }
 
 .context-block__content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .context-block__heading {
-  margin: 0 0 0.25rem;
+  margin: 0;
   font-size: 0.88rem;
   font-weight: 750;
   color: var(--cep-text);
+  letter-spacing: -0.01em;
 }
 
 .context-block__body {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   color: var(--cep-text-muted);
   line-height: 1.55;
 }

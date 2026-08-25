@@ -43,6 +43,7 @@ const navigation: Array<{
       >
         <span class="system-nav-icon" aria-hidden="true">{{ item.icon }}</span>
         <span class="system-nav-label">{{ item.label }}</span>
+        <span v-if="activeSurface === item.key" class="active-indicator" aria-hidden="true" />
       </a>
     </div>
   </nav>
@@ -57,18 +58,20 @@ const navigation: Array<{
 
 .system-nav-header__kicker {
   display: block;
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 0.68rem;
+  font-weight: 800;
   color: var(--cep-accent);
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   margin-bottom: 0.2rem;
 }
 
 .system-nav-header__title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 800;
   color: var(--cep-text);
+  letter-spacing: -0.01em;
 }
 
 .system-nav-list {
@@ -79,36 +82,59 @@ const navigation: Array<{
 .rail-link {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: var(--cep-radius-sm);
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--cep-radius-md);
   color: var(--cep-text-muted);
   font-size: 0.88rem;
   font-weight: 650;
   text-decoration: none;
   border: 1px solid transparent;
   transition: all 140ms ease;
+  position: relative;
 }
 
 .rail-link:hover {
   background: var(--cep-accent-soft);
   color: var(--cep-text);
+  border-color: rgba(34, 211, 238, 0.15);
 }
 
 .rail-link.active,
 .rail-link--active {
-  border-color: var(--cep-border-strong);
-  background: var(--cep-accent-soft);
+  border-color: rgba(34, 211, 238, 0.35);
+  background: rgba(34, 211, 238, 0.12);
   color: var(--cep-accent);
-  font-weight: 750;
+  font-weight: 800;
+  box-shadow: inset 0 0 12px rgba(34, 211, 238, 0.06);
+}
+
+:root[data-theme='light'] .rail-link.active,
+:root[data-theme='light'] .rail-link--active {
+  border-color: rgba(8, 145, 178, 0.35);
+  background: rgba(8, 145, 178, 0.1);
+  color: var(--cep-accent);
 }
 
 .system-nav-icon {
-  font-size: 1rem;
+  font-size: 1.05rem;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  flex-shrink: 0;
 }
 
 .system-nav-label {
   flex: 1;
+}
+
+.active-indicator {
+  width: 4px;
+  height: 1.1rem;
+  border-radius: 9999px;
+  background-color: var(--cep-accent);
+  box-shadow: 0 0 8px var(--cep-accent);
 }
 </style>

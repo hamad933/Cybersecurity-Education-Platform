@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 import CepWorkspaceLayout from '../../layouts/CepWorkspaceLayout.vue';
@@ -38,7 +38,19 @@ const titles: Record<Surface, string> = {
   configuration: 'تهيئة المنتج المحلية',
 };
 
+const subtitles: Record<Surface, string> = {
+  health: 'مراقبة متواصلة لخدمات النظام وعملياتها وضمان الاستمرارية وسلامة البيانات.',
+  processing: 'تتبع مسار المهام التشغيلية من وقت الطلب حتى اكتمال التنفيذ أو الفشل.',
+  validation: 'فحص البصمات والمخططات وتطابق البيانات دون التدخل في أحكام جودة المعرفة.',
+  'ai-bridge': 'تجهيز حزم الموجهات واستيراد النتائج للمراجعة البشرية الواعية قبل الاعتماد.',
+  backups: 'توليد نسخ احتياطية مشفرة وحماية الاستعادة بالمرحلة المعزولة والتدقيق.',
+  audit: 'سجل أحداث تشغيلي غير قابل للتعديل مترابط بسلسلة تجزئة مشفرة قطعية.',
+  releases: 'بوابة التحقق الشامل من جاهزية حزم الأدلة والوثائق التقنية قبل الإصدار.',
+  configuration: 'عرض معايير التهيئة التشغيلية المقروءة فقط بلا كشف لأي أسرار أو مفاتيح.',
+};
+
 const title = computed(() => titles[props.surface]);
+const subtitle = computed(() => subtitles[props.surface]);
 
 const selectedHealthSubsystem = ref<
   'validation' | 'processing' | 'ai-bridge' | 'backups' | 'releases'
@@ -52,6 +64,10 @@ const openDeepWorkspace = (titleValue: string, sections: DeepSection[]) => {
 
 const closeDeepWorkspace = () => {
   deepWorkspace.value = null;
+};
+
+const refreshSurface = () => {
+  router.reload();
 };
 
 const formatDeepValue = (val: unknown): string => {
@@ -75,33 +91,70 @@ const formatDeepValue = (val: unknown): string => {
     <template #top>
       <div class="workspace-top-bar">
         <div class="workspace-top-bar__titles">
-          <span class="eyebrow" dir="ltr">CEP / SYSTEM &amp; OPERATIONS</span>
-          <h1 class="workspace-top-title">{{ title }}</h1>
+          <div class="top-title-row">
+            <h1 class="workspace-top-title">{{ title }}</h1>
+            <span class="eyebrow-tag" dir="ltr">OPERATIONAL / V-GOVERNED</span>
+          </div>
+          <p class="workspace-top-subtitle">{{ subtitle }}</p>
         </div>
 
         <div class="workspace-top-bar__actions" aria-label="أدوات المساحة الحالية">
-          <a
-            v-if="surface === 'validation'"
-            href="#source-import"
-            class="cep-text-button tool-link"
-          >
-            استيراد للتحقق
-          </a>
-          <a
-            v-else-if="surface === 'ai-bridge'"
-            href="#manual-ai-export"
-            class="cep-text-button tool-link"
-          >
-            تجهيز Prompt
-          </a>
-          <a
-            v-else-if="surface === 'backups'"
-            href="#backup-create"
-            class="cep-text-button tool-link"
-          >
-            إنشاء Backup
-          </a>
-          <span v-else class="read-only-chip">فحص تشغيلي</span>
+          <!-- Primary & Secondary Action Buttons Matching Governed Dashboard -->
+          <template v-if="surface === 'health'">
+            <button type="button" class="cep-text-button btn-top-primary" @click="refreshSurface">
+              <span class="btn-icon">⚡</span>
+              <span>تشغيل فحص</span>
+            </button>
+            <button type="button" class="cep-text-button btn-top-secondary" @click="refreshSurface">
+              <span class="btn-icon">🔄</span>
+              <span>إعادة المحاولة</span>
+            </button>
+            <a href="/system/audit" class="cep-text-button btn-top-secondary">
+              <span class="btn-icon">📄</span>
+              <span>فتح التقرير</span>
+            </a>
+          </template>
+
+          <template v-else-if="surface === 'validation'">
+            <a href="#source-import" class="cep-text-button btn-top-primary">
+              <span class="btn-icon">📥</span>
+              <span>استيراد للتحقق</span>
+            </a>
+            <button type="button" class="cep-text-button btn-top-secondary" @click="refreshSurface">
+              <span class="btn-icon">🔄</span>
+              <span>تحديث الفحوص</span>
+            </button>
+          </template>
+
+          <template v-else-if="surface === 'ai-bridge'">
+            <a href="#manual-ai-export" class="cep-text-button btn-top-primary">
+              <span class="btn-icon">📝</span>
+              <span>تجهيز Prompt</span>
+            </a>
+            <button type="button" class="cep-text-button btn-top-secondary" @click="refreshSurface">
+              <span class="btn-icon">🔄</span>
+              <span>تحديث النتائج</span>
+            </button>
+          </template>
+
+          <template v-else-if="surface === 'backups'">
+            <a href="#backup-create" class="cep-text-button btn-top-primary">
+              <span class="btn-icon">💾</span>
+              <span>إنشاء Backup</span>
+            </a>
+            <button type="button" class="cep-text-button btn-top-secondary" @click="refreshSurface">
+              <span class="btn-icon">🔄</span>
+              <span>تحديث النسخ</span>
+            </button>
+          </template>
+
+          <template v-else>
+            <button type="button" class="cep-text-button btn-top-primary" @click="refreshSurface">
+              <span class="btn-icon">🔄</span>
+              <span>تحديث البيانات</span>
+            </button>
+            <span class="read-only-chip">فحص تشغيلي مقروء</span>
+          </template>
         </div>
       </div>
     </template>
@@ -172,7 +225,10 @@ const formatDeepValue = (val: unknown): string => {
         data-testid="deep-workspace"
       >
         <div class="deep-detail-header">
-          <h3 class="deep-detail-title">{{ deepWorkspace.title }}</h3>
+          <div class="deep-detail-header__title-group">
+            <span class="deep-detail-kicker">تشخيص تفصيلي معزول</span>
+            <h3 class="deep-detail-title">{{ deepWorkspace.title }}</h3>
+          </div>
           <button
             type="button"
             class="cep-text-button btn-close-deep"
@@ -206,51 +262,117 @@ const formatDeepValue = (val: unknown): string => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 1.5rem;
   width: 100%;
+  padding-block: 0.15rem;
 }
 
 .workspace-top-bar__titles {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.2rem;
 }
 
-.eyebrow {
-  margin: 0;
-  font-size: 0.72rem;
-  font-weight: 800;
-  color: var(--cep-accent);
-  letter-spacing: 0.08em;
+.top-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .workspace-top-title {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.3rem;
   font-weight: 800;
   color: var(--cep-text);
+  letter-spacing: -0.01em;
+}
+
+.eyebrow-tag {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--cep-accent);
+  letter-spacing: 0.06em;
+  background: var(--cep-accent-soft);
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--cep-radius-sm);
+  border: 1px solid rgba(34, 211, 238, 0.25);
+}
+
+.workspace-top-subtitle {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--cep-text-muted);
+  line-height: 1.45;
 }
 
 .workspace-top-bar__actions {
   display: flex;
   align-items: center;
   gap: 0.65rem;
+  flex-wrap: wrap;
 }
 
-.tool-link {
-  text-decoration: none;
+.btn-top-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--cep-radius-md);
+  background: var(--cep-accent);
+  color: #020617;
+  border: 1px solid var(--cep-accent);
   font-weight: 750;
-  color: var(--cep-accent);
+  font-size: 0.82rem;
+  text-decoration: none;
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.25);
+  transition: all 140ms ease;
+}
+
+.btn-top-primary:hover {
+  background: var(--cep-accent-hover);
+  border-color: var(--cep-accent-hover);
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.4);
+}
+
+:root[data-theme='light'] .btn-top-primary {
+  background: var(--cep-accent);
+  color: #ffffff;
+}
+
+.btn-top-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: var(--cep-radius-md);
+  background: var(--cep-bg-panel-strong);
+  color: var(--cep-text);
+  border: 1px solid var(--cep-border);
+  font-weight: 650;
+  font-size: 0.82rem;
+  text-decoration: none;
+  transition: all 140ms ease;
+}
+
+.btn-top-secondary:hover {
+  border-color: var(--cep-border-strong);
+  background: var(--cep-bg-panel);
+}
+
+.btn-icon {
+  font-size: 0.88rem;
+  line-height: 1;
 }
 
 .read-only-chip {
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   font-weight: 750;
   color: var(--cep-text-muted);
   background: var(--cep-bg-panel-strong);
-  padding: 0.35rem 0.65rem;
+  padding: 0.35rem 0.75rem;
   border-radius: var(--cep-radius-sm);
   border: 1px solid var(--cep-border);
+  letter-spacing: 0.02em;
 }
 
 .system-surface-container {
@@ -259,62 +381,82 @@ const formatDeepValue = (val: unknown): string => {
 
 .deep-detail-wrapper {
   display: grid;
-  gap: 1rem;
+  gap: 1.1rem;
 }
 
 .deep-detail-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 0.65rem;
+  padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--cep-border);
+}
+
+.deep-detail-header__title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.deep-detail-kicker {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--cep-accent);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .deep-detail-title {
   margin: 0;
-  font-size: 0.95rem;
-  font-weight: 750;
+  font-size: 1.05rem;
+  font-weight: 800;
   color: var(--cep-text);
+}
+
+.btn-close-deep {
+  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem;
 }
 
 .deep-sections-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
   gap: 0.85rem;
 }
 
 .deep-section-card {
-  padding: 0.85rem 1rem;
-  border-radius: var(--cep-radius-sm);
-  background: var(--cep-bg-panel);
+  padding: 0.9rem 1.1rem;
+  border-radius: var(--cep-radius-md);
+  background: var(--cep-bg-panel-strong);
   border: 1px solid var(--cep-border);
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 
 .deep-section-label {
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   font-weight: 750;
   color: var(--cep-accent);
+  letter-spacing: 0.02em;
 }
 
 .deep-section-value {
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   color: var(--cep-text);
 }
 
 .deep-section-pre {
   margin: 0;
-  padding: 0.65rem;
+  padding: 0.75rem;
   border-radius: var(--cep-radius-sm);
-  background: var(--cep-bg-panel-strong);
+  background: var(--cep-bg-panel);
   border: 1px solid var(--cep-border);
   font-size: 0.78rem;
   color: var(--cep-text);
   overflow-x: auto;
-  max-height: 14rem;
-  line-height: 1.45;
+  max-height: 15rem;
+  line-height: 1.5;
 }
 
 .mono {

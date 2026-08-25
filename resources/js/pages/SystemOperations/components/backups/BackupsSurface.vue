@@ -218,6 +218,16 @@ const inspectRestore = (restore: Restore) => {
   gap: 1.5rem;
 }
 
+.cep-section-top {
+  padding: 1.35rem 1.6rem;
+  border-radius: var(--cep-radius-lg);
+  border: 1px solid var(--cep-border);
+  background: var(--cep-bg-panel-strong);
+  box-shadow: var(--cep-shadow);
+  position: relative;
+  overflow: hidden;
+}
+
 .header-action-flex {
   display: flex;
   align-items: center;
@@ -227,10 +237,11 @@ const inspectRestore = (restore: Restore) => {
 }
 
 .cep-page-title-md {
-  margin: 0.25rem 0 0.4rem;
+  margin: 0.25rem 0 0.35rem;
   font-size: 1.35rem;
   font-weight: 800;
   color: var(--cep-text);
+  letter-spacing: -0.01em;
 }
 
 .cep-lede-sm {
@@ -245,11 +256,21 @@ const inspectRestore = (restore: Restore) => {
   color: #020617;
   border-color: var(--cep-accent);
   font-weight: 750;
-  padding: 0.65rem 1.1rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--cep-radius-sm);
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.2);
+  transition: all 140ms ease;
 }
 
 .btn-primary:hover:not(:disabled) {
   background: var(--cep-accent-hover);
+  border-color: var(--cep-accent-hover);
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.35);
+}
+
+:root[data-theme='light'] .btn-primary {
+  background: var(--cep-accent);
+  color: #ffffff;
 }
 
 .section-header-flex {
@@ -271,12 +292,18 @@ const inspectRestore = (restore: Restore) => {
 }
 
 .backup-card {
-  padding: 1.1rem;
-  border-radius: var(--cep-radius-md);
+  padding: 1.25rem;
+  border-radius: var(--cep-radius-lg);
   border: 1px solid var(--cep-border);
   background: var(--cep-bg-panel-strong);
   display: grid;
-  gap: 0.75rem;
+  gap: 0.95rem;
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.2);
+  transition: all 140ms ease;
+}
+
+.backup-card:hover {
+  border-color: var(--cep-border-strong);
 }
 
 .backup-card__header {
@@ -284,13 +311,13 @@ const inspectRestore = (restore: Restore) => {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding-bottom: 0.55rem;
+  padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--cep-border);
 }
 
 .backup-id {
-  font-size: 0.95rem;
-  font-weight: 750;
+  font-size: 0.96rem;
+  font-weight: 800;
   color: var(--cep-text);
 }
 
@@ -298,20 +325,23 @@ const inspectRestore = (restore: Restore) => {
   display: block;
   font-size: 0.76rem;
   color: var(--cep-text-muted);
+  margin-top: 0.15rem;
 }
 
 .backup-facts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
-  gap: 0.75rem;
+  gap: 0.85rem;
   margin: 0;
 }
 
 .backup-fact dt {
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 0.7rem;
+  font-weight: 800;
   color: var(--cep-accent);
-  margin-bottom: 0.2rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
 }
 
 .backup-fact dd {
@@ -327,16 +357,18 @@ const inspectRestore = (restore: Restore) => {
 
 .danger-zone {
   border: 1px solid rgba(239, 68, 68, 0.35);
-  border-radius: var(--cep-radius-md);
+  border-radius: var(--cep-radius-lg);
   background: rgba(239, 68, 68, 0.04);
+  overflow: hidden;
 }
 
 .danger-zone__summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.25rem;
+  padding: 1.1rem 1.35rem;
   cursor: pointer;
+  background: rgba(239, 68, 68, 0.06);
 }
 
 .summary-left {
@@ -351,8 +383,8 @@ const inspectRestore = (restore: Restore) => {
 
 .danger-title {
   display: block;
-  font-size: 0.95rem;
-  font-weight: 750;
+  font-size: 0.96rem;
+  font-weight: 800;
   color: #f87171;
 }
 
@@ -364,31 +396,32 @@ const inspectRestore = (restore: Restore) => {
 
 .summary-toggle-badge {
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 800;
   color: #f87171;
-  padding: 0.25rem 0.55rem;
+  padding: 0.25rem 0.65rem;
   border-radius: var(--cep-radius-sm);
-  background: rgba(239, 68, 68, 0.12);
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .danger-zone__content {
-  padding: 1.25rem;
+  padding: 1.35rem;
   border-top: 1px solid rgba(239, 68, 68, 0.25);
   display: grid;
   gap: 1.1rem;
 }
 
 .safety-banner {
-  padding: 0.9rem 1.1rem;
-  border-radius: var(--cep-radius-sm);
+  padding: 1rem 1.2rem;
+  border-radius: var(--cep-radius-md);
   background: var(--cep-bg-panel-strong);
   border: 1px solid var(--cep-border);
 }
 
 .safety-banner__title {
   margin: 0 0 0.4rem;
-  font-size: 0.85rem;
-  font-weight: 750;
+  font-size: 0.86rem;
+  font-weight: 800;
   color: var(--cep-accent);
 }
 
@@ -397,7 +430,7 @@ const inspectRestore = (restore: Restore) => {
   padding-right: 1.2rem;
   font-size: 0.82rem;
   color: var(--cep-text-muted);
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .stage-form {
@@ -407,7 +440,7 @@ const inspectRestore = (restore: Restore) => {
 
 .form-label {
   font-size: 0.82rem;
-  font-weight: 650;
+  font-weight: 700;
   color: var(--cep-text);
 }
 
@@ -421,43 +454,53 @@ const inspectRestore = (restore: Restore) => {
 .form-file-input {
   flex: 1;
   min-width: 15rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--cep-radius-sm);
+  padding: 0.55rem 0.85rem;
+  border-radius: var(--cep-radius-md);
   border: 1px solid var(--cep-border-strong);
   background: var(--cep-bg-panel);
   color: var(--cep-text);
   font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+.form-file-input:focus {
+  outline: 2px solid var(--cep-accent);
+  border-color: var(--cep-accent);
 }
 
 .btn-warning {
-  background: rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.18);
   color: #fbbf24;
   border-color: rgba(245, 158, 11, 0.4);
   font-weight: 750;
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--cep-radius-sm);
+  transition: all 140ms ease;
 }
 
 .btn-warning:hover:not(:disabled) {
   background: rgba(245, 158, 11, 0.3);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
 }
 
 .restores-history__title {
   margin: 0 0 0.65rem;
   font-size: 0.88rem;
-  font-weight: 750;
+  font-weight: 800;
   color: var(--cep-text);
 }
 
 .restores-list {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.65rem;
 }
 
 .restore-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 0.9rem;
-  border-radius: var(--cep-radius-sm);
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--cep-radius-md);
   background: var(--cep-bg-panel-strong);
   border: 1px solid var(--cep-border);
 }
@@ -465,7 +508,7 @@ const inspectRestore = (restore: Restore) => {
 .restore-item__side {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.75rem;
 }
 
 .mono {

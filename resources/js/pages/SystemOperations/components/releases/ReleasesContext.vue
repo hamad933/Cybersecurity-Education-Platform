@@ -15,7 +15,7 @@ defineProps<{
 
     <!-- No Deployment Authorization -->
     <article class="context-block context-block--notice">
-      <div class="context-block__icon" aria-hidden="true">🚫</div>
+      <div class="context-block__icon-box icon-box--warning" aria-hidden="true">🚫</div>
       <div class="context-block__content">
         <h4 class="context-block__heading">حظر الإطلاق التلقائي</h4>
         <p class="context-block__body">
@@ -27,7 +27,7 @@ defineProps<{
 
     <!-- Evidence Integrity -->
     <article class="context-block">
-      <div class="context-block__icon" aria-hidden="true">📦</div>
+      <div class="context-block__icon-box icon-box--info" aria-hidden="true">📦</div>
       <div class="context-block__content">
         <h4 class="context-block__heading">حزم الأدلة الموثقة</h4>
         <p class="context-block__body">
@@ -39,7 +39,7 @@ defineProps<{
 
     <!-- Release Loopback Isolation -->
     <article class="context-block">
-      <div class="context-block__icon" aria-hidden="true">🔒</div>
+      <div class="context-block__icon-box icon-box--accent" aria-hidden="true">🔒</div>
       <div class="context-block__content">
         <h4 class="context-block__heading">عزل النطاق</h4>
         <p class="context-block__body">
@@ -54,7 +54,7 @@ defineProps<{
 <style scoped>
 .releases-context {
   display: grid;
-  gap: 1rem;
+  gap: 0.85rem;
 }
 
 .context-header {
@@ -64,11 +64,17 @@ defineProps<{
 
 .context-block {
   display: flex;
-  gap: 0.75rem;
-  padding: 0.85rem;
-  border-radius: var(--cep-radius-sm);
+  gap: 0.85rem;
+  padding: 0.95rem 1rem;
+  border-radius: var(--cep-radius-md);
   background: var(--cep-bg-panel-strong);
   border: 1px solid var(--cep-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 140ms ease;
+}
+
+.context-block:hover {
+  border-color: var(--cep-border-strong);
 }
 
 .context-block--notice {
@@ -76,26 +82,51 @@ defineProps<{
   background: rgba(245, 158, 11, 0.05);
 }
 
-.context-block__icon {
-  font-size: 1.2rem;
+.context-block__icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: var(--cep-radius-sm);
+  font-size: 1.15rem;
   flex-shrink: 0;
-  line-height: 1.2;
+  border: 1px solid transparent;
+}
+
+.icon-box--info {
+  background: rgba(34, 211, 238, 0.12);
+  border-color: rgba(34, 211, 238, 0.3);
+}
+
+.icon-box--warning {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.icon-box--accent {
+  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.3);
 }
 
 .context-block__content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .context-block__heading {
-  margin: 0 0 0.25rem;
+  margin: 0;
   font-size: 0.88rem;
   font-weight: 750;
   color: var(--cep-text);
+  letter-spacing: -0.01em;
 }
 
 .context-block__body {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   color: var(--cep-text-muted);
   line-height: 1.55;
 }
