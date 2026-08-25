@@ -250,6 +250,7 @@ bdi,
 
 .cep-workspace {
   width: min(100%, 112rem);
+  min-width: 0;
   margin-inline: auto;
   padding: 0.9rem 1rem 1.25rem;
 }
@@ -259,6 +260,7 @@ bdi,
   min-height: 3.25rem;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.75rem;
   margin-bottom: 0.75rem;
   border: 1px solid var(--cep-border);
@@ -267,11 +269,23 @@ bdi,
   padding: 0.6rem 0.8rem;
 }
 
+.cep-action-bar > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .cep-panel-controls {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: 0.5rem;
   margin-inline-start: auto;
+}
+
+.cep-panel-toggle {
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .cep-workspace-grid {
@@ -530,30 +544,63 @@ bdi,
 
 @media (max-width: 64rem) {
   .cep-workspace-grid {
-    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-areas: 'center center';
   }
 
   .cep-resize-handle {
     display: none;
   }
 
+  .cep-workspace-grid--has-left:not(.cep-workspace-grid--has-right) {
+    grid-template-areas:
+      'structure structure'
+      'center center';
+  }
+
+  .cep-workspace-grid--has-right:not(.cep-workspace-grid--has-left) {
+    grid-template-areas:
+      'context context'
+      'center center';
+  }
+
+  .cep-workspace-grid--has-left.cep-workspace-grid--has-right {
+    grid-template-areas:
+      'structure context'
+      'center center';
+  }
+
   .cep-primary-surface {
-    order: 1;
+    grid-area: center;
     min-height: auto;
   }
 
   .cep-structure-panel {
-    order: 2;
+    grid-area: structure;
   }
 
   .cep-context-panel {
-    order: 3;
+    grid-area: context;
   }
 
   .cep-structure-panel,
   .cep-context-panel {
     position: static;
-    max-height: none;
+    max-height: min(18rem, 40vh);
+  }
+
+  .cep-action-bar {
+    align-items: flex-start;
+  }
+
+  .cep-action-bar > :not(.cep-panel-controls),
+  .cep-panel-controls {
+    flex: 1 1 20rem;
+  }
+
+  .cep-panel-controls {
+    justify-content: flex-start;
+    margin-inline-start: 0;
   }
 }
 
@@ -576,6 +623,72 @@ bdi,
 
   .cep-workspace {
     padding-inline: 0.65rem;
+  }
+
+  .cep-workspace-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .cep-workspace-grid--has-left:not(.cep-workspace-grid--has-right) {
+    grid-template-areas:
+      'structure'
+      'center';
+  }
+
+  .cep-workspace-grid--has-right:not(.cep-workspace-grid--has-left) {
+    grid-template-areas:
+      'context'
+      'center';
+  }
+
+  .cep-workspace-grid--has-left.cep-workspace-grid--has-right {
+    grid-template-areas:
+      'structure'
+      'context'
+      'center';
+  }
+
+  .cep-structure-panel,
+  .cep-context-panel {
+    max-height: min(14rem, 32vh);
+  }
+
+  .cep-action-bar {
+    gap: 0.5rem;
+    padding: 0.55rem 0.6rem;
+  }
+
+  .cep-action-bar > :not(.cep-panel-controls),
+  .cep-panel-controls,
+  .cep-panel-controls .cep-panel-toggle {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  .cep-panel-controls .cep-panel-toggle {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.78rem;
+  }
+}
+
+@media (max-width: 24.375rem) {
+  .cep-workspace {
+    padding-inline: 0.5rem;
+  }
+
+  .cep-primary-surface {
+    padding: 0.9rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cep-app-shell *,
+  .cep-app-shell *::before,
+  .cep-app-shell *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

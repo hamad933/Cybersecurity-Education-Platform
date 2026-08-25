@@ -359,6 +359,8 @@ const gridStyle = computed(() => {
         :style="gridStyle"
         :class="{
           'cep-workspace-grid--dragging': isDraggingLeft || isDraggingRight,
+          'cep-workspace-grid--has-left': isLeftVisible,
+          'cep-workspace-grid--has-right': isRightVisible,
         }"
       >
         <!-- LEFT PANEL (Structure/Navigation, physical LEFT) -->
