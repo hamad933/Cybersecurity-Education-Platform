@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import KnowledgeTabs from './components/KnowledgeTabs.vue';
@@ -112,8 +112,8 @@ const openSections = ref<Record<string, boolean>>({
   '03': true,
   '04': false,
   '05': true,
-  'learn': true,
-  'context': false,
+  learn: true,
+  context: false,
 });
 const toggleSection = (key: string) => {
   openSections.value[key] = !openSections.value[key];
@@ -155,18 +155,6 @@ const filteredStructure = computed<LibraryHierarchyProjection>(() => {
 
   return { domains, unresolved_capabilities, unplaced };
 });
-const blockTypes = [
-  'heading',
-  'paragraph',
-  'callout',
-  'rules',
-  'boundaries',
-  'code',
-  'request',
-  'response',
-  'log',
-];
-const technicalTypes = new Set(['code', 'request', 'response', 'log']);
 const MAX_BLOCK_DEPTH = 3;
 
 const structuralDepth = (block: RevisionBlock): number =>
@@ -258,7 +246,6 @@ const redoStack = ref<EditorSnapshot[]>([]);
 const recoveryCandidate = ref<RecoveryRecord | null>(null);
 const recoverySavedAt = ref<string | null>(null);
 const autosaveState = ref<'idle' | 'pending' | 'saving' | 'saved' | 'error'>('idle');
-const linkValidationError = ref('');
 const copiedBlockIndex = ref<number | null>(null);
 const copyBlockText = (text: string, index: number) => {
   if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -421,7 +408,6 @@ watch(revisionKey, () => {
   redoStack.value = [];
   lastSnapshot = currentSnapshot();
   autosaveState.value = 'idle';
-  linkValidationError.value = '';
   void nextTick(() => {
     suppressHistory = false;
     loadRecovery();
@@ -442,121 +428,6 @@ const restore = () => {
   );
 };
 
-const subtreeEnd = (blocks: EditorBlock[], index: number): number => {
-  const block = blocks[index];
-  if (!block) return index;
-
-  let end = index + 1;
-  while (end < blocks.length && (blocks[end]?.depth ?? 0) > block.depth) end += 1;
-
-  return end;
-};
-const previousSiblingIndex = (blocks: EditorBlock[], index: number): number | null => {
-  const block = blocks[index];
-  if (!block) return null;
-
-  for (let candidate = index - 1; candidate >= 0; candidate -= 1) {
-    const depth = blocks[candidate]?.depth ?? 0;
-    if (depth < block.depth) return null;
-    if (depth === block.depth) return candidate;
-  }
-
-  return null;
-};
-const nextSiblingIndex = (blocks: EditorBlock[], index: number): number | null => {
-  const block = blocks[index];
-  if (!block) return null;
-
-  const candidate = subtreeEnd(blocks, index);
-  if (candidate < blocks.length && blocks[candidate]?.depth === block.depth) return candidate;
-
-  return null;
-};
-const parentIndex = (blocks: EditorBlock[], index: number): number | null => {
-  const block = blocks[index];
-  if (!block || block.depth === 0) return null;
-
-  for (let candidate = index - 1; candidate >= 0; candidate -= 1) {
-    const depth = blocks[candidate]?.depth ?? 0;
-    if (depth < block.depth) return depth === block.depth - 1 ? candidate : null;
-  }
-
-  return null;
-};
-const canIndentBlock = (index: number) => {
-  const block = form.blocks[index];
-  if (!block || previousSiblingIndex(form.blocks, index) === null) return false;
-
-  const end = subtreeEnd(form.blocks, index);
-  return form.blocks.slice(index, end).every((item) => item.depth < MAX_BLOCK_DEPTH);
-};
-const canOutdentBlock = (index: number) => (form.blocks[index]?.depth ?? 0) > 0;
-const canMoveBlock = (index: number, delta: number) =>
-  delta < 0
-    ? previousSiblingIndex(form.blocks, index) !== null
-    : nextSiblingIndex(form.blocks, index) !== null;
-
-const addBlock = () => form.blocks.push({ type: 'paragraph', body: '', depth: 0 });
-const removeBlock = (index: number) => {
-  const end = subtreeEnd(form.blocks, index);
-  const count = end - index;
-  if (count < 1 || form.blocks.length - count < 1) return;
-  form.blocks.splice(index, count);
-};
-const moveBlock = (index: number, delta: number) => {
-  if (delta < 0) {
-    const previous = previousSiblingIndex(form.blocks, index);
-    if (previous === null) return;
-    const end = subtreeEnd(form.blocks, index);
-    const segment = form.blocks.splice(index, end - index);
-    form.blocks.splice(previous, 0, ...segment);
-    return;
-  }
-
-  const next = nextSiblingIndex(form.blocks, index);
-  if (next === null) return;
-  const end = subtreeEnd(form.blocks, index);
-  const nextEnd = subtreeEnd(form.blocks, next);
-  const nextLength = nextEnd - next;
-  const segment = form.blocks.splice(index, end - index);
-  form.blocks.splice(index + nextLength, 0, ...segment);
-};
-const indentBlock = (index: number) => {
-  if (!canIndentBlock(index)) return;
-  const end = subtreeEnd(form.blocks, index);
-  for (let cursor = index; cursor < end; cursor += 1) {
-    const block = form.blocks[cursor];
-    if (block) block.depth += 1;
-  }
-};
-const outdentBlock = (index: number) => {
-  const block = form.blocks[index];
-  const parent = parentIndex(form.blocks, index);
-  if (!block || block.depth === 0 || parent === null) return;
-
-  const end = subtreeEnd(form.blocks, index);
-  const parentEnd = subtreeEnd(form.blocks, parent);
-  const segment = form.blocks.slice(index, end).map((item) => ({ ...item, depth: item.depth - 1 }));
-  const count = end - index;
-
-  form.blocks.splice(index, count);
-  form.blocks.splice(parentEnd - count, 0, ...segment);
-};
-
-const replaceSelection = (index: number, before: string, after = before, fallback = '') => {
-  const block = form.blocks[index];
-  const input = document.getElementById(`knowledge-block-${index}`) as HTMLTextAreaElement | null;
-  if (!block || !input) return;
-  const start = input.selectionStart;
-  const end = input.selectionEnd;
-  const selected = block.body.slice(start, end) || fallback;
-  block.body = `${block.body.slice(0, start)}${before}${selected}${after}${block.body.slice(end)}`;
-  void nextTick(() => {
-    const cursorStart = start + before.length;
-    input.focus();
-    input.setSelectionRange(cursorStart, cursorStart + selected.length);
-  });
-};
 const safeHttpsUrl = (candidate: string): string | null => {
   try {
     const parsed = new URL(candidate);
@@ -564,31 +435,6 @@ const safeHttpsUrl = (candidate: string): string | null => {
   } catch {
     return null;
   }
-};
-const insertLink = (index: number) => {
-  if (typeof window === 'undefined') return;
-  linkValidationError.value = '';
-  const href = window.prompt('أدخل رابط HTTPS المرجعي:', 'https://');
-  if (!href) return;
-
-  const safeHref = safeHttpsUrl(href.trim());
-  if (!safeHref) {
-    linkValidationError.value = 'يُسمح فقط بروابط HTTPS صحيحة.';
-    return;
-  }
-
-  replaceSelection(index, '[', `](${safeHref})`, 'نص الرابط');
-};
-const insertReference = (index: number) => {
-  if (typeof window === 'undefined') return;
-  const reference = window.prompt('أدخل معرّف المرجع أو الاستشهاد:');
-  const normalized = reference?.trim();
-  if (!normalized) return;
-  if (!form.citations.includes(normalized)) form.citations.push(normalized);
-  replaceSelection(index, '', '', `[@${normalized}]`);
-};
-const removeCitation = (citation: string) => {
-  form.citations = form.citations.filter((item) => item !== citation);
 };
 
 const inlineTokens = (body: string): InlineToken[] => {

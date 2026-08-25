@@ -14,7 +14,11 @@ defineProps<{
     <div v-if="source">
       <div class="flex flex-wrap items-end justify-between gap-3 border-b border-slate-800/80 pb-3">
         <div>
-          <span class="font-mono text-[10px] font-bold text-slate-500 uppercase tracking-widest" dir="ltr">CLAIMS</span>
+          <span
+            class="font-mono text-[10px] font-bold tracking-widest text-slate-500 uppercase"
+            dir="ltr"
+            >CLAIMS</span
+          >
           <h2 class="mt-1 text-base font-bold text-slate-100">Claims ومواضع الدعم للمصدر</h2>
         </div>
         <p class="text-xs text-slate-400">
@@ -26,7 +30,7 @@ defineProps<{
         <article
           v-for="claim in source.claims"
           :key="claim.id"
-          class="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4 shadow-sm hover:border-slate-700 transition"
+          class="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4 shadow-sm transition hover:border-slate-700"
         >
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -47,14 +51,14 @@ defineProps<{
 
           <div class="mt-4 grid gap-3 md:grid-cols-2">
             <div class="rounded-xl border border-emerald-900/60 bg-emerald-950/20 p-3.5 shadow-sm">
-              <div class="flex items-center gap-1.5 text-emerald-400 text-xs font-bold mb-1">
+              <div class="mb-1 flex items-center gap-1.5 text-xs font-bold text-emerald-400">
                 <span>✓</span>
                 <h3>النطاق المدعوم</h3>
               </div>
               <p class="text-xs leading-relaxed text-slate-200">{{ claim.supported_scope }}</p>
             </div>
             <div class="rounded-xl border border-amber-900/60 bg-amber-950/20 p-3.5 shadow-sm">
-              <div class="flex items-center gap-1.5 text-amber-400 text-xs font-bold mb-1">
+              <div class="mb-1 flex items-center gap-1.5 text-xs font-bold text-amber-400">
                 <span>✕</span>
                 <h3>الدلالة المستبعدة</h3>
               </div>
@@ -77,10 +81,14 @@ defineProps<{
   <section v-else-if="mode === 'conflicts'" aria-label="Knowledge claim conflicts">
     <div class="flex flex-wrap items-end justify-between gap-3 border-b border-slate-800/80 pb-3">
       <div>
-        <span class="font-mono text-[10px] font-bold text-amber-400 uppercase tracking-widest" dir="ltr">CONFLICTS</span>
+        <span
+          class="font-mono text-[10px] font-bold tracking-widest text-amber-400 uppercase"
+          dir="ltr"
+          >CONFLICTS</span
+        >
         <h2 class="mt-1 text-base font-bold text-slate-100">التعارض وإعادة التوفيق</h2>
       </div>
-      <p class="text-xs text-slate-400 font-mono">
+      <p class="font-mono text-xs text-slate-400">
         {{ analysis?.conflicts.length ?? 0 }} تعارضات مرصودة تحتاج حكمًا بشريًا.
       </p>
     </div>
@@ -91,14 +99,18 @@ defineProps<{
         :key="conflict.claim_id"
         class="rounded-2xl border border-amber-500/40 bg-amber-950/15 p-5 shadow-lg shadow-amber-950/20"
       >
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-amber-900/40 pb-3 mb-4">
+        <div
+          class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-amber-900/40 pb-3"
+        >
           <div class="flex items-center gap-2">
-            <span class="text-amber-400 text-sm">⚠️</span>
+            <span class="text-sm text-amber-400">⚠️</span>
             <bdi dir="ltr" class="font-mono text-sm font-bold text-amber-200">
               {{ conflict.claim_id }}
             </bdi>
           </div>
-          <span class="rounded-full bg-amber-950/80 border border-amber-500/40 px-2.5 py-0.5 text-xs text-amber-300 font-mono font-bold">
+          <span
+            class="rounded-full border border-amber-500/40 bg-amber-950/80 px-2.5 py-0.5 font-mono text-xs font-bold text-amber-300"
+          >
             {{ conflict.status }}
           </span>
         </div>
@@ -109,7 +121,7 @@ defineProps<{
             :key="`${variant.source_id}:${variant.segment_ref}`"
             class="rounded-xl border border-slate-800 bg-slate-950/60 p-4 shadow-sm"
           >
-            <p class="font-bold text-slate-200 text-sm">{{ variant.source_title }}</p>
+            <p class="text-sm font-bold text-slate-200">{{ variant.source_title }}</p>
             <bdi dir="ltr" class="mt-1 block font-mono text-[10px] text-slate-500">
               {{ variant.segment_ref }}
             </bdi>
@@ -117,15 +129,16 @@ defineProps<{
             <p class="mt-2 text-xs leading-relaxed text-amber-300/80">
               مستبعد: {{ variant.excluded_semantics }}
             </p>
-            <bdi dir="ltr" class="mt-2.5 block text-[10px] font-mono text-slate-400">
+            <bdi dir="ltr" class="mt-2.5 block font-mono text-[10px] text-slate-400">
               assessment = {{ variant.assessment }}
             </bdi>
           </section>
         </div>
 
         <p class="mt-4 border-t border-amber-900/40 pt-3 text-xs leading-relaxed text-amber-200">
-          لا يختار النظام مصدرًا مفضلًا ولا يصدر <bdi dir="ltr" class="font-bold">system_truth_decision</bdi>. قرار
-          reconciliation من اختصاص المراجع البشري.
+          لا يختار النظام مصدرًا مفضلًا ولا يصدر
+          <bdi dir="ltr" class="font-bold">system_truth_decision</bdi>. قرار reconciliation من
+          اختصاص المراجع البشري.
         </p>
       </article>
     </div>
@@ -140,7 +153,10 @@ defineProps<{
   <!-- Mode 3: Revision Reasoning -->
   <section v-else aria-label="Revision and provenance reasoning">
     <div class="border-b border-slate-800/80 pb-3">
-      <span class="font-mono text-[10px] font-bold text-slate-500 uppercase tracking-widest" dir="ltr">
+      <span
+        class="font-mono text-[10px] font-bold tracking-widest text-slate-500 uppercase"
+        dir="ltr"
+      >
         REVISION REASONING
       </span>
       <h2 class="mt-1 text-base font-bold text-slate-100">استدلال المراجعة والمنشأ</h2>
@@ -149,19 +165,19 @@ defineProps<{
     <div class="mt-4 grid gap-3 md:grid-cols-3">
       <article class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 shadow-sm">
         <p class="text-xs text-slate-400">Canonical claims</p>
-        <p class="mt-2 text-2xl font-black text-slate-100 font-mono">
+        <p class="mt-2 font-mono text-2xl font-black text-slate-100">
           {{ analysis?.revision_reasoning.canonical_claim_ids.length ?? 0 }}
         </p>
       </article>
       <article class="rounded-2xl border border-emerald-900/60 bg-emerald-950/20 p-4 shadow-sm">
         <p class="text-xs text-emerald-400">Resolved to sources</p>
-        <p class="mt-2 text-2xl font-black text-emerald-300 font-mono">
+        <p class="mt-2 font-mono text-2xl font-black text-emerald-300">
           {{ analysis?.revision_reasoning.resolved_claim_ids.length ?? 0 }}
         </p>
       </article>
       <article class="rounded-2xl border border-amber-900/60 bg-amber-950/20 p-4 shadow-sm">
         <p class="text-xs text-amber-400">Unresolved provenance</p>
-        <p class="mt-2 text-2xl font-black text-amber-300 font-mono">
+        <p class="mt-2 font-mono text-2xl font-black text-amber-300">
           {{ analysis?.revision_reasoning.unresolved_claim_ids.length ?? 0 }}
         </p>
       </article>
@@ -171,7 +187,7 @@ defineProps<{
       <div
         v-for="claimId in analysis.revision_reasoning.canonical_claim_ids"
         :key="claimId"
-        class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 shadow-sm hover:border-slate-700 transition"
+        class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 shadow-sm transition hover:border-slate-700"
       >
         <bdi dir="ltr" class="font-mono text-xs font-bold text-cyan-300">{{ claimId }}</bdi>
         <div class="flex flex-wrap gap-1.5">
@@ -179,7 +195,7 @@ defineProps<{
             v-for="sourceId in analysis.revision_reasoning.claim_sources[claimId] ?? []"
             :key="sourceId"
             dir="ltr"
-            class="rounded-lg bg-slate-900 border border-slate-800 px-2 py-1 font-mono text-[10px] text-slate-400"
+            class="rounded-lg border border-slate-800 bg-slate-900 px-2 py-1 font-mono text-[10px] text-slate-400"
           >
             {{ sourceId }}
           </bdi>
@@ -194,4 +210,3 @@ defineProps<{
     </div>
   </section>
 </template>
-

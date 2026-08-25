@@ -28,8 +28,7 @@ const itemHref = (item: LibraryProjectionItem) =>
           <span class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-400">
             {{
               domain.clusters.reduce(
-                (acc, c) =>
-                  acc + c.capabilities.reduce((a, cap) => a + cap.items.length, 0),
+                (acc, c) => acc + c.capabilities.reduce((a, cap) => a + cap.items.length, 0),
                 0,
               )
             }}
@@ -52,7 +51,7 @@ const itemHref = (item: LibraryProjectionItem) =>
             </div>
             <div class="flex shrink-0 items-center gap-1.5">
               <bdi dir="ltr" class="font-mono text-[9px] text-slate-500">{{ cluster.id }}</bdi>
-              <span class="rounded bg-slate-900 px-1 py-0.2 font-mono text-[9px] text-slate-500">
+              <span class="py-0.2 rounded bg-slate-900 px-1 font-mono text-[9px] text-slate-500">
                 {{ cluster.capabilities.reduce((a, cap) => a + cap.items.length, 0) }}
               </span>
             </div>

@@ -60,13 +60,12 @@ describe('Knowledge & Learning Phase 1 Layouts', () => {
     expect(html).toContain('NO_ASSESSMENT');
 
     // RIGHT Context & Lab Readiness
-    expect(html).toContain('سياق الخطوة المحددة');
-    expect(html).toContain('جاهزية المعمل (Lab Readiness)');
+    expect(html).toContain('سياق النشاط المحدد');
+    expect(html).toContain('Lab Reference');
     expect(html).toContain('lab-1');
 
     // KU != Lesson; Completion != Mastery
-    expect(html).toContain('إكمال النشاط');
-    expect(html).toContain('لا يمثل الإتقان');
+    expect(html).toContain('حدود المعنى');
 
     // Center Gateways
     expect(wrapper.find('[data-testid="gateways"]').exists()).toBe(true);

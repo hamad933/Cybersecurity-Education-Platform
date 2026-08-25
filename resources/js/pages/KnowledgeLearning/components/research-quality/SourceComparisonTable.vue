@@ -6,9 +6,7 @@ defineProps<{ rows: ComparisonRow[] }>();
 
 <template>
   <section aria-labelledby="source-comparison-heading">
-    <div
-      class="flex flex-wrap items-end justify-between gap-3 border-b border-slate-800/80 pb-3"
-    >
+    <div class="flex flex-wrap items-end justify-between gap-3 border-b border-slate-800/80 pb-3">
       <div>
         <span
           class="font-mono text-[10px] font-bold tracking-widest text-slate-500 uppercase"

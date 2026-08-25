@@ -46,25 +46,32 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
 
 <template>
   <Head title="المعرفة والتعلّم — البحث والجودة" />
-  <div dir="rtl" class="min-h-screen bg-slate-950 text-slate-100 dark:bg-[#070c14] dark:text-slate-100">
+  <div
+    dir="rtl"
+    class="min-h-screen bg-slate-950 text-slate-100 dark:bg-[#070c14] dark:text-slate-100"
+  >
     <div class="w-full px-4 py-4 sm:px-6 xl:px-8">
       <!-- Top Modes Toolbar -->
-      <header class="mb-4 rounded-2xl border border-slate-800/80 bg-slate-900/50 p-3.5 shadow-lg backdrop-blur dark:bg-[#0b1322]/90">
+      <header
+        class="mb-4 rounded-2xl border border-slate-800/80 bg-slate-900/50 p-3.5 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
+      >
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="flex items-center gap-2 text-xs font-semibold text-slate-400">
             <span>🔬</span>
             <span>بيئة فحص وتدقيق جودة المصادر والمنشأ (Research & Quality Workbench)</span>
           </div>
 
-          <div class="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-950/80 p-1">
+          <div
+            class="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-950/80 p-1"
+          >
             <button
               v-for="item in modes"
               :key="item.key"
               type="button"
-              class="focus-ring flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition shadow-sm"
+              class="focus-ring flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold shadow-sm transition"
               :class="
                 mode === item.key
-                  ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40 shadow-cyan-950/50'
+                  ? 'border border-cyan-500/40 bg-cyan-500/20 text-cyan-200 shadow-cyan-950/50'
                   : 'text-slate-400 hover:text-slate-200'
               "
               :aria-pressed="mode === item.key"
@@ -88,14 +95,18 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
           <div class="border-b border-slate-800/80 pb-4">
             <div class="flex items-center justify-between">
               <h2 class="text-xs font-bold text-slate-200">مصادر المراجعة الحالية</h2>
-              <span class="font-mono text-[10px] font-bold text-slate-500 uppercase tracking-widest" dir="ltr">SOURCE SET</span>
+              <span
+                class="font-mono text-[10px] font-bold tracking-widest text-slate-500 uppercase"
+                dir="ltr"
+                >SOURCE SET</span
+              >
             </div>
             <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
               اختيار المصدر يغيّر سياق الفحص فقط؛ ولا يمنحه أفضلية حقيقة تلقائية.
             </p>
           </div>
 
-          <ul v-if="quality.sources.length" class="mt-4 space-y-2 flex-1 overflow-y-auto pr-0.5">
+          <ul v-if="quality.sources.length" class="mt-4 flex-1 space-y-2 overflow-y-auto pr-0.5">
             <li v-for="source in quality.sources" :key="source.id">
               <Link
                 :href="`/knowledge/research-quality?${active ? `object=${encodeURIComponent(active.id)}&` : ''}source=${encodeURIComponent(source.id)}`"
@@ -106,7 +117,7 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
                     : 'border-slate-800/80 bg-slate-950/40 text-slate-300 hover:border-slate-700'
                 "
               >
-                <span class="block font-bold text-sm leading-snug">{{ source.title }}</span>
+                <span class="block text-sm leading-snug font-bold">{{ source.title }}</span>
                 <div class="mt-2.5 flex flex-wrap items-center gap-1.5 text-[10px]">
                   <span class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-cyan-300">
                     {{ source.authority_class }}
@@ -124,7 +135,9 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
         </aside>
 
         <!-- CENTER: Research & Quality Workspace -->
-        <main class="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 shadow-lg backdrop-blur sm:p-7 dark:bg-[#0b1322]/90">
+        <main
+          class="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 shadow-lg backdrop-blur sm:p-7 dark:bg-[#0b1322]/90"
+        >
           <div class="mb-5 border-b border-slate-800/80 pb-4">
             <KnowledgeTabs active="research-quality" :object-id="active?.id" />
           </div>
@@ -145,7 +158,10 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
                 {{ active.id }}
               </bdi>
             </div>
-            <div v-if="quality.analysis" class="rounded-xl border border-slate-800 bg-slate-950/60 p-2.5 text-left text-[11px] font-mono">
+            <div
+              v-if="quality.analysis"
+              class="rounded-xl border border-slate-800 bg-slate-950/60 p-2.5 text-left font-mono text-[11px]"
+            >
               <span class="block text-[9px] text-slate-500 uppercase">Decision authority</span>
               <bdi dir="ltr" class="font-bold text-emerald-400">
                 {{ quality.analysis.review.decision_authority }}
@@ -180,27 +196,41 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
           <section class="mt-6 border-t border-slate-800/80 pt-4">
             <div class="flex items-center justify-between">
               <h2 class="text-xs font-bold text-slate-200">حدود الحكم والمراجعة</h2>
-              <span class="font-mono text-[10px] font-bold text-slate-500 uppercase tracking-widest" dir="ltr">REVIEW BOUNDARY</span>
+              <span
+                class="font-mono text-[10px] font-bold tracking-widest text-slate-500 uppercase"
+                dir="ltr"
+                >REVIEW BOUNDARY</span
+              >
             </div>
             <div class="mt-3 space-y-2.5 text-xs leading-relaxed">
-              <p class="rounded-xl border border-rose-900/60 bg-rose-950/20 p-3 text-rose-200 text-[11px]">
-                <bdi dir="ltr" class="font-bold">Research & Quality Review != Evidence Review</bdi>. هذا المجال لا
-                يصدر قرارات Evidence أو Mastery.
+              <p
+                class="rounded-xl border border-rose-900/60 bg-rose-950/20 p-3 text-[11px] text-rose-200"
+              >
+                <bdi dir="ltr" class="font-bold">Research & Quality Review != Evidence Review</bdi>.
+                هذا المجال لا يصدر قرارات Evidence أو Mastery.
               </p>
-              <p class="rounded-xl border border-amber-900/60 bg-amber-950/20 p-3 text-amber-200 text-[11px]">
+              <p
+                class="rounded-xl border border-amber-900/60 bg-amber-950/20 p-3 text-[11px] text-amber-200"
+              >
                 النظام لا يقرر حقيقة المعرفة. يمكنه كشف التعارضات وتجميع provenance فقط؛ أما
                 reconciliation النهائي فحكم بشري.
               </p>
-              <dl class="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-slate-400 text-[11px]">
+              <dl
+                class="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-[11px] text-slate-400"
+              >
                 <div class="flex justify-between gap-3">
                   <dt>Review semantics</dt>
                   <dd>
-                    <bdi dir="ltr" class="text-cyan-300 font-mono">{{ quality.review_semantics }}</bdi>
+                    <bdi dir="ltr" class="font-mono text-cyan-300">{{
+                      quality.review_semantics
+                    }}</bdi>
                   </dd>
                 </div>
                 <div class="mt-2 flex justify-between gap-3 border-t border-slate-800/80 pt-2">
                   <dt>Pending conflicts</dt>
-                  <dd class="font-mono font-bold text-amber-300">{{ quality.analysis?.reconciliation.pending_conflict_count ?? 0 }}</dd>
+                  <dd class="font-mono font-bold text-amber-300">
+                    {{ quality.analysis?.reconciliation.pending_conflict_count ?? 0 }}
+                  </dd>
                 </div>
               </dl>
             </div>
@@ -209,8 +239,12 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
       </div>
 
       <!-- BOTTOM: Trace Telemetry Drawer -->
-      <details class="mt-4 rounded-2xl border border-slate-800/80 bg-slate-900/40 px-4 py-3 shadow-lg">
-        <summary class="cursor-pointer text-xs font-bold text-slate-300 flex items-center justify-between">
+      <details
+        class="mt-4 rounded-2xl border border-slate-800/80 bg-slate-900/40 px-4 py-3 shadow-lg"
+      >
+        <summary
+          class="flex cursor-pointer items-center justify-between text-xs font-bold text-slate-300"
+        >
           <span>أثر reconciliation و revision — مساحة مقارنة مؤقتة</span>
           <span class="font-mono text-[10px] text-cyan-400">Telemetry Details</span>
         </summary>
@@ -252,4 +286,3 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
     </div>
   </div>
 </template>
-

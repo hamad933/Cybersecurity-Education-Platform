@@ -58,14 +58,11 @@ const tabs = [
           : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700 hover:bg-slate-800/80 hover:text-slate-200 dark:border-slate-800/90 dark:bg-slate-900/40 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:text-slate-100'
       "
     >
-      <span class="select-none text-xs opacity-80 group-hover:opacity-100">
+      <span class="text-xs opacity-80 select-none group-hover:opacity-100">
         {{ tab.icon }}
       </span>
       <span class="font-bold">{{ tab.ar }}</span>
-      <bdi
-        dir="ltr"
-        class="font-mono text-[10px] opacity-60 group-hover:opacity-80"
-      >
+      <bdi dir="ltr" class="font-mono text-[10px] opacity-60 group-hover:opacity-80">
         {{ tab.en }}
       </bdi>
     </Link>

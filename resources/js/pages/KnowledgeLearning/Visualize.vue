@@ -53,34 +53,55 @@ const selectOverlay = (overlay: OverlayName | null) => {
 const mapScope = computed(() => props.map.scope?.id ?? props.active?.id ?? null);
 const activeFilter = ref('all');
 const zoomLevel = ref(100);
-const handleZoomIn = () => { zoomLevel.value = Math.min(zoomLevel.value + 10, 150); };
-const handleZoomOut = () => { zoomLevel.value = Math.max(zoomLevel.value - 10, 50); };
-const handleZoomReset = () => { zoomLevel.value = 100; };
+const handleZoomIn = () => {
+  zoomLevel.value = Math.min(zoomLevel.value + 10, 150);
+};
+const handleZoomOut = () => {
+  zoomLevel.value = Math.max(zoomLevel.value - 10, 50);
+};
+const handleZoomReset = () => {
+  zoomLevel.value = 100;
+};
 </script>
 
 <template>
   <Head title="المعرفة والتعلّم — التصوّر" />
-  <div dir="rtl" class="min-h-screen bg-slate-950 text-slate-100 dark:bg-[#070c14] dark:text-slate-100">
+  <div
+    dir="rtl"
+    class="min-h-screen bg-slate-950 text-slate-100 dark:bg-[#070c14] dark:text-slate-100"
+  >
     <div class="w-full px-4 py-4 sm:px-6 xl:px-8">
       <!-- TOP Tools & Modes Bar -->
-      <header class="mb-4 rounded-2xl border border-slate-800/80 bg-slate-900/50 p-3.5 shadow-lg backdrop-blur dark:bg-[#0b1322]/90">
+      <header
+        class="mb-4 rounded-2xl border border-slate-800/80 bg-slate-900/50 p-3.5 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
+      >
         <div class="flex flex-wrap items-center justify-between gap-3">
           <!-- View Switcher Tabs -->
-          <div class="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-950/80 p-1">
+          <div
+            class="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-950/80 p-1"
+          >
             <button
               v-for="viewName in views"
               :key="viewName"
               type="button"
-              class="focus-ring flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition shadow-sm"
+              class="focus-ring flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold shadow-sm transition"
               :class="
                 activeView === viewName
-                  ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40 shadow-cyan-950/50'
+                  ? 'border border-cyan-500/40 bg-cyan-500/20 text-cyan-200 shadow-cyan-950/50'
                   : 'text-slate-400 hover:text-slate-200'
               "
               :aria-pressed="activeView === viewName"
               @click="selectView(viewName)"
             >
-              <span>{{ viewName === 'Graph' ? '🕸️' : viewName === 'Tree' ? '🌲' : viewName === 'Path' ? '🛣️' : '🎨' }}</span>
+              <span>{{
+                viewName === 'Graph'
+                  ? '🕸️'
+                  : viewName === 'Tree'
+                    ? '🌲'
+                    : viewName === 'Path'
+                      ? '🛣️'
+                      : '🎨'
+              }}</span>
               <bdi dir="ltr">{{ viewName }}</bdi>
             </button>
           </div>
@@ -88,11 +109,17 @@ const handleZoomReset = () => { zoomLevel.value = 100; };
           <!-- Canvas / View Controls -->
           <div class="flex flex-wrap items-center gap-2 text-xs">
             <!-- Filter Pills -->
-            <div class="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-950 p-0.5">
+            <div
+              class="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-950 p-0.5"
+            >
               <button
                 type="button"
                 class="rounded px-2 py-1 text-[11px] transition"
-                :class="activeFilter === 'all' ? 'bg-slate-800 text-slate-100 font-semibold' : 'text-slate-400 hover:text-slate-200'"
+                :class="
+                  activeFilter === 'all'
+                    ? 'bg-slate-800 font-semibold text-slate-100'
+                    : 'text-slate-400 hover:text-slate-200'
+                "
                 @click="activeFilter = 'all'"
               >
                 الكل
@@ -100,7 +127,11 @@ const handleZoomReset = () => { zoomLevel.value = 100; };
               <button
                 type="button"
                 class="rounded px-2 py-1 text-[11px] transition"
-                :class="activeFilter === 'units' ? 'bg-slate-800 text-cyan-300 font-semibold' : 'text-slate-400 hover:text-slate-200'"
+                :class="
+                  activeFilter === 'units'
+                    ? 'bg-slate-800 font-semibold text-cyan-300'
+                    : 'text-slate-400 hover:text-slate-200'
+                "
                 @click="activeFilter = 'units'"
               >
                 الوحدات المعرفية
@@ -108,7 +139,11 @@ const handleZoomReset = () => { zoomLevel.value = 100; };
               <button
                 type="button"
                 class="rounded px-2 py-1 text-[11px] transition"
-                :class="activeFilter === 'capabilities' ? 'bg-slate-800 text-indigo-300 font-semibold' : 'text-slate-400 hover:text-slate-200'"
+                :class="
+                  activeFilter === 'capabilities'
+                    ? 'bg-slate-800 font-semibold text-indigo-300'
+                    : 'text-slate-400 hover:text-slate-200'
+                "
                 @click="activeFilter = 'capabilities'"
               >
                 القدرات
@@ -116,12 +151,35 @@ const handleZoomReset = () => { zoomLevel.value = 100; };
             </div>
 
             <!-- Zoom & Fit Controls -->
-            <div class="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-950 p-0.5 font-mono text-[11px]">
-              <button type="button" class="focus-ring rounded px-2 py-1 text-slate-300 hover:bg-slate-800" title="تصغير" @click="handleZoomOut">−</button>
+            <div
+              class="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-950 p-0.5 font-mono text-[11px]"
+            >
+              <button
+                type="button"
+                class="focus-ring rounded px-2 py-1 text-slate-300 hover:bg-slate-800"
+                title="تصغير"
+                @click="handleZoomOut"
+              >
+                −
+              </button>
               <span class="px-1 text-slate-400">{{ zoomLevel }}%</span>
-              <button type="button" class="focus-ring rounded px-2 py-1 text-slate-300 hover:bg-slate-800" title="تكبير" @click="handleZoomIn">＋</button>
+              <button
+                type="button"
+                class="focus-ring rounded px-2 py-1 text-slate-300 hover:bg-slate-800"
+                title="تكبير"
+                @click="handleZoomIn"
+              >
+                ＋
+              </button>
               <span class="text-slate-700">|</span>
-              <button type="button" class="focus-ring rounded px-2 py-1 text-slate-400 hover:text-white" title="ملاءمة" @click="handleZoomReset">Fit</button>
+              <button
+                type="button"
+                class="focus-ring rounded px-2 py-1 text-slate-400 hover:text-white"
+                title="ملاءمة"
+                @click="handleZoomReset"
+              >
+                Fit
+              </button>
             </div>
           </div>
         </div>
@@ -137,9 +195,13 @@ const handleZoomReset = () => { zoomLevel.value = 100; };
           <div class="border-b border-slate-800/80 pb-4">
             <div class="flex items-center justify-between">
               <h2 class="text-xs font-bold text-slate-200">النطاق المحفوظ وعالم العرض</h2>
-              <span class="font-mono text-[10px] font-bold text-slate-500 uppercase tracking-widest" dir="ltr">MAP</span>
+              <span
+                class="font-mono text-[10px] font-bold tracking-widest text-slate-500 uppercase"
+                dir="ltr"
+                >MAP</span
+              >
             </div>
-            <div class="mt-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-2">
+            <div class="mt-3 space-y-2 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
               <div class="flex items-center justify-between gap-2 text-xs">
                 <span class="text-slate-400">الحالة</span>
                 <bdi
@@ -156,17 +218,17 @@ const handleZoomReset = () => { zoomLevel.value = 100; };
               </div>
               <div class="flex items-center justify-between gap-2 text-xs">
                 <span class="text-slate-400">Canonical scope</span>
-                <bdi dir="ltr" class="font-mono text-cyan-300 font-bold">{{ mapScope ?? '—' }}</bdi>
+                <bdi dir="ltr" class="font-mono font-bold text-cyan-300">{{ mapScope ?? '—' }}</bdi>
               </div>
             </div>
             <p class="mt-3 text-[11px] leading-relaxed text-slate-400">
-              <bdi dir="ltr" class="font-bold text-slate-300">MAP</bdi> يحفظ النطاق ومعلومات التمثيل فقط، ولا يصبح مخزنًا ثانيًا
-              للعقد أو العلاقات القانونية.
+              <bdi dir="ltr" class="font-bold text-slate-300">MAP</bdi> يحفظ النطاق ومعلومات التمثيل
+              فقط، ولا يصبح مخزنًا ثانيًا للعقد أو العلاقات القانونية.
             </p>
           </div>
 
           <h2 class="mt-4 text-xs font-bold text-slate-400">وحدات المعرفة في النطاق</h2>
-          <ul v-if="catalog.length" class="mt-2.5 space-y-1.5 flex-1 overflow-y-auto pr-0.5">
+          <ul v-if="catalog.length" class="mt-2.5 flex-1 space-y-1.5 overflow-y-auto pr-0.5">
             <li v-for="unit in catalog" :key="unit.id">
               <Link
                 :href="`/knowledge/visualize?object=${encodeURIComponent(unit.id)}`"
@@ -177,8 +239,10 @@ const handleZoomReset = () => { zoomLevel.value = 100; };
                     : 'border-transparent text-slate-300 hover:border-slate-800 hover:bg-slate-900/60'
                 "
               >
-                <span class="font-semibold block">{{ unit.title_ar }}</span>
-                <bdi dir="ltr" class="mt-1 block font-mono text-[10px] text-slate-500">{{ unit.id }}</bdi>
+                <span class="block font-semibold">{{ unit.title_ar }}</span>
+                <bdi dir="ltr" class="mt-1 block font-mono text-[10px] text-slate-500">{{
+                  unit.id
+                }}</bdi>
               </Link>
             </li>
           </ul>
@@ -188,7 +252,9 @@ const handleZoomReset = () => { zoomLevel.value = 100; };
         </aside>
 
         <!-- CENTER: Visualization Canvas Workspace -->
-        <main class="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 shadow-lg backdrop-blur sm:p-7 dark:bg-[#0b1322]/90">
+        <main
+          class="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 shadow-lg backdrop-blur sm:p-7 dark:bg-[#0b1322]/90"
+        >
           <div class="mb-5 border-b border-slate-800/80 pb-4">
             <KnowledgeTabs active="visualize" :object-id="active?.id" />
           </div>
@@ -198,10 +264,14 @@ const handleZoomReset = () => { zoomLevel.value = 100; };
           >
             <div>
               <div class="flex items-center gap-2">
-                <span class="inline-flex items-center gap-1 rounded-full border border-cyan-500/40 bg-cyan-950/60 px-2.5 py-0.5 text-xs font-semibold text-cyan-300">
+                <span
+                  class="inline-flex items-center gap-1 rounded-full border border-cyan-500/40 bg-cyan-950/60 px-2.5 py-0.5 text-xs font-semibold text-cyan-300"
+                >
                   <bdi dir="ltr">VIEW = {{ activeView }}</bdi>
                 </span>
-                <span class="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-mono text-slate-400">
+                <span
+                  class="rounded-full bg-slate-800 px-2 py-0.5 font-mono text-[10px] text-slate-400"
+                >
                   {{ graph.nodes.length }} Nodes · {{ graph.edges.length }} Edges
                 </span>
               </div>
@@ -212,7 +282,7 @@ const handleZoomReset = () => { zoomLevel.value = 100; };
                 {{ active.id }}
               </bdi>
             </div>
-            <div class="text-left text-[11px] text-slate-400 font-mono">
+            <div class="text-left font-mono text-[11px] text-slate-400">
               <span class="block text-[10px] text-slate-500 uppercase">Projection source</span>
               <bdi dir="ltr" class="text-slate-300">{{ graph.source }}</bdi>
             </div>
@@ -231,8 +301,8 @@ const handleZoomReset = () => { zoomLevel.value = 100; };
           </div>
           <div v-else class="grid min-h-[480px] place-items-center text-center text-slate-500">
             <div>
-              <h2 class="font-bold text-slate-300 text-lg">لا توجد علاقات قابلة للتصوّر.</h2>
-              <p class="mt-2 text-xs max-w-sm mx-auto leading-relaxed">
+              <h2 class="text-lg font-bold text-slate-300">لا توجد علاقات قابلة للتصوّر.</h2>
+              <p class="mx-auto mt-2 max-w-sm text-xs leading-relaxed">
                 المشهد لا يختلق <bdi dir="ltr">Nodes</bdi> أو <bdi dir="ltr">Edges</bdi> عند غياب
                 البيانات القانونية.
               </p>
@@ -252,17 +322,17 @@ const handleZoomReset = () => { zoomLevel.value = 100; };
             <dl class="mt-3 space-y-2.5 text-xs leading-relaxed">
               <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
                 <dt dir="ltr" class="font-bold text-cyan-300">MAP</dt>
-                <dd class="mt-1 text-slate-400 text-[11px]">Saved visualization scope / world.</dd>
+                <dd class="mt-1 text-[11px] text-slate-400">Saved visualization scope / world.</dd>
               </div>
               <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
                 <dt dir="ltr" class="font-bold text-indigo-300">VIEW</dt>
-                <dd class="mt-1 text-slate-400 text-[11px]">
+                <dd class="mt-1 text-[11px] text-slate-400">
                   Tree, Path, Graph, Canvas — تمثيلات لنفس العلاقات.
                 </dd>
               </div>
               <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
                 <dt dir="ltr" class="font-bold text-emerald-300">OVERLAY</dt>
-                <dd class="mt-1 text-slate-400 text-[11px]">
+                <dd class="mt-1 text-[11px] text-slate-400">
                   طبقة تحليلية مرصودة، وليست كيانًا قانونيًا جديدًا.
                 </dd>
               </div>
@@ -272,12 +342,16 @@ const handleZoomReset = () => { zoomLevel.value = 100; };
       </div>
 
       <!-- BOTTOM: Trace Telemetry Drawer -->
-      <details class="mt-4 rounded-2xl border border-slate-800/80 bg-slate-900/40 px-4 py-3 shadow-lg">
-        <summary class="cursor-pointer text-xs font-bold text-slate-300 flex items-center justify-between">
+      <details
+        class="mt-4 rounded-2xl border border-slate-800/80 bg-slate-900/40 px-4 py-3 shadow-lg"
+      >
+        <summary
+          class="flex cursor-pointer items-center justify-between text-xs font-bold text-slate-300"
+        >
           <span>أثر العلاقات canonical — مساحة مؤقتة</span>
           <span class="font-mono text-[10px] text-cyan-400">{{ graph.edges.length }} edges</span>
         </summary>
-        <div class="mt-4 space-y-2 max-h-48 overflow-y-auto pr-0.5">
+        <div class="mt-4 max-h-48 space-y-2 overflow-y-auto pr-0.5">
           <bdi
             v-for="edge in graph.edges"
             :key="edge.id"
@@ -292,4 +366,3 @@ const handleZoomReset = () => { zoomLevel.value = 100; };
     </div>
   </div>
 </template>
-
