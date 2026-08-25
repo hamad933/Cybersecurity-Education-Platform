@@ -2,7 +2,6 @@
 import { computed, ref, watch } from 'vue';
 
 import LifecycleBadge from './LifecycleBadge.vue';
-import { runTypeLabel } from '../formatters';
 import { displayValue } from '../projections';
 import type { EventItem, RunItem } from '../types';
 
@@ -11,7 +10,6 @@ const props = defineProps<{ run: RunItem | null }>();
 const lifecycleSteps = ['PREPARED', 'READY', 'RUNNING', 'PAUSED', 'COMPLETED'];
 const activeTab = ref<'siem' | 'webapp' | 'database'>('siem');
 const selectedSequence = ref<number | null>(null);
-const selectedAlertIndex = ref(0);
 
 const selectedEvent = computed<EventItem | null>(
   () => props.run?.events.find((event) => event.sequence === selectedSequence.value) ?? null,
@@ -126,12 +124,12 @@ function reached(run: RunItem, step: string): boolean {
 
       <!-- Multi-Pane SIEM / Monitoring Workspace from Reference 04 -->
       <div class="sim-ops-grid">
-        <!-- Left Pane: Alerts Feed -->
+        <!-- Left Pane: Events Feed -->
         <section class="sim-alerts-panel">
           <div class="sim-alerts-panel__header">
             <div class="sim-flex-row">
               <h3>Events</h3>
-              <span class="sim-badge sim-badge--danger">{{ run.events.length }}</span>
+              <span class="sim-badge sim-badge--cyan">{{ run.events.length }}</span>
             </div>
           </div>
 
@@ -139,10 +137,10 @@ function reached(run: RunItem, step: string): boolean {
             <table class="sim-alerts-table">
               <thead>
                 <tr>
-                  <th>Time (UTC)</th>
+                  <th>Occurred At (UTC)</th>
                   <th>Event Type</th>
-                  <th>Severity</th>
-                  <th>Status</th>
+                  <th>Actor</th>
+                  <th>Sequence</th>
                 </tr>
               </thead>
               <tbody>
@@ -152,22 +150,12 @@ function reached(run: RunItem, step: string): boolean {
                   :class="{ 'is-selected': event.sequence === selectedSequence }"
                   @click="selectedSequence = event.sequence"
                 >
-                  <td class="sim-technical">
-                    <span class="sim-alert-dot sim-alert-dot--info" />
-                    {{ event.occurred_at }}
-                  </td>
+                  <td class="sim-technical">{{ event.occurred_at }}</td>
                   <td>
                     <strong>{{ event.event_type }}</strong>
-                    <small>{{ event.actor_id }}</small>
                   </td>
-                  <td>
-                    <span class="sim-severity-tag sim-severity-tag--info">
-                      INFO
-                    </span>
-                  </td>
-                  <td>
-                    <span class="sim-status-pill">LOGGED</span>
-                  </td>
+                  <td class="sim-technical">{{ event.actor_id || 'غير متاح' }}</td>
+                  <td class="sim-technical">{{ event.sequence }}</td>
                 </tr>
                 <tr v-if="!run.events.length">
                   <td colspan="4" class="sim-muted">لم تتم ملاحظة أحداث بعد.</td>
@@ -177,7 +165,7 @@ function reached(run: RunItem, step: string): boolean {
           </div>
         </section>
 
-        <!-- Right Pane: Alert Details / Inspector -->
+        <!-- Right Pane: Event Details / Inspector -->
         <section class="sim-alert-inspector-panel">
           <div class="sim-inspector-panel__header">
             <h3>Event Details</h3>
@@ -205,12 +193,12 @@ function reached(run: RunItem, step: string): boolean {
               </div>
             </div>
 
-            <!-- Sub-Tabs inside Alert Inspector -->
+            <!-- Sub-Tabs inside Event Inspector -->
             <div class="sim-inspector-tabs">
               <button type="button" class="is-active">Payload</button>
             </div>
 
-            <!-- Correlated Event Timeline Table -->
+            <!-- Event Payload Table -->
             <div class="sim-inspector-timeline-table">
               <table>
                 <thead>

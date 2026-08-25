@@ -25,15 +25,6 @@ function step(offset: number): void {
     Math.max(length - 1, 0),
   );
 }
-
-function getEventCategory(eventType: string): string {
-  if (eventType.includes('PREPARED') || eventType.includes('READY')) return 'Runtime Preparation';
-  if (eventType.includes('START') || eventType.includes('RUNNING')) return 'Lifecycle Transition';
-  if (eventType.includes('OPERATION') || eventType.includes('CONTROL')) return 'Runtime Operation Applied';
-  if (eventType.includes('STATE') || eventType.includes('TELEMETRY')) return 'State Mutation';
-  if (eventType.includes('COMPLETED') || eventType.includes('FINAL')) return 'Finalization & Sealing';
-  return 'Operational Event';
-}
 </script>
 
 <template>
@@ -55,7 +46,7 @@ function getEventCategory(eventType: string): string {
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sim-text-cyan"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><path d="M12 12h.01M16 12h.01M8 12h.01"/></svg>
           </div>
           <div>
-            <strong>{{ result.summary_ar || 'Web Application Breach & Response' }}</strong>
+            <strong>{{ result.summary_ar || 'ملخص النتيجة غير متاح' }}</strong>
             <div class="sim-flex-row">
               <span class="sim-kicker">SEALED · IMMUTABLE · REVISION {{ result.result_revision }}</span>
               <code class="sim-technical">RUN-{{ result.run_id.slice(0, 8) }}</code>
@@ -64,8 +55,8 @@ function getEventCategory(eventType: string): string {
         </div>
 
         <div class="sim-replay-head-facts">
-          <LifecycleBadge value="COMPLETED" />
-          <span class="sim-badge sim-badge--warning">PARTIAL</span>
+          <LifecycleBadge :value="result.run_lifecycle" />
+          <span class="sim-badge">{{ result.outcome || 'غير متاح' }}</span>
           <span class="sim-date-badge">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             {{ result.sealed_at }}
@@ -157,7 +148,7 @@ function getEventCategory(eventType: string): string {
           <p v-else class="sim-muted">لا يحتوي Result المختوم على أحداث Replay.</p>
         </section>
 
-        <!-- Right: Event Detail Box ("تفاصيل الحدث") from Reference 05 -->
+        <!-- Right: Event Detail Box from Reference 05 -->
         <section class="sim-replay-inspector">
           <header class="sim-pane-heading">
             <div class="sim-flex-row">
@@ -170,16 +161,20 @@ function getEventCategory(eventType: string): string {
           <template v-if="selectedEvent">
             <div class="sim-event-details-box">
               <div class="sim-detail-row">
-                <dt>فئة الحدث</dt>
-                <dd>{{ getEventCategory(selectedEvent.event_type) }}</dd>
-              </div>
-              <div class="sim-detail-row">
                 <dt>نوع الحدث</dt>
                 <dd class="sim-technical">{{ selectedEvent.event_type }}</dd>
               </div>
               <div class="sim-detail-row">
-                <dt>المرجع</dt>
-                <dd class="sim-technical">EVT-RUN-{{ selectedEvent.sequence.toString().padStart(5, '0') }}</dd>
+                <dt>التسلسل</dt>
+                <dd class="sim-technical">{{ selectedEvent.sequence }}</dd>
+              </div>
+              <div class="sim-detail-row">
+                <dt>Actor ID</dt>
+                <dd class="sim-technical">{{ selectedEvent.actor_id || 'غير متاح' }}</dd>
+              </div>
+              <div class="sim-detail-row">
+                <dt>Occurred At</dt>
+                <dd class="sim-technical">{{ selectedEvent.occurred_at }}</dd>
               </div>
             </div>
 
@@ -203,7 +198,7 @@ function getEventCategory(eventType: string): string {
         </section>
       </div>
 
-      <!-- State at this Point ("الحالة في هذه النقطة") from Reference 05 -->
+      <!-- State at this Point from Reference 05 -->
       <section class="sim-point-state-section">
         <header class="sim-point-state-header">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sim-text-cyan"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
