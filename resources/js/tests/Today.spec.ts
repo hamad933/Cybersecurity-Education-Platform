@@ -1,4 +1,6 @@
 import { mount } from '@vue/test-utils';
+import * as inertia from '@inertiajs/vue3';
+import { vi } from 'vitest';
 
 import Today from '../pages/Today/Index.vue';
 import type { TodayOrchestrationPayload } from '../components/today/types';
@@ -253,5 +255,95 @@ describe('Today workspace', () => {
     technicalTexts.forEach((el) => {
       expect(el.attributes('dir')).toBe('ltr');
     });
+  });
+
+  it('proves empty attention state states only what is known and does not claim all pathways are clear (W01-C01)', () => {
+    const wrapper = mount(Today, {
+      props: {
+        orchestration: {
+          registeredDomainEntries: 4,
+          expectedDomainEntries: 4,
+          attentionItems: [],
+        },
+      },
+    });
+
+    const emptyAttention = wrapper.find('[data-testid="today-attention-empty"]');
+    expect(emptyAttention.exists()).toBe(true);
+    expect(emptyAttention.text()).toContain('لا توجد بنود انتباه واردة حاليًا');
+    expect(emptyAttention.text()).toContain(
+      'لا يتلقى سطح اليوم حاليًا أي بنود انتباه أو متطلبات مراجعة معلقة من مساحات العمل',
+    );
+
+    // Strictly forbidden claims
+    expect(wrapper.text()).not.toContain('كافة مساراتك تعمل دون عوائق');
+    expect(wrapper.text()).not.toContain('دون عوائق مسجلة');
+    expect(wrapper.find('.today-empty-icon-box--secure').exists()).toBe(false);
+  });
+
+  it('renders truthful unavailable semantics when environment facts are absent and removes positive sync claims (W01-C02)', async () => {
+    // Test with absent environment facts
+    const usePageSpy = vi.spyOn(inertia, 'usePage').mockReturnValue({
+      props: {
+        auth: { owner: null },
+        environment: undefined,
+      },
+    } as unknown as ReturnType<typeof inertia.usePage>);
+
+    const wrapperAbsent = mount(Today, {
+      props: {
+        orchestration: {
+          registeredDomainEntries: 4,
+          expectedDomainEntries: 4,
+        },
+      },
+    });
+
+    const toggleBtnAbsent = wrapperAbsent.get('[data-testid="today-diagnostics-toggle"]');
+    await toggleBtnAbsent.trigger('click');
+
+    const bottomAbsent = wrapperAbsent.get('[data-cep-region="bottom"]');
+    const bottomTextAbsent = bottomAbsent.text();
+
+    // Truthful unavailable semantic
+    expect(bottomTextAbsent).toContain('غير مرصود');
+    expect(bottomTextAbsent).toContain('تشخيص محلي');
+
+    // Static positive claims and fake fallbacks strictly forbidden
+    expect(bottomTextAbsent).not.toContain('مزامنة نشطة');
+    expect(bottomTextAbsent).not.toContain('local');
+    expect(bottomTextAbsent).not.toContain('development');
+    expect(bottomTextAbsent).not.toContain('healthy');
+    expect(bottomTextAbsent).not.toContain('synchronized');
+
+    // Test with governed environment facts provided
+    usePageSpy.mockReturnValue({
+      props: {
+        auth: { owner: null },
+        environment: {
+          name: 'governed-prod',
+          profile: 'hardened-enterprise',
+          localOnly: false,
+        },
+      },
+    } as unknown as ReturnType<typeof inertia.usePage>);
+
+    const wrapperProvided = mount(Today, {
+      props: {
+        orchestration: {
+          registeredDomainEntries: 4,
+          expectedDomainEntries: 4,
+        },
+      },
+    });
+
+    const toggleBtnProvided = wrapperProvided.get('[data-testid="today-diagnostics-toggle"]');
+    await toggleBtnProvided.trigger('click');
+
+    const bottomProvided = wrapperProvided.get('[data-cep-region="bottom"]');
+    expect(bottomProvided.text()).toContain('governed-prod');
+    expect(bottomProvided.text()).toContain('hardened-enterprise');
+
+    usePageSpy.mockRestore();
   });
 });

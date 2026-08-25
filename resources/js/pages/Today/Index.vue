@@ -14,9 +14,9 @@ import TechnicalText from '../../components/shared/TechnicalText.vue';
 import CepWorkspaceLayout from '../../layouts/CepWorkspaceLayout.vue';
 
 interface PageEnvironment {
-  name: string;
-  profile: string;
-  localOnly: boolean;
+  name?: string;
+  profile?: string;
+  localOnly?: boolean;
 }
 
 const props = withDefaults(
@@ -38,11 +38,21 @@ const props = withDefaults(
 );
 
 const page = usePage<{
-  environment: PageEnvironment;
+  environment?: PageEnvironment;
 }>();
 
 const diagnosticsOpen = ref(false);
 const refreshing = ref(false);
+
+const environmentName = computed(() => {
+  const name = page.props.environment?.name;
+  return name && name.trim().length > 0 ? name.trim() : 'غير مرصود';
+});
+
+const environmentProfile = computed(() => {
+  const profile = page.props.environment?.profile;
+  return profile && profile.trim().length > 0 ? profile.trim() : 'غير مرصود';
+});
 
 const routeRegistrationSummary = computed(
   () =>
@@ -304,9 +314,9 @@ function refreshOrchestration() {
               <p class="cep-kicker">تشخيص تقني</p>
               <h2 id="route-registration-title" class="cep-context-title">ربط مساحات العمل</h2>
             </div>
-            <span class="today-diag-live-pill">
-              <span class="today-diag-dot" aria-hidden="true" />
-              مزامنة نشطة
+            <span class="today-diag-status-pill">
+              <span class="today-diag-status-dot" aria-hidden="true" />
+              تشخيص محلي
             </span>
           </div>
           <p class="cep-context-copy">
@@ -320,11 +330,11 @@ function refreshOrchestration() {
             </div>
             <div class="cep-fact-list__row">
               <dt>بيئة التطبيق</dt>
-              <dd><TechnicalText :value="page.props.environment?.name || 'local'" /></dd>
+              <dd><TechnicalText :value="environmentName" /></dd>
             </div>
             <div class="cep-fact-list__row">
               <dt>ملف التشغيل</dt>
-              <dd><TechnicalText :value="page.props.environment?.profile || 'development'" /></dd>
+              <dd><TechnicalText :value="environmentProfile" /></dd>
             </div>
           </dl>
         </section>
@@ -569,24 +579,24 @@ function refreshOrchestration() {
   gap: 0.75rem;
 }
 
-.today-diag-live-pill {
+.today-diag-status-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  border: 1px solid rgba(16, 185, 129, 0.35);
+  border: 1px solid var(--cep-border-strong);
   border-radius: var(--cep-radius-sm);
-  background: rgba(16, 185, 129, 0.08);
+  background: var(--cep-bg-panel);
   padding: 0.2rem 0.55rem;
-  color: #10b981;
+  color: var(--cep-text-muted);
   font-size: 0.74rem;
   font-weight: 750;
 }
 
-.today-diag-dot {
+.today-diag-status-dot {
   width: 0.4rem;
   height: 0.4rem;
   border-radius: 50%;
-  background: #10b981;
+  background: var(--cep-text-muted);
 }
 
 .today-diagnostics-facts {

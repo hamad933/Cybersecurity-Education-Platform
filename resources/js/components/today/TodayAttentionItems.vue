@@ -118,7 +118,7 @@ defineProps<{
     </div>
 
     <div v-else class="today-empty-wrapper">
-      <div class="today-empty-icon-box today-empty-icon-box--secure" aria-hidden="true">
+      <div class="today-empty-icon-box" aria-hidden="true">
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -129,14 +129,14 @@ defineProps<{
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
-            d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
+            d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
           />
         </svg>
       </div>
       <CepEmptyState
         class="cep-section__body today-empty-content"
-        title="لا توجد بنود عالقة أو متطلبات مراجعة حاليًا"
-        description="لا يتلقى هذا السطح حاليًا تنبيهات حظر أو طلبات مراجعة معلقة. كافة مساراتك تعمل دون عوائق مسجلة."
+        title="لا توجد بنود انتباه واردة حاليًا"
+        description="لا يتلقى سطح اليوم حاليًا أي بنود انتباه أو متطلبات مراجعة معلقة من مساحات العمل. لا تُعرض تنبيهات إلا عند ورود بنود محددة من المجالات المعنية."
         data-testid="today-attention-empty"
       />
     </div>
@@ -358,11 +358,6 @@ defineProps<{
   border-radius: var(--cep-radius-md);
   background: var(--cep-bg-canvas);
   color: var(--cep-accent);
-}
-
-.today-empty-icon-box--secure {
-  color: #10b981;
-  border-color: rgba(16, 185, 129, 0.3);
 }
 
 .today-empty-svg {
