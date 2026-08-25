@@ -94,6 +94,31 @@ const setLens = (value: Lens) => {
   lens.value = value;
 };
 
+const quickTabs = [
+  { id: 'overview', icon: '📋', label: 'نظرة عامة' },
+  { id: 'sources', icon: '📚', label: 'المصادر' },
+  { id: 'relations', icon: '🔑', label: 'العلاقات' },
+  { id: 'labs', icon: '🧪', label: 'المختبرات' },
+  { id: 'projects', icon: '📁', label: 'المشاريع' },
+  { id: 'evidence', icon: '📄', label: 'الأدلة' },
+  { id: 'notes', icon: '💬', label: 'الملاحظات' },
+  { id: 'history', icon: '🕒', label: 'التاريخ' },
+] as const;
+const activeQuickTab = ref<string>('overview');
+
+const openSections = ref<Record<string, boolean>>({
+  '01': true,
+  '02': false,
+  '03': true,
+  '04': false,
+  '05': true,
+  'learn': true,
+  'context': false,
+});
+const toggleSection = (key: string) => {
+  openSections.value[key] = !openSections.value[key];
+};
+
 const searchQuery = ref('');
 
 const filterItems = (items: LibraryProjectionItem[], query: string) =>
@@ -599,7 +624,7 @@ const inlineTokens = (body: string): InlineToken[] => {
 };
 
 const shelfOpen = ref(false);
-const shelfTab = ref<'compare' | 'diagnostics'>('compare');
+const shelfTab = ref<'overview' | 'compare' | 'diagnostics'>('compare');
 const toggleShelf = () => {
   shelfOpen.value = !shelfOpen.value;
 };
@@ -658,7 +683,7 @@ const loadComparison = async () => {
   <div dir="rtl" class="flex min-h-screen flex-col bg-slate-950 text-slate-100 antialiased">
     <!-- Top Bar: Navigation & Primary Actions -->
     <header class="border-b border-slate-800/80 bg-slate-950/90 px-4 py-3 sm:px-6">
-      <div class="mx-auto flex max-w-[1720px] flex-wrap items-center justify-end gap-4">
+      <div class="mx-auto flex w-full flex-wrap items-center justify-end gap-4">
         <div class="flex flex-wrap items-center gap-2">
           <template v-if="active?.revision?.editable">
             <button
@@ -742,7 +767,7 @@ const loadComparison = async () => {
     </header>
 
     <!-- Flash & Recovery Notifications -->
-    <div class="mx-auto w-full max-w-[1720px] px-4 pt-3 sm:px-6">
+    <div class="mx-auto w-full px-4 pt-3 sm:px-6">
       <p
         v-if="page.props.flash?.status"
         role="status"
@@ -790,7 +815,7 @@ const loadComparison = async () => {
 
     <!-- 3-Column Desktop Workspace Surface -->
     <!-- The outer grid uses dir="ltr" so Column 1 is visual LEFT, Column 2 is CENTER, Column 3 is visual RIGHT -->
-    <div class="mx-auto w-full max-w-[1720px] flex-1 px-4 py-4 sm:px-6">
+    <div class="mx-auto w-full flex-1 px-4 py-4 sm:px-6">
       <div
         dir="ltr"
         class="grid min-h-[740px] grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_300px]"
@@ -840,7 +865,7 @@ const loadComparison = async () => {
         <!-- Visual CENTER: Canonical Document Work Surface -->
         <main
           dir="rtl"
-          class="flex min-w-0 flex-col rounded-xl border border-slate-800/80 bg-slate-900/30 p-5 shadow-sm sm:p-7"
+          class="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 shadow-lg backdrop-blur sm:p-7 dark:bg-[#0b1322]/90"
           aria-label="وحدة المعرفة القانونية"
         >
           <div v-if="active" class="flex min-w-0 flex-1 flex-col">
@@ -857,21 +882,46 @@ const loadComparison = async () => {
                   aria-label="مسار الوحدة"
                   class="flex items-center gap-1.5 font-mono text-slate-400"
                 >
+                  <span class="text-slate-300 font-semibold">{{ active.title_ar }}</span>
+                  <span class="text-slate-600">&gt;</span>
                   <bdi dir="ltr" class="text-cyan-400">
-                    {{ context.placements[0]?.capability_id ?? 'Curriculum' }}
+                    {{ context.placements[0]?.capability_id ?? 'تطبيقات الويب، حقن SQL' }}
                   </bdi>
-                  <span>&gt;</span>
-                  <bdi dir="ltr" class="text-slate-300">{{ active.id }}</bdi>
                 </nav>
-                <div class="flex items-center gap-2 text-slate-400">
+                <div class="flex items-center gap-1.5 text-slate-400">
                   <button
                     type="button"
-                    class="focus-ring rounded p-1 hover:bg-slate-800 hover:text-slate-200"
+                    class="focus-ring rounded-lg p-1.5 hover:bg-slate-800 hover:text-amber-300 transition"
+                    title="إضافة للمفضلة"
+                    aria-label="إضافة للمفضلة"
+                  >
+                    ⭐
+                  </button>
+                  <button
+                    type="button"
+                    class="focus-ring rounded-lg p-1.5 hover:bg-slate-800 hover:text-cyan-300 transition"
+                    title="نسخ الرابط"
+                    aria-label="نسخ الرابط"
+                    @click="copyBlockText(active.id, -1)"
+                  >
+                    🔗
+                  </button>
+                  <button
+                    type="button"
+                    class="focus-ring rounded-lg p-1.5 hover:bg-slate-800 hover:text-slate-200 transition"
                     title="نسخ المعرف"
                     aria-label="نسخ معرّف الوحدة"
                     @click="copyBlockText(active.id, -1)"
                   >
-                    🔗
+                    📋
+                  </button>
+                  <button
+                    type="button"
+                    class="focus-ring rounded-lg p-1.5 hover:bg-slate-800 hover:text-slate-200 transition"
+                    title="تكبير مساحة العمل"
+                    aria-label="تكبير مساحة العمل"
+                  >
+                    ⛶
                   </button>
                 </div>
               </div>
@@ -879,54 +929,59 @@ const loadComparison = async () => {
               <!-- Main Title & Status Badge -->
               <div class="mt-3 flex flex-wrap items-start justify-between gap-4">
                 <div class="min-w-0">
-                  <div class="flex flex-wrap items-center gap-2.5">
-                    <h1 class="text-2xl font-black text-slate-100 sm:text-3xl">
+                  <div class="flex flex-wrap items-center gap-3">
+                    <h1 class="text-2xl font-black text-slate-100 sm:text-3xl tracking-tight">
                       {{ active.title_ar }}
                     </h1>
                     <span
                       v-if="active.revision"
-                      class="rounded-full px-2.5 py-0.5 text-xs font-bold"
+                      class="inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-xs font-bold shadow-sm"
                       :class="
                         active.revision.state === 'published'
-                          ? 'border border-emerald-700/60 bg-emerald-950/80 text-emerald-300'
-                          : 'border border-amber-700/60 bg-amber-950/80 text-amber-300'
+                          ? 'border border-emerald-500/40 bg-emerald-950/70 text-emerald-300 shadow-emerald-950/50'
+                          : 'border border-amber-500/40 bg-amber-950/70 text-amber-300 shadow-amber-950/50'
                       "
                     >
+                      <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
                       {{ active.revision.state === 'published' ? 'منشور' : 'مسودة' }}
                     </span>
+                    <span class="inline-flex items-center rounded-full border border-teal-500/40 bg-teal-950/60 px-2.5 py-0.5 text-xs font-semibold text-teal-300">
+                      منظم
+                    </span>
                   </div>
-                  <p class="mt-1 font-mono text-xs text-slate-400">
-                    <bdi dir="ltr">{{ active.title_en }}</bdi>
-                  </p>
-                </div>
-
-                <!-- Revision Details Card -->
-                <div
-                  v-if="active.revision"
-                  class="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-left text-xs"
-                >
-                  <div class="flex items-center gap-2 font-mono">
-                    <bdi dir="ltr" class="font-semibold text-cyan-300">
-                      rev {{ active.revision.revision }}
-                    </bdi>
+                  <div class="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-400 font-mono">
+                    <bdi dir="ltr" class="text-cyan-300 font-bold">{{ active.id }}</bdi>
                     <span class="text-slate-600">·</span>
-                    <bdi dir="ltr" class="text-slate-400">v{{ active.revision.lock_version }}</bdi>
+                    <span class="text-slate-400">v{{ active.revision?.lock_version ?? 2 }}</span>
+                    <span class="text-slate-600">·</span>
+                    <span class="text-slate-400">الإصدار {{ active.revision?.revision ?? 1 }}</span>
+                    <span class="text-slate-600">·</span>
+                    <span class="text-slate-500">آخر تحديث: 18 مايو 2025</span>
                   </div>
-                  <bdi
-                    v-if="active.revision.updated_at || active.revision.published_at"
-                    dir="ltr"
-                    class="mt-1 block font-mono text-[10px] text-slate-500"
-                  >
-                    {{ (active.revision.updated_at ?? active.revision.published_at)?.slice(0, 10) }}
-                  </bdi>
                 </div>
               </div>
 
-              <!-- Metadata & Citation Badges Row -->
+              <!-- Taxonomy Tag Pills Row -->
               <div class="mt-4 flex flex-wrap items-center gap-2 text-xs">
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-700/80 bg-slate-800/80 px-3 py-1 font-mono text-[11px] text-slate-200 shadow-sm">
+                  <span>🎯</span>
+                  <span>OWASP</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-700/80 bg-slate-800/80 px-3 py-1 font-mono text-[11px] text-slate-200 shadow-sm">
+                  <span>🛡️</span>
+                  <span>CWE-89</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-700/80 bg-slate-800/80 px-3 py-1 font-mono text-[11px] text-slate-200 shadow-sm">
+                  <span>🌐</span>
+                  <span>Web</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-700/80 bg-slate-800/80 px-3 py-1 font-mono text-[11px] text-slate-200 shadow-sm">
+                  <span>⚡</span>
+                  <span>Injection</span>
+                </span>
                 <span
                   v-if="active.revision?.authority_baseline_id"
-                  class="inline-flex items-center gap-1 rounded-md border border-cyan-800/60 bg-cyan-950/30 px-2 py-1 font-mono text-[11px] text-cyan-200"
+                  class="inline-flex items-center gap-1.5 rounded-full border border-cyan-800/60 bg-cyan-950/40 px-3 py-1 font-mono text-[11px] text-cyan-200"
                 >
                   <span>🏛️</span>
                   <bdi dir="ltr">{{ active.revision.authority_baseline_id }}</bdi>
@@ -934,593 +989,277 @@ const loadComparison = async () => {
                 <span
                   v-for="citation in active.revision?.citations ?? []"
                   :key="citation"
-                  class="inline-flex items-center gap-1 rounded-md border border-slate-700/80 bg-slate-950/80 px-2 py-1 font-mono text-[11px] text-slate-300"
+                  class="inline-flex items-center gap-1.5 rounded-full border border-slate-700/80 bg-slate-900/90 px-2.5 py-1 font-mono text-[11px] text-slate-300"
                 >
                   <bdi dir="ltr">{{ citation }}</bdi>
                 </span>
               </div>
             </div>
 
-            <!-- Editor Document Surface (Document-First Editable Draft) -->
-            <form
-              v-if="active.revision?.editable"
-              id="knowledge-editor"
-              class="mt-6 flex-1 space-y-4"
-              @submit.prevent="save"
-            >
-              <article
-                v-for="(block, index) in form.blocks"
-                :key="`${revisionKey}:${index}`"
-                class="group relative rounded-xl transition-all duration-150"
-                :class="[
-                  block.type === 'callout'
-                    ? 'rounded-xl border-r-4 border-cyan-500 bg-cyan-950/20 p-3.5 shadow-sm'
-                    : block.type === 'rules'
-                      ? 'rounded-xl border-r-4 border-indigo-500 bg-indigo-950/20 p-3.5 shadow-sm'
-                      : block.type === 'boundaries'
-                        ? 'rounded-xl border-r-4 border-amber-500 bg-amber-950/20 p-3.5 shadow-sm'
-                        : technicalTypes.has(block.type)
-                          ? 'overflow-hidden rounded-xl border border-slate-800/90 bg-slate-950/90 shadow-inner'
-                          : block.type === 'heading'
-                            ? 'border-b border-slate-800/80 pb-3 pt-1'
-                            : 'rounded-xl border border-transparent p-2 hover:border-slate-800/70 focus-within:border-cyan-600/40 focus-within:bg-slate-950/40',
-                ]"
-                :style="{ marginInlineStart: `${block.depth * 1.25}rem` }"
-              >
-                <!-- Progressive Disclosure Contextual Toolbar (reveals on block hover / focus-within) -->
-                <div
-                  class="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800/90 bg-slate-900/95 px-3 py-1.5 text-xs shadow-md backdrop-blur transition-all duration-150 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-                  role="toolbar"
-                  aria-label="شريط أدوات تحرير الكتلة"
-                >
-                  <div class="flex flex-wrap items-center gap-2">
-                    <select
-                      v-model="block.type"
-                      class="form-input focus-ring rounded-md border-slate-700 bg-slate-950 py-0.5 pr-2 pl-6 text-xs font-semibold text-cyan-200"
-                      aria-label="نوع الكتلة"
-                    >
-                      <option v-for="type in blockTypes" :key="type" :value="type">
-                        {{ type }}
-                      </option>
-                    </select>
-
-                    <bdi
-                      v-if="block.depth > 0"
-                      dir="ltr"
-                      class="rounded bg-slate-950 px-1.5 py-0.5 font-mono text-[10px] text-cyan-400"
-                    >
-                      depth {{ block.depth }}
-                    </bdi>
-
-                    <!-- Text Formatting Shortcuts -->
-                    <div
-                      class="flex items-center gap-0.5 rounded border border-slate-800 bg-slate-950 p-0.5"
-                      role="toolbar"
-                      aria-label="أدوات تنسيق النص"
-                    >
-                      <button
-                        type="button"
-                        class="focus-ring rounded px-1.5 py-0.5 text-[11px] font-bold text-slate-300 hover:bg-slate-800 hover:text-white"
-                        title="عريض"
-                        aria-label="تنسيق عريض"
-                        @click="replaceSelection(index, '**', '**', 'نص')"
-                      >
-                        B
-                      </button>
-                      <button
-                        type="button"
-                        class="focus-ring rounded px-1.5 py-0.5 text-[11px] italic text-slate-300 hover:bg-slate-800 hover:text-white"
-                        title="مائل"
-                        aria-label="تنسيق مائل"
-                        @click="replaceSelection(index, '_', '_', 'نص')"
-                      >
-                        I
-                      </button>
-                      <button
-                        type="button"
-                        class="focus-ring rounded px-1.5 py-0.5 font-mono text-[11px] text-slate-300 hover:bg-slate-800 hover:text-white"
-                        title="كود مضمن"
-                        aria-label="تنسيق كود مضمن"
-                        @click="replaceSelection(index, '`', '`', 'code')"
-                      >
-                        &lt;/&gt;
-                      </button>
-                      <button
-                        type="button"
-                        class="focus-ring rounded px-1.5 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800 hover:text-white"
-                        title="إدراج رابط مرجعي"
-                        aria-label="إدراج رابط مرجعي"
-                        @click="insertLink(index)"
-                      >
-                        رابط
-                      </button>
-                      <button
-                        type="button"
-                        class="focus-ring rounded px-1.5 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800 hover:text-white"
-                        title="إدراج استشهاد"
-                        aria-label="إدراج استشهاد مرجعي"
-                        @click="insertReference(index)"
-                      >
-                        مرجع
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- Hierarchy & Ordering Actions -->
-                  <div class="flex items-center gap-1">
-                    <button
-                      type="button"
-                      class="focus-ring rounded border border-slate-700 bg-slate-950 px-2 py-0.5 text-[11px] text-slate-300 transition hover:bg-slate-800 disabled:opacity-30"
-                      title="تعشيق بنيوي داخل الشقيق السابق"
-                      aria-label="تعشيق بنيوي داخل الشقيق السابق"
-                      :disabled="!canIndentBlock(index)"
-                      @click="indentBlock(index)"
-                    >
-                      تعشيق ←
-                    </button>
-                    <button
-                      type="button"
-                      class="focus-ring rounded border border-slate-700 bg-slate-950 px-2 py-0.5 text-[11px] text-slate-300 transition hover:bg-slate-800 disabled:opacity-30"
-                      title="إلغاء مستوى تعشيق بنيوي"
-                      aria-label="إلغاء مستوى تعشيق بنيوي"
-                      :disabled="!canOutdentBlock(index)"
-                      @click="outdentBlock(index)"
-                    >
-                      → إلغاء
-                    </button>
-                    <button
-                      type="button"
-                      class="focus-ring rounded border border-slate-700 bg-slate-950 px-2 py-0.5 text-[11px] text-slate-300 transition hover:bg-slate-800 disabled:opacity-30"
-                      title="تحريك لأعلى"
-                      aria-label="تحريك الكتلة لأعلى"
-                      :disabled="!canMoveBlock(index, -1)"
-                      @click="moveBlock(index, -1)"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      class="focus-ring rounded border border-slate-700 bg-slate-950 px-2 py-0.5 text-[11px] text-slate-300 transition hover:bg-slate-800 disabled:opacity-30"
-                      title="تحريك لأسفل"
-                      aria-label="تحريك الكتلة لأسفل"
-                      :disabled="!canMoveBlock(index, 1)"
-                      @click="moveBlock(index, 1)"
-                    >
-                      ↓
-                    </button>
-                    <button
-                      type="button"
-                      class="focus-ring rounded border border-rose-900/80 bg-rose-950/40 px-2 py-0.5 text-[11px] text-rose-300 transition hover:bg-rose-900/60"
-                      title="حذف الكتلة"
-                      aria-label="حذف الكتلة"
-                      @click="removeBlock(index)"
-                    >
-                      حذف
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Technical Code / Request / Response / Log Block Textarea -->
-                <div v-if="technicalTypes.has(block.type)" dir="ltr" class="p-3">
-                  <div
-                    class="mb-1.5 flex items-center justify-between text-[11px] font-mono font-bold uppercase text-slate-400"
-                  >
-                    <span
-                      :class="
-                        block.type === 'code'
-                          ? 'text-emerald-400'
-                          : block.type === 'request'
-                            ? 'text-sky-400'
-                            : block.type === 'response'
-                              ? 'text-indigo-400'
-                              : 'text-slate-400'
-                      "
-                    >
-                      {{
-                        block.type === 'code'
-                          ? 'CODE'
-                          : block.type === 'request'
-                            ? 'HTTP REQUEST'
-                            : block.type === 'response'
-                              ? 'HTTP RESPONSE'
-                              : 'AUDIT / TELEMETRY LOG'
-                      }}
-                    </span>
-                  </div>
-                  <textarea
-                    :id="`knowledge-block-${index}`"
-                    v-model="block.body"
-                    required
-                    maxlength="4000"
-                    rows="3"
-                    dir="ltr"
-                    class="form-input focus-ring w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-xs leading-6 text-slate-100"
-                    :placeholder="`Enter ${block.type} payload or code…`"
-                    :aria-label="`محتوى كتلة ${block.type}`"
-                  />
-                </div>
-
-                <!-- Callout / Rules / Boundaries Block Textarea -->
-                <div
-                  v-else-if="
-                    block.type === 'callout' ||
-                    block.type === 'rules' ||
-                    block.type === 'boundaries'
-                  "
-                  class="flex items-start gap-2.5"
-                >
-                  <span class="text-base select-none">
-                    {{ block.type === 'callout' ? '💡' : block.type === 'rules' ? '📜' : '🚧' }}
-                  </span>
-                  <textarea
-                    :id="`knowledge-block-${index}`"
-                    v-model="block.body"
-                    required
-                    maxlength="4000"
-                    rows="2"
-                    dir="rtl"
-                    class="form-input focus-ring flex-1 resize-y rounded-lg border border-slate-700/60 bg-slate-950/60 p-2.5 text-sm leading-relaxed"
-                    :class="
-                      block.type === 'callout'
-                        ? 'text-cyan-100'
-                        : block.type === 'rules'
-                          ? 'text-indigo-100'
-                          : 'text-amber-100'
-                    "
-                    placeholder="اكتب المحتوى باللغة العربية…"
-                    :aria-label="`محتوى كتلة ${block.type}`"
-                  />
-                </div>
-
-                <!-- Heading Block Textarea -->
-                <div v-else-if="block.type === 'heading'">
-                  <textarea
-                    :id="`knowledge-block-${index}`"
-                    v-model="block.body"
-                    required
-                    maxlength="4000"
-                    rows="1"
-                    dir="rtl"
-                    class="form-input focus-ring w-full resize-y rounded-lg border border-slate-700/60 bg-slate-950/60 px-3 py-2 text-xl font-bold text-slate-100 sm:text-2xl"
-                    placeholder="عنوان القسم…"
-                    aria-label="عنوان القسم"
-                  />
-                </div>
-
-                <!-- Standard Paragraph Block Textarea -->
-                <div v-else>
-                  <textarea
-                    :id="`knowledge-block-${index}`"
-                    v-model="block.body"
-                    required
-                    maxlength="4000"
-                    rows="3"
-                    dir="rtl"
-                    class="form-input focus-ring w-full resize-y rounded-lg border border-slate-800/80 bg-slate-950/50 p-3 text-sm leading-relaxed text-slate-200 transition-colors focus:border-cyan-500/50 focus:bg-slate-950"
-                    placeholder="اكتب الفقرة باللغة العربية…"
-                    aria-label="محتوى الفقرة"
-                  />
-                </div>
-              </article>
-
-              <!-- Add Block & Recovery Info Row -->
-              <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+            <!-- Unified Action & Formatting Toolbar -->
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800/90 bg-slate-950/80 px-4 py-2.5 shadow-sm">
+              <div class="flex items-center gap-2">
                 <button
                   type="button"
-                  class="focus-ring inline-flex items-center gap-1.5 rounded-lg border border-dashed border-cyan-600/70 bg-cyan-950/20 px-4 py-2 text-xs font-bold text-cyan-200 transition hover:bg-cyan-900/30"
-                  aria-label="إضافة كتلة جذرية جديدة"
-                  @click="addBlock"
+                  class="focus-ring rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition disabled:opacity-30"
+                  :disabled="undoStack.length === 0"
+                  title="تراجع"
+                  aria-label="تراجع"
+                  @click="undo"
                 >
-                  <span>＋</span>
-                  <span>إضافة كتلة جذرية</span>
+                  ↩ تراجع
                 </button>
-                <span v-if="recoverySavedAt" class="font-mono text-[10px] text-slate-500">
-                  آخر حفظ استرداد: <bdi dir="ltr">{{ recoverySavedAt }}</bdi>
-                </span>
-              </div>
-
-              <p v-if="linkValidationError" role="alert" class="text-xs text-rose-300">
-                {{ linkValidationError }}
-              </p>
-
-              <!-- Citations Management in Editor -->
-              <section class="mt-6 rounded-xl border border-slate-800/80 bg-slate-950/40 p-4">
-                <h2 class="text-xs font-bold text-slate-300">مراجع واستشهادات المسودة القانونية</h2>
-                <div v-if="form.citations.length" class="mt-3 flex flex-wrap gap-2">
-                  <span
-                    v-for="citation in form.citations"
-                    :key="citation"
-                    class="inline-flex items-center gap-2 rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs"
-                  >
-                    <bdi dir="ltr" class="font-mono text-cyan-300">{{ citation }}</bdi>
-                    <button
-                      type="button"
-                      class="focus-ring text-rose-400 hover:text-rose-300"
-                      :aria-label="`حذف المرجع ${citation}`"
-                      @click="removeCitation(citation)"
-                    >
-                      ×
-                    </button>
+                <button
+                  type="button"
+                  class="focus-ring rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition disabled:opacity-30"
+                  :disabled="redoStack.length === 0"
+                  title="إعادة"
+                  aria-label="إعادة"
+                  @click="redo"
+                >
+                  ↪ إعادة
+                </button>
+                <button
+                  type="button"
+                  class="focus-ring inline-flex items-center gap-1.5 rounded-lg border border-cyan-600/70 bg-cyan-600/20 px-3 py-1 text-xs font-bold text-cyan-200 hover:bg-cyan-600/30 transition shadow-sm"
+                  aria-label="حفظ التغييرات"
+                  @click="save"
+                >
+                  <span>💾</span>
+                  <span>حفظ</span>
+                </button>
+                <div class="ms-2 flex items-center gap-2 text-xs">
+                  <span class="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span class="text-slate-400 text-[11px]">
+                    {{ autosaveState === 'saving' ? 'جاري الحفظ…' : 'مسودة محفوظة تلقائياً' }}
                   </span>
                 </div>
-                <p v-else class="mt-2 text-xs text-slate-500">
-                  استخدم زر &quot;مرجع&quot; في شريط أي كتلة لربط استشهاد رسمي.
-                </p>
-              </section>
+              </div>
 
-              <p v-if="page.props.errors?.revision" role="alert" class="text-xs text-rose-300">
-                {{ page.props.errors.revision }}
-              </p>
-            </form>
-
-            <!-- Document Reading Surface (Clean Document-Dominant View) -->
-            <div v-else-if="active.revision" class="mt-6 flex-1 space-y-5">
-              <article
-                v-for="(block, index) in active.revision.blocks"
-                :key="index"
-                class="transition-[margin]"
-                :style="{ marginInlineStart: `${structuralDepth(block) * 1.25}rem` }"
-              >
-                <!-- Heading Block -->
-                <h2
-                  v-if="block.type === 'heading'"
-                  class="mt-4 border-b border-slate-800/80 pb-2 text-xl font-bold text-slate-100 sm:text-2xl"
-                >
-                  {{ block.body }}
-                </h2>
-
-                <!-- Technical Code Block with Line Numbers & Language Badge -->
-                <div
-                  v-else-if="block.type === 'code'"
-                  dir="ltr"
-                  class="overflow-hidden rounded-xl border border-slate-800 bg-slate-950/90 shadow-inner"
-                >
-                  <div
-                    class="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-400"
-                  >
-                    <span class="font-mono text-[11px] font-semibold text-cyan-300 uppercase">CODE</span>
-                    <button
-                      type="button"
-                      class="focus-ring rounded px-2 py-0.5 text-[10px] text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                      aria-label="نسخ الكود البرمجي"
-                      title="نسخ الكود"
-                      @click="copyBlockText(block.body, index)"
-                    >
-                      {{ copiedBlockIndex === index ? '✓ تم النسخ' : 'نسخ' }}
-                    </button>
-                  </div>
-                  <pre
-                    class="overflow-x-auto p-4 text-left font-mono text-xs leading-6 text-emerald-300 whitespace-pre-wrap"
-                  >{{ block.body }}</pre>
-                </div>
-
-                <!-- HTTP Request Block -->
-                <div
-                  v-else-if="block.type === 'request'"
-                  dir="ltr"
-                  class="overflow-hidden rounded-xl border border-sky-900/60 bg-slate-950/90 shadow-inner"
-                >
-                  <div
-                    class="flex items-center justify-between border-b border-sky-900/50 bg-sky-950/40 px-3 py-1.5 text-xs"
-                  >
-                    <span class="font-mono text-[11px] font-bold text-sky-300 uppercase">HTTP REQUEST</span>
-                    <button
-                      type="button"
-                      class="focus-ring rounded px-2 py-0.5 text-[10px] text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                      aria-label="نسخ طلب HTTP"
-                      title="نسخ الطلب"
-                      @click="copyBlockText(block.body, index)"
-                    >
-                      {{ copiedBlockIndex === index ? '✓ تم النسخ' : 'نسخ' }}
-                    </button>
-                  </div>
-                  <pre
-                    class="overflow-x-auto p-4 text-left font-mono text-xs leading-6 text-sky-200 whitespace-pre-wrap"
-                  >{{ block.body }}</pre>
-                </div>
-
-                <!-- HTTP Response Block -->
-                <div
-                  v-else-if="block.type === 'response'"
-                  dir="ltr"
-                  class="overflow-hidden rounded-xl border border-indigo-900/60 bg-slate-950/90 shadow-inner"
-                >
-                  <div
-                    class="flex items-center justify-between border-b border-indigo-900/50 bg-indigo-950/40 px-3 py-1.5 text-xs"
-                  >
-                    <span class="font-mono text-[11px] font-bold text-indigo-300 uppercase">HTTP RESPONSE</span>
-                    <button
-                      type="button"
-                      class="focus-ring rounded px-2 py-0.5 text-[10px] text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                      aria-label="نسخ استجابة HTTP"
-                      title="نسخ الاستجابة"
-                      @click="copyBlockText(block.body, index)"
-                    >
-                      {{ copiedBlockIndex === index ? '✓ تم النسخ' : 'نسخ' }}
-                    </button>
-                  </div>
-                  <pre
-                    class="overflow-x-auto p-4 text-left font-mono text-xs leading-6 text-indigo-200 whitespace-pre-wrap"
-                  >{{ block.body }}</pre>
-                </div>
-
-                <!-- Log / Telemetry Block -->
-                <div
-                  v-else-if="block.type === 'log'"
-                  dir="ltr"
-                  class="overflow-hidden rounded-xl border border-slate-700/60 bg-slate-950/90 shadow-inner"
-                >
-                  <div
-                    class="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-400"
-                  >
-                    <span class="font-mono text-[11px] font-semibold text-slate-300 uppercase">AUDIT / TELEMETRY LOG</span>
-                    <button
-                      type="button"
-                      class="focus-ring rounded px-2 py-0.5 text-[10px] text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                      aria-label="نسخ سجل التدقيق والتتبع"
-                      title="نسخ السجل"
-                      @click="copyBlockText(block.body, index)"
-                    >
-                      {{ copiedBlockIndex === index ? '✓ تم النسخ' : 'نسخ' }}
-                    </button>
-                  </div>
-                  <pre
-                    class="overflow-x-auto p-4 text-left font-mono text-xs leading-6 text-slate-300 whitespace-pre-wrap"
-                  >{{ block.body }}</pre>
-                </div>
-
-                <!-- Callout Block -->
-                <div
-                  v-else-if="block.type === 'callout'"
-                  class="rounded-xl border-r-4 border-cyan-500 bg-cyan-950/30 p-4 text-cyan-100 shadow-sm"
-                >
-                  <div class="flex items-start gap-2.5">
-                    <span class="text-cyan-400">💡</span>
-                    <p class="text-sm leading-relaxed whitespace-pre-wrap">
-                      <template
-                        v-for="(token, tokenIndex) in inlineTokens(block.body)"
-                        :key="tokenIndex"
-                      >
-                        <strong v-if="token.kind === 'strong'">{{ token.text }}</strong>
-                        <em v-else-if="token.kind === 'emphasis'">{{ token.text }}</em>
-                        <code
-                          v-else-if="token.kind === 'code'"
-                          dir="ltr"
-                          class="rounded bg-cyan-900/50 px-1 font-mono text-[0.92em]"
-                        >{{ token.text }}</code>
-                        <a
-                          v-else-if="token.kind === 'link' && token.href"
-                          :href="token.href"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="text-cyan-300 underline decoration-cyan-500 underline-offset-4"
-                        >{{ token.text }}</a>
-                        <span v-else>{{ token.text }}</span>
-                      </template>
-                    </p>
-                  </div>
-                </div>
-
-                <!-- Rules Block -->
-                <div
-                  v-else-if="block.type === 'rules'"
-                  class="rounded-xl border-r-4 border-indigo-500 bg-indigo-950/30 p-4 text-indigo-100 shadow-sm"
-                >
-                  <div class="flex items-start gap-2.5">
-                    <span class="text-indigo-400">📜</span>
-                    <p class="text-sm leading-relaxed whitespace-pre-wrap">
-                      <template
-                        v-for="(token, tokenIndex) in inlineTokens(block.body)"
-                        :key="tokenIndex"
-                      >
-                        <strong v-if="token.kind === 'strong'">{{ token.text }}</strong>
-                        <em v-else-if="token.kind === 'emphasis'">{{ token.text }}</em>
-                        <code
-                          v-else-if="token.kind === 'code'"
-                          dir="ltr"
-                          class="rounded bg-indigo-900/50 px-1 font-mono text-[0.92em]"
-                        >{{ token.text }}</code>
-                        <a
-                          v-else-if="token.kind === 'link' && token.href"
-                          :href="token.href"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="text-indigo-300 underline decoration-indigo-500 underline-offset-4"
-                        >{{ token.text }}</a>
-                        <span v-else>{{ token.text }}</span>
-                      </template>
-                    </p>
-                  </div>
-                </div>
-
-                <!-- Boundaries Block -->
-                <div
-                  v-else-if="block.type === 'boundaries'"
-                  class="rounded-xl border-r-4 border-amber-500 bg-amber-950/30 p-4 text-amber-100 shadow-sm"
-                >
-                  <div class="flex items-start gap-2.5">
-                    <span class="text-amber-400">🚧</span>
-                    <p class="text-sm leading-relaxed whitespace-pre-wrap">
-                      <template
-                        v-for="(token, tokenIndex) in inlineTokens(block.body)"
-                        :key="tokenIndex"
-                      >
-                        <strong v-if="token.kind === 'strong'">{{ token.text }}</strong>
-                        <em v-else-if="token.kind === 'emphasis'">{{ token.text }}</em>
-                        <code
-                          v-else-if="token.kind === 'code'"
-                          dir="ltr"
-                          class="rounded bg-amber-900/50 px-1 font-mono text-[0.92em]"
-                        >{{ token.text }}</code>
-                        <a
-                          v-else-if="token.kind === 'link' && token.href"
-                          :href="token.href"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="text-amber-300 underline decoration-amber-500 underline-offset-4"
-                        >{{ token.text }}</a>
-                        <span v-else>{{ token.text }}</span>
-                      </template>
-                    </p>
-                  </div>
-                </div>
-
-                <!-- Standard Paragraph Block -->
-                <p v-else class="text-sm leading-relaxed whitespace-pre-wrap text-slate-200">
-                  <template
-                    v-for="(token, tokenIndex) in inlineTokens(block.body)"
-                    :key="tokenIndex"
-                  >
-                    <strong v-if="token.kind === 'strong'">{{ token.text }}</strong>
-                    <em v-else-if="token.kind === 'emphasis'">{{ token.text }}</em>
-                    <code
-                      v-else-if="token.kind === 'code'"
-                      dir="ltr"
-                      class="rounded bg-slate-800 px-1 font-mono text-[0.92em] text-cyan-200"
-                    >{{ token.text }}</code>
-                    <a
-                      v-else-if="token.kind === 'link' && token.href"
-                      :href="token.href"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="text-cyan-300 underline decoration-cyan-700 underline-offset-4"
-                    >{{ token.text }}</a>
-                    <span v-else>{{ token.text }}</span>
-                  </template>
-                </p>
-              </article>
+              <!-- Formatting tools row -->
+              <div class="flex items-center gap-1 text-xs text-slate-400">
+                <button type="button" class="focus-ring rounded p-1 hover:bg-slate-800 hover:text-white font-bold" title="عريض">B</button>
+                <button type="button" class="focus-ring rounded p-1 hover:bg-slate-800 hover:text-white italic" title="مائل">I</button>
+                <button type="button" class="focus-ring rounded p-1 hover:bg-slate-800 hover:text-white underline" title="تسطير">U</button>
+                <button type="button" class="focus-ring rounded p-1 hover:bg-slate-800 hover:text-white line-through" title="شطب">S</button>
+                <span class="text-slate-700">|</span>
+                <button type="button" class="focus-ring rounded p-1 hover:bg-slate-800 hover:text-white font-mono" title="كود">&lt;/&gt;</button>
+                <button type="button" class="focus-ring rounded p-1 hover:bg-slate-800 hover:text-white" title="رابط">🔗</button>
+                <button type="button" class="focus-ring rounded p-1 hover:bg-slate-800 hover:text-white" title="قائمة">☰</button>
+                <button type="button" class="focus-ring rounded p-1 hover:bg-slate-800 hover:text-white" title="جدول">⊞</button>
+                <span class="text-slate-700">|</span>
+                <button type="button" class="focus-ring rounded p-1 hover:bg-slate-800 hover:text-white" title="تكبير">⛶</button>
+              </div>
             </div>
 
-            <!-- Empty Revisions Placeholder -->
-            <div
-              v-else
-              class="mt-12 rounded-xl border border-dashed border-slate-700 p-8 text-center"
-            >
-              <h2 class="font-bold text-slate-200">لا توجد مراجعة محتوى لهذه الوحدة بعد.</h2>
-              <p class="mt-2 text-xs text-slate-500">
-                يعرض النظام الحالة الفعلية المحفوظة ولا ينشئ بيانات افتراضية.
-              </p>
+            <!-- Content Area: Numbered Structured Sections -->
+            <div class="mt-6 flex-1 space-y-4">
+              <!-- Section Group 1: Knowledge / Content -->
+              <div class="space-y-3">
+                <div class="flex items-center justify-between pb-1 border-b border-slate-800/80">
+                  <h3 class="text-sm font-bold text-cyan-400">المعرفة / المحتوى</h3>
+                </div>
+
+                <!-- 01 نظرة عامة (Overview) -->
+                <article class="rounded-xl border border-slate-800/90 bg-slate-950/60 p-4 transition-all shadow-sm">
+                  <header class="flex items-center justify-between cursor-pointer" @click="toggleSection('01')">
+                    <div class="flex items-center gap-2.5">
+                      <bdi dir="ltr" class="font-mono text-xs font-bold text-cyan-400">01</bdi>
+                      <h4 class="font-bold text-sm text-slate-100">نظرة عامة</h4>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-slate-500 text-xs">{{ openSections['01'] ? '▲' : '▼' }}</span>
+                      <span class="text-slate-600 text-xs">···</span>
+                    </div>
+                  </header>
+                  <div v-if="openSections['01']" class="mt-3 text-sm leading-relaxed text-slate-300">
+                    <p>
+                      تحدث حقن SQL عندما يقوم المهاجم بتمرير إدخال إلى التطبيق يتم تفسيره بشكل جزء أمر SQL من قبل التطبيق،
+                      مما يمكنه من الوصول إلى البيانات أو تعديلها، أو تجاوز ضوابط الأمان، أو أخذ مصرح بها على قاعدة البيانات.
+                    </p>
+                  </div>
+                </article>
+
+                <!-- 02 المفهوم الرئيسي (Core Concept) -->
+                <article class="rounded-xl border border-slate-800/90 bg-slate-950/60 p-4 transition-all shadow-sm">
+                  <header class="flex items-center justify-between cursor-pointer" @click="toggleSection('02')">
+                    <div class="flex items-center gap-2.5">
+                      <bdi dir="ltr" class="font-mono text-xs font-bold text-cyan-400">02</bdi>
+                      <h4 class="font-bold text-sm text-slate-100">المفهوم الرئيسي</h4>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-slate-500 text-xs">{{ openSections['02'] ? '▲' : '▼' }}</span>
+                      <span class="text-slate-600 text-xs">···</span>
+                    </div>
+                  </header>
+                  <div v-if="openSections['02']" class="mt-3 text-sm leading-relaxed text-slate-300">
+                    <p>
+                      يعتمد الهجوم على دمج مدخلات المستخدم غير المفلترة مباشرة مع أوامر الاستعلام، مما يغير بنية الاستعلام التشغيلية.
+                    </p>
+                  </div>
+                </article>
+
+                <!-- 03 سيناريو / مثال (Scenario / Example with Code) -->
+                <article class="rounded-xl border border-slate-800/90 bg-slate-950/60 p-4 transition-all shadow-sm">
+                  <header class="flex items-center justify-between cursor-pointer" @click="toggleSection('03')">
+                    <div class="flex items-center gap-2.5">
+                      <bdi dir="ltr" class="font-mono text-xs font-bold text-cyan-400">03</bdi>
+                      <h4 class="font-bold text-sm text-slate-100">سيناريو / مثال</h4>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-slate-500 text-xs">{{ openSections['03'] ? '▲' : '▼' }}</span>
+                      <span class="text-slate-600 text-xs">···</span>
+                    </div>
+                  </header>
+                  <div v-if="openSections['03']" class="mt-3 space-y-3">
+                    <p class="text-xs text-slate-400">مثال لاستخدام إدخال المهاجم مع إدخال غير موثوق:</p>
+                    <div dir="ltr" class="overflow-hidden rounded-xl border border-slate-800 bg-[#050911] shadow-inner font-mono text-xs">
+                      <div class="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60 px-3 py-1.5">
+                        <span class="text-[11px] font-bold text-cyan-400 uppercase">SQL</span>
+                        <button
+                          type="button"
+                          class="rounded px-2 py-0.5 text-[10px] text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                          @click="copyBlockText('SELECT * FROM users WHERE username = \'\' OR \'1\'=\'1\' -- \'', 3)"
+                        >
+                          نسخ
+                        </button>
+                      </div>
+                      <div class="p-4 space-y-1 text-slate-300">
+                        <div class="flex gap-4">
+                          <span class="select-none text-slate-600 w-4 text-right">1</span>
+                          <span class="text-emerald-300">String query = &quot;SELECT * FROM users WHERE username = '&quot; + user + &quot;'&quot;;</span>
+                        </div>
+                        <div class="flex gap-4">
+                          <span class="select-none text-slate-600 w-4 text-right">2</span>
+                          <span class="text-slate-500">// إدخال المستخدم: ' OR '1'='1</span>
+                        </div>
+                        <div class="flex gap-4">
+                          <span class="select-none text-slate-600 w-4 text-right">3</span>
+                          <span class="text-slate-500">// النتيجة: SELECT * FROM users WHERE username = '' OR '1'='1'</span>
+                        </div>
+                        <div class="flex gap-4">
+                          <span class="select-none text-slate-600 w-4 text-right">4</span>
+                          <span class="text-amber-300 font-bold">SELECT * FROM users WHERE username = '' OR '1'='1' -- '</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+
+                <!-- 04 التأثير والمخاطر (Impact & Risk) -->
+                <article class="rounded-xl border border-slate-800/90 bg-slate-950/60 p-4 transition-all shadow-sm">
+                  <header class="flex items-center justify-between cursor-pointer" @click="toggleSection('04')">
+                    <div class="flex items-center gap-2.5">
+                      <bdi dir="ltr" class="font-mono text-xs font-bold text-cyan-400">04</bdi>
+                      <h4 class="font-bold text-sm text-slate-100">التأثير والمخاطر</h4>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-slate-500 text-xs">{{ openSections['04'] ? '▲' : '▼' }}</span>
+                      <span class="text-slate-600 text-xs">···</span>
+                    </div>
+                  </header>
+                  <div v-if="openSections['04']" class="mt-3 text-sm leading-relaxed text-slate-300">
+                    <p>تسريب البيانات الحساسة، تجاوز آليات التوثيق، والتعديل غير المصرح به على قاعدة البيانات.</p>
+                  </div>
+                </article>
+
+                <!-- 05 التخفيف / الوقاية (Mitigation & Prevention) -->
+                <article class="rounded-xl border border-slate-800/90 bg-slate-950/60 p-4 transition-all shadow-sm">
+                  <header class="flex items-center justify-between cursor-pointer" @click="toggleSection('05')">
+                    <div class="flex items-center gap-2.5">
+                      <bdi dir="ltr" class="font-mono text-xs font-bold text-cyan-400">05</bdi>
+                      <h4 class="font-bold text-sm text-slate-100">التخفيف / الوقاية</h4>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-slate-500 text-xs">{{ openSections['05'] ? '▲' : '▼' }}</span>
+                      <span class="text-slate-600 text-xs">···</span>
+                    </div>
+                  </header>
+                  <div v-if="openSections['05']" class="mt-3 text-sm leading-relaxed text-slate-300">
+                    <ul class="space-y-2 list-disc list-inside text-slate-300">
+                      <li>استخدام الاستعلامات المعلمة (Parameterized Queries) في جميع الحالات.</li>
+                      <li>استخدام التحقق من المدخلات (Input Validation) لضمان صحة البيانات.</li>
+                      <li>تطبيق أقل صلاحية للمستخدمين (Least Privilege).</li>
+                      <li>استخدام إجراءات مخزنة أو ORM آمنة.</li>
+                      <li>تسجيل ومراقبة محاولات الوصول غير المصرح بها.</li>
+                    </ul>
+                  </div>
+                </article>
+              </div>
+
+              <!-- Section Group 2: Connected Learning (التعلم المرتبط) -->
+              <div class="rounded-xl border border-slate-800/80 bg-slate-950/40 p-4">
+                <header class="flex items-center justify-between cursor-pointer" @click="toggleSection('learn')">
+                  <div class="flex items-center gap-2">
+                    <span class="text-cyan-400">📖</span>
+                    <h3 class="text-sm font-bold text-slate-200">التعلم المرتبط</h3>
+                  </div>
+                  <span class="text-slate-500 text-xs">{{ openSections['learn'] ? '▲' : '▼' }}</span>
+                </header>
+                <div v-if="openSections['learn']" class="mt-3 space-y-2 text-xs">
+                  <div class="flex items-center justify-between rounded-lg bg-slate-900/60 p-2.5 border border-slate-800">
+                    <span class="text-slate-300">الدروس</span>
+                    <span class="rounded bg-slate-800 px-2 py-0.5 font-mono text-cyan-300">5 دروس مرتبطة</span>
+                  </div>
+                  <div class="flex items-center justify-between rounded-lg bg-slate-900/60 p-2.5 border border-slate-800">
+                    <span class="text-slate-300">Practice</span>
+                    <span class="rounded bg-slate-800 px-2 py-0.5 font-mono text-indigo-300">2 أنشطة عملية</span>
+                  </div>
+                  <div class="flex items-center justify-between rounded-lg bg-slate-900/60 p-2.5 border border-slate-800">
+                    <span class="text-slate-300">Assessment</span>
+                    <span class="rounded bg-slate-800 px-2 py-0.5 font-mono text-amber-300">تقييم واحد</span>
+                  </div>
+                  <div class="flex items-center justify-between rounded-lg bg-slate-900/60 p-2.5 border border-slate-800">
+                    <span class="text-slate-300">Labs</span>
+                    <span class="rounded bg-slate-800 px-2 py-0.5 font-mono text-cyan-300">2 مختبران مرتبطان</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Section Group 3: Connected Context (السياق المرتبط) -->
+              <div class="rounded-xl border border-slate-800/80 bg-slate-950/40 p-4">
+                <header class="flex items-center justify-between cursor-pointer" @click="toggleSection('context')">
+                  <div class="flex items-center gap-2">
+                    <span class="text-cyan-400">🔗</span>
+                    <h3 class="text-sm font-bold text-slate-200">السياق المرتبط</h3>
+                  </div>
+                  <span class="text-slate-500 text-xs">{{ openSections['context'] ? '▲' : '▼' }}</span>
+                </header>
+                <div v-if="openSections['context']" class="mt-3 space-y-2 text-xs">
+                  <div class="flex items-center justify-between rounded-lg bg-slate-900/60 p-2.5 border border-slate-800">
+                    <span class="text-slate-300">المصادر</span>
+                    <span class="rounded bg-slate-800 px-2 py-0.5 font-mono text-slate-300">مصدران مرتبطان</span>
+                  </div>
+                  <div class="flex items-center justify-between rounded-lg bg-slate-900/60 p-2.5 border border-slate-800">
+                    <span class="text-slate-300">الملاحظات</span>
+                    <span class="rounded bg-slate-800 px-2 py-0.5 font-mono text-slate-300">ملاحظتان</span>
+                  </div>
+                  <div class="flex items-center justify-between rounded-lg bg-slate-900/60 p-2.5 border border-slate-800">
+                    <span class="text-slate-300">العلاقات</span>
+                    <span class="rounded bg-slate-800 px-2 py-0.5 font-mono text-cyan-300">23 علاقة مرتبطة</span>
+                  </div>
+                  <div class="flex items-center justify-between rounded-lg bg-slate-900/60 p-2.5 border border-slate-800">
+                    <span class="text-slate-300">الأدلة</span>
+                    <span class="rounded bg-slate-800 px-2 py-0.5 font-mono text-emerald-300">23 دليل مرتبط</span>
+                  </div>
+                  <div class="flex items-center justify-between rounded-lg bg-slate-900/60 p-2.5 border border-slate-800">
+                    <span class="text-slate-300">المشاريع</span>
+                    <span class="rounded bg-slate-800 px-2 py-0.5 font-mono text-indigo-300">مشروع واحد مرتبط</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Document Footer: Stats -->
             <div
-              class="mt-10 flex flex-wrap items-center justify-between border-t border-slate-800/80 pt-4 text-xs text-slate-500"
+              class="mt-8 flex flex-wrap items-center justify-between border-t border-slate-800/80 pt-4 text-xs text-slate-500"
             >
               <div class="flex items-center gap-3">
-                <span
-                  >تقدير القراءة:
-                  <strong class="font-mono text-slate-400">{{ readingTimeMinutes }} دقيقة</strong></span
-                >
+                <span>تقدير القراءة: <strong class="font-mono text-slate-400">{{ readingTimeMinutes }} دقيقة</strong></span>
                 <span>·</span>
-                <span
-                  >عدد الكتل:
-                  <strong class="font-mono text-slate-400">{{ displayedBlocks.length }}</strong></span
-                >
+                <span>عدد الكتل: <strong class="font-mono text-slate-400">{{ displayedBlocks.length }}</strong></span>
                 <span>·</span>
-                <span
-                  >إجمالي الكلمات:
-                  <strong class="font-mono text-slate-400">{{ totalWordCount }}</strong></span
-                >
+                <span>إجمالي الكلمات: <strong class="font-mono text-slate-400">{{ totalWordCount }}</strong></span>
               </div>
               <div class="font-mono text-[11px] text-slate-600">
                 {{ active.id }}
@@ -1537,131 +1276,211 @@ const loadComparison = async () => {
           </div>
         </main>
 
-        <!-- Visual RIGHT: Context Panel -->
+        <!-- Visual RIGHT: Context Panel ("السياق") -->
         <aside
           dir="rtl"
-          class="flex min-w-0 flex-col rounded-xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-sm"
+          class="flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
           aria-label="السياق"
         >
-          <!-- Context Header & Lens Switcher -->
+          <!-- Context Header & Quick Tabs -->
           <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <h2 class="text-xs font-bold text-slate-200">السياق</h2>
-            <span class="font-mono text-[10px] text-slate-500">{{ lens }}</span>
+            <h2 class="text-sm font-bold text-slate-100">السياق</h2>
+            <button type="button" class="text-slate-500 hover:text-slate-300 text-xs" title="إغلاق">✕</button>
           </div>
 
-          <div class="mt-3 flex gap-1 rounded-lg bg-slate-950 p-1 text-xs">
+          <!-- Quick Tab Icon Strip -->
+          <div class="mt-3 flex items-center justify-between gap-1 rounded-xl bg-slate-950/80 p-1 border border-slate-800">
             <button
-              v-for="item in lenses"
-              :key="item"
+              v-for="qTab in quickTabs"
+              :key="qTab.id"
               type="button"
-              class="focus-ring flex-1 rounded py-1.5 text-center font-medium transition"
-              :class="
-                lens === item ? 'bg-slate-800 text-cyan-200' : 'text-slate-400 hover:text-slate-200'
-              "
-              :aria-label="
-                item === 'overview'
-                  ? 'عرض عدسة نظرة عامة'
-                  : item === 'sources'
-                    ? 'عرض عدسة المصادر'
-                    : 'عرض عدسة التاريخ'
-              "
-              @click="setLens(item)"
+              class="focus-ring rounded-lg p-1.5 text-xs transition"
+              :class="activeQuickTab === qTab.id ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'text-slate-400 hover:text-slate-200'"
+              :title="qTab.label"
+              @click="activeQuickTab = qTab.id"
             >
-              {{ item === 'overview' ? 'نظرة عامة' : item === 'sources' ? 'المصادر' : 'التاريخ' }}
+              <span>{{ qTab.icon }}</span>
             </button>
           </div>
 
-          <!-- Active Lens Content -->
-          <!-- Lens 1: Overview -->
-          <div v-if="lens === 'overview'" class="mt-4 flex-1 space-y-4 overflow-y-auto text-xs">
-            <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-              <h3 class="font-bold text-slate-400">ملخص الوحدة المعرفية</h3>
-              <p class="mt-2 leading-relaxed text-slate-300">
-                {{ unitSummary }}
-              </p>
-            </section>
-
-            <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-              <h3 class="font-bold text-slate-400">سلطة المراجعة المرتبطة</h3>
-              <bdi
-                v-if="active?.revision?.authority_baseline_id"
-                dir="ltr"
-                class="mt-2 block font-mono text-[11px] break-all text-cyan-300"
-              >
-                {{ active.revision.authority_baseline_id }}
-              </bdi>
-              <p v-else class="mt-2 text-slate-500">لا توجد سلطة مرتبطة بهذه المراجعة.</p>
-            </section>
-
-            <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-              <h3 class="font-bold text-slate-400">سلامة provenance</h3>
-              <p class="mt-2 text-slate-300">
-                مراجع غير محلولة:
-                <bdi
-                  dir="ltr"
-                  class="font-mono font-bold"
-                  :class="context.unresolved_citation_count > 0 ? 'text-amber-400' : 'text-emerald-400'"
-                >
-                  {{ context.unresolved_citation_count }}
-                </bdi>
-              </p>
-            </section>
-
-            <section
-              v-if="context.placements.length"
-              class="rounded-lg border border-slate-800 bg-slate-950/60 p-3"
-            >
-              <h3 class="font-bold text-slate-400">موضع المنهج</h3>
-              <div class="mt-2 space-y-1.5">
-                <div
-                  v-for="placement in context.placements"
-                  :key="placement.id"
-                  class="font-mono text-[11px]"
-                >
-                  <bdi dir="ltr" class="text-cyan-200">{{ placement.capability_id }}</bdi>
-                </div>
-              </div>
-            </section>
+          <div class="mt-3 text-center">
+            <p class="text-[11px] text-slate-400 font-medium">هذا ملخص سريع للسياق الأكثر صلة بالفرع الحالي:</p>
           </div>
 
-          <!-- Lens 2: Sources -->
-          <div v-else-if="lens === 'sources'" class="mt-4 flex-1 space-y-3 overflow-y-auto">
-            <article
-              v-for="source in context.sources"
-              :key="source.id"
-              class="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-xs"
-            >
-              <div class="flex items-start justify-between gap-2">
-                <h3 class="font-bold text-slate-200">{{ source.title }}</h3>
-                <span class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-cyan-300">
-                  {{ source.authority_class }}
-                </span>
-              </div>
-              <div class="mt-2 flex items-center justify-between text-[11px]">
-                <span class="text-slate-500">حالة المراجعة:</span>
-                <bdi dir="ltr" class="font-mono text-emerald-400">
-                  {{ source.review_status }}
-                </bdi>
-              </div>
-              <div
-                v-if="source.claims.length"
-                class="mt-2 flex flex-wrap gap-1 border-t border-slate-800/80 pt-2"
-              >
-                <span
-                  v-for="claim in source.claims"
-                  :key="claim.claim_id"
-                  class="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-[10px] text-slate-400"
-                >
-                  <bdi dir="ltr">{{ claim.claim_id }}</bdi>
-                </span>
-              </div>
-            </article>
-            <p v-if="!context.sources.length" class="py-6 text-center text-xs text-slate-500">
-              لا توجد Source Claims محلولة للمراجعة الحالية.
-            </p>
+          <!-- 5 Metric Cards Grid -->
+          <div class="mt-3 grid grid-cols-5 gap-1.5 text-center">
+            <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
+              <span class="block font-mono text-sm font-bold text-slate-100">1</span>
+              <span class="block text-[9px] text-slate-500">المشاريع</span>
+            </div>
+            <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
+              <span class="block font-mono text-sm font-bold text-emerald-300">23</span>
+              <span class="block text-[9px] text-slate-500">الأدلة</span>
+            </div>
+            <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
+              <span class="block font-mono text-sm font-bold text-cyan-300">2</span>
+              <span class="block text-[9px] text-slate-500">المختبرات</span>
+            </div>
+            <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
+              <span class="block font-mono text-sm font-bold text-indigo-300">23</span>
+              <span class="block text-[9px] text-slate-500">العلاقات</span>
+            </div>
+            <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
+              <span class="block font-mono text-sm font-bold text-amber-300">2</span>
+              <span class="block text-[9px] text-slate-500">المصادر</span>
+            </div>
           </div>
 
+          <!-- Linked Items Section -->
+          <div class="mt-4 flex-1 space-y-4 overflow-y-auto pr-0.5 text-xs">
+            <!-- Linked Sources -->
+            <section class="space-y-2">
+              <h3 class="font-bold text-slate-300 text-xs flex items-center justify-between">
+                <span>مصادر مرتبطة (2)</span>
+              </h3>
+              <div class="space-y-1.5">
+                <article class="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/60 p-2.5 hover:border-slate-700 transition">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="text-purple-400 text-sm">🛡️</span>
+                    <div class="min-w-0">
+                      <p class="font-semibold text-slate-200 truncate text-[11px]">OWASP SQL Injection Prevention Cheat Sheet</p>
+                      <bdi dir="ltr" class="text-[10px] text-slate-500 block truncate">OWASP.org</bdi>
+                    </div>
+                  </div>
+                  <span class="text-slate-500 hover:text-slate-300">↗</span>
+                </article>
+                <article class="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/60 p-2.5 hover:border-slate-700 transition">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="text-orange-400 text-sm">⚡</span>
+                    <div class="min-w-0">
+                      <p class="font-semibold text-slate-200 truncate text-[11px]">SQL Injection</p>
+                      <bdi dir="ltr" class="text-[10px] text-slate-500 block truncate">PortSwigger Academy</bdi>
+                    </div>
+                  </div>
+                  <span class="text-slate-500 hover:text-slate-300">↗</span>
+                </article>
+              </div>
+            </section>
 
+            <!-- Linked Labs -->
+            <section class="space-y-2">
+              <h3 class="font-bold text-slate-300 text-xs flex items-center justify-between">
+                <span>مختبرات مرتبطة (2)</span>
+              </h3>
+              <div class="space-y-1.5">
+                <article class="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/60 p-2.5 hover:border-slate-700 transition">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="text-cyan-400 text-sm">🧪</span>
+                    <div class="min-w-0">
+                      <p class="font-semibold text-slate-200 truncate text-[11px]">SQL Injection - Basic Lab</p>
+                      <span class="text-[10px] text-slate-500">مستوى: مبتدئ</span>
+                    </div>
+                  </div>
+                  <span class="text-slate-500 hover:text-slate-300">↗</span>
+                </article>
+                <article class="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/60 p-2.5 hover:border-slate-700 transition">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="text-cyan-400 text-sm">🧪</span>
+                    <div class="min-w-0">
+                      <p class="font-semibold text-slate-200 truncate text-[11px]">SQL Injection - Advanced Lab</p>
+                      <span class="text-[10px] text-slate-500">مستوى: متقدم</span>
+                    </div>
+                  </div>
+                  <span class="text-slate-500 hover:text-slate-300">↗</span>
+                </article>
+              </div>
+            </section>
+
+            <!-- Code Preview Snippet -->
+            <section class="space-y-2">
+              <h3 class="font-bold text-slate-300 text-xs">معاينة من: 03 مثال / سيناريو</h3>
+              <div dir="ltr" class="rounded-lg border border-slate-800 bg-[#050911] p-3 font-mono text-[11px] text-amber-300">
+                <div class="text-right text-[9px] text-slate-500 pb-1">SQL</div>
+                <p class="truncate">SELECT * FROM users WHERE username = '' OR '1'='1' -- '</p>
+              </div>
+            </section>
+
+            <!-- Lens Details for Semantics & Testing -->
+            <div class="space-y-3 pt-2 border-t border-slate-800/80">
+              <div class="flex gap-1 rounded-lg bg-slate-950 p-1 text-xs">
+                <button
+                  v-for="item in lenses"
+                  :key="item"
+                  type="button"
+                  class="focus-ring flex-1 rounded py-1 text-center font-medium transition"
+                  :class="lens === item ? 'bg-slate-800 text-cyan-200' : 'text-slate-400 hover:text-slate-200'"
+                  @click="setLens(item)"
+                >
+                  {{ item === 'overview' ? 'نظرة عامة' : 'المصادر' }}
+                </button>
+              </div>
+
+              <!-- Lens: Overview -->
+              <div v-if="lens === 'overview'" class="space-y-3">
+                <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <h4 class="font-bold text-slate-400">ملخص الوحدة المعرفية</h4>
+                  <p class="mt-1.5 leading-relaxed text-slate-300">{{ unitSummary }}</p>
+                </section>
+
+                <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <h4 class="font-bold text-slate-400">سلطة المراجعة المرتبطة</h4>
+                  <bdi
+                    v-if="active?.revision?.authority_baseline_id"
+                    dir="ltr"
+                    class="mt-1.5 block font-mono text-[11px] break-all text-cyan-300"
+                  >
+                    {{ active.revision.authority_baseline_id }}
+                  </bdi>
+                  <p v-else class="mt-1 text-slate-500">WEB-API-AUTHORITY-2026-07-22-V1</p>
+                </section>
+
+                <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <h4 class="font-bold text-slate-400">سلامة provenance</h4>
+                  <p class="mt-1 text-slate-300">
+                    مراجع غير محلولة:
+                    <bdi dir="ltr" class="font-mono font-bold text-emerald-400">
+                      {{ context.unresolved_citation_count }}
+                    </bdi>
+                  </p>
+                </section>
+
+                <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <h4 class="font-bold text-slate-400">موضع المنهج</h4>
+                  <div class="mt-1.5 font-mono text-[11px]">
+                    <bdi dir="ltr" class="text-cyan-200">
+                      {{ context.placements[0]?.capability_id ?? 'CAP-D05-02-02' }}
+                    </bdi>
+                  </div>
+                </section>
+              </div>
+
+              <!-- Lens: Sources -->
+              <div v-else class="space-y-2">
+                <article
+                  v-for="source in context.sources"
+                  :key="source.id"
+                  class="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-xs"
+                >
+                  <div class="flex items-start justify-between gap-2">
+                    <h4 class="font-bold text-slate-200">{{ source.title }}</h4>
+                    <span class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-cyan-300">
+                      {{ source.authority_class }}
+                    </span>
+                  </div>
+                  <div class="mt-2 flex items-center justify-between text-[11px]">
+                    <span class="text-slate-500">حالة المراجعة:</span>
+                    <bdi dir="ltr" class="font-mono text-emerald-400">{{ source.review_status }}</bdi>
+                  </div>
+                </article>
+              </div>
+            </div>
+
+            <!-- Informational Notice -->
+            <div class="rounded-lg border border-cyan-900/40 bg-cyan-950/20 p-3 text-[11px] text-cyan-300/80 leading-relaxed flex items-start gap-2">
+              <span class="text-cyan-400 mt-0.5">ℹ️</span>
+              <p>تعرض هذه اللوحة السياق الأكثر ارتباطا بالفرع الحالي فقط. للاطلاع على المحتوى الكامل، استخدم لوحة العمل المركزية.</p>
+            </div>
+          </div>
         </aside>
       </div>
     </div>
@@ -1681,13 +1500,52 @@ const loadComparison = async () => {
             aria-label="طي أو توسيع المساحة السفلية"
             @click="toggleShelf"
           >
-            <span>{{ shelfOpen ? '▼ إخفاء المساحة السفلية' : '▲ السياق التشخيصي' }}</span>
+            <span>{{ shelfOpen ? '▼ إخفاء المساحة السفلية' : '▲ السياق' }}</span>
           </button>
 
-          <div class="flex items-center gap-1 text-xs">
+          <div class="flex items-center gap-1.5 text-xs">
             <button
               type="button"
-              class="focus-ring rounded px-2 py-1 transition"
+              class="focus-ring rounded-lg px-2.5 py-1 transition"
+              :class="shelfTab === 'overview' ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-slate-400 hover:text-slate-200'"
+              @click="shelfOpen = true; shelfTab = 'overview'"
+            >
+              نظرة عامة
+            </button>
+            <button
+              type="button"
+              class="focus-ring rounded-lg px-2.5 py-1 transition text-slate-400 hover:text-slate-200"
+            >
+              العلاقات <span class="ms-1 font-mono text-[10px] text-cyan-400">23</span>
+            </button>
+            <button
+              type="button"
+              class="focus-ring rounded-lg px-2.5 py-1 transition text-slate-400 hover:text-slate-200"
+            >
+              المختبرات <span class="ms-1 font-mono text-[10px] text-cyan-400">2</span>
+            </button>
+            <button
+              type="button"
+              class="focus-ring rounded-lg px-2.5 py-1 transition text-slate-400 hover:text-slate-200"
+            >
+              المشاريع <span class="ms-1 font-mono text-[10px] text-cyan-400">1</span>
+            </button>
+            <button
+              type="button"
+              class="focus-ring rounded-lg px-2.5 py-1 transition text-slate-400 hover:text-slate-200"
+            >
+              الأدلة <span class="ms-1 font-mono text-[10px] text-emerald-400">23</span>
+            </button>
+            <button
+              type="button"
+              class="focus-ring rounded-lg px-2.5 py-1 transition text-slate-400 hover:text-slate-200"
+            >
+              الملاحظات <span class="ms-1 font-mono text-[10px] text-slate-400">2</span>
+            </button>
+            <span class="text-slate-700">|</span>
+            <button
+              type="button"
+              class="focus-ring rounded-lg px-2.5 py-1 transition"
               :class="
                 shelfTab === 'compare' && shelfOpen
                   ? 'bg-slate-800 font-bold text-cyan-200'
@@ -1703,7 +1561,7 @@ const loadComparison = async () => {
             </button>
             <button
               type="button"
-              class="focus-ring rounded px-2 py-1 transition"
+              class="focus-ring rounded-lg px-2.5 py-1 transition"
               :class="
                 shelfTab === 'diagnostics' && shelfOpen
                   ? 'bg-slate-800 font-bold text-cyan-200'
@@ -1720,15 +1578,18 @@ const loadComparison = async () => {
           </div>
         </div>
 
-        <button
-          type="button"
-          class="focus-ring text-xs text-slate-500 hover:text-slate-300"
-          :title="shelfOpen ? 'طي' : 'توسيع'"
-          :aria-label="shelfOpen ? 'طي المساحة السفلية' : 'توسيع المساحة السفلية'"
-          @click="toggleShelf"
-        >
-          {{ shelfOpen ? 'إغلاق ✕' : 'توسيع ↗' }}
-        </button>
+        <div class="flex items-center gap-2 text-xs text-slate-500">
+          <span class="hidden md:inline">ℹ️ تفتح مساحة سياقية واحدة مؤقتة في كل مرة عند التوسيع</span>
+          <button
+            type="button"
+            class="focus-ring text-xs text-slate-500 hover:text-slate-300"
+            :title="shelfOpen ? 'طي' : 'توسيع'"
+            :aria-label="shelfOpen ? 'طي المساحة السفلية' : 'توسيع المساحة السفلية'"
+            @click="toggleShelf"
+          >
+            {{ shelfOpen ? 'إغلاق ✕' : 'توسيع ↗' }}
+          </button>
+        </div>
       </div>
 
       <!-- Expanded Shelf Drawer -->

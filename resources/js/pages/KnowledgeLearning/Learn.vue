@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import KnowledgeTabs from './components/KnowledgeTabs.vue';
 
@@ -89,7 +89,6 @@ const props = defineProps<{
 }>();
 
 const selectedStepId = ref<string | null>(props.journey?.items?.[0]?.id ?? null);
-
 const selectStep = (id: string) => {
   selectedStepId.value = id;
 };
@@ -102,178 +101,653 @@ const selectedStep = computed<JourneyItem | null>(() => {
     null
   );
 });
+
+const openLessonSections = ref<Record<string, boolean>>({
+  '01': false,
+  '02': true,
+  '03': false,
+  '04': false,
+  '05': false,
+  'practice': false,
+  'assessment': false,
+  'lab': false,
+});
+
+const toggleLessonSection = (key: string) => {
+  openLessonSections.value[key] = !openLessonSections.value[key];
+};
+
+const shelfOpen = ref(false);
+const toggleShelf = () => {
+  shelfOpen.value = !shelfOpen.value;
+};
 </script>
 
 <template>
-  <Head title="المعرفة والتعلّم — التعلّم" />
-  <div dir="rtl" class="flex min-h-screen flex-col bg-slate-950 text-slate-100 antialiased">
-    <div class="mx-auto w-full max-w-[1720px] flex-1 px-4 py-4 sm:px-6">
+  <Head title="المعرفة والتعلّم — التعلّم والدروس" />
+  <div dir="rtl" class="min-h-screen bg-slate-950 text-slate-100 dark:bg-[#070c14] dark:text-slate-100">
+    <div class="w-full px-4 py-4 sm:px-6 xl:px-8">
+      <!-- TOP Tools & Modes Bar -->
       <div
         dir="ltr"
         class="grid min-h-[740px] grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_300px]"
       >
-        <!-- LEFT: Learning Journey -->
+        <!-- LEFT: Learning Journey ("مسار التعلم") -->
         <aside
           dir="rtl"
-          class="flex min-w-0 flex-col rounded-xl border border-slate-800 bg-slate-900/50 p-4"
+          class="flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
           aria-label="رحلة التعلّم"
         >
-          <div class="mb-4">
-            <h2 class="text-xs font-bold text-slate-400">رحلة التعلّم</h2>
+          <!-- Track Overall Progress Header -->
+          <div class="border-b border-slate-800/80 pb-3">
+            <div class="flex items-center justify-between">
+              <h2 class="text-xs font-bold text-slate-200">مسار التعلم</h2>
+              <span class="font-mono text-[11px] font-bold text-cyan-300">التقدم الكلي 28%</span>
+            </div>
+            <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+              <div class="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-300" style="width: 28%"></div>
+            </div>
+            <p class="mt-2.5 text-xs font-semibold text-slate-300 truncate">
+              {{ selectedStep?.capability_id ?? 'أمن تطبيقات الويب' }}
+            </p>
           </div>
-          <div v-if="journey.items.length" class="flex-1 space-y-2 overflow-y-auto">
-            <button
-              v-for="(item, index) in journey.items"
-              :key="item.id"
-              type="button"
-              class="focus-ring block w-full rounded-lg px-3 py-2 text-right text-sm transition"
-              :class="
-                item.id === selectedStep?.id
-                  ? 'border-r-2 border-cyan-400 bg-cyan-400/10 text-cyan-100'
-                  : 'text-slate-300 hover:bg-slate-800'
-              "
-              @click="selectStep(item.id)"
-            >
+
+          <!-- Timeline Stepper List -->
+          <div class="mt-3 flex-1 space-y-2 overflow-y-auto pr-0.5 text-xs">
+            <!-- Step 1: HTTP Basics (Completed) -->
+            <div class="flex items-center justify-between rounded-lg p-2 hover:bg-slate-900/60 transition">
               <div class="flex items-center gap-2">
-                <span class="text-xs">{{ index + 1 }}.</span>
-                <bdi dir="ltr" class="font-mono">{{ item.practice_id }}</bdi>
+                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">✓</span>
+                <span class="font-medium text-slate-300">HTTP Basics</span>
               </div>
-              <div class="mt-1 flex items-center justify-between text-[10px]">
-                <span class="text-slate-500">{{ item.activity_state }}</span>
-                <span v-if="item.successful_attempt_count > 0" class="text-emerald-400">✓</span>
+              <span class="text-[10px] text-emerald-400 font-medium">مكتمل</span>
+            </div>
+
+            <!-- Step 2: SQL Basics (Completed) -->
+            <div class="flex items-center justify-between rounded-lg p-2 hover:bg-slate-900/60 transition">
+              <div class="flex items-center gap-2">
+                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">✓</span>
+                <span class="font-medium text-slate-300">SQL Basics</span>
               </div>
-            </button>
+              <span class="text-[10px] text-emerald-400 font-medium">مكتمل</span>
+            </div>
+
+            <!-- Step 3: Active Module (SQL Injection) -->
+            <div class="rounded-xl border border-cyan-500/40 bg-cyan-950/30 p-2.5 space-y-2 shadow-sm shadow-cyan-950/40">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-slate-950 text-[10px] font-black">●</span>
+                  <span class="font-bold text-cyan-200">{{ active?.title_ar ?? 'SQL Injection' }}</span>
+                </div>
+                <span class="font-mono text-[10px] text-cyan-400">3/7</span>
+              </div>
+
+              <!-- Sub-steps list inside active module -->
+              <div class="space-y-1 ms-3 border-s-2 border-cyan-700/50 ps-2.5 text-[11px]">
+                <div class="flex items-center justify-between py-1 text-slate-300">
+                  <span class="truncate">01 SQL Injection المقدمة</span>
+                  <span class="text-emerald-400 text-[10px]">✓</span>
+                </div>
+                <div class="flex items-center justify-between rounded-md bg-cyan-500/20 px-2 py-1 font-semibold text-cyan-100 border border-cyan-500/30">
+                  <span class="truncate">02 فهم الاستعلامات الضعيفة</span>
+                  <span class="text-[9px] font-bold text-cyan-300">الحالي</span>
+                </div>
+                <div class="flex items-center justify-between py-1 text-slate-400">
+                  <span class="truncate">03 أنماط الإدخال الضار</span>
+                  <span class="text-slate-600">○</span>
+                </div>
+                <div class="flex items-center justify-between py-1 text-slate-400">
+                  <span class="truncate">04 الأثر وإساءة الاستخدام</span>
+                  <span class="text-slate-600">○</span>
+                </div>
+                <div class="flex items-center justify-between py-1 text-slate-400">
+                  <span class="truncate">05 التخفيف</span>
+                  <span class="text-slate-600">○</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Subsequent Steps in Track Sequence -->
+            <div class="flex items-center justify-between rounded-lg p-2 text-slate-400 hover:bg-slate-900/60 transition">
+              <div class="flex items-center gap-2">
+                <span class="text-purple-400 text-xs">⚡</span>
+                <span>Practice</span>
+              </div>
+              <span class="text-[10px] text-slate-500">التالي: تدريب مهاري</span>
+            </div>
+            <div class="flex items-center justify-between rounded-lg p-2 text-slate-400 hover:bg-slate-900/60 transition">
+              <div class="flex items-center gap-2">
+                <span class="text-blue-400 text-xs">📝</span>
+                <span>Assessment</span>
+              </div>
+              <span class="text-[10px] text-slate-500">التالي: اختبار وتحقق</span>
+            </div>
+            <div class="flex items-center justify-between rounded-lg p-2 text-slate-400 hover:bg-slate-900/60 transition">
+              <div class="flex items-center gap-2">
+                <span class="text-cyan-400 text-xs">🧪</span>
+                <span>Lab</span>
+              </div>
+              <span class="text-[10px] text-slate-500">التالي: بيئة معملية</span>
+            </div>
+
+            <!-- Dynamic Journey Items from Props -->
+            <div v-if="journey.items.length" class="mt-4 pt-3 border-t border-slate-800 space-y-1.5">
+              <p class="text-[10px] font-bold uppercase text-slate-500 font-mono">الأنشطة المسجلة</p>
+              <button
+                v-for="(item, index) in journey.items"
+                :key="item.id"
+                type="button"
+                class="focus-ring block w-full rounded-lg px-2.5 py-1.5 text-right text-xs transition"
+                :class="
+                  item.id === selectedStep?.id
+                    ? 'border border-cyan-500/40 bg-cyan-500/10 text-cyan-100'
+                    : 'text-slate-400 hover:bg-slate-900/60 hover:text-slate-200'
+                "
+                @click="selectStep(item.id)"
+              >
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-1.5">
+                    <span>{{ index + 1 }}.</span>
+                    <bdi dir="ltr" class="font-mono font-semibold">{{ item.practice_id }}</bdi>
+                  </div>
+                  <span v-if="item.successful_attempt_count > 0" class="text-emerald-400 text-xs">✓</span>
+                </div>
+              </button>
+            </div>
           </div>
-          <p v-else class="mt-4 text-sm leading-7 text-slate-500">
-            لا توجد رحلة تعلم مسجلة لهذه الوحدة.
-          </p>
+
+          <!-- Bottom Action: View Path Map -->
+          <div class="mt-3 pt-3 border-t border-slate-800/80">
+            <Link
+              href="/knowledge/visualize"
+              class="focus-ring flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700/80 bg-slate-800/60 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-white transition shadow-sm"
+            >
+              <span>🗺️</span>
+              <span>عرض خريطة المسار</span>
+            </Link>
+          </div>
         </aside>
 
-        <!-- CENTER: Lesson / Content Surface -->
+        <!-- CENTER: Lesson Surface / Learning Content -->
         <main
           dir="rtl"
-          class="flex min-w-0 flex-col rounded-xl border border-slate-800 bg-slate-900/35 p-5 sm:p-7"
+          class="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 shadow-lg backdrop-blur sm:p-7 dark:bg-[#0b1322]/90"
         >
           <div v-if="active" class="flex min-w-0 flex-1 flex-col">
+            <!-- Gateways -->
             <div class="mb-5 border-b border-slate-800/80 pb-4">
               <KnowledgeTabs active="learn" :object-id="active?.id" />
             </div>
 
-            <header class="border-b border-slate-800 pb-5">
-              <p class="text-xs font-bold text-cyan-300">سطح الدرس والمحتوى التعليمي</p>
-              <h1 class="mt-2 text-2xl font-black sm:text-3xl">{{ active.title_ar }}</h1>
-              <div class="mt-2 flex flex-wrap gap-2 text-sm text-slate-400">
-                <bdi dir="ltr" class="font-mono text-cyan-200">{{ active.id }}</bdi>
+            <!-- Lesson Header -->
+            <header class="border-b border-slate-800/80 pb-5">
+              <!-- Breadcrumbs & Actions Row -->
+              <div class="flex flex-wrap items-center justify-between gap-3 text-xs">
+                <nav
+                  aria-label="مسار الدرس"
+                  class="flex items-center gap-1.5 font-mono text-slate-400"
+                >
+                  <span class="text-slate-300 font-semibold">{{ active.title_ar }}</span>
+                  <span class="text-slate-600">&gt;</span>
+                  <span class="text-slate-400">أمن تطبيقات الويب</span>
+                  <span class="text-slate-600">&gt;</span>
+                  <bdi dir="ltr" class="text-cyan-400">
+                    {{ selectedStep?.capability_id ?? 'أمن تطبيقات الويب' }}
+                  </bdi>
+                </nav>
+                <div class="flex items-center gap-1.5 text-slate-400">
+                  <button type="button" class="focus-ring rounded-lg p-1.5 hover:bg-slate-800 hover:text-amber-300" title="إضافة للمفضلة">⭐</button>
+                  <button type="button" class="focus-ring rounded-lg p-1.5 hover:bg-slate-800 hover:text-cyan-300" title="نسخ الرابط">🔗</button>
+                  <button type="button" class="focus-ring rounded-lg p-1.5 hover:bg-slate-800 hover:text-slate-200" title="نسخ المعرف">📋</button>
+                  <button type="button" class="focus-ring rounded-lg p-1.5 hover:bg-slate-800 hover:text-slate-200" title="تكبير">⛶</button>
+                </div>
+              </div>
+
+              <!-- Main Title & Badges -->
+              <div class="mt-3 flex flex-wrap items-start justify-between gap-4">
+                <div class="min-w-0">
+                  <p class="text-xs font-bold text-cyan-300">سطح الدرس والمحتوى التعليمي</p>
+                  <div class="mt-1 flex flex-wrap items-center gap-3">
+                    <h1 class="text-2xl font-black text-slate-100 sm:text-3xl tracking-tight">
+                      {{ active.title_ar }}
+                    </h1>
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-950/70 px-3 py-0.5 text-xs font-bold text-emerald-300 shadow-sm">
+                      <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                      نشط الآن
+                    </span>
+                    <span class="inline-flex items-center rounded-full border border-cyan-500/40 bg-cyan-950/60 px-2.5 py-0.5 text-xs font-semibold text-cyan-300">
+                      مستوى 1
+                    </span>
+                  </div>
+                  <div class="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-400 font-mono">
+                    <bdi dir="ltr" class="text-cyan-300 font-bold">{{ active.id }}</bdi>
+                    <span class="text-slate-600">·</span>
+                    <span class="text-slate-400">مستكمل من التعلم 3</span>
+                    <span class="text-slate-600">·</span>
+                    <span class="text-emerald-400 font-semibold flex items-center gap-1">
+                      <span>✓</span>
+                      <span>تم حفظ التقدم</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Taxonomy Tags -->
+              <div class="mt-4 flex flex-wrap items-center gap-2 text-xs">
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-700/80 bg-slate-800/80 px-3 py-1 font-mono text-[11px] text-slate-200 shadow-sm">
+                  <span>🎯</span>
+                  <span>OWASP</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-700/80 bg-slate-800/80 px-3 py-1 font-mono text-[11px] text-slate-200 shadow-sm">
+                  <span>🛡️</span>
+                  <span>CWE-89</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-700/80 bg-slate-800/80 px-3 py-1 font-mono text-[11px] text-slate-200 shadow-sm">
+                  <span>🌐</span>
+                  <span>Web</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-700/80 bg-slate-800/80 px-3 py-1 font-mono text-[11px] text-slate-200 shadow-sm">
+                  <span>⚡</span>
+                  <span>Injection</span>
+                </span>
+              </div>
+
+              <!-- Notes & Lesson Toolbar -->
+              <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800/90 bg-slate-950/80 px-4 py-2 shadow-sm">
+                <div class="flex items-center gap-2 text-xs">
+                  <button type="button" class="focus-ring rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1 text-slate-300 hover:bg-slate-800 transition">↩ تراجع</button>
+                  <button type="button" class="focus-ring rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1 text-slate-300 hover:bg-slate-800 transition">↪ إعادة</button>
+                  <button type="button" class="focus-ring inline-flex items-center gap-1 rounded-lg border border-cyan-600/70 bg-cyan-600/20 px-3 py-1 font-bold text-cyan-200 hover:bg-cyan-600/30 transition">
+                    <span>💾</span>
+                    <span>حفظ</span>
+                  </button>
+                  <div class="ms-2 flex items-center gap-1.5 text-slate-400 text-[11px]">
+                    <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
+                    <span>سجلت الملاحظات محفوظة تلقائياً</span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 text-xs text-slate-400 font-mono">
+                  <span>التقدم في الدرس</span>
+                  <span class="text-cyan-300 font-bold">3/7</span>
+                  <div class="h-1.5 w-24 overflow-hidden rounded-full bg-slate-800">
+                    <div class="h-full rounded-full bg-cyan-400" style="width: 43%"></div>
+                  </div>
+                </div>
               </div>
             </header>
 
-            <section class="mt-8 grid flex-1 place-items-center">
-              <div class="text-center">
-                <span class="text-4xl">📝</span>
-                <h2 class="mt-4 text-lg font-bold text-slate-300">
+            <!-- Structured Lesson Cards -->
+            <div class="mt-6 flex-1 space-y-4">
+              <!-- Card 01: SQL Injection (Completed) -->
+              <article class="rounded-xl border border-slate-800/80 bg-slate-950/50 p-4 transition">
+                <header class="flex items-center justify-between cursor-pointer" @click="toggleLessonSection('01')">
+                  <div class="flex items-center gap-2.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">✓</span>
+                    <bdi dir="ltr" class="font-mono text-xs font-bold text-slate-400">01</bdi>
+                    <h3 class="font-bold text-sm text-slate-200">SQL Injection</h3>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-emerald-400">فهم المفهوم وأمثلة مبسطة</span>
+                    <span class="text-slate-500 text-xs">{{ openLessonSections['01'] ? '▲' : '▼' }}</span>
+                  </div>
+                </header>
+              </article>
+
+              <!-- Card 02: Understanding Vulnerable Queries (Active Expanded) -->
+              <article class="rounded-xl border-2 border-cyan-500/60 bg-slate-950/80 p-5 shadow-lg shadow-cyan-950/30 transition">
+                <header class="flex items-center justify-between cursor-pointer border-b border-slate-800/80 pb-3" @click="toggleLessonSection('02')">
+                  <div class="flex items-center gap-2.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-slate-950 text-[10px] font-black">●</span>
+                    <bdi dir="ltr" class="font-mono text-xs font-bold text-cyan-300">02</bdi>
+                    <h3 class="font-bold text-base text-cyan-100">فهم الاستعلامات الضعيفة</h3>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-cyan-300 font-medium">كيف تنشأ نقاط الضعف في الاستعلامات</span>
+                    <span class="text-slate-400 text-xs">{{ openLessonSections['02'] ? '▲' : '▼' }}</span>
+                  </div>
+                </header>
+
+                <div v-if="openLessonSections['02']" class="mt-4 space-y-4 text-sm leading-relaxed text-slate-300">
+                  <!-- Current Goal Callout Box -->
+                  <div class="flex items-center gap-2.5 rounded-xl border border-cyan-500/40 bg-cyan-950/30 px-4 py-3 text-xs text-cyan-200">
+                    <span class="text-base select-none">🎯</span>
+                    <p class="font-semibold">الهدف الحالي: تحديد سبب قابلية الاستعلام لحقن SQL</p>
+                  </div>
+
+                  <p>
+                    يحدث حقن SQL عندما يتم إدخال بيانات غير موثوقة من المستخدم في الاستعلام، مما قد يسمح للمهاجم بتغيير المنطق إلى الوضيعات
+                    حساسة، أو تنفيذ أوامر غير متوقعة.
+                  </p>
+
+                  <div class="text-xs">
+                    <a href="#code-sample" class="text-cyan-300 underline font-medium">مثال على استعلام ضعيف في Java</a>
+                  </div>
+
+                  <!-- Code Block Sample with Line Numbers and SQL Tag -->
+                  <div dir="ltr" class="overflow-hidden rounded-xl border border-slate-800 bg-[#050911] shadow-inner font-mono text-xs">
+                    <div class="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60 px-3 py-1.5">
+                      <span class="text-[11px] font-bold text-cyan-400 uppercase">SQL</span>
+                    </div>
+                    <div class="p-4 space-y-1 text-slate-300">
+                      <div class="flex gap-4">
+                        <span class="select-none text-slate-600 w-4 text-right">1</span>
+                        <span class="text-emerald-300">String query = &quot;SELECT * FROM users WHERE username = '&quot; + user + &quot;'&quot;;</span>
+                      </div>
+                      <div class="flex gap-4">
+                        <span class="select-none text-slate-600 w-4 text-right">2</span>
+                        <span class="text-slate-500">// إدخال المستخدم: ' OR '1'='1</span>
+                      </div>
+                      <div class="flex gap-4">
+                        <span class="select-none text-slate-600 w-4 text-right">3</span>
+                        <span class="text-slate-500">// النتيجة: SELECT * FROM users WHERE username = '' OR '1'='1'</span>
+                      </div>
+                      <div class="flex gap-4">
+                        <span class="select-none text-slate-600 w-4 text-right">4</span>
+                        <span class="text-amber-300 font-bold">SELECT * FROM users WHERE username = '' OR '1'='1' -- '</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Information Tip Callout -->
+                  <div class="rounded-xl border border-cyan-900/50 bg-cyan-950/20 p-4 text-xs text-cyan-200/90 leading-relaxed flex items-start gap-3">
+                    <span class="text-cyan-400 text-base">💡</span>
+                    <div>
+                      <p>أي إدخال غير مصفى من قبل المستخدم مباشرة داخل الاستعلام دون تحقق أو إعدادات مسبقة يُعتبر شرطاً لنقاط الضعف.</p>
+                      <a href="#lesson-details" class="mt-2 inline-block text-cyan-300 underline font-medium">
+                        عرض القسم: المفاهيم، أمثلة الاستعلامات، الأسئلة
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <!-- Card 03: Injection Patterns (Collapsed) -->
+              <article class="rounded-xl border border-slate-800/80 bg-slate-950/50 p-4 transition">
+                <header class="flex items-center justify-between cursor-pointer" @click="toggleLessonSection('03')">
+                  <div class="flex items-center gap-2.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-slate-400 text-[10px]">○</span>
+                    <bdi dir="ltr" class="font-mono text-xs font-bold text-slate-400">03</bdi>
+                    <h3 class="font-bold text-sm text-slate-200">أنماط الإدخال الضار</h3>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-500">أمثلة على بايلودات شائعة</span>
+                    <span class="text-slate-500 text-xs">{{ openLessonSections['03'] ? '▲' : '▼' }}</span>
+                  </div>
+                </header>
+              </article>
+
+              <!-- Card 04: Impact (Collapsed) -->
+              <article class="rounded-xl border border-slate-800/80 bg-slate-950/50 p-4 transition">
+                <header class="flex items-center justify-between cursor-pointer" @click="toggleLessonSection('04')">
+                  <div class="flex items-center gap-2.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-slate-400 text-[10px]">○</span>
+                    <bdi dir="ltr" class="font-mono text-xs font-bold text-slate-400">04</bdi>
+                    <h3 class="font-bold text-sm text-slate-200">الأثر وإساءة الاستخدام</h3>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-500">ما الذي يمكن للمهاجم فعله؟</span>
+                    <span class="text-slate-500 text-xs">{{ openLessonSections['04'] ? '▲' : '▼' }}</span>
+                  </div>
+                </header>
+              </article>
+
+              <!-- Card 05: Mitigation (Collapsed) -->
+              <article class="rounded-xl border border-slate-800/80 bg-slate-950/50 p-4 transition">
+                <header class="flex items-center justify-between cursor-pointer" @click="toggleLessonSection('05')">
+                  <div class="flex items-center gap-2.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-slate-400 text-[10px]">○</span>
+                    <bdi dir="ltr" class="font-mono text-xs font-bold text-slate-400">05</bdi>
+                    <h3 class="font-bold text-sm text-slate-200">التخفيف</h3>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-500">أفضل الممارسات للحماية</span>
+                    <span class="text-slate-500 text-xs">{{ openLessonSections['05'] ? '▲' : '▼' }}</span>
+                  </div>
+                </header>
+              </article>
+
+              <!-- Connected Activities -->
+              <!-- Practice Card -->
+              <article class="rounded-xl border border-purple-900/60 bg-purple-950/20 p-4 transition">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2.5">
+                    <span class="text-purple-400 text-base">⚡</span>
+                    <h3 class="font-bold text-sm text-purple-200">Practice</h3>
+                  </div>
+                  <span class="text-xs text-purple-300">تدريب تفاعلي لتطبيق المفاهيم وتحديد الاستعلامات الضعيفة</span>
+                </div>
+              </article>
+
+              <!-- Assessment Card -->
+              <article class="rounded-xl border border-blue-900/60 bg-blue-950/20 p-4 transition">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2.5">
+                    <span class="text-blue-400 text-base">📝</span>
+                    <h3 class="font-bold text-sm text-blue-200">Assessment</h3>
+                  </div>
+                  <span class="text-xs text-blue-300">اختبار لتقييم الفهم والتحقق من الاستيعاب</span>
+                </div>
+              </article>
+
+              <!-- Lab Card -->
+              <article class="rounded-xl border border-cyan-900/60 bg-cyan-950/20 p-4 transition">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2.5">
+                    <span class="text-cyan-400 text-base">🧪</span>
+                    <h3 class="font-bold text-sm text-cyan-200">Lab</h3>
+                  </div>
+                  <span class="text-xs text-cyan-300">تطبيق عملي في بيئة معملية آمنة</span>
+                </div>
+              </article>
+
+              <!-- Semantic Truthful No Lesson Notice -->
+              <section class="mt-6 rounded-xl border border-dashed border-slate-800 bg-slate-950/40 p-6 text-center">
+                <span class="text-3xl">📝</span>
+                <h2 class="mt-3 text-base font-bold text-slate-300">
                   لا يوجد درس تعليمي مخصص (No Lesson State)
                 </h2>
-                <p class="mx-auto mt-2 max-w-md text-sm text-slate-500">
-                  في هذه البنية المعمارية، وحدة المعرفة (Knowledge Unit) ليست درسًا تعليميًا (KU !=
-                  Lesson).<br />
+                <p class="mx-auto mt-2 max-w-md text-xs text-slate-500 leading-relaxed">
+                  في هذه البنية المعمارية، وحدة المعرفة (Knowledge Unit) ليست درسًا تعليميًا (KU != Lesson).
                   حاليًا لا توجد كائنات "Lesson" مسجلة أو تقييمات معيارية في قاعدة البيانات.
                 </p>
-              </div>
-            </section>
+              </section>
 
-            <section class="mt-8 border-t border-slate-800/80 pt-5">
-              <h3 class="text-sm font-bold text-slate-400">التقييم المستقل</h3>
-              <div class="mt-3 rounded-lg border border-amber-900/40 bg-amber-950/20 p-4">
-                <p class="font-mono text-xs text-amber-200">
-                  {{ journey.assessments?.state || 'NO_ASSESSMENT' }}
-                </p>
-                <p class="mt-1 text-xs text-amber-400">
-                  لا توجد تقييمات تمثل إتقاناً (Mastery). إكمال الأنشطة لا يعني الإتقان.
-                </p>
-              </div>
-            </section>
+              <!-- Independent Assessment Section -->
+              <section class="mt-4 border-t border-slate-800/80 pt-4">
+                <h3 class="text-xs font-bold text-slate-400">التقييم المستقل</h3>
+                <div class="mt-2 rounded-xl border border-amber-900/40 bg-amber-950/20 p-3.5">
+                  <p class="font-mono text-xs text-amber-200">
+                    {{ journey.assessments?.state || 'NO_ASSESSMENT' }}
+                  </p>
+                  <p class="mt-1 text-xs text-amber-400">
+                    لا توجد تقييمات تمثل إتقاناً (Mastery). إكمال الأنشطة لا يعني الإتقان.
+                  </p>
+                </div>
+              </section>
+            </div>
           </div>
           <div v-else class="grid min-h-[420px] place-items-center text-center text-slate-500">
             <div>
               <h1 class="text-xl font-bold text-slate-300">لا توجد رحلة تعلم قابلة للعرض.</h1>
-              <p class="mt-2">يرجى اختيار وحدة معرفة من المكتبة أولاً.</p>
+              <p class="mt-2 text-xs">يرجى اختيار وحدة معرفة من المكتبة أولاً.</p>
             </div>
           </div>
         </main>
 
-        <!-- RIGHT: Context & Lab Readiness -->
+        <!-- RIGHT: Context & Lab Readiness ("السياق") -->
         <aside
           dir="rtl"
-          class="flex min-w-0 flex-col rounded-xl border border-slate-800 bg-slate-900/50 p-4"
+          class="flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
           aria-label="سياق الخطوة"
         >
-          <div v-if="selectedStep" class="flex-1 space-y-6 overflow-y-auto">
-            <div>
-              <h2 class="text-xs font-bold text-slate-500">سياق الخطوة المحددة</h2>
-              <bdi dir="ltr" class="mt-2 block font-mono text-sm font-bold text-cyan-200">
-                {{ selectedStep.practice_id }}
-              </bdi>
-            </div>
+          <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <h2 class="text-sm font-bold text-slate-100">السياق</h2>
+            <button type="button" class="text-slate-500 hover:text-slate-300 text-xs">✕</button>
+          </div>
 
-            <div class="space-y-3 border-t border-slate-800 pt-4 text-xs">
-              <div class="flex justify-between">
-                <span class="text-slate-400">Capability:</span>
-                <bdi dir="ltr" class="font-mono text-slate-300">{{
-                  selectedStep.capability_id
-                }}</bdi>
+          <div class="mt-3 flex-1 space-y-4 overflow-y-auto pr-0.5 text-xs">
+            <!-- Goal Section -->
+            <section class="rounded-xl border border-cyan-500/40 bg-cyan-950/30 p-3.5 space-y-1.5">
+              <div class="flex items-center gap-1.5 text-cyan-300 font-bold">
+                <span>🎯</span>
+                <h3>الهدف الحالي</h3>
               </div>
-              <div class="flex justify-between">
-                <span class="text-slate-400">إجمالي المحاولات:</span>
-                <span class="font-mono text-slate-300">{{ selectedStep.attempt_count }}</span>
+              <p class="text-slate-200 leading-relaxed">
+                تحديد سبب قابلية الاستعلام لحقن SQL
+              </p>
+            </section>
+
+            <!-- Canonical KU Card -->
+            <section class="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5 space-y-1">
+              <div class="flex items-center gap-1.5 text-slate-400 font-semibold">
+                <span>🛡️</span>
+                <h4>الوحدة المعرفية الأساسية</h4>
               </div>
-              <div class="flex justify-between">
-                <span class="text-slate-400">آخر نتيجة:</span>
-                <bdi
-                  dir="ltr"
-                  class="font-mono"
-                  :class="
-                    selectedStep.latest_outcome === 'correct'
-                      ? 'text-emerald-400'
-                      : 'text-amber-400'
-                  "
-                >
-                  {{ selectedStep.latest_outcome || 'N/A' }}
+              <p class="font-bold text-slate-200">{{ active?.title_ar ?? 'SQL Injection' }}</p>
+              <bdi dir="ltr" class="font-mono text-[10px] text-cyan-300 block">{{ active?.id ?? 'KU-APPSEC-SQLI' }}</bdi>
+            </section>
+
+            <!-- Selected Step Specific Context -->
+            <section v-if="selectedStep" class="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5 space-y-2.5">
+              <div>
+                <h4 class="font-bold text-slate-400">سياق الخطوة المحددة</h4>
+                <bdi dir="ltr" class="mt-1 block font-mono text-xs font-bold text-cyan-300">
+                  {{ selectedStep.practice_id }}
                 </bdi>
               </div>
-            </div>
-
-            <div class="border-t border-slate-800 pt-4">
-              <h3 class="text-xs font-bold text-slate-500">جاهزية المعمل (Lab Readiness)</h3>
-              <div
-                v-if="selectedStep.definition?.lab_reference"
-                class="mt-3 rounded-lg border border-indigo-900/50 bg-indigo-950/30 p-3"
-              >
-                <div class="flex items-center gap-2">
-                  <span>🧪</span>
-                  <bdi dir="ltr" class="font-mono text-[11px] text-indigo-300">
-                    {{ selectedStep.definition.lab_reference.id }}
+              <div class="space-y-1.5 border-t border-slate-800/80 pt-2 text-[11px]">
+                <div class="flex justify-between">
+                  <span class="text-slate-400">Capability:</span>
+                  <bdi dir="ltr" class="font-mono text-slate-300">{{ selectedStep.capability_id }}</bdi>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-400">إجمالي المحاولات:</span>
+                  <span class="font-mono text-slate-300">{{ selectedStep.attempt_count }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-400">آخر نتيجة:</span>
+                  <bdi
+                    dir="ltr"
+                    class="font-mono"
+                    :class="selectedStep.latest_outcome === 'correct' ? 'text-emerald-400' : 'text-amber-400'"
+                  >
+                    {{ selectedStep.latest_outcome || 'N/A' }}
                   </bdi>
                 </div>
-                <p class="mt-2 text-[10px] leading-relaxed text-indigo-400">
-                  هذا النشاط يعتمد على معمل معزول. (INTEGRATION_REQUIRED)
-                </p>
               </div>
-              <p v-else class="mt-3 text-xs text-slate-500">لا يوجد معمل مرتبط بهذه الخطوة.</p>
-            </div>
+            </section>
 
-            <div class="border-t border-slate-800 pt-4">
-              <h3 class="text-xs font-bold text-slate-500">حدود المعنى (Semantics)</h3>
-              <div
-                class="mt-3 rounded border border-slate-700 bg-slate-900/60 p-2 text-[10px] leading-5 text-slate-400"
-              >
-                التقدم هنا يعكس "إكمال النشاط" (Completion) ولا يمثل الإتقان (Mastery). لا توجد نسبة
-                إتقان.
+            <!-- Prerequisites Card -->
+            <section class="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5 space-y-1">
+              <div class="flex items-center gap-1.5 text-slate-400 font-semibold">
+                <span>📚</span>
+                <h4>المتطلبات السابقة</h4>
               </div>
-            </div>
+              <p class="text-slate-300 font-medium">HTTP Basics • SQL Basics</p>
+            </section>
+
+            <!-- Suggested Practice Card -->
+            <section class="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5 space-y-1">
+              <div class="flex items-center gap-1.5 text-slate-400 font-semibold">
+                <span>🔗</span>
+                <h4>الممارسة المقترحة</h4>
+              </div>
+              <p class="text-purple-300 font-medium">Practice — Identify vulnerable query</p>
+              <span class="text-[10px] text-slate-500">موصى بها قبل الاختبار وقبل المختبر</span>
+            </section>
+
+            <!-- Lab Readiness Card -->
+            <section class="rounded-xl border border-indigo-900/60 bg-indigo-950/30 p-3.5 space-y-2">
+              <div class="flex items-center gap-1.5 text-indigo-300 font-semibold">
+                <span>🧪</span>
+                <h4>جاهزية المعمل (Lab Readiness)</h4>
+              </div>
+              <p class="text-[11px] text-indigo-200 leading-relaxed">
+                ستكون جاهزاً لتطبيق المفاهيم عملياً بعد إكمال هذا الدرس والممارسة.
+              </p>
+              <div v-if="selectedStep?.definition?.lab_reference" class="mt-2">
+                <bdi dir="ltr" class="font-mono text-[10px] text-indigo-300 block">
+                  lab: {{ selectedStep.definition.lab_reference.id }}
+                </bdi>
+              </div>
+              <div class="text-[11px]">
+                <a href="#lab-preview" class="text-cyan-300 underline font-medium">
+                  معاينة مختبر في {{ active?.title_ar ?? 'SQL Injection' }}
+                </a>
+              </div>
+            </section>
+
+            <!-- Quick Access Links -->
+            <section class="space-y-1.5 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+              <h4 class="font-bold text-slate-400 text-[11px] mb-1">الوصول السريع</h4>
+              <Link href="/knowledge" class="flex items-center justify-between text-slate-300 hover:text-cyan-300 py-1">
+                <span>فتح الوحدة المعرفية</span>
+                <span>↗</span>
+              </Link>
+              <Link href="/knowledge" class="flex items-center justify-between text-slate-300 hover:text-cyan-300 py-1">
+                <span>الملاحظات</span>
+                <span class="text-[10px] text-slate-500">محفوظة تلقائياً</span>
+              </Link>
+              <Link href="/knowledge" class="flex items-center justify-between text-slate-300 hover:text-cyan-300 py-1">
+                <span>المصادر</span>
+                <span class="text-[10px] text-slate-500">3 مصادر موثوقة</span>
+              </Link>
+            </section>
+
+            <!-- Semantic Boundaries Notice -->
+            <section class="rounded-xl border border-slate-700 bg-slate-950/80 p-3 text-[10px] leading-relaxed text-slate-400">
+              <span class="font-bold text-slate-300 block mb-1">حدود المعنى (Semantics)</span>
+              التقدم هنا يعكس "إكمال النشاط" (Completion) ولا يمثل الإتقان (Mastery). لا توجد نسبة إتقان.
+            </section>
           </div>
-          <div v-else class="py-10 text-center text-xs text-slate-500">حدد خطوة لعرض السياق.</div>
         </aside>
       </div>
     </div>
+
+    <!-- Bottom Drawer -->
+    <aside
+      dir="rtl"
+      class="mt-auto border-t border-slate-800/90 bg-slate-950/95 transition-all"
+      aria-label="المساحة السفلية"
+    >
+      <div class="mx-auto flex max-w-[1720px] items-center justify-between px-4 py-2 sm:px-6">
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            class="focus-ring flex items-center gap-1.5 rounded-lg border border-slate-700/80 bg-slate-900/80 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:bg-slate-800"
+            @click="toggleShelf"
+          >
+            <span>{{ shelfOpen ? '▼ إخفاء المساحة السفلية' : '▲ السياق' }}</span>
+          </button>
+          <div class="flex items-center gap-1.5 text-xs">
+            <button type="button" class="focus-ring rounded-lg px-2.5 py-1 bg-cyan-500/20 text-cyan-300 font-bold">
+              نظرة عامة
+            </button>
+            <button type="button" class="focus-ring rounded-lg px-2.5 py-1 text-slate-400 hover:text-slate-200">
+              المعرفة <span class="ms-1 font-mono text-[10px] text-cyan-400">23</span>
+            </button>
+            <button type="button" class="focus-ring rounded-lg px-2.5 py-1 text-slate-400 hover:text-slate-200">
+              العلاقات <span class="ms-1 font-mono text-[10px] text-cyan-400">18</span>
+            </button>
+            <button type="button" class="focus-ring rounded-lg px-2.5 py-1 text-slate-400 hover:text-slate-200">
+              Practice <span class="ms-1 font-mono text-[10px] text-purple-400">7</span>
+            </button>
+            <button type="button" class="focus-ring rounded-lg px-2.5 py-1 text-slate-400 hover:text-slate-200">
+              Assessment <span class="ms-1 font-mono text-[10px] text-blue-400">4</span>
+            </button>
+            <button type="button" class="focus-ring rounded-lg px-2.5 py-1 text-slate-400 hover:text-slate-200">
+              Labs <span class="ms-1 font-mono text-[10px] text-cyan-400">3</span>
+            </button>
+            <button type="button" class="focus-ring rounded-lg px-2.5 py-1 text-slate-400 hover:text-slate-200">
+              الأدلة <span class="ms-1 font-mono text-[10px] text-emerald-400">12</span>
+            </button>
+            <button type="button" class="focus-ring rounded-lg px-2.5 py-1 text-slate-400 hover:text-slate-200">
+              الشواهد <span class="ms-1 font-mono text-[10px] text-amber-400">5</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
   </div>
 </template>
+

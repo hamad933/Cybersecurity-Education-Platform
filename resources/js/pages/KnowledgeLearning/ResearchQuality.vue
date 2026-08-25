@@ -36,109 +36,124 @@ const mode = ref<Mode>('claims');
 const workbenchMode = computed<'claims' | 'conflicts' | 'revision'>(() =>
   mode.value === 'compare' ? 'claims' : mode.value,
 );
-const modes: Array<{ key: Mode; ar: string; en: string }> = [
-  { key: 'claims', ar: 'الادعاءات', en: 'Claims' },
-  { key: 'compare', ar: 'المقارنة', en: 'Compare' },
-  { key: 'conflicts', ar: 'التعارضات', en: 'Conflicts' },
-  { key: 'revision', ar: 'المراجعة', en: 'Revision' },
+const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
+  { key: 'claims', ar: 'الادعاءات', en: 'Claims', icon: '📋' },
+  { key: 'compare', ar: 'المقارنة', en: 'Compare', icon: '⚖️' },
+  { key: 'conflicts', ar: 'التعارضات', en: 'Conflicts', icon: '⚠️' },
+  { key: 'revision', ar: 'المراجعة', en: 'Revision', icon: '🔄' },
 ];
 </script>
 
 <template>
   <Head title="المعرفة والتعلّم — البحث والجودة" />
-  <div dir="rtl" class="min-h-screen bg-slate-950 text-slate-100">
-    <div class="mx-auto max-w-[1600px] px-4 py-5 sm:px-6">
-      <header class="border-b border-slate-800 pb-4">
-        <div class="flex flex-wrap items-center justify-end gap-4">
-          <div class="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 p-1">
+  <div dir="rtl" class="min-h-screen bg-slate-950 text-slate-100 dark:bg-[#070c14] dark:text-slate-100">
+    <div class="w-full px-4 py-4 sm:px-6 xl:px-8">
+      <!-- Top Modes Toolbar -->
+      <header class="mb-4 rounded-2xl border border-slate-800/80 bg-slate-900/50 p-3.5 shadow-lg backdrop-blur dark:bg-[#0b1322]/90">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2 text-xs font-semibold text-slate-400">
+            <span>🔬</span>
+            <span>بيئة فحص وتدقيق جودة المصادر والمنشأ (Research & Quality Workbench)</span>
+          </div>
+
+          <div class="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-950/80 p-1">
             <button
               v-for="item in modes"
               :key="item.key"
               type="button"
-              class="focus-ring rounded-lg px-3 py-2 text-xs transition"
+              class="focus-ring flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition shadow-sm"
               :class="
                 mode === item.key
-                  ? 'bg-cyan-400/10 text-cyan-200'
+                  ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40 shadow-cyan-950/50'
                   : 'text-slate-400 hover:text-slate-200'
               "
               :aria-pressed="mode === item.key"
               @click="mode = item.key"
             >
-              <span class="font-bold">{{ item.ar }}</span>
-              <bdi dir="ltr" class="mr-1 text-[10px] text-slate-600">{{ item.en }}</bdi>
+              <span>{{ item.icon }}</span>
+              <span>{{ item.ar }}</span>
+              <bdi dir="ltr" class="text-[10px] text-slate-500">{{ item.en }}</bdi>
             </button>
           </div>
         </div>
       </header>
 
-      <div class="mt-4 grid min-h-[720px] gap-4 xl:grid-cols-[285px_minmax(0,1fr)_315px]">
+      <!-- 3-Column Layout -->
+      <div class="grid min-h-[740px] gap-4 xl:grid-cols-[285px_minmax(0,1fr)_315px]">
+        <!-- LEFT: Source Set Sidebar -->
         <aside
-          class="rounded-xl border border-slate-800 bg-slate-900/50 p-4"
+          class="flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
           aria-label="مصادر البحث والجودة"
         >
-          <div class="border-b border-slate-800 pb-4">
-            <p class="text-[10px] font-bold tracking-[0.2em] text-slate-600" dir="ltr">
-              SOURCE SET
-            </p>
-            <h2 class="mt-1 text-sm font-black">مصادر المراجعة الحالية</h2>
-            <p class="mt-2 text-xs leading-6 text-slate-500">
+          <div class="border-b border-slate-800/80 pb-4">
+            <div class="flex items-center justify-between">
+              <h2 class="text-xs font-bold text-slate-200">مصادر المراجعة الحالية</h2>
+              <span class="font-mono text-[10px] font-bold text-slate-500 uppercase tracking-widest" dir="ltr">SOURCE SET</span>
+            </div>
+            <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
               اختيار المصدر يغيّر سياق الفحص فقط؛ ولا يمنحه أفضلية حقيقة تلقائية.
             </p>
           </div>
 
-          <ul v-if="quality.sources.length" class="mt-4 space-y-2">
+          <ul v-if="quality.sources.length" class="mt-4 space-y-2 flex-1 overflow-y-auto pr-0.5">
             <li v-for="source in quality.sources" :key="source.id">
               <Link
                 :href="`/knowledge/research-quality?${active ? `object=${encodeURIComponent(active.id)}&` : ''}source=${encodeURIComponent(source.id)}`"
-                class="focus-ring block rounded-xl border px-3 py-3 text-sm transition"
+                class="focus-ring block rounded-xl border p-3 text-xs transition"
                 :class="
                   source.id === quality.active_source?.id
-                    ? 'border-cyan-800 bg-cyan-950/20 text-cyan-100'
-                    : 'border-slate-800 bg-slate-950/25 text-slate-300 hover:border-slate-600'
+                    ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-100 shadow-sm'
+                    : 'border-slate-800/80 bg-slate-950/40 text-slate-300 hover:border-slate-700'
                 "
               >
-                <span class="block font-bold">{{ source.title }}</span>
-                <span class="mt-2 flex flex-wrap items-center gap-2 text-[10px]">
-                  <bdi dir="ltr" class="text-slate-500">{{ source.authority_class }}</bdi>
-                  <bdi dir="ltr" class="text-slate-600">{{ source.review_status }}</bdi>
-                </span>
+                <span class="block font-bold text-sm leading-snug">{{ source.title }}</span>
+                <div class="mt-2.5 flex flex-wrap items-center gap-1.5 text-[10px]">
+                  <span class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-cyan-300">
+                    {{ source.authority_class }}
+                  </span>
+                  <span class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-emerald-400">
+                    {{ source.review_status }}
+                  </span>
+                </div>
               </Link>
             </li>
           </ul>
-          <p v-else class="mt-4 text-sm leading-7 text-slate-500">
+          <p v-else class="mt-4 text-xs leading-6 text-slate-500">
             لا توجد <bdi dir="ltr">Source Records</bdi> محفوظة؛ لن تُنشأ مصادر وهمية.
           </p>
         </aside>
 
-        <main class="min-w-0 rounded-xl border border-slate-800 bg-slate-900/35 p-5 sm:p-7">
+        <!-- CENTER: Research & Quality Workspace -->
+        <main class="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 shadow-lg backdrop-blur sm:p-7 dark:bg-[#0b1322]/90">
           <div class="mb-5 border-b border-slate-800/80 pb-4">
             <KnowledgeTabs active="research-quality" :object-id="active?.id" />
           </div>
+
           <header
-            class="flex flex-wrap items-end justify-between gap-4 border-b border-slate-800 pb-5"
+            class="flex flex-wrap items-end justify-between gap-4 border-b border-slate-800/80 pb-5"
           >
             <div>
               <p class="text-xs font-bold text-cyan-300">
                 مراجعة جودة معرفة — ليست <bdi dir="ltr">Evidence Review</bdi>
               </p>
-              <h1 class="mt-2 text-2xl font-black">
+              <h1 class="mt-2 text-2xl font-black tracking-tight text-slate-100 sm:text-3xl">
                 {{
                   quality.active_source?.title ?? active?.title_ar ?? 'لا يوجد عمل جودة معرفة حالي'
                 }}
               </h1>
-              <bdi v-if="active" dir="ltr" class="mt-2 block font-mono text-xs text-slate-500">
+              <bdi v-if="active" dir="ltr" class="mt-1.5 block font-mono text-xs text-slate-400">
                 {{ active.id }}
               </bdi>
             </div>
-            <div v-if="quality.analysis" class="text-left text-[10px] text-slate-600">
-              <span class="block">Decision authority</span>
-              <bdi dir="ltr" class="font-mono text-emerald-300">
+            <div v-if="quality.analysis" class="rounded-xl border border-slate-800 bg-slate-950/60 p-2.5 text-left text-[11px] font-mono">
+              <span class="block text-[9px] text-slate-500 uppercase">Decision authority</span>
+              <bdi dir="ltr" class="font-bold text-emerald-400">
                 {{ quality.analysis.review.decision_authority }}
               </bdi>
             </div>
           </header>
 
-          <div class="mt-6">
+          <div class="mt-6 flex-1">
             <SourceComparisonTable
               v-if="mode === 'compare'"
               :rows="quality.analysis?.comparison.rows ?? []"
@@ -152,8 +167,9 @@ const modes: Array<{ key: Mode; ar: string; en: string }> = [
           </div>
         </main>
 
+        <!-- RIGHT: Provenance & Review Boundary -->
         <aside
-          class="rounded-xl border border-slate-800 bg-slate-900/50 p-4"
+          class="flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
           aria-label="Provenance and review boundary"
         >
           <ProvenancePanel
@@ -161,30 +177,30 @@ const modes: Array<{ key: Mode; ar: string; en: string }> = [
             :provenance="quality.analysis?.provenance.sources ?? []"
           />
 
-          <section class="mt-6 border-t border-slate-800 pt-5">
-            <p class="text-[10px] font-bold tracking-[0.2em] text-slate-600" dir="ltr">
-              REVIEW BOUNDARY
-            </p>
-            <h2 class="mt-1 text-sm font-black">حدود الحكم</h2>
-            <div class="mt-3 space-y-3 text-xs leading-6">
-              <p class="rounded-lg border border-rose-900/60 bg-rose-950/15 p-3 text-rose-100">
-                <bdi dir="ltr">Research & Quality Review != Evidence Review</bdi>. هذا المجال لا
+          <section class="mt-6 border-t border-slate-800/80 pt-4">
+            <div class="flex items-center justify-between">
+              <h2 class="text-xs font-bold text-slate-200">حدود الحكم والمراجعة</h2>
+              <span class="font-mono text-[10px] font-bold text-slate-500 uppercase tracking-widest" dir="ltr">REVIEW BOUNDARY</span>
+            </div>
+            <div class="mt-3 space-y-2.5 text-xs leading-relaxed">
+              <p class="rounded-xl border border-rose-900/60 bg-rose-950/20 p-3 text-rose-200 text-[11px]">
+                <bdi dir="ltr" class="font-bold">Research & Quality Review != Evidence Review</bdi>. هذا المجال لا
                 يصدر قرارات Evidence أو Mastery.
               </p>
-              <p class="rounded-lg border border-amber-900/60 bg-amber-950/15 p-3 text-amber-100">
+              <p class="rounded-xl border border-amber-900/60 bg-amber-950/20 p-3 text-amber-200 text-[11px]">
                 النظام لا يقرر حقيقة المعرفة. يمكنه كشف التعارضات وتجميع provenance فقط؛ أما
                 reconciliation النهائي فحكم بشري.
               </p>
-              <dl class="rounded-lg border border-slate-800 p-3 text-slate-500">
+              <dl class="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-slate-400 text-[11px]">
                 <div class="flex justify-between gap-3">
                   <dt>Review semantics</dt>
                   <dd>
-                    <bdi dir="ltr">{{ quality.review_semantics }}</bdi>
+                    <bdi dir="ltr" class="text-cyan-300 font-mono">{{ quality.review_semantics }}</bdi>
                   </dd>
                 </div>
-                <div class="mt-2 flex justify-between gap-3">
+                <div class="mt-2 flex justify-between gap-3 border-t border-slate-800/80 pt-2">
                   <dt>Pending conflicts</dt>
-                  <dd>{{ quality.analysis?.reconciliation.pending_conflict_count ?? 0 }}</dd>
+                  <dd class="font-mono font-bold text-amber-300">{{ quality.analysis?.reconciliation.pending_conflict_count ?? 0 }}</dd>
                 </div>
               </dl>
             </div>
@@ -192,38 +208,40 @@ const modes: Array<{ key: Mode; ar: string; en: string }> = [
         </aside>
       </div>
 
-      <details class="mt-4 rounded-xl border border-slate-800 bg-slate-900/30 px-4 py-3">
-        <summary class="cursor-pointer text-sm font-bold text-slate-400">
-          أثر reconciliation و revision — مساحة مقارنة مؤقتة
+      <!-- BOTTOM: Trace Telemetry Drawer -->
+      <details class="mt-4 rounded-2xl border border-slate-800/80 bg-slate-900/40 px-4 py-3 shadow-lg">
+        <summary class="cursor-pointer text-xs font-bold text-slate-300 flex items-center justify-between">
+          <span>أثر reconciliation و revision — مساحة مقارنة مؤقتة</span>
+          <span class="font-mono text-[10px] text-cyan-400">Telemetry Details</span>
         </summary>
         <div class="mt-4 grid gap-4 md:grid-cols-2">
           <section>
-            <h2 class="text-xs font-bold text-slate-500">Unresolved canonical claims</h2>
-            <div class="mt-2 space-y-2">
+            <h3 class="text-xs font-bold text-slate-400">Unresolved canonical claims</h3>
+            <div class="mt-2 space-y-1.5">
               <bdi
                 v-for="claimId in quality.analysis?.revision_reasoning.unresolved_claim_ids ?? []"
                 :key="claimId"
                 dir="ltr"
-                class="block rounded border border-amber-900/50 px-3 py-2 font-mono text-[11px] text-amber-200"
+                class="block rounded-lg border border-amber-900/50 bg-amber-950/20 px-3 py-2 font-mono text-[11px] text-amber-200"
               >
                 {{ claimId }}
               </bdi>
               <p
                 v-if="!quality.analysis?.revision_reasoning.unresolved_claim_ids.length"
-                class="text-xs text-slate-600"
+                class="text-xs text-slate-500"
               >
                 لا توجد Claims canonical بلا provenance مرصود.
               </p>
             </div>
           </section>
           <section>
-            <h2 class="text-xs font-bold text-slate-500">Allowed next tools</h2>
-            <div class="mt-2 flex flex-wrap gap-2">
+            <h3 class="text-xs font-bold text-slate-400">Allowed next tools</h3>
+            <div class="mt-2 flex flex-wrap gap-1.5">
               <bdi
                 v-for="tool in quality.analysis?.reconciliation.allowed_next_tools ?? []"
                 :key="tool"
                 dir="ltr"
-                class="rounded border border-slate-800 px-2 py-1 font-mono text-[10px] text-slate-500"
+                class="rounded-lg border border-slate-800 bg-slate-950/60 px-2.5 py-1 font-mono text-[10px] text-slate-400"
               >
                 {{ tool }}
               </bdi>
@@ -234,3 +252,4 @@ const modes: Array<{ key: Mode; ar: string; en: string }> = [
     </div>
   </div>
 </template>
+
