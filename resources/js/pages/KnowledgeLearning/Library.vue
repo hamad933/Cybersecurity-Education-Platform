@@ -2,6 +2,8 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import KnowledgeTabs from './components/KnowledgeTabs.vue';
+import LibraryHierarchyTree from './components/library/LibraryHierarchyTree.vue';
+import type { LibraryHierarchyProjection, LibraryDomainNode, LibraryCapabilityClusterNode, LibraryCapabilityNode, LibraryUnresolvedCapability, LibraryProjectionItem } from './components/library/libraryHierarchy';
 
 type CatalogItem = {
   id: string;
@@ -42,7 +44,6 @@ type ActiveUnit = {
   revision: Revision | null;
   revisions: RevisionSummary[];
 };
-type StructureGroup = { capability_id: string | null; items: CatalogItem[] };
 type Source = {
   id: string;
   title: string;
@@ -73,7 +74,7 @@ type InlineToken = {
 
 const props = defineProps<{
   catalog: CatalogItem[];
-  structure: StructureGroup[];
+  structure: LibraryHierarchyProjection;
   active: ActiveUnit | null;
   context: {
     placements: Placement[];
@@ -83,7 +84,7 @@ const props = defineProps<{
 }>();
 
 const page = usePage<{ flash?: { status?: string }; errors?: Record<string, string> }>();
-const lenses = ['overview', 'sources', 'history'] as const;
+const lenses = ['overview', 'sources'] as const;
 type Lens = (typeof lenses)[number];
 const lens = ref<Lens>('overview');
 const setLens = (value: Lens) => {
@@ -91,21 +92,40 @@ const setLens = (value: Lens) => {
 };
 
 const searchQuery = ref('');
-const filteredStructure = computed<StructureGroup[]>(() => {
+
+const filterItems = (items: LibraryProjectionItem[], query: string) =>
+  items.filter(
+    (item) =>
+      item.title_ar.toLowerCase().includes(query) ||
+      item.title_en.toLowerCase().includes(query) ||
+      item.canonical_ref.id.toLowerCase().includes(query),
+  );
+
+const filteredStructure = computed<LibraryHierarchyProjection>(() => {
   const query = searchQuery.value.trim().toLowerCase();
   if (!query) return props.structure;
 
-  return props.structure
-    .map((group) => {
-      const matchedItems = group.items.filter(
-        (item) =>
-          item.title_ar.toLowerCase().includes(query) ||
-          item.title_en.toLowerCase().includes(query) ||
-          item.id.toLowerCase().includes(query),
-      );
-      return { ...group, items: matchedItems };
+  const domains = props.structure.domains
+    .map((domain) => {
+      const clusters = domain.clusters
+        .map((cluster) => {
+          const capabilities = cluster.capabilities
+            .map((cap) => ({ ...cap, items: filterItems(cap.items, query) }))
+            .filter((cap) => cap.items.length > 0);
+          return { ...cluster, capabilities };
+        })
+        .filter((cluster) => cluster.capabilities.length > 0);
+      return { ...domain, clusters };
     })
-    .filter((group) => group.items.length > 0);
+    .filter((domain) => domain.clusters.length > 0);
+
+  const unresolved_capabilities = props.structure.unresolved_capabilities
+    .map((cap) => ({ ...cap, items: filterItems(cap.items, query) }))
+    .filter((cap) => cap.items.length > 0);
+
+  const unplaced = filterItems(props.structure.unplaced, query);
+
+  return { domains, unresolved_capabilities, unplaced };
 });
 const blockTypes = [
   'heading',
@@ -635,8 +655,7 @@ const loadComparison = async () => {
   <div dir="rtl" class="flex min-h-screen flex-col bg-slate-950 text-slate-100 antialiased">
     <!-- Top Bar: Navigation & Primary Actions -->
     <header class="border-b border-slate-800/80 bg-slate-950/90 px-4 py-3 sm:px-6">
-      <div class="mx-auto flex max-w-[1720px] flex-wrap items-center justify-between gap-4">
-        <KnowledgeTabs active="library" :object-id="active?.id" />
+      <div class="mx-auto flex max-w-[1720px] flex-wrap items-center justify-end gap-4">
         <div class="flex flex-wrap items-center gap-2">
           <template v-if="active?.revision?.editable">
             <button
@@ -797,76 +816,10 @@ const loadComparison = async () => {
 
           <!-- Hierarchy Tree -->
           <div class="mt-4 flex-1 space-y-4 overflow-y-auto pr-0.5">
-            <div
-              class="flex items-center justify-between text-[11px] font-semibold text-slate-400 uppercase"
-            >
-              <span>جميع المجالات</span>
-              <span class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-400">
-                {{ catalog.length }}
-              </span>
-            </div>
-
-            <div v-if="filteredStructure.length" class="space-y-4">
-              <section
-                v-for="group in filteredStructure"
-                :key="group.capability_id ?? 'unplaced'"
-                class="space-y-1"
-              >
-                <div
-                  class="flex items-center justify-between rounded px-2 py-1 text-xs font-semibold text-slate-300"
-                >
-                  <div class="flex items-center gap-1.5 truncate">
-                    <span class="text-amber-400">📁</span>
-                    <bdi
-                      v-if="group.capability_id"
-                      dir="ltr"
-                      class="truncate font-mono text-[11px] text-cyan-300"
-                    >
-                      {{ group.capability_id }}
-                    </bdi>
-                    <span v-else class="truncate text-xs text-amber-300/90"
-                      >غير موضوع في Capability</span
-                    >
-                  </div>
-                  <span class="rounded bg-slate-800/80 px-1.5 py-0.5 font-mono text-[10px] text-slate-400">
-                    {{ group.items.length }}
-                  </span>
-                </div>
-
-                <ul class="space-y-0.5 pr-2">
-                  <li v-for="item in group.items" :key="item.id">
-                    <Link
-                      :href="`/knowledge?object=${encodeURIComponent(item.id)}`"
-                      class="focus-ring flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition"
-                      :class="
-                        item.id === active?.id
-                          ? 'border-r-2 border-cyan-400 bg-cyan-950/50 font-semibold text-cyan-100'
-                          : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
-                      "
-                    >
-                      <div class="flex min-w-0 items-center gap-1.5 truncate">
-                        <span class="text-[10px] text-slate-500">🛡️</span>
-                        <span class="truncate">{{ item.title_ar }}</span>
-                      </div>
-                      <span
-                        v-if="item.latest_state"
-                        class="mr-1 rounded px-1 py-0.5 font-mono text-[9px]"
-                        :class="
-                          item.latest_state === 'published'
-                            ? 'bg-emerald-950 text-emerald-300'
-                            : 'bg-amber-950 text-amber-300'
-                        "
-                      >
-                        {{ item.latest_state === 'published' ? 'منشور' : 'مسودة' }}
-                      </span>
-                    </Link>
-                  </li>
-                </ul>
-              </section>
-            </div>
-            <p v-else class="py-6 text-center text-xs text-slate-500">
-              لا توجد وحدات تطابق البحث.
-            </p>
+            <LibraryHierarchyTree
+              :projection="filteredStructure"
+              :active-id="active?.id"
+            />
           </div>
 
           <!-- Tree Footer: Library Info -->
@@ -888,6 +841,11 @@ const loadComparison = async () => {
           aria-label="وحدة المعرفة القانونية"
         >
           <div v-if="active" class="flex min-w-0 flex-1 flex-col">
+            <!-- Center Grouped Gateways -->
+            <div class="mb-5 border-b border-slate-800/80 pb-4">
+              <KnowledgeTabs active="library" :object-id="active?.id" />
+            </div>
+
             <!-- Document Meta Header -->
             <div class="border-b border-slate-800/80 pb-5">
               <!-- Breadcrumbs & Actions Row -->
@@ -1700,74 +1658,7 @@ const loadComparison = async () => {
             </p>
           </div>
 
-          <!-- Lens 3: History -->
-          <div v-else class="mt-4 flex-1 space-y-4 overflow-y-auto text-xs">
-            <ol class="space-y-2">
-              <li v-for="revision in historicalRevisions" :key="revision.id">
-                <Link
-                  :href="`/knowledge?object=${encodeURIComponent(active?.id ?? '')}&revision=${encodeURIComponent(revision.id)}`"
-                  class="focus-ring block rounded-lg border border-slate-800 bg-slate-950/60 p-2.5 transition hover:border-slate-600"
-                >
-                  <div class="flex items-center justify-between">
-                    <bdi dir="ltr" class="font-mono font-bold text-slate-200">
-                      rev {{ revision.revision }}
-                    </bdi>
-                    <span
-                      class="rounded px-1.5 py-0.5 font-mono text-[10px]"
-                      :class="
-                        revision.state === 'published'
-                          ? 'bg-emerald-950 text-emerald-300'
-                          : 'bg-amber-950 text-amber-300'
-                      "
-                    >
-                      {{ revision.state }}
-                    </span>
-                  </div>
-                  <bdi
-                    v-if="revision.updated_at || revision.published_at"
-                    dir="ltr"
-                    class="mt-1 block font-mono text-[10px] text-slate-500"
-                  >
-                    {{ (revision.updated_at ?? revision.published_at)?.slice(0, 10) }}
-                  </bdi>
-                </Link>
-              </li>
-              <li v-if="!historicalRevisions.length" class="py-6 text-center text-xs text-slate-500">
-                لا توجد مراجعات تاريخية أخرى لهذا الكائن.
-              </li>
-            </ol>
 
-            <!-- Quick Compare Trigger -->
-            <section v-if="historicalRevisions.length" class="border-t border-slate-800/80 pt-3">
-              <h3 class="font-bold text-slate-400">مقارنة مراجعة سابقة</h3>
-              <select
-                v-model="compareRevisionId"
-                class="form-input focus-ring mt-2 w-full rounded-md border-slate-700 bg-slate-950 text-xs text-slate-200"
-                aria-label="المراجعة المراد مقارنتها"
-              >
-                <option value="">اختر مراجعة تاريخية…</option>
-                <option
-                  v-for="revision in historicalRevisions"
-                  :key="revision.id"
-                  :value="revision.id"
-                >
-                  rev {{ revision.revision }} — {{ revision.state }}
-                </option>
-              </select>
-              <button
-                type="button"
-                class="focus-ring mt-2 w-full rounded-lg border border-cyan-800/80 bg-cyan-950/40 px-3 py-1.5 text-xs font-bold text-cyan-200 transition hover:bg-cyan-900/50 disabled:opacity-40"
-                :disabled="!compareRevisionId || compareLoading"
-                aria-label="فتح المقارنة في المساحة السفلية"
-                @click="loadComparison"
-              >
-                {{ compareLoading ? 'تحميل المقارنة…' : 'فتح المقارنة في المساحة السفلية' }}
-              </button>
-              <p v-if="compareError" role="alert" class="mt-2 text-[11px] text-rose-300">
-                {{ compareError }}
-              </p>
-            </section>
-          </div>
         </aside>
       </div>
     </div>

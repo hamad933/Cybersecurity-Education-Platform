@@ -10,20 +10,14 @@ const withObject = (path: string) =>
   props.objectId ? `${path}?object=${encodeURIComponent(props.objectId)}` : path;
 
 const tabs = [
-  { key: 'library', ar: 'المكتبة', en: 'Library', href: '/knowledge' },
-  { key: 'learn', ar: 'التعلّم', en: 'Learn', href: '/knowledge/learn' },
-  { key: 'visualize', ar: 'التصوّر', en: 'Visualize', href: '/knowledge/visualize' },
-  {
-    key: 'research-quality',
-    ar: 'البحث والجودة',
-    en: 'Research & Quality',
-    href: '/knowledge/research-quality',
-  },
+  { key: 'library', ar: 'المعرفة / المحتوى', en: 'Knowledge / Content', href: '/knowledge' },
+  { key: 'learn', ar: 'التعلم المرتبط', en: 'Related Learning', href: '/knowledge/learn' },
+  { key: 'visualize', ar: 'السياق المرتبط', en: 'Related Context', href: '/knowledge/visualize' },
 ] as const;
 </script>
 
 <template>
-  <nav aria-label="المناطق الأساسية للمعرفة والتعلّم" class="flex min-w-0 flex-wrap gap-2">
+  <nav aria-label="بوابات المعرفة والتعلّم" class="flex min-w-0 flex-wrap gap-2">
     <Link
       v-for="tab in tabs"
       :key="tab.key"

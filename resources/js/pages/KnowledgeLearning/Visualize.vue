@@ -58,8 +58,7 @@ const mapScope = computed(() => props.map.scope?.id ?? props.active?.id ?? null)
   <div dir="rtl" class="min-h-screen bg-slate-950 text-slate-100">
     <div class="mx-auto max-w-[1600px] px-4 py-5 sm:px-6">
       <header class="border-b border-slate-800 pb-4">
-        <div class="flex flex-wrap items-center justify-between gap-4">
-          <KnowledgeTabs active="visualize" :object-id="active?.id" />
+          <div class="flex-1"></div>
           <div class="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 p-1">
             <button
               v-for="viewName in views"
@@ -137,6 +136,9 @@ const mapScope = computed(() => props.map.scope?.id ?? props.active?.id ?? null)
         </aside>
 
         <main class="min-w-0 rounded-xl border border-slate-800 bg-slate-900/35 p-5 sm:p-7">
+          <div class="mb-5 border-b border-slate-800/80 pb-4">
+            <KnowledgeTabs active="visualize" :object-id="active?.id" />
+          </div>
           <header
             class="flex flex-wrap items-end justify-between gap-4 border-b border-slate-800 pb-5"
           >

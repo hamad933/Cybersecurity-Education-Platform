@@ -40,7 +40,7 @@ final class KnowledgeLearningWorkspace
 
         return [
             'catalog' => $catalog,
-            'structure' => $this->structure($catalog, $placements),
+            'structure' => $this->knowledge->hierarchyProjection($placements, $this->knowledge->capabilityManifest()),
             'active' => $active,
             'context' => [
                 'placements' => $this->curriculum->placementsForUnit($activeUnitId),
@@ -143,66 +143,6 @@ final class KnowledgeLearningWorkspace
     public function restoreRevision(string $revisionId, string $actorId): array
     {
         return $this->knowledge->restoreRevision($revisionId, $actorId);
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $catalog
-     * @param  list<array<string, mixed>>  $placements
-     * @return list<array<string, mixed>>
-     */
-    private function structure(array $catalog, array $placements): array
-    {
-        $catalogById = [];
-        foreach ($catalog as $item) {
-            $id = $item['id'] ?? null;
-            if (is_string($id)) {
-                $catalogById[$id] = $item;
-            }
-        }
-
-        /** @var array<string, array<string, true>> $unitIdsByCapability */
-        $unitIdsByCapability = [];
-        /** @var array<string, true> $placedIds */
-        $placedIds = [];
-
-        foreach ($placements as $placement) {
-            $capabilityId = $placement['capability_id'] ?? null;
-            $unitId = $placement['knowledge_unit_id'] ?? null;
-            if (! is_string($capabilityId) || ! is_string($unitId)) {
-                continue;
-            }
-
-            $unitIdsByCapability[$capabilityId][$unitId] = true;
-            $placedIds[$unitId] = true;
-        }
-
-        $groups = [];
-        foreach ($unitIdsByCapability as $capabilityId => $unitIds) {
-            $items = [];
-            foreach (array_keys($unitIds) as $unitId) {
-                if (isset($catalogById[$unitId])) {
-                    $items[] = $catalogById[$unitId];
-                }
-            }
-
-            $groups[] = [
-                'capability_id' => $capabilityId,
-                'items' => $items,
-            ];
-        }
-
-        $unplaced = [];
-        foreach ($catalog as $item) {
-            $id = $item['id'] ?? null;
-            if (is_string($id) && ! isset($placedIds[$id])) {
-                $unplaced[] = $item;
-            }
-        }
-        if ($unplaced !== []) {
-            $groups[] = ['capability_id' => null, 'items' => $unplaced];
-        }
-
-        return $groups;
     }
 
     /**
