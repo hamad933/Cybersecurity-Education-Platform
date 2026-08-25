@@ -37,6 +37,17 @@ const totalFoundationChecks = computed(
 const failedProcessing = computed(() => count(props.state.processing?.counts, 'failed'));
 const rejectedPackages = computed(() => count(packageCounts.value, 'rejected'));
 
+const hasAnyObservations = computed(() => {
+  if (totalFoundationChecks.value > 0) return true;
+  if (props.state.processing?.counts && Object.keys(props.state.processing.counts).length > 0)
+    return true;
+  if (Object.keys(packageCounts.value).length > 0) return true;
+  if (props.state.release_gate?.checks && Object.keys(props.state.release_gate.checks).length > 0)
+    return true;
+  if (props.state.backups !== undefined) return true;
+  return false;
+});
+
 // 1. Contextual Impact Block
 const impactInfo = computed(() => {
   if (failedChecks.value.length > 0) {
@@ -75,10 +86,18 @@ const impactInfo = computed(() => {
     };
   }
 
+  if (hasAnyObservations.value) {
+    return {
+      hasIncident: false,
+      heading: 'التأثير التشغيلي',
+      body: 'لم يتم رصد أي حجب أو تعطل تشغيلي في السجل الحالي؛ الفحوص المسجلة للنظام في حالة طبيعية.',
+    };
+  }
+
   return {
     hasIncident: false,
     heading: 'التأثير التشغيلي',
-    body: 'لم يتم رصد أي حجب أو تعطل تشغيلي في السجل الحالي؛ الفحوص المسجلة للنظام في حالة طبيعية.',
+    body: 'غير متاح — لم تتم ملاحظة أية فحوص تشغيلية أو بيانات في السجل الحالي.',
   };
 });
 

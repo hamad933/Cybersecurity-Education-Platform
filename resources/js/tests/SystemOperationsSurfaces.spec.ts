@@ -40,7 +40,7 @@ describe('System Operations Components & Surfaces', () => {
   });
 
   describe('HealthSurface & HealthContext (Truthful State Derivation)', () => {
-    const mockNeutralState = {
+    const mockObservedZeroState = {
       foundation: {
         checks: { database: 'ok', queue: 'ok', storage: 'ok' },
         healthy: true,
@@ -49,37 +49,63 @@ describe('System Operations Components & Surfaces', () => {
       processing: { counts: { running: 0, pending: 0, failed: 0 } },
       outbox: { counts: { failed: 0 } },
       packages: { counts: { rejected: 0, exported: 0 }, records: [] },
-      release_gate: { ready: true, checks: {} },
+      release_gate: { ready: true, checks: { migrations: { status: 'ok', detail: '' } } },
+      policy: { execution: 'MANUAL_ONLY' },
+      backups: [],
     };
 
-    it('proves neutral/empty Health state does not generate fictional incidents, status, or timestamps', () => {
+    const mockTrueEmptyState = {
+      foundation: { checks: {}, healthy: false, failed_checks: [] },
+      processing: { counts: {} },
+      outbox: { counts: {} },
+      packages: { counts: {}, records: [] },
+      release_gate: { ready: false, checks: {} },
+      // no policy, no results, no backups
+    };
+
+    it('proves observed zero state renders healthy/compliant and unblocked claims', async () => {
       const wrapper = mount(HealthSurface, {
-        props: { state: mockNeutralState },
+        props: { state: mockObservedZeroState, selectedSubsystem: 'validation' },
       });
 
-      expect(wrapper.find('[data-testid="health-hero"]').text()).toContain(
-        'المكوّنات الأساسية اجتازت فحوص الصحة',
-      );
+      expect(wrapper.text()).toContain('جميع الحزم المسجلة مطابقة');
+      expect(wrapper.text()).toContain('لا يوجد حجب نشط');
 
-      // Verify no hardcoded fabricated relative timestamps exist
-      const renderedText = wrapper.text();
-      expect(renderedText).not.toContain('الآن');
-      expect(renderedText).not.toContain('قبل 10 دقائق');
-      expect(renderedText).not.toContain('قبل 7 دقائق');
-      expect(renderedText).not.toContain('قبل ساعة');
-      expect(renderedText).not.toContain('قبل ساعتين');
-      expect(renderedText).not.toContain('اليوم 10:33');
-      expect(renderedText).not.toContain('00:02:41');
+      await wrapper.setProps({ selectedSubsystem: 'processing' });
+      expect(wrapper.text()).toContain('لا توجد مهام نشطة');
 
-      // Verify no fabricated incident details exist in neutral state
-      expect(renderedText).not.toContain('فشل في 1 من 3 تحقق');
-      expect(renderedText).not.toContain('فشل تحقق سلامة البيانات في إحدى الحزم');
+      await wrapper.setProps({ selectedSubsystem: 'ai-bridge' });
+      expect(wrapper.text()).toContain('يدوي فقط'); // AI bridge policy observed
 
-      // Verify truthful unobserved / unblocked state is rendered
-      expect(renderedText).toContain('لم تتم ملاحظته');
-      expect(renderedText).toContain('غير متاح');
-      expect(renderedText).toContain('لا يوجد حجب نشط');
-      expect(renderedText).toContain('جميع الحزم المسجلة مطابقة ولم تسجل أي مخالفات');
+      await wrapper.setProps({ selectedSubsystem: 'backups' });
+      expect(wrapper.text()).toContain('وحدة التخزين متاحة'); // Backups observed
+
+      const contextWrapper = mount(HealthContext, {
+        props: { state: mockObservedZeroState, selectedSubsystem: 'validation' },
+      });
+      expect(contextWrapper.text()).toContain('الفحوص المسجلة للنظام في حالة طبيعية');
+    });
+
+    it('proves true empty state rejects healthy wording and strictly reports unavailable/unobserved', () => {
+      const wrapper = mount(HealthSurface, {
+        props: { state: mockTrueEmptyState },
+      });
+
+      const text = wrapper.text();
+      // Must not claim compliance without observation
+      expect(text).not.toContain('جميع الحزم المسجلة مطابقة');
+      expect(text).not.toContain('الطابور في حالة طبيعية');
+      expect(text).not.toContain('لا توجد مهام نشطة');
+
+      expect(text).toContain('لم تتم ملاحظته');
+      expect(text).toContain('غير متاح');
+      expect(text).toContain('بيانات المكوّن المحدد غير متوفرة');
+
+      const contextWrapper = mount(HealthContext, {
+        props: { state: mockTrueEmptyState, selectedSubsystem: 'validation' },
+      });
+      expect(contextWrapper.text()).toContain('غير متاح — لم تتم ملاحظة أية فحوص تشغيلية');
+      expect(contextWrapper.text()).not.toContain('حالة طبيعية');
     });
 
     it('proves projected failures and counts drive truthful UI reactively', async () => {
@@ -126,17 +152,6 @@ describe('System Operations Components & Surfaces', () => {
     });
 
     it('renders HealthContext with state-driven impact and dependencies based on selected subsystem', () => {
-      const neutralContext = mount(HealthContext, {
-        props: {
-          state: mockNeutralState,
-          selectedSubsystem: 'validation',
-        },
-      });
-
-      expect(neutralContext.text()).toContain('السياق التشغيلي');
-      expect(neutralContext.text()).toContain('لم يتم رصد أي حجب أو تعطل تشغيلي في السجل الحالي');
-      expect(neutralContext.text()).not.toContain('تعطل قبول حزم المعرفة الجديدة');
-
       const failureContext = mount(HealthContext, {
         props: {
           state: {

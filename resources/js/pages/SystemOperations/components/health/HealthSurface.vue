@@ -45,19 +45,27 @@ const packageCounts = computed<Counts>(() => {
   return props.state.packages?.counts ?? {};
 });
 
+const hasKeys = (obj: Record<string, unknown> | undefined | null) =>
+  Boolean(obj && Object.keys(obj).length > 0);
+
 const isHealthy = computed(() => props.state.foundation?.healthy ?? false);
 
+const processingHasCounts = computed(() => hasKeys(props.state.processing?.counts));
 const processingFailed = computed(() => count(props.state.processing?.counts, 'failed'));
 const processingRunning = computed(() => count(props.state.processing?.counts, 'running'));
 const processingPending = computed(() => count(props.state.processing?.counts, 'pending'));
+
+const packagesHasCounts = computed(() => hasKeys(packageCounts.value));
 const packagesRejected = computed(() => count(packageCounts.value, 'rejected'));
 const packagesExported = computed(() => count(packageCounts.value, 'exported'));
+
 const releaseReady = computed(
   () => props.state.release_gate?.ready ?? props.state.readiness?.ready ?? false,
 );
-const releaseHasChecks = computed(() =>
-  Boolean(props.state.release_gate?.checks || props.state.readiness?.checks),
-);
+const checksObj = computed(() => props.state.release_gate?.checks || props.state.readiness?.checks);
+const releaseHasChecks = computed(() => hasKeys(checksObj.value));
+
+const backupsAvailable = computed(() => props.state.backups !== undefined);
 const storageOk = computed(() => props.state.foundation?.checks?.storage === 'ok');
 
 const subsystems = computed(() => [
@@ -69,7 +77,7 @@ const subsystems = computed(() => [
         ? 'يتطلب انتباهاً'
         : processingRunning.value > 0 || processingPending.value > 0
           ? 'قيد المعالجة'
-          : props.state.processing?.counts
+          : processingHasCounts.value
             ? 'سليم'
             : 'غير متاح',
     statusVariant:
@@ -77,7 +85,7 @@ const subsystems = computed(() => [
         ? ('danger' as const)
         : processingRunning.value > 0 || processingPending.value > 0
           ? ('info' as const)
-          : props.state.processing?.counts
+          : processingHasCounts.value
             ? ('ok' as const)
             : ('neutral' as const),
     lastCheck: 'لم تتم ملاحظته',
@@ -86,7 +94,7 @@ const subsystems = computed(() => [
         ? `توجد ${processingFailed.value} معالجة فاشلة مسجلة.`
         : processingRunning.value > 0 || processingPending.value > 0
           ? `توجد ${processingRunning.value} جارية و ${processingPending.value} بانتظار المعالجة.`
-          : props.state.processing?.counts
+          : processingHasCounts.value
             ? 'لا توجد معالجات فاشلة في الطابور.'
             : 'لم تتوفر بيانات طابور المعالجة.',
     actionLabel: 'عرض التفاصيل',
@@ -98,14 +106,15 @@ const subsystems = computed(() => [
     status:
       props.state.policy?.execution || props.state.prompts || props.state.results
         ? 'تشغيل يدوي'
-        : 'خامل',
+        : 'غير متاح',
     statusVariant:
       props.state.policy?.execution || props.state.prompts || props.state.results
         ? ('info' as const)
         : ('neutral' as const),
     lastCheck: 'لم تتم ملاحظته',
-    note:
-      props.state.policy?.automatic_provider_enabled || props.state.ai_network_provider_enabled
+    note: !(props.state.policy?.execution || props.state.prompts || props.state.results)
+      ? 'بيانات الجسر غير متوفرة.'
+      : props.state.policy?.automatic_provider_enabled || props.state.ai_network_provider_enabled
         ? 'المزود الآلي مفعّل في الإعدادات.'
         : 'تبادل يدوي للملفات فقط.',
     actionLabel: 'عرض المهام',
@@ -115,49 +124,38 @@ const subsystems = computed(() => [
     id: 'validation' as const,
     name: 'خدمة التحقق',
     status:
-      packagesRejected.value > 0
-        ? 'يتطلب انتباهاً'
-        : packagesExported.value > 0 || props.state.packages
-          ? 'سليم'
-          : 'غير متاح',
+      packagesRejected.value > 0 ? 'يتطلب انتباهاً' : packagesHasCounts.value ? 'سليم' : 'غير متاح',
     statusVariant:
       packagesRejected.value > 0
         ? ('danger' as const)
-        : packagesExported.value > 0 || props.state.packages
+        : packagesHasCounts.value
           ? ('ok' as const)
           : ('neutral' as const),
     lastCheck: 'لم تتم ملاحظته',
     note:
       packagesRejected.value > 0
         ? `توجد ${packagesRejected.value} حزم مرفوضة في السجل.`
-        : packagesExported.value > 0
-          ? `توجد ${packagesExported.value} حزم مجازة بدون إخفاقات.`
-          : 'لا توجد حزم مرفوضة مسجلة.',
+        : packagesHasCounts.value
+          ? 'جميع الحزم المسجلة مطابقة ولم تسجل أي مخالفات.'
+          : 'لم تتوفر بيانات حالة الحزم.',
     actionLabel: 'عرض التقرير',
     href: '/system/validation',
   },
   {
     id: 'backups' as const,
     name: 'حالة النسخ الاحتياطي',
-    status:
-      props.state.foundation?.checks?.storage !== undefined
-        ? storageOk.value
-          ? 'سليم'
-          : 'يتطلب انتباهاً'
-        : 'غير متاح',
-    statusVariant:
-      props.state.foundation?.checks?.storage !== undefined
-        ? storageOk.value
-          ? ('ok' as const)
-          : ('danger' as const)
-        : ('neutral' as const),
+    status: backupsAvailable.value ? (storageOk.value ? 'سليم' : 'يتطلب انتباهاً') : 'غير متاح',
+    statusVariant: backupsAvailable.value
+      ? storageOk.value
+        ? ('ok' as const)
+        : ('danger' as const)
+      : ('neutral' as const),
     lastCheck: 'لم تتم ملاحظته',
-    note:
-      props.state.foundation?.checks?.storage === 'failed'
-        ? 'فحص وحدة التخزين المحلي غير سليم.'
-        : storageOk.value
-          ? 'جاهزية التخزين المحلي للنسخ الاحتياطي.'
-          : 'بيانات التخزين غير متوفرة في الحالة الحالية.',
+    note: !backupsAvailable.value
+      ? 'بيانات النسخ الاحتياطي غير متوفرة.'
+      : storageOk.value
+        ? 'جاهزية التخزين المحلي للنسخ الاحتياطي.'
+        : 'فحص وحدة التخزين المحلي غير سليم.',
     actionLabel: 'فتح النسخ الاحتياطي',
     href: '/system/backups',
   },
@@ -193,7 +191,9 @@ const inspectorDetails = computed(() => {
             ? `توجد حزم مرفوضة (${packagesRejected.value})`
             : packagesExported.value > 0
               ? `اجتياز الفحص (${packagesExported.value} حزمة)`
-              : 'لا توجد حزم مسجلة',
+              : packagesHasCounts.value
+                ? 'لا توجد حزم مسجلة'
+                : 'غير متاح',
         card1Badges: [
           ...(packagesRejected.value > 0
             ? [{ text: `✕ ${packagesRejected.value} مرفوضة`, variant: 'danger' }]
@@ -202,7 +202,12 @@ const inspectorDetails = computed(() => {
             ? [{ text: `✓ ${packagesExported.value} مقبولة`, variant: 'ok' }]
             : []),
           ...(packagesRejected.value === 0 && packagesExported.value === 0
-            ? [{ text: 'لم تسجل حالات', variant: 'neutral' }]
+            ? [
+                {
+                  text: packagesHasCounts.value ? 'لم تسجل حالات' : 'لم تتم ملاحظته',
+                  variant: 'neutral',
+                },
+              ]
             : []),
         ],
         card2Title: 'حالة الحجب',
@@ -213,11 +218,15 @@ const inspectorDetails = computed(() => {
         card3Details:
           packagesRejected.value > 0
             ? `تم تسجيل عدد ${packagesRejected.value} من الحزم المرفوضة في سجل التحقق التقني.`
-            : 'جميع الحزم المسجلة مطابقة ولم تسجل أي مخالفات.',
+            : packagesHasCounts.value
+              ? 'جميع الحزم المسجلة مطابقة ولم تسجل أي مخالفات.'
+              : 'بيانات المكوّن المحدد غير متوفرة في الحالة الحالية.',
         card3NextAction:
           packagesRejected.value > 0
             ? 'مراجعة سبب رفض الحزم في واجهة التحقق التقني.'
-            : 'لا يتطلب أي إجراء في الوقت الحالي.',
+            : packagesHasCounts.value
+              ? 'لا يتطلب أي إجراء في الوقت الحالي.'
+              : 'لا يلزم أي إجراء.',
       };
 
     case 'processing':
@@ -229,7 +238,9 @@ const inspectorDetails = computed(() => {
             ? `توجد معالجات فاشلة (${processingFailed.value})`
             : processingRunning.value > 0
               ? `معالجة جارية (${processingRunning.value})`
-              : 'الطابور في حالة طبيعية',
+              : processingHasCounts.value
+                ? 'الطابور في حالة طبيعية'
+                : 'غير متاح',
         card1Badges: [
           ...(processingFailed.value > 0
             ? [{ text: `✕ ${processingFailed.value} فاشلة`, variant: 'danger' }]
@@ -243,7 +254,12 @@ const inspectorDetails = computed(() => {
           ...(processingFailed.value === 0 &&
           processingRunning.value === 0 &&
           processingPending.value === 0
-            ? [{ text: 'لا توجد مهام نشطة', variant: 'neutral' }]
+            ? [
+                {
+                  text: processingHasCounts.value ? 'لا توجد مهام نشطة' : 'لم تتم ملاحظته',
+                  variant: 'neutral',
+                },
+              ]
             : []),
         ],
         card2Title: 'حالة الحجب',
@@ -254,11 +270,15 @@ const inspectorDetails = computed(() => {
         card3Details:
           processingFailed.value > 0
             ? `تم رصد عدد ${processingFailed.value} مهام معالجة فاشلة في قاعدة البيانات.`
-            : 'طوابير المعالجة والرسائل تعمل بصورة طبيعية دون إخفاقات.',
+            : processingHasCounts.value
+              ? 'طوابير المعالجة والرسائل تعمل بصورة طبيعية دون إخفاقات.'
+              : 'بيانات المكوّن المحدد غير متوفرة في الحالة الحالية.',
         card3NextAction:
           processingFailed.value > 0
             ? 'فحص سجلات الأخطاء في واجهة المعالجة والطوابير.'
-            : 'لا يتطلب أي إجراء في الوقت الحالي.',
+            : processingHasCounts.value
+              ? 'لا يتطلب أي إجراء في الوقت الحالي.'
+              : 'لا يلزم أي إجراء.',
       };
 
     case 'releases':
@@ -273,7 +293,9 @@ const inspectorDetails = computed(() => {
         card1Badges: [
           releaseReady.value
             ? { text: '✓ جاهز', variant: 'ok' }
-            : { text: '▲ بانتظار التحقق', variant: 'neutral' },
+            : releaseHasChecks.value
+              ? { text: '▲ بانتظار التحقق', variant: 'neutral' }
+              : { text: 'لم تتم ملاحظته', variant: 'neutral' },
         ],
         card2Title: 'حالة الحجب',
         card2Tag: releaseReady.value ? 'غير نشطة' : 'حظر الإطلاق',
@@ -282,18 +304,30 @@ const inspectorDetails = computed(() => {
         card2Source: 'بوابة الجاهزية (release_gate)',
         card3Details: releaseReady.value
           ? 'تم التحقق من جاهزية الإصدار وحزم الأدلة المرفقة.'
-          : 'لا يمكن اعتماد الإصدار قبل استيفاء كامل الفحوص.',
+          : releaseHasChecks.value
+            ? 'لا يمكن اعتماد الإصدار قبل استيفاء كامل الفحوص.'
+            : 'بيانات المكوّن المحدد غير متوفرة في الحالة الحالية.',
         card3NextAction: releaseReady.value
           ? 'مراجعة حزم الأدلة في مركز الإصدار.'
-          : 'استيفاء الفحوص غير المكتملة في واجهة الإصدار.',
+          : releaseHasChecks.value
+            ? 'استيفاء الفحوص غير المكتملة في واجهة الإصدار.'
+            : 'لا يلزم أي إجراء.',
       };
 
-    case 'ai-bridge':
+    case 'ai-bridge': {
+      const hasAi = Boolean(
+        props.state.policy?.execution || props.state.prompts || props.state.results,
+      );
       return {
         subsystemName: 'جسر الذكاء الاصطناعي',
         card1Title: 'ملخص الفحص',
-        card1Result: 'تبادل ملفات يدوي',
-        card1Badges: [{ text: 'يدوي فقط (Manual Only)', variant: 'info' }],
+        card1Result: hasAi ? 'تبادل ملفات يدوي' : 'غير متاح',
+        card1Badges: [
+          {
+            text: hasAi ? 'يدوي فقط (Manual Only)' : 'لم تتم ملاحظته',
+            variant: hasAi ? 'info' : 'neutral',
+          },
+        ],
         card2Title: 'حالة الحجب',
         card2Tag:
           props.state.policy?.automatic_provider_enabled || props.state.ai_network_provider_enabled
@@ -308,21 +342,28 @@ const inspectorDetails = computed(() => {
             ? 'لا يوجد'
             : 'حظر الطلبات الشبكية التلقائية',
         card2Source: 'سياسة الجسر (policy.execution)',
-        card3Details: 'يقتصر عمل الجسر على استيراد وتصدير ملفات Prompts مع مراجعة بشرية إلزامية.',
-        card3NextAction: 'متابعة حزم Prompts أو مراجعة النتائج المستوردة عبر واجهة الجسر.',
+        card3Details: hasAi
+          ? 'يقتصر عمل الجسر على استيراد وتصدير ملفات Prompts مع مراجعة بشرية إلزامية.'
+          : 'بيانات المكوّن المحدد غير متوفرة في الحالة الحالية.',
+        card3NextAction: hasAi
+          ? 'متابعة حزم Prompts أو مراجعة النتائج المستوردة عبر واجهة الجسر.'
+          : 'لا يلزم أي إجراء.',
       };
+    }
 
     case 'backups':
       return {
         subsystemName: 'حالة النسخ الاحتياطي',
         card1Title: 'ملخص الفحص',
-        card1Result: storageOk.value
-          ? 'وحدة التخزين متاحة'
-          : props.state.foundation?.checks?.storage === 'failed'
-            ? 'فحص التخزين غير سليم'
-            : 'غير متاح',
+        card1Result: backupsAvailable.value
+          ? storageOk.value
+            ? 'وحدة التخزين متاحة'
+            : props.state.foundation?.checks?.storage === 'failed'
+              ? 'فحص التخزين غير سليم'
+              : 'غير متاح'
+          : 'غير متاح',
         card1Badges: [
-          storageOk.value
+          backupsAvailable.value && storageOk.value
             ? { text: '✓ سليم', variant: 'ok' }
             : { text: 'لم تتم ملاحظته', variant: 'neutral' },
         ],
@@ -331,8 +372,12 @@ const inspectorDetails = computed(() => {
         card2TagVariant: 'ok',
         card2Type: 'حظر الاستعادة عبر HTTP (CLI Only)',
         card2Source: 'ضوابط أمان المنصة (STAGE_AND_VERIFY_ONLY)',
-        card3Details: 'تخضع الاستعادة للفحص المرحلي المستقل وتتطلب التفعيل عبر سطر الأوامر CLI.',
-        card3NextAction: 'إدارة النسخ الاحتياطية وإجراء الفحص المرحلي عبر واجهة النسخ.',
+        card3Details: backupsAvailable.value
+          ? 'تخضع الاستعادة للفحص المرحلي المستقل وتتطلب التفعيل عبر سطر الأوامر CLI.'
+          : 'بيانات المكوّن المحدد غير متوفرة في الحالة الحالية.',
+        card3NextAction: backupsAvailable.value
+          ? 'إدارة النسخ الاحتياطية وإجراء الفحص المرحلي عبر واجهة النسخ.'
+          : 'لا يلزم أي إجراء.',
       };
 
     default:
