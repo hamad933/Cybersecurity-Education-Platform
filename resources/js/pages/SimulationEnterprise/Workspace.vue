@@ -22,6 +22,7 @@ import SimulationPrimaryNavigation from './components/SimulationPrimaryNavigatio
 import StructureList from './components/StructureList.vue';
 import WorkspaceStatus from './components/WorkspaceStatus.vue';
 import WorkspaceToolbar from './components/WorkspaceToolbar.vue';
+import { orderedItems } from './projections';
 import type {
   EnterpriseItem,
   LabItem,
@@ -161,6 +162,115 @@ const structureItems = computed(() =>
   }),
 );
 
+const structureGroups = computed(() => {
+  if (selectedEnterprise.value) {
+    return selectedEnterprise.value.digital_twins.flatMap((twin) => [
+      {
+        label: twin.name_ar,
+        kind: 'digital-twin',
+        items: twin.revisions.map((revision) => ({
+          id: revision.id,
+          label: `Revision ${revision.revision}`,
+          meta: `${revision.baselines.length} BASELINES`,
+        })),
+      },
+    ]);
+  }
+  if (selectedScenario.value) {
+    const phases = orderedItems(selectedScenario.value.orchestration.phases, 'Phase');
+    return [
+      {
+        label: 'مراحل orchestration',
+        kind: 'phase',
+        items: phases.map((phase) => ({
+          id: phase.id,
+          label: `Phase ${String(phase.ordinal).padStart(2, '0')}`,
+          meta: phase.ordinal === 1 ? 'ENTRY' : undefined,
+        })),
+      },
+      {
+        label: 'Lab Module References',
+        kind: 'scenario-module',
+        items: selectedScenario.value.lab_module_references.map((module) => ({
+          id: module.reference_id,
+          label: module.lab_title_ar,
+          meta: module.module_key,
+        })),
+      },
+    ];
+  }
+  if (selectedLab.value) {
+    return [
+      {
+        label: 'Task Graph',
+        kind: 'lab-step',
+        items: orderedItems(selectedLab.value.configuration.steps, 'Task').map((step) => ({
+          id: step.id,
+          label: `Task ${String(step.ordinal).padStart(2, '0')}`,
+          meta: step.ordinal === 1 ? 'ENTRY' : undefined,
+        })),
+      },
+      {
+        label: 'Definition anchors',
+        kind: 'lab-anchor',
+        items: [
+          { id: 'baseline', label: 'Baseline', meta: 'PINNED' },
+          { id: 'validation', label: 'Validation', meta: 'CONTRACT' },
+        ],
+      },
+    ];
+  }
+  if (selectedRun.value) {
+    return [
+      {
+        label: 'Operational sequence',
+        kind: 'run-stream',
+        items: [
+          { id: 'events', label: 'Event stream', meta: String(selectedRun.value.events.length) },
+          {
+            id: 'operations',
+            label: 'Operations',
+            meta: String(selectedRun.value.operations.length),
+          },
+          {
+            id: 'snapshots',
+            label: 'Runtime Snapshots',
+            meta: String(selectedRun.value.snapshots.length),
+          },
+          {
+            id: 'checkpoints',
+            label: 'Prepared Checkpoints',
+            meta: String(selectedRun.value.checkpoints.length),
+          },
+        ],
+      },
+    ];
+  }
+  if (selectedResult.value) {
+    return [
+      {
+        label: 'Sealed result structure',
+        kind: 'result-history',
+        items: [
+          {
+            id: 'replay',
+            label: 'Replay timeline',
+            meta: String(selectedResult.value.replay_timeline.length),
+          },
+          { id: 'payload', label: 'Frozen payload', meta: 'SEALED' },
+          {
+            id: 'artifacts',
+            label: 'Runtime artifacts',
+            meta: String(selectedResult.value.artifacts.length),
+          },
+          { id: 'provenance', label: 'Provenance', meta: selectedResult.value.provenance },
+        ],
+      },
+    ];
+  }
+  return [];
+});
+
 const serverError = computed(
   () => page.props.errors?.simulation ?? Object.values(page.props.errors ?? {})[0] ?? null,
 );
@@ -171,8 +281,8 @@ const temporaryLabel = computed(
       enterprise: 'البنية والتعريفات الخام',
       scenarios: 'Environment Contract وOrchestration الخام',
       labs: 'إعداد المختبر والتحقق الخام',
-      runs: 'Event Timeline / Snapshots / Checkpoints',
-      results: 'Sealed Replay / Frozen Payload / Artifacts',
+      runs: 'Raw Events / Runtime State / Snapshot Payloads',
+      results: 'Frozen Payload / Artifacts / Reconstruction',
     })[props.section],
 );
 
@@ -280,31 +390,16 @@ function createHandoff(claim: string): void {
           :description="structureDescription"
           :items="structureItems"
           :selected-id="selectedId"
+          :groups="structureGroups"
           @select="selectedId = $event"
         />
       </template>
 
-      <EnterpriseSurface
-        v-if="section === 'enterprise'"
-        :enterprise="selectedEnterprise"
-        @open-deep-detail="bottomOpen = true"
-      />
-      <ScenarioSurface
-        v-else-if="section === 'scenarios'"
-        :scenario="selectedScenario"
-        @open-deep-detail="bottomOpen = true"
-      />
-      <LabSurface
-        v-else-if="section === 'labs'"
-        :lab="selectedLab"
-        @open-deep-detail="bottomOpen = true"
-      />
-      <RunSurface
-        v-else-if="section === 'runs'"
-        :run="selectedRun"
-        @open-deep-detail="bottomOpen = true"
-      />
-      <ResultSurface v-else :result="selectedResult" @open-deep-detail="bottomOpen = true" />
+      <EnterpriseSurface v-if="section === 'enterprise'" :enterprise="selectedEnterprise" />
+      <ScenarioSurface v-else-if="section === 'scenarios'" :scenario="selectedScenario" />
+      <LabSurface v-else-if="section === 'labs'" :lab="selectedLab" />
+      <RunSurface v-else-if="section === 'runs'" :run="selectedRun" />
+      <ResultSurface v-else :result="selectedResult" />
 
       <template #right>
         <EnterpriseContext v-if="section === 'enterprise'" :enterprise="selectedEnterprise" />

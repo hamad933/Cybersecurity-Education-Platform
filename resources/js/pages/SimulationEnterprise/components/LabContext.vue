@@ -8,7 +8,7 @@ defineProps<{ lab: LabItem | null }>();
 <template>
   <div class="sim-context" data-testid="lab-right">
     <div class="sim-panel-heading">
-      <p class="sim-kicker">RIGHT · SELECTED CONTEXT</p>
+      <p class="sim-kicker">RIGHT · DEFINITION CONTEXT</p>
       <h2>سياق المختبر</h2>
     </div>
     <template v-if="lab">

@@ -20,8 +20,8 @@ const resultScore = ref<number | null>(null);
 <template>
   <div class="sim-context" data-testid="run-right">
     <div class="sim-panel-heading">
-      <p class="sim-kicker">RIGHT · SELECTED RUN</p>
-      <h2>السياق التشغيلي</h2>
+      <p class="sim-kicker">RIGHT · INTERPRETATION / ACTIONS</p>
+      <h2>سياق القرار التشغيلي</h2>
     </div>
     <template v-if="run">
       <LifecycleBadge :value="run.lifecycle" />
@@ -35,27 +35,17 @@ const resultScore = ref<number | null>(null);
           <dd class="sim-technical">{{ shortDigest(run.baseline_id) }}</dd>
         </div>
         <div>
-          <dt>Engine</dt>
-          <dd class="sim-technical">{{ run.runtime_state.engine ?? 'INTERNAL' }}</dd>
-        </div>
-        <div>
           <dt>Provenance</dt>
           <dd class="sim-technical">{{ run.provenance }}</dd>
         </div>
       </dl>
 
-      <section class="sim-context-section" data-testid="run-telemetry">
-        <h3>Run telemetry</h3>
-        <div
-          v-if="run.runtime_state.telemetry && Object.keys(run.runtime_state.telemetry).length"
-          class="sim-telemetry"
-        >
-          <div v-for="(value, key) in run.runtime_state.telemetry" :key="String(key)">
-            <small class="sim-technical">{{ key }}</small
-            ><strong class="sim-technical">{{ value }}</strong>
-          </div>
-        </div>
-        <p v-else class="sim-muted">لا توجد Telemetry محفوظة لهذا التشغيل بعد.</p>
+      <section class="sim-context-section" data-testid="run-interpretation">
+        <h3>حدود التفسير</h3>
+        <p class="sim-context-copy">
+          حقائق الآلة والأحداث وTelemetry معروضة في مساحة العمليات المركزية. هذه اللوحة مخصصة
+          للإجراءات المتاحة وسياق القرار فقط.
+        </p>
       </section>
 
       <form
@@ -109,6 +99,6 @@ const resultScore = ref<number | null>(null);
         لهذا التشغيل Result مختومة؛ لا يمكن إعادة كتابة التاريخ.
       </div>
     </template>
-    <p v-else class="sim-muted">اختر تشغيلًا لعرض telemetry وإجراءاته المتاحة.</p>
+    <p v-else class="sim-muted">اختر تشغيلًا لعرض سياق القرار وإجراءاته المتاحة.</p>
   </div>
 </template>

@@ -7,7 +7,7 @@ defineProps<{ scenario: ScenarioItem | null }>();
 <template>
   <div class="sim-context" data-testid="scenario-right">
     <div class="sim-panel-heading">
-      <p class="sim-kicker">RIGHT · SELECTED CONTEXT</p>
+      <p class="sim-kicker">RIGHT · CONTRACT CONTEXT</p>
       <h2>سياق السيناريو</h2>
     </div>
     <template v-if="scenario">

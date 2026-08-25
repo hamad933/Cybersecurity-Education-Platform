@@ -96,6 +96,9 @@ const actionLabels: Record<string, string> = {
       <button class="sim-button" type="submit" :disabled="pending || !baselineId">
         تهيئة التشغيل المحدد
       </button>
+      <button type="button" class="sim-button sim-button--quiet" @click="emit('openBottom')">
+        العقد وOrchestration الخام
+      </button>
     </form>
 
     <form
@@ -127,6 +130,9 @@ const actionLabels: Record<string, string> = {
         </select></label
       >
       <button class="sim-button" type="submit" :disabled="pending">تهيئة مختبر مستقل</button>
+      <button type="button" class="sim-button sim-button--quiet" @click="emit('openBottom')">
+        الإعداد والتحقق الخام
+      </button>
     </form>
 
     <div
@@ -165,7 +171,7 @@ const actionLabels: Record<string, string> = {
         إعادة البناء والمقارنة
       </button>
       <button type="button" class="sim-button sim-button--quiet" @click="emit('openBottom')">
-        Replay الكامل
+        الحمولة الخام
       </button>
     </div>
 

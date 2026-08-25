@@ -1,64 +1,76 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+
 import { shortDigest } from '../formatters';
+import { orderedItems } from '../projections';
 import type { LabItem } from '../types';
 
-defineProps<{ lab: LabItem | null }>();
-const emit = defineEmits<{ openDeepDetail: [] }>();
+const props = defineProps<{ lab: LabItem | null }>();
+
+const steps = computed(() => orderedItems(props.lab?.configuration.steps, 'Task'));
 </script>
 
 <template>
-  <section class="sim-surface" data-testid="lab-center">
-    <header class="sim-surface-header">
+  <section class="sim-surface sim-canvas-surface" data-testid="lab-center">
+    <header class="sim-workbench-header">
       <div>
-        <p class="sim-kicker">LABS · STANDALONE EXECUTION</p>
+        <p class="sim-kicker">LAB DEFINITION STUDIO · TASK GRAPH</p>
         <h1>{{ lab?.title_ar ?? 'المختبرات' }}</h1>
-        <p>راجع تعريف المختبر المستقل المثبت على Baseline قبل تهيئة تشغيله التشغيلي.</p>
       </div>
-      <button
-        v-if="lab"
-        type="button"
-        class="sim-button sim-button--quiet"
-        @click="emit('openDeepDetail')"
-      >
-        فحص الإعداد الخام
-      </button>
     </header>
 
     <div v-if="!lab" class="sim-empty">
       <strong>لا يوجد مختبر محدد</strong>
-      <p>اختر مختبرًا منشورًا من لوحة البنية.</p>
     </div>
 
-    <template v-else>
-      <div class="sim-hero-card">
-        <div class="sim-card__topline">
-          <span class="sim-chip">STANDALONE LAB</span>
-          <span class="sim-chip sim-chip--fixed">BASELINE PINNED</span>
+    <div v-else class="sim-task-workbench" data-testid="lab-task-graph">
+      <div class="sim-canvas-caption">
+        <div>
+          <strong>{{ lab.title_ar }}</strong>
+          <code class="sim-technical">REV {{ lab.revision }} · {{ lab.slug }}</code>
         </div>
-        <h2>{{ lab.title_ar }}</h2>
-        <p class="sim-technical">{{ lab.slug }}</p>
-        <div class="sim-definition-path" aria-label="سلسلة تعريف المختبر">
-          <span>Lab Definition</span><i aria-hidden="true">←</i><span>Baseline</span
-          ><i aria-hidden="true">←</i><span>Prepared Run</span>
+        <div class="sim-canvas-counts">
+          <span>{{ steps.length }} TASKS</span><span>BASELINE PINNED</span>
         </div>
-        <div class="sim-contract-strip">
+      </div>
+
+      <div v-if="steps.length" class="sim-task-graph" role="list" aria-label="مسار مهام المختبر">
+        <template v-for="(step, index) in steps" :key="step.id">
+          <article class="sim-task-node" role="listitem" data-testid="lab-task-node">
+            <span class="sim-task-ordinal">{{ step.ordinal }}</span>
+            <small>TASK {{ String(step.ordinal).padStart(2, '0') }}</small>
+            <strong>{{ step.label }}</strong>
+          </article>
+          <span v-if="index < steps.length - 1" class="sim-task-connector" aria-hidden="true"
+            >→</span
+          >
+        </template>
+      </div>
+      <p v-else class="sim-empty">لا يحتوي تعريف المختبر على خطوات منشورة.</p>
+
+      <div class="sim-definition-anchors">
+        <article>
+          <span class="sim-anchor-icon" aria-hidden="true">B</span>
           <div>
-            <small>Revision</small><strong>{{ lab.revision }}</strong>
-          </div>
-          <div>
-            <small>Baseline</small
+            <small>BASELINE LINKAGE</small
             ><strong class="sim-technical">{{ shortDigest(lab.baseline_id) }}</strong>
           </div>
+        </article>
+        <span class="sim-anchor-rail" aria-hidden="true" />
+        <article>
+          <span class="sim-anchor-icon" aria-hidden="true">V</span>
           <div>
-            <small>Digest</small
-            ><strong class="sim-technical">{{ shortDigest(lab.digest) }}</strong>
+            <small>VALIDATION CONTRACT</small
+            ><strong>{{ Object.keys(lab.validation).length }} governed fields</strong>
           </div>
-        </div>
+        </article>
       </div>
-      <div class="sim-rule-note sim-rule-note--wide">
-        المختبر المستقل يملك تعريفه ومسار تشغيله. وجود مرجع له داخل Scenario لا ينشئ Standalone Lab
-        Run.
-      </div>
-    </template>
+
+      <footer class="sim-canvas-legend">
+        <span><i class="sim-legend-node" />مهمة من configuration.steps</span>
+        <span><i class="sim-legend-line" />ترتيب تعريف منشور</span>
+        <span>Lab definition · standalone execution path</span>
+      </footer>
+    </div>
   </section>
 </template>

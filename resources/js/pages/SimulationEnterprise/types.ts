@@ -3,6 +3,26 @@ export type SimulationSection = 'enterprise' | 'scenarios' | 'labs' | 'runs' | '
 export type NavigationItem = { key: SimulationSection; label: string; href: string };
 export type JsonMap = Record<string, unknown>;
 
+export type TopologyNode = {
+  id: string;
+  label: string;
+  kind: string;
+  raw: JsonMap;
+};
+
+export type TopologyLink = {
+  from: string;
+  to: string;
+  label: string | null;
+};
+
+export type OrderedDefinitionItem = {
+  id: string;
+  label: string;
+  ordinal: number;
+  raw: unknown;
+};
+
 export type EventItem = {
   sequence: number;
   event_type: string;

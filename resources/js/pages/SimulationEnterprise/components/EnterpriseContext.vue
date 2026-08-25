@@ -7,7 +7,7 @@ defineProps<{ enterprise: EnterpriseItem | null }>();
 <template>
   <div class="sim-context" data-testid="enterprise-right">
     <div class="sim-panel-heading">
-      <p class="sim-kicker">RIGHT · SELECTED CONTEXT</p>
+      <p class="sim-kicker">RIGHT · INTERPRETATION</p>
       <h2>سياق المؤسسة</h2>
     </div>
     <template v-if="enterprise">

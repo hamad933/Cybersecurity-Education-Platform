@@ -15,8 +15,8 @@ const handoffClaim = ref(
 <template>
   <div class="sim-context" data-testid="result-right">
     <div class="sim-panel-heading">
-      <p class="sim-kicker">RIGHT · SELECTED RESULT</p>
-      <h2>سياق النتيجة المختومة</h2>
+      <p class="sim-kicker">RIGHT · INTERPRETATION / HANDOFF</p>
+      <h2>سياق التحليل والتسليم</h2>
     </div>
     <template v-if="result">
       <div class="sim-sealed-note">
@@ -61,6 +61,9 @@ const handoffClaim = ref(
 
       <section class="sim-context-section">
         <h3>Candidate Evidence Handoff</h3>
+        <p class="sim-context-copy">
+          هذا تسليم Candidate فقط؛ ليس قبولًا في Evidence canonical ولا يبدأ Review أو Mastery.
+        </p>
         <div v-if="result.candidate_evidence_handoff" class="sim-handoff">
           <span class="sim-chip">{{ result.candidate_evidence_handoff.status }}</span>
           <code class="sim-technical sim-wrap">{{

@@ -321,8 +321,846 @@
   white-space: nowrap;
 }
 
+.sim-structure-group {
+  margin-top: 1rem;
+  border-top: 1px solid var(--cep-border);
+  padding-top: 0.8rem;
+}
+
+.sim-structure-group > header,
+.sim-structure-group li {
+  display: grid;
+  align-items: center;
+}
+
+.sim-structure-group > header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  color: var(--cep-text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.sim-structure-group > header b {
+  color: var(--cep-accent);
+  font-family: var(--sim-technical-font);
+}
+
+.sim-structure-group ol {
+  display: grid;
+  gap: 0;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sim-structure-group li {
+  position: relative;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.2rem 0.55rem;
+  min-height: 2.65rem;
+  color: var(--cep-text);
+  font-size: 0.75rem;
+}
+
+.sim-structure-group li:not(:last-child)::after {
+  position: absolute;
+  top: 1.75rem;
+  bottom: -0.9rem;
+  right: 0.78rem;
+  width: 1px;
+  background: var(--cep-border-strong);
+  content: '';
+}
+
+.sim-structure-group li small {
+  grid-column: 2;
+  color: var(--cep-text-muted);
+  font-size: 0.59rem;
+}
+
+.sim-structure-rail {
+  z-index: 1;
+  display: grid;
+  width: 1.55rem;
+  height: 1.55rem;
+  grid-row: 1 / 3;
+  place-items: center;
+  border: 1px solid var(--cep-border-strong);
+  border-radius: 50%;
+  background: var(--cep-bg-panel);
+  color: var(--cep-accent);
+  font-family: var(--sim-technical-font);
+  font-size: 0.57rem;
+}
+
 .sim-surface {
   min-width: 0;
+}
+
+.sim-canvas-surface {
+  min-height: 38rem;
+}
+
+.sim-workbench-header,
+.sim-canvas-caption,
+.sim-view-controls,
+.sim-pane-heading,
+.sim-operation-header,
+.sim-replay-header,
+.sim-replay-controls,
+.sim-result-truth-band {
+  display: flex;
+  align-items: center;
+}
+
+.sim-workbench-header {
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--cep-border);
+  padding-bottom: 0.8rem;
+}
+
+.sim-workbench-header h1 {
+  font-size: clamp(1.2rem, 2vw, 1.75rem);
+}
+
+.sim-view-controls {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.sim-view-controls label {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.sim-view-controls label span {
+  color: var(--cep-text-muted);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.sim-view-controls select {
+  min-height: 2.15rem;
+  max-width: 15rem;
+  border: 1px solid var(--cep-border-strong);
+  border-radius: var(--cep-radius-sm);
+  background: var(--cep-bg-panel-strong);
+  padding: 0.35rem 0.55rem;
+  color: var(--cep-text);
+  font: inherit;
+  font-size: 0.72rem;
+}
+
+.sim-topology-workbench,
+.sim-flow-workbench,
+.sim-task-workbench,
+.sim-operations-workbench,
+.sim-runtime-band,
+.sim-replay-workbench {
+  min-width: 0;
+  border: 1px solid var(--cep-border);
+  border-radius: var(--cep-radius-md);
+  background: var(--cep-bg-panel-strong);
+}
+
+.sim-topology-workbench,
+.sim-flow-workbench,
+.sim-task-workbench {
+  margin-top: 0.8rem;
+  overflow: hidden;
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--cep-accent) 20%, transparent) 0.7px,
+    transparent 0.7px
+  );
+  background-size: 18px 18px;
+}
+
+.sim-canvas-caption {
+  justify-content: space-between;
+  gap: 0.8rem;
+  border-bottom: 1px solid var(--cep-border);
+  background: color-mix(in srgb, var(--cep-bg-panel-strong) 93%, transparent);
+  padding: 0.7rem 0.85rem;
+}
+
+.sim-canvas-caption > div:first-child {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.sim-canvas-caption code {
+  color: var(--cep-text-muted);
+  font-size: 0.62rem;
+}
+
+.sim-canvas-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  direction: ltr;
+}
+
+.sim-canvas-counts span,
+.sim-readonly-control {
+  border: 1px solid var(--cep-border-strong);
+  border-radius: 999px;
+  background: var(--cep-bg-panel);
+  padding: 0.23rem 0.45rem;
+  color: var(--cep-text-muted);
+  font-family: var(--sim-technical-font);
+  font-size: 0.58rem;
+  font-weight: 800;
+}
+
+.sim-canvas-counts .sim-provenance {
+  border-color: color-mix(in srgb, var(--sim-semantic-success) 45%, var(--cep-border));
+  color: var(--sim-semantic-success);
+}
+
+.sim-topology-svg {
+  display: block;
+  width: 100%;
+  min-height: 28rem;
+  direction: ltr;
+}
+
+.sim-grid-fill {
+  fill: url(#sim-dot-grid);
+}
+
+.sim-grid-dot {
+  fill: color-mix(in srgb, var(--cep-accent) 30%, transparent);
+}
+
+.sim-links line {
+  stroke: color-mix(in srgb, var(--cep-text-muted) 72%, transparent);
+  stroke-width: 2;
+}
+
+.sim-link-arrow {
+  fill: var(--cep-text-muted);
+}
+
+.sim-topology-node {
+  cursor: pointer;
+  outline: none;
+}
+
+.sim-topology-node rect {
+  fill: color-mix(in srgb, var(--cep-bg-panel-strong) 94%, var(--cep-accent));
+  stroke: var(--cep-border-strong);
+  stroke-width: 1.5;
+}
+
+.sim-topology-node circle {
+  fill: var(--cep-accent-soft);
+  stroke: var(--cep-accent);
+  stroke-width: 2;
+}
+
+.sim-topology-node:hover rect,
+.sim-topology-node:focus rect,
+.sim-topology-node.is-selected rect {
+  stroke: var(--cep-accent);
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--cep-accent) 28%, transparent));
+}
+
+.sim-node-title,
+.sim-node-kind {
+  fill: var(--cep-text);
+  font-family: var(--sim-technical-font);
+  font-size: 13px;
+}
+
+.sim-node-kind {
+  fill: var(--cep-text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.sim-canvas-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  border-top: 1px solid var(--cep-border);
+  background: color-mix(in srgb, var(--cep-bg-panel-strong) 94%, transparent);
+  padding: 0.65rem 0.85rem;
+  color: var(--cep-text-muted);
+  font-size: 0.62rem;
+}
+
+.sim-canvas-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.sim-legend-line {
+  width: 1.8rem;
+  height: 1px;
+  background: var(--cep-accent);
+}
+
+.sim-legend-node,
+.sim-legend-module {
+  width: 0.62rem;
+  height: 0.62rem;
+  border: 1px solid var(--cep-accent);
+  border-radius: 2px;
+  background: var(--cep-accent-soft);
+}
+
+.sim-legend-module {
+  border-color: var(--sim-semantic-sealed);
+}
+
+.sim-graph-mobile {
+  display: none;
+}
+
+.sim-phase-flow {
+  display: grid;
+  margin: 0;
+  padding: 1rem;
+  list-style: none;
+}
+
+.sim-phase-flow li {
+  position: relative;
+  display: grid;
+  min-height: 7rem;
+  grid-template-columns: 3rem minmax(13rem, 0.8fr) minmax(13rem, 1fr);
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.sim-phase-flow li:not(:last-child)::after {
+  position: absolute;
+  top: calc(50% + 1.45rem);
+  bottom: calc(-50% + 1.45rem);
+  right: 1.45rem;
+  width: 2px;
+  background: linear-gradient(var(--cep-accent), var(--cep-border-strong));
+  content: '';
+}
+
+.sim-phase-index {
+  z-index: 1;
+  display: grid;
+  width: 2.9rem;
+  height: 2.9rem;
+  place-items: center;
+  border: 2px solid var(--cep-accent);
+  border-radius: 50%;
+  background: var(--cep-bg-panel-strong);
+  color: var(--cep-accent);
+  font-family: var(--sim-technical-font);
+  font-weight: 800;
+}
+
+.sim-flow-node,
+.sim-task-node {
+  display: grid;
+  min-width: 0;
+  gap: 0.3rem;
+  border: 1px solid color-mix(in srgb, var(--cep-accent) 45%, var(--cep-border));
+  border-radius: var(--cep-radius-sm);
+  background: color-mix(in srgb, var(--cep-bg-panel-strong) 93%, var(--cep-accent));
+  padding: 0.8rem;
+}
+
+.sim-flow-node small,
+.sim-task-node small,
+.sim-definition-anchors small,
+.sim-runtime-summary small,
+.sim-replay-head-facts small,
+.sim-result-truth-band small {
+  color: var(--cep-text-muted);
+  font-family: var(--sim-technical-font);
+  font-size: 0.57rem;
+  letter-spacing: 0.05em;
+}
+
+.sim-flow-node--module {
+  border-color: color-mix(in srgb, var(--sim-semantic-sealed) 55%, var(--cep-border));
+  background: color-mix(in srgb, var(--sim-semantic-sealed) 8%, var(--cep-bg-panel-strong));
+}
+
+.sim-flow-node code {
+  color: var(--cep-text-muted);
+  font-size: 0.6rem;
+}
+
+.sim-phase-module-lane {
+  display: grid;
+  gap: 0.45rem;
+  border-inline-start: 1px dashed var(--sim-semantic-sealed);
+  padding-inline-start: 0.8rem;
+}
+
+.sim-unplaced-modules {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0 1rem 1rem;
+  border-top: 1px dashed var(--cep-border-strong);
+  padding-top: 0.8rem;
+}
+
+.sim-task-graph {
+  display: flex;
+  min-height: 22rem;
+  align-items: center;
+  gap: 0.55rem;
+  overflow-x: auto;
+  padding: 2rem 1rem;
+  direction: ltr;
+}
+
+.sim-task-node {
+  position: relative;
+  width: clamp(10rem, 18vw, 14rem);
+  min-height: 8.5rem;
+  flex: 0 0 auto;
+  align-content: center;
+  direction: rtl;
+}
+
+.sim-task-ordinal {
+  position: absolute;
+  bottom: -1rem;
+  left: calc(50% - 1rem);
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 2px solid var(--cep-accent);
+  border-radius: 50%;
+  background: var(--cep-bg-panel-strong);
+  color: var(--cep-accent);
+  font-family: var(--sim-technical-font);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.sim-task-connector {
+  flex: 0 0 auto;
+  color: var(--cep-accent);
+  font-family: var(--sim-technical-font);
+  font-size: 1.35rem;
+}
+
+.sim-definition-anchors {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 4rem minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: center;
+  margin: 0 1rem 1rem;
+  border-top: 1px solid var(--cep-border);
+  padding-top: 1rem;
+}
+
+.sim-definition-anchors article,
+.sim-definition-anchors article > div {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.sim-definition-anchors article > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.sim-anchor-icon {
+  display: grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--sim-semantic-sealed);
+  border-radius: 50%;
+  color: var(--sim-semantic-sealed);
+  font-family: var(--sim-technical-font);
+  font-weight: 900;
+}
+
+.sim-anchor-rail {
+  height: 1px;
+  background: linear-gradient(90deg, var(--sim-semantic-sealed), var(--cep-accent));
+}
+
+.sim-operation-header,
+.sim-replay-header {
+  gap: 0.8rem;
+  margin-top: 0.8rem;
+  border: 1px solid var(--cep-border);
+  border-radius: var(--cep-radius-md);
+  background: linear-gradient(120deg, var(--cep-bg-panel-strong), var(--cep-accent-soft));
+  padding: 0.7rem 0.8rem;
+}
+
+.sim-operation-header > div:first-child,
+.sim-replay-header > div:nth-child(2) {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.sim-operation-header > div:first-child code {
+  overflow: hidden;
+  color: var(--cep-text-muted);
+  font-size: 0.6rem;
+  text-overflow: ellipsis;
+}
+
+.sim-runtime-summary,
+.sim-replay-head-facts {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.sim-runtime-summary span,
+.sim-replay-head-facts span,
+.sim-result-truth-band span {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.sim-runtime-summary strong,
+.sim-replay-head-facts strong {
+  overflow: hidden;
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+}
+
+.sim-lifecycle-track--compact {
+  margin: 0.8rem 0;
+  padding-inline: 0.5rem;
+}
+
+.sim-operations-workbench,
+.sim-replay-workbench {
+  display: grid;
+  grid-template-columns: minmax(17rem, 0.8fr) minmax(20rem, 1.2fr);
+  overflow: hidden;
+}
+
+.sim-event-stream,
+.sim-event-inspector,
+.sim-replay-rail,
+.sim-replay-inspector {
+  min-width: 0;
+  padding: 0.8rem;
+}
+
+.sim-event-stream,
+.sim-replay-rail {
+  border-inline-end: 1px solid var(--cep-border);
+}
+
+.sim-pane-heading {
+  justify-content: space-between;
+  gap: 0.55rem;
+  border-bottom: 1px solid var(--cep-border);
+  padding-bottom: 0.6rem;
+}
+
+.sim-pane-heading h2 {
+  font-size: 0.95rem;
+}
+
+.sim-event-stream ol,
+.sim-replay-rail ol {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sim-event-stream li button,
+.sim-replay-rail li button {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--cep-border);
+  background: transparent;
+  color: var(--cep-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.sim-event-stream li button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.65rem 0.45rem;
+}
+
+.sim-event-stream li button:hover,
+.sim-event-stream li button.is-selected,
+.sim-replay-rail li button:hover,
+.sim-replay-rail li button.is-selected {
+  background: var(--cep-accent-soft);
+  box-shadow: inset 3px 0 var(--cep-accent);
+}
+
+.sim-event-stream li button > span:last-child,
+.sim-operation-list article > div {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.sim-event-stream small,
+.sim-operation-list small,
+.sim-runtime-lineage small {
+  overflow: hidden;
+  color: var(--cep-text-muted);
+  font-size: 0.58rem;
+  text-overflow: ellipsis;
+}
+
+.sim-event-sequence,
+.sim-runtime-sequence {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  border: 1px solid var(--cep-border-strong);
+  border-radius: 50%;
+  color: var(--cep-accent);
+  font-family: var(--sim-technical-font);
+  font-size: 0.6rem;
+}
+
+.sim-event-inspector > h3,
+.sim-replay-inspector > h3 {
+  margin: 0.8rem 0 0;
+  color: var(--cep-accent);
+  font-size: 0.9rem;
+}
+
+.sim-operational-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0.7rem 0 0;
+  border: 1px solid var(--cep-border);
+  border-radius: var(--cep-radius-sm);
+  overflow: hidden;
+}
+
+.sim-operational-facts > div {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+  border-bottom: 1px solid var(--cep-border);
+  padding: 0.55rem;
+}
+
+.sim-operational-facts > div:nth-child(odd) {
+  border-inline-end: 1px solid var(--cep-border);
+}
+
+.sim-operational-facts dt {
+  color: var(--cep-text-muted);
+  font-size: 0.58rem;
+}
+
+.sim-operational-facts dd {
+  margin: 0;
+  overflow: hidden;
+  font-size: 0.67rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sim-operation-list {
+  margin-top: 0.8rem;
+  border-top: 1px solid var(--cep-border);
+  padding-top: 0.7rem;
+}
+
+.sim-pane-subheading,
+.sim-runtime-lineage header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.sim-pane-subheading span,
+.sim-runtime-lineage header span {
+  color: var(--cep-accent);
+  font-family: var(--sim-technical-font);
+  font-size: 0.65rem;
+}
+
+.sim-operation-list article,
+.sim-runtime-lineage article {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: center;
+  border-top: 1px solid var(--cep-border);
+  padding: 0.55rem 0;
+}
+
+.sim-node-marker {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--cep-accent);
+  box-shadow: 0 0 0 0.2rem var(--cep-accent-soft);
+}
+
+.sim-runtime-band {
+  margin-top: 0.8rem;
+  padding: 0.8rem;
+}
+
+.sim-telemetry--center {
+  margin-top: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+}
+
+.sim-runtime-lineage {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 0.8rem;
+}
+
+.sim-runtime-lineage > section {
+  min-width: 0;
+  border: 1px solid var(--cep-border);
+  border-radius: var(--cep-radius-md);
+  background: var(--cep-bg-panel-strong);
+  padding: 0.8rem;
+}
+
+.sim-runtime-lineage article > div {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.sim-replay-header {
+  grid-template-columns: auto minmax(0, 1fr) minmax(14rem, auto) auto;
+  border-color: color-mix(in srgb, var(--sim-semantic-sealed) 42%, var(--cep-border));
+  background: linear-gradient(
+    120deg,
+    var(--cep-bg-panel-strong),
+    color-mix(in srgb, var(--sim-semantic-sealed) 10%, var(--cep-bg-panel))
+  );
+}
+
+.sim-seal-mark {
+  display: grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--sim-semantic-sealed);
+  border-radius: 50%;
+  color: var(--sim-semantic-sealed);
+}
+
+.sim-replay-controls {
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.7rem 0;
+  border-block: 1px solid var(--cep-border);
+  padding-block: 0.55rem;
+}
+
+.sim-readonly-control {
+  margin-inline-start: auto;
+  border-color: color-mix(in srgb, var(--sim-semantic-sealed) 50%, var(--cep-border));
+  color: var(--sim-semantic-sealed);
+}
+
+.sim-replay-rail li button {
+  display: grid;
+  grid-template-columns: 8.5rem auto minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.55rem 0.4rem;
+  direction: ltr;
+}
+
+.sim-replay-rail time,
+.sim-replay-rail small {
+  color: var(--cep-text-muted);
+  font-size: 0.58rem;
+}
+
+.sim-replay-rail button > span:last-child {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.sim-replay-dot {
+  width: 0.72rem;
+  height: 0.72rem;
+  border: 2px solid var(--cep-border-strong);
+  border-radius: 50%;
+  background: var(--cep-bg-panel-strong);
+}
+
+.sim-replay-rail button.is-selected .sim-replay-dot {
+  border-color: var(--sim-semantic-sealed);
+  background: var(--sim-semantic-sealed);
+  box-shadow: 0 0 0 0.22rem color-mix(in srgb, var(--sim-semantic-sealed) 20%, transparent);
+}
+
+.sim-sealed-state-block {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7rem;
+  margin-top: 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--sim-semantic-sealed) 40%, var(--cep-border));
+  border-radius: var(--cep-radius-sm);
+  background: color-mix(in srgb, var(--sim-semantic-sealed) 8%, var(--cep-bg-panel));
+  padding: 0.7rem;
+}
+
+.sim-sealed-state-block p {
+  margin: 0.2rem 0 0;
+  color: var(--cep-text-muted);
+  font-size: 0.68rem;
+  line-height: 1.6;
+}
+
+.sim-result-truth-band {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1fr) auto auto;
+  gap: 1rem;
+  margin-top: 0.8rem;
+  border: 1px solid var(--cep-border);
+  border-radius: var(--cep-radius-md);
+  background: var(--cep-bg-panel-strong);
+  padding: 0.7rem 0.8rem;
+}
+
+.sim-result-truth-band code {
+  overflow: hidden;
+  font-size: 0.62rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sim-surface-header {
@@ -1017,5 +1855,158 @@
   }
   .sim-module-flow li > small {
     grid-column: 2;
+  }
+
+  .sim-workbench-header,
+  .sim-operation-header,
+  .sim-replay-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sim-view-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sim-view-controls select {
+    width: 100%;
+    max-width: none;
+  }
+
+  .sim-canvas-caption {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sim-topology-svg {
+    display: none;
+  }
+
+  .sim-graph-mobile {
+    display: grid;
+    gap: 0;
+    padding: 0.8rem;
+  }
+
+  .sim-graph-mobile article {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.35rem 0.6rem;
+    border-bottom: 1px solid var(--cep-border);
+    padding: 0.7rem 0;
+  }
+
+  .sim-graph-mobile article > div:nth-child(2) {
+    display: grid;
+    gap: 0.15rem;
+  }
+
+  .sim-graph-mobile small,
+  .sim-mobile-links {
+    color: var(--cep-text-muted);
+    font-size: 0.62rem;
+  }
+
+  .sim-mobile-links {
+    display: flex;
+    grid-column: 2;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    direction: ltr;
+  }
+
+  .sim-phase-flow {
+    padding: 0.75rem;
+  }
+
+  .sim-phase-flow li {
+    min-height: 0;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    padding-block: 0.7rem;
+  }
+
+  .sim-phase-index {
+    width: 2.35rem;
+    height: 2.35rem;
+  }
+
+  .sim-phase-flow li:not(:last-child)::after {
+    top: 3.05rem;
+    bottom: -0.7rem;
+    right: 1.15rem;
+  }
+
+  .sim-phase-module-lane {
+    grid-column: 2;
+  }
+
+  .sim-task-graph {
+    display: grid;
+    min-height: 0;
+    gap: 1.2rem;
+    overflow: visible;
+    padding: 1rem;
+    direction: rtl;
+  }
+
+  .sim-task-node {
+    width: auto;
+    min-height: 6rem;
+  }
+
+  .sim-task-connector {
+    transform: rotate(90deg);
+    text-align: center;
+  }
+
+  .sim-definition-anchors {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sim-anchor-rail {
+    width: 1px;
+    height: 2rem;
+    justify-self: center;
+  }
+
+  .sim-operations-workbench,
+  .sim-replay-workbench,
+  .sim-runtime-lineage,
+  .sim-operational-facts,
+  .sim-result-truth-band {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sim-event-stream,
+  .sim-replay-rail {
+    border-inline-end: 0;
+    border-bottom: 1px solid var(--cep-border);
+  }
+
+  .sim-operational-facts > div:nth-child(odd) {
+    border-inline-end: 0;
+  }
+
+  .sim-runtime-summary,
+  .sim-replay-head-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
+  }
+
+  .sim-replay-rail li button {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .sim-replay-rail time {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .sim-readonly-control {
+    width: 100%;
+    margin-inline-start: 0;
+    text-align: center;
   }
 }
