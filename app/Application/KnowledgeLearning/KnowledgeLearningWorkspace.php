@@ -1,0 +1,220 @@
+<?php
+
+namespace App\Application\KnowledgeLearning;
+
+use App\Modules\Curriculum\Application\CurriculumKnowledgeService;
+use App\Modules\Knowledge\Application\KnowledgeLibraryService;
+use App\Modules\Learning\Application\KnowledgeJourneyService;
+use App\Modules\SourceGovernance\Application\KnowledgeQualityService;
+
+final class KnowledgeLearningWorkspace
+{
+    private readonly KnowledgeLibraryService $knowledge;
+
+    private readonly CurriculumKnowledgeService $curriculum;
+
+    private readonly KnowledgeJourneyService $journey;
+
+    private readonly KnowledgeQualityService $quality;
+
+    public function __construct(
+        KnowledgeLibraryService $knowledge,
+        CurriculumKnowledgeService $curriculum,
+        KnowledgeJourneyService $journey,
+        KnowledgeQualityService $quality,
+    ) {
+        $this->knowledge = $knowledge;
+        $this->curriculum = $curriculum;
+        $this->journey = $journey;
+        $this->quality = $quality;
+    }
+
+    /** @return array<string, mixed> */
+    public function library(?string $requestedUnitId, ?string $requestedRevisionId): array
+    {
+        $catalog = $this->knowledge->catalog();
+        $activeUnitId = $this->knowledge->resolveUnitId($requestedUnitId);
+        $active = $this->withStructuralDepth($this->knowledge->unit($activeUnitId, $requestedRevisionId));
+        $placements = $this->curriculum->placements(array_column($catalog, 'id'));
+        $citations = $this->activeCitations($active);
+
+        return [
+            'catalog' => $catalog,
+            'structure' => $this->knowledge->hierarchyProjection($placements, []),
+            'active' => $active,
+            'context' => [
+                'placements' => $this->curriculum->placementsForUnit($activeUnitId),
+                'sources' => $this->quality->sourcesForClaims($citations),
+                'unresolved_citation_count' => $this->unresolvedCitationCount($citations),
+            ],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    public function learn(?string $requestedUnitId, string $actorId): array
+    {
+        $catalog = $this->knowledge->catalog();
+        $activeUnitId = $this->knowledge->resolveUnitId($requestedUnitId);
+        $active = $this->knowledge->unit($activeUnitId);
+
+        return [
+            'catalog' => $catalog,
+            'active' => $active === null ? null : [
+                'id' => $active['id'],
+                'title_ar' => $active['title_ar'],
+                'title_en' => $active['title_en'],
+                'revision' => $active['revision'] === null ? null : [
+                    'id' => $active['revision']['id'],
+                    'revision' => $active['revision']['revision'],
+                    'state' => $active['revision']['state'],
+                ],
+            ],
+            'journey' => $this->journey->forUnit($activeUnitId, $actorId),
+            'semantic_boundary' => [
+                'progress' => 'journey_activity_context',
+                'mastery' => 'owned_by_progress_evidence',
+            ],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    public function visualize(?string $requestedUnitId): array
+    {
+        $catalog = $this->knowledge->catalog();
+        $activeUnitId = $this->knowledge->resolveUnitId($requestedUnitId);
+        $active = $this->knowledge->unit($activeUnitId);
+
+        $visualization = $this->curriculum->visualization($active, [], null);
+
+        return [
+            'catalog' => $catalog,
+            'active' => $active === null ? null : [
+                'id' => $active['id'],
+                'title_ar' => $active['title_ar'],
+                'title_en' => $active['title_en'],
+            ],
+            'map' => $visualization['map'],
+            'view' => $visualization['view'],
+            'overlay' => $visualization['overlay'],
+            'graph' => $visualization['graph'],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    public function researchQuality(?string $requestedUnitId, ?string $requestedSourceId): array
+    {
+        $catalog = $this->knowledge->catalog();
+        $activeUnitId = $this->knowledge->resolveUnitId($requestedUnitId);
+        $active = $this->knowledge->unit($activeUnitId);
+        $citations = $this->activeCitations($active);
+
+        return [
+            'catalog' => $catalog,
+            'active' => $active === null ? null : [
+                'id' => $active['id'],
+                'title_ar' => $active['title_ar'],
+                'title_en' => $active['title_en'],
+                'revision' => $active['revision'] === null ? null : [
+                    'id' => $active['revision']['id'],
+                    'revision' => $active['revision']['revision'],
+                    'state' => $active['revision']['state'],
+                    'citations' => $active['revision']['citations'],
+                ],
+            ],
+            'quality' => $this->quality->workspace($requestedSourceId, $citations),
+            'semantic_boundary' => [
+                'review' => 'knowledge_quality',
+                'evidence_review' => 'owned_by_progress_evidence',
+                'mastery_judgment' => 'owned_by_progress_evidence',
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<mixed>  $blocks
+     * @param  array<mixed>  $citations
+     */
+    public function updateRevision(string $revisionId, int $expectedLockVersion, array $blocks, array $citations, string $actorId): void
+    {
+        $this->knowledge->updateRevision($revisionId, $expectedLockVersion, $blocks, $citations, $actorId);
+    }
+
+    /** @return array{id: string, knowledge_unit_id: string} */
+    public function restoreRevision(string $revisionId, string $actorId): array
+    {
+        return $this->knowledge->restoreRevision($revisionId, $actorId);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $active
+     * @return array<string, mixed>|null
+     */
+    private function withStructuralDepth(?array $active): ?array
+    {
+        if ($active === null) {
+            return null;
+        }
+
+        $revision = $active['revision'] ?? null;
+        if (! is_array($revision)) {
+            return $active;
+        }
+
+        $blocks = $revision['blocks'] ?? [];
+        if (! is_array($blocks)) {
+            return $active;
+        }
+
+        foreach ($blocks as $index => $block) {
+            if (is_array($block) && ! array_key_exists('depth', $block)) {
+                $block['depth'] = 0;
+                $blocks[$index] = $block;
+            }
+        }
+
+        $revision['blocks'] = $blocks;
+        $active['revision'] = $revision;
+
+        return $active;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $active
+     * @return list<string>
+     */
+    private function activeCitations(?array $active): array
+    {
+        $citations = $active['revision']['citations'] ?? [];
+
+        return is_array($citations) ? array_values(array_filter($citations, 'is_string')) : [];
+    }
+
+    /** @param list<string> $citations */
+    private function unresolvedCitationCount(array $citations): int
+    {
+        if ($citations === []) {
+            return 0;
+        }
+
+        $resolvedClaimIds = [];
+        foreach ($this->quality->sourcesForClaims($citations) as $source) {
+            $claims = $source['claims'] ?? [];
+            if (! is_array($claims)) {
+                continue;
+            }
+
+            foreach ($claims as $claim) {
+                if (! is_array($claim)) {
+                    continue;
+                }
+
+                $claimId = $claim['claim_id'] ?? null;
+                if (is_string($claimId)) {
+                    $resolvedClaimIds[$claimId] = true;
+                }
+            }
+        }
+
+        return max(0, count(array_unique($citations)) - count($resolvedClaimIds));
+    }
+}

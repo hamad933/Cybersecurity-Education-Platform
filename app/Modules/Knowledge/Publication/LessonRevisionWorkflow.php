@@ -19,6 +19,7 @@ final class LessonRevisionWorkflow
      */
     public function createDraft(string $knowledgeUnitId, array $blocks, array $citations, ?string $derivedFrom = null, ?string $actorId = null, ?string $authorityBaselineId = null): LessonRevision
     {
+        $blocks = $this->normalizeBlocks($blocks);
         $this->validateContent($blocks, $citations);
         $revision = ((int) LessonRevision::query()->where('knowledge_unit_id', $knowledgeUnitId)->max('revision')) + 1;
 
@@ -44,6 +45,7 @@ final class LessonRevisionWorkflow
      */
     public function updateDraft(string $id, int $expectedLockVersion, array $blocks, array $citations, ?string $actorId = null): LessonRevision
     {
+        $blocks = $this->normalizeBlocks($blocks);
         $this->validateContent($blocks, $citations);
         $updated = LessonRevision::query()
             ->whereKey($id)
@@ -180,6 +182,21 @@ final class LessonRevisionWorkflow
 
     /**
      * @param  array<mixed>  $blocks
+     * @return array<mixed>
+     */
+    private function normalizeBlocks(array $blocks): array
+    {
+        return array_map(function ($block) {
+            if (is_array($block)) {
+                $block['depth'] = isset($block['depth']) ? (int) $block['depth'] : 0;
+            }
+
+            return $block;
+        }, $blocks);
+    }
+
+    /**
+     * @param  array<mixed>  $blocks
      * @param  array<mixed>  $citations
      */
     private function validateContent(array $blocks, array $citations): void
@@ -187,16 +204,29 @@ final class LessonRevisionWorkflow
         if ($blocks === [] || ! array_is_list($blocks) || ! array_is_list($citations) || $citations === []) {
             throw new InvalidArgumentException('Lesson blocks and citations are required lists.');
         }
-        foreach ($blocks as $block) {
+        $previousDepth = -1;
+        foreach ($blocks as $i => $block) {
             if (! is_array($block) || ! in_array($block['type'] ?? null, ['heading', 'paragraph', 'callout', 'rules', 'boundaries', 'code', 'request', 'response', 'log'], true)) {
                 throw new InvalidArgumentException('Unregistered lesson block type.');
             }
-            if (array_diff(array_keys($block), ['type', 'body']) !== []) {
+            if (array_diff(array_keys($block), ['type', 'body', 'depth']) !== []) {
                 throw new InvalidArgumentException('Unknown lesson block key.');
             }
             if (! is_string($block['body'] ?? null) || mb_strlen($block['body']) > 4000) {
                 throw new InvalidArgumentException('Lesson block body is invalid or too large.');
             }
+            $depth = $block['depth'] ?? 0;
+            if (! is_int($depth) || $depth < 0 || $depth > 3) {
+                throw new InvalidArgumentException('Lesson block depth must be an integer between 0 and 3.');
+            }
+            if ($i === 0 && $depth !== 0) {
+                throw new InvalidArgumentException('First block must have depth 0.');
+            }
+            if ($i > 0 && $depth > $previousDepth + 1) {
+                throw new InvalidArgumentException('Block depth cannot jump by more than 1 from previous block.');
+            }
+            $previousDepth = $depth;
+
             $proseBlock = in_array($block['type'], ['heading', 'paragraph', 'callout', 'rules', 'boundaries'], true);
             if ($proseBlock && preg_match('/<\s*script\b|\bon[a-z]+\s*=|javascript\s*:/iu', $block['body']) === 1) {
                 throw new InvalidArgumentException('Unsafe active lesson content is rejected.');
