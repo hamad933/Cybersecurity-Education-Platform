@@ -25,7 +25,19 @@ defineProps<{ enterprise: EnterpriseItem | null }>();
       <!-- Capabilities Section -->
       <section class="sim-context-section">
         <div class="sim-context-section__header">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sim-section-icon"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            class="sim-section-icon"
+          >
+            <polygon points="12 2 2 7 12 12 22 7 12 2" />
+            <polyline points="2 17 12 22 22 17" />
+            <polyline points="2 12 12 17 22 12" />
+          </svg>
           <h3>Capabilities</h3>
         </div>
         <ul class="sim-feature-list">
@@ -39,7 +51,18 @@ defineProps<{ enterprise: EnterpriseItem | null }>();
       <!-- Simulation State Source -->
       <section class="sim-context-section">
         <div class="sim-context-section__header">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sim-section-icon sim-text-success"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            class="sim-section-icon sim-text-success"
+          >
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
+          </svg>
           <h3>Simulation-state source</h3>
         </div>
         <div class="sim-source-status">
@@ -54,7 +77,18 @@ defineProps<{ enterprise: EnterpriseItem | null }>();
       <!-- Behavior Section -->
       <section class="sim-context-section">
         <div class="sim-context-section__header">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sim-section-icon"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            class="sim-section-icon"
+          >
+            <polyline points="16 18 22 12 16 6" />
+            <polyline points="8 6 2 12 8 18" />
+          </svg>
           <h3>Behavior</h3>
         </div>
         <ul class="sim-feature-list">
@@ -66,7 +100,17 @@ defineProps<{ enterprise: EnterpriseItem | null }>();
       <!-- Telemetry Generation -->
       <section class="sim-context-section">
         <div class="sim-context-section__header">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sim-section-icon sim-text-warning"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            class="sim-section-icon sim-text-warning"
+          >
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+          </svg>
           <div class="sim-flex-between">
             <h3>Telemetry generation</h3>
             <span class="sim-badge sim-badge--success">Enabled</span>
@@ -80,7 +124,17 @@ defineProps<{ enterprise: EnterpriseItem | null }>();
       <!-- Validation -->
       <section class="sim-context-section">
         <div class="sim-context-section__header">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sim-section-icon sim-text-cyan"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            class="sim-section-icon sim-text-cyan"
+          >
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
           <div class="sim-flex-between">
             <h3>Validation</h3>
             <span class="sim-badge sim-badge--cyan">Compatible</span>

@@ -29,7 +29,6 @@ function reached(run: RunItem, step: string): boolean {
   if (['STOPPED', 'FAILED'].includes(run.lifecycle)) return target <= Math.max(current, 2);
   return current >= target;
 }
-
 </script>
 
 <template>
@@ -48,7 +47,20 @@ function reached(run: RunItem, step: string): boolean {
       <div class="sim-ops-banner">
         <div class="sim-ops-banner__primary">
           <div class="sim-ops-banner__icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sim-text-cyan"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><polyline points="7 10 10 13 17 6"/></svg>
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              class="sim-text-cyan"
+            >
+              <rect x="2" y="3" width="20" height="14" rx="2" />
+              <line x1="8" y1="21" x2="16" y2="21" />
+              <line x1="12" y1="17" x2="12" y2="21" />
+              <polyline points="7 10 10 13 17 6" />
+            </svg>
           </div>
           <div>
             <strong>{{ run.definition_title_ar }}</strong>
@@ -60,7 +72,9 @@ function reached(run: RunItem, step: string): boolean {
         <div class="sim-ops-banner__metrics">
           <div class="sim-metric-block">
             <small>CURRENT PHASE</small>
-            <strong class="sim-text-cyan">{{ run.runtime_state?.telemetry?.current_phase ?? 'غير متاح' }}</strong>
+            <strong class="sim-text-cyan">{{
+              run.runtime_state?.telemetry?.current_phase ?? 'غير متاح'
+            }}</strong>
           </div>
           <div class="sim-metric-divider" />
           <div class="sim-metric-block">
@@ -117,7 +131,17 @@ function reached(run: RunItem, step: string): boolean {
         </div>
 
         <button type="button" class="sim-split-view-btn" title="تقسيم العرض">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <line x1="12" y1="3" x2="12" y2="21" />
+          </svg>
           <span>Split View</span>
         </button>
       </div>
@@ -169,7 +193,9 @@ function reached(run: RunItem, step: string): boolean {
         <section class="sim-alert-inspector-panel">
           <div class="sim-inspector-panel__header">
             <h3>Event Details</h3>
-            <span class="sim-badge sim-badge--cyan" v-if="selectedEvent">SEQ {{ selectedEvent.sequence }}</span>
+            <span class="sim-badge sim-badge--cyan" v-if="selectedEvent"
+              >SEQ {{ selectedEvent.sequence }}</span
+            >
           </div>
 
           <template v-if="selectedEvent">
@@ -219,7 +245,7 @@ function reached(run: RunItem, step: string): boolean {
               </table>
             </div>
           </template>
-          <div v-else class="sim-empty" style="padding: 2rem; text-align: center;">
+          <div v-else class="sim-empty" style="padding: 2rem; text-align: center">
             <span class="sim-muted">اختر حدثًا لعرض التفاصيل.</span>
           </div>
         </section>

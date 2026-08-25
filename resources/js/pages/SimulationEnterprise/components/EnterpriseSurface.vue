@@ -58,10 +58,20 @@ function getNodeRole(node: TopologyNode): {
 } {
   const k = (node.kind + ' ' + node.id + ' ' + node.label).toLowerCase();
   if (k.includes('edge') || k.includes('gateway') || k.includes('attacker')) {
-    return { icon: 'terminal', theme: 'red', badge: 'Simulation-local', displayType: 'Workstation' };
+    return {
+      icon: 'terminal',
+      theme: 'red',
+      badge: 'Simulation-local',
+      displayType: 'Workstation',
+    };
   }
   if (k.includes('waf') || k.includes('firewall') || k.includes('security')) {
-    return { icon: 'shield', theme: 'purple', badge: 'Security Control', displayType: 'Security Control' };
+    return {
+      icon: 'shield',
+      theme: 'purple',
+      badge: 'Security Control',
+      displayType: 'Security Control',
+    };
   }
   if (k.includes('app') || k.includes('web')) {
     return { icon: 'globe', theme: 'blue', displayType: 'Web Application' };
@@ -165,42 +175,158 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
       <div class="sim-canvas-subtoolbar">
         <div class="sim-canvas-subtoolbar__left">
           <button type="button" class="sim-tool-btn sim-tool-btn--active" title="تحديد">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7 18 3-7 7-3L3 3z"/></svg>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M3 3l7 18 3-7 7-3L3 3z" />
+            </svg>
             <span>Select</span>
           </button>
           <button type="button" class="sim-tool-btn" title="إضافة عقدة">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 8v8M8 12h8" />
+            </svg>
             <span>Add</span>
           </button>
           <button type="button" class="sim-tool-btn" title="توصيل">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            </svg>
             <span>Connect</span>
           </button>
           <div class="sim-subtoolbar-divider" />
           <button type="button" class="sim-tool-icon-btn" title="تراجع">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M3 7v6h6" />
+              <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13" />
+            </svg>
           </button>
           <button type="button" class="sim-tool-icon-btn" title="إعادة">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M21 7v6h-6" />
+              <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7" />
+            </svg>
           </button>
           <button type="button" class="sim-tool-icon-btn" title="حذف">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"
+              />
+            </svg>
           </button>
         </div>
 
         <div class="sim-canvas-subtoolbar__right">
           <button type="button" class="sim-tool-icon-btn" title="شبكة المحاذاة">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+            </svg>
           </button>
-          <button type="button" class="sim-tool-icon-btn" title="تصغير" @click="zoomLevel = Math.max(50, zoomLevel - 10)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          <button
+            type="button"
+            class="sim-tool-icon-btn"
+            title="تصغير"
+            @click="zoomLevel = Math.max(50, zoomLevel - 10)"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              <line x1="8" y1="11" x2="14" y2="11" />
+            </svg>
           </button>
           <span class="sim-zoom-value">{{ zoomLevel }}%</span>
-          <button type="button" class="sim-tool-icon-btn" title="تكبير" @click="zoomLevel = Math.min(150, zoomLevel + 10)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          <button
+            type="button"
+            class="sim-tool-icon-btn"
+            title="تكبير"
+            @click="zoomLevel = Math.min(150, zoomLevel + 10)"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              <line x1="11" y1="8" x2="11" y2="14" />
+              <line x1="8" y1="11" x2="14" y2="11" />
+            </svg>
           </button>
           <button type="button" class="sim-tool-icon-btn" title="ملء الشاشة">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"
+              />
+            </svg>
           </button>
         </div>
       </div>
@@ -208,7 +334,9 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
       <div class="sim-canvas-caption">
         <div class="sim-caption-main">
           <strong>{{ selectedTwin?.name_ar }} — {{ enterprise.name_ar }}</strong>
-          <span class="sim-badge sim-badge--draft">Draft Revision {{ selectedRevision.revision }}</span>
+          <span class="sim-badge sim-badge--draft"
+            >Draft Revision {{ selectedRevision.revision }}</span
+          >
         </div>
         <div class="sim-canvas-counts">
           <span>{{ nodes.length }} NODES</span>
@@ -229,7 +357,14 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
             <pattern id="sim-dot-grid" width="20" height="20" patternUnits="userSpaceOnUse">
               <circle cx="1.5" cy="1.5" r="1.2" class="sim-grid-dot" />
             </pattern>
-            <marker id="sim-arrow-cyan" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+            <marker
+              id="sim-arrow-cyan"
+              markerWidth="9"
+              markerHeight="9"
+              refX="8"
+              refY="4.5"
+              orient="auto"
+            >
               <path d="M0,1 L8,4.5 L0,8 Z" class="sim-arrow-cyan" />
             </marker>
           </defs>
@@ -248,11 +383,15 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
                 :x2="point(link.to).x"
                 :y2="point(link.to).y"
                 :class="{
-                  'sim-link-dashed': getLinkLabel(link) === 'AUTHENTICATES_WITH' || getLinkLabel(link) === 'SENDS_LOGS',
+                  'sim-link-dashed':
+                    getLinkLabel(link) === 'AUTHENTICATES_WITH' ||
+                    getLinkLabel(link) === 'SENDS_LOGS',
                 }"
                 marker-end="url(#sim-arrow-cyan)"
               />
-              <g :transform="`translate(${(point(link.from).x + point(link.to).x) / 2}, ${(point(link.from).y + point(link.to).y) / 2})`">
+              <g
+                :transform="`translate(${(point(link.from).x + point(link.to).x) / 2}, ${(point(link.from).y + point(link.to).y) / 2})`"
+              >
                 <rect
                   :x="-Math.max(getLinkLabel(link).length * 3.8 + 8, 38)"
                   y="-10"
@@ -287,18 +426,43 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
             <circle cx="32" cy="40" r="16" class="sim-node-icon-circle" />
 
             <g transform="translate(24, 32)">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sim-node-icon-svg">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                class="sim-node-icon-svg"
+              >
                 <path v-if="getNodeRole(node).icon === 'terminal'" d="M4 17l6-6-6-6m8 14h8" />
-                <path v-else-if="getNodeRole(node).icon === 'shield'" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                <path v-else-if="getNodeRole(node).icon === 'database'" d="M12 3c-4.97 0-9 1.34-9 3v12c0 1.66 4.03 3 9 3s9-1.34 9-3V6c0-1.66-4.03-3-9-3z M3 10c0 1.66 4.03 3 9 3s9-1.34 9-3 M3 15c0 1.66 4.03 3 9 3s9-1.34 9-3" />
-                <path v-else-if="getNodeRole(node).icon === 'user-check'" d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M8.5 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M17 11l2 2 4-4" />
-                <path v-else-if="getNodeRole(node).icon === 'activity'" d="M22 12h-4l-3 9L9 3l-3 9H2" />
-                <path v-else d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
+                <path
+                  v-else-if="getNodeRole(node).icon === 'shield'"
+                  d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+                />
+                <path
+                  v-else-if="getNodeRole(node).icon === 'database'"
+                  d="M12 3c-4.97 0-9 1.34-9 3v12c0 1.66 4.03 3 9 3s9-1.34 9-3V6c0-1.66-4.03-3-9-3z M3 10c0 1.66 4.03 3 9 3s9-1.34 9-3 M3 15c0 1.66 4.03 3 9 3s9-1.34 9-3"
+                />
+                <path
+                  v-else-if="getNodeRole(node).icon === 'user-check'"
+                  d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M8.5 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M17 11l2 2 4-4"
+                />
+                <path
+                  v-else-if="getNodeRole(node).icon === 'activity'"
+                  d="M22 12h-4l-3 9L9 3l-3 9H2"
+                />
+                <path
+                  v-else
+                  d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"
+                />
               </svg>
             </g>
 
             <text x="56" y="32" class="sim-node-title">{{ node.label }}</text>
-            <text x="56" y="50" class="sim-node-kind">Type: {{ getNodeRole(node).displayType }}</text>
+            <text x="56" y="50" class="sim-node-kind">
+              Type: {{ getNodeRole(node).displayType }}
+            </text>
 
             <g v-if="getNodeRole(node).badge" transform="translate(56, 56)">
               <rect width="90" height="16" rx="3" class="sim-node-badge-bg" />

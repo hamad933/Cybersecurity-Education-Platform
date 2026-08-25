@@ -26,7 +26,18 @@ defineProps<{ scenario: ScenarioItem | null }>();
         <div class="sim-context-field">
           <small class="sim-field-label">Recipient</small>
           <div class="sim-flex-row">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sim-text-cyan"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              class="sim-text-cyan"
+            >
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
             <strong class="sim-field-val">SOC Analyst</strong>
           </div>
           <span class="sim-field-sub">Role: Defender</span>
@@ -41,7 +52,17 @@ defineProps<{ scenario: ScenarioItem | null }>();
         <div class="sim-context-field">
           <small class="sim-field-label">Delivery</small>
           <div class="sim-flex-row">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sim-text-purple"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              class="sim-text-purple"
+            >
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+            </svg>
             <strong class="sim-field-val">Immediate</strong>
           </div>
           <span class="sim-field-sub">No delay</span>
