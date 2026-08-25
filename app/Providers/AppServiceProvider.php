@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Modules\ManualAiBridge\Application\ManualAiStateReader;
+use App\Modules\Platform\SystemOperations\Contracts\ManualAiStateProvider;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -17,6 +19,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(
+            ManualAiStateProvider::class,
+            ManualAiStateReader::class
+        );
         Date::use(CarbonImmutable::class);
 
         if ((bool) config('platform.force_https', false)) {
