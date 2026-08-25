@@ -1,0 +1,332 @@
+name: R03 Exact Visual Evidence
+
+on:
+  push:
+    branches:
+      - 'chore/cep-r03-exact-visual-evidence'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r03-exact-visual-evidence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture-lane:
+    name: Exact visual evidence / ${{ matrix.lane }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        include:
+          - lane: W01
+            profile: W01
+            branch: work/cep-ui-w01-visual-r02
+            sha: 2cd522f4bc6dadf9a229472d24ff8c48637099e0
+          - lane: W02
+            profile: W02
+            branch: work/cep-ui-w02-visual-r02
+            sha: 0e1f4e543f2371e637b8eeb90d6a43b00af13861
+          - lane: W03
+            profile: W03
+            branch: work/cep-ui-w03-visual-r02
+            sha: e09100bf3e65faf90ff2c835021ac8fa92a11565
+          - lane: W04
+            profile: W04
+            branch: work/cep-ui-w04-visual-r02
+            sha: 93b092926941e8214043df5b31d6dfda333f43e2
+          - lane: W05
+            profile: W05
+            branch: work/cep-ui-w05-visual-r02
+            sha: 57e960b034ea79d4949e723f47686bd7cba381d5
+    env:
+      APP_PORT: '8081'
+      RELEASE_IMAGE: cep-r03-evidence-${{ matrix.lane }}:${{ matrix.sha }}
+      EVIDENCE_DIR: evidence/${{ matrix.lane }}
+
+    steps:
+      - name: Check out evidence harness
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: harness
+
+      - name: Check out exact candidate SHA
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ matrix.sha }}
+          path: candidate
+          fetch-depth: 1
+
+      - name: Verify exact candidate provenance
+        id: verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          actual_sha="$(git -C candidate rev-parse HEAD)"
+          actual_branch="$(git -C candidate branch --show-current || true)"
+          status="$(git -C candidate status --porcelain)"
+          [[ "$actual_sha" == "${{ matrix.sha }}" ]]
+          [[ -z "$status" ]]
+          jq -n \
+            --arg schema 'cep.r03-candidate-provenance.v1' \
+            --arg lane '${{ matrix.lane }}' \
+            --arg profile '${{ matrix.profile }}' \
+            --arg expected_branch '${{ matrix.branch }}' \
+            --arg checkout_branch "$actual_branch" \
+            --arg expected_sha '${{ matrix.sha }}' \
+            --arg actual_sha "$actual_sha" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg workflow "$GITHUB_WORKFLOW" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg job "$GITHUB_JOB" \
+            '{schema:$schema,lane:$lane,profile:$profile,expectedBranch:$expected_branch,checkoutBranch:$checkout_branch,expectedSha:$expected_sha,actualSha:$actual_sha,shaMatch:($expected_sha==$actual_sha),worktreeClean:true,repository:$repository,workflow:$workflow,runId:$run_id,runAttempt:$run_attempt,job:$job}' \
+            > "$EVIDENCE_DIR/candidate-provenance.json"
+
+      - name: Generate ephemeral runtime credentials
+        id: credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_KEY="base64:$(openssl rand -base64 32 | tr -d '\n')"
+          DB_PASSWORD="$(openssl rand -hex 32)"
+          BROWSER_PASSWORD="$(openssl rand -base64 36 | tr -d '\n')"
+          echo "::add-mask::${APP_KEY}"
+          echo "::add-mask::${DB_PASSWORD}"
+          echo "::add-mask::${BROWSER_PASSWORD}"
+          ENV_FILE="${RUNNER_TEMP}/cep-r03-${{ matrix.lane }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.env"
+          {
+            printf 'APP_KEY=%s\n' "$APP_KEY"
+            printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
+            printf 'APP_PORT=%s\n' "$APP_PORT"
+            printf 'RELEASE_IMAGE=%s\n' "$RELEASE_IMAGE"
+          } > "$ENV_FILE"
+          chmod 600 "$ENV_FILE"
+          echo "RELEASE_ENV_FILE=$ENV_FILE" >> "$GITHUB_ENV"
+          echo "BROWSER_PASSWORD=$BROWSER_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Start exact candidate release runtime
+        id: start
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose --project-directory candidate --env-file "$RELEASE_ENV_FILE" -f candidate/compose.release.yaml up -d --build postgres app
+          docker compose --project-directory candidate --env-file "$RELEASE_ENV_FILE" -f candidate/compose.release.yaml up -d --no-deps queue
+          docker compose --project-directory candidate --env-file "$RELEASE_ENV_FILE" -f candidate/compose.release.yaml exec -T app php artisan migrate:fresh --seed --force
+          docker compose --project-directory candidate --env-file "$RELEASE_ENV_FILE" -f candidate/compose.release.yaml exec -T \
+            -e TASK010_BROWSER_PASSWORD="$BROWSER_PASSWORD" app php artisan platform:release-gate-owner > "$EVIDENCE_DIR/owner-preparation.json"
+          ready=false
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8081/health/live > /dev/null; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          [[ "$ready" == true ]]
+
+          app_cid="$(docker compose --project-directory candidate --env-file "$RELEASE_ENV_FILE" -f candidate/compose.release.yaml ps -q app)"
+          test -n "$app_cid"
+          image_id="$(docker inspect --format '{{.Image}}' "$app_cid")"
+          container_image="$(docker inspect --format '{{.Config.Image}}' "$app_cid")"
+          health_json="$(curl --fail --silent http://127.0.0.1:8081/health/live)"
+          jq -n \
+            --arg schema 'cep.r03-runtime-binding.v1' \
+            --arg lane '${{ matrix.lane }}' \
+            --arg candidate_sha '${{ matrix.sha }}' \
+            --arg app_container_id "$app_cid" \
+            --arg image_id "$image_id" \
+            --arg container_image "$container_image" \
+            --arg base_url 'http://127.0.0.1:8081' \
+            --argjson health "$health_json" \
+            '{schema:$schema,lane:$lane,candidateSha:$candidate_sha,appContainerId:$app_container_id,imageId:$image_id,containerImage:$container_image,baseUrl:$base_url,health:$health}' \
+            > "$EVIDENCE_DIR/runtime-binding.json"
+
+      - name: Prove served frontend asset binding
+        id: assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_cid="$(docker compose --project-directory candidate --env-file "$RELEASE_ENV_FILE" -f candidate/compose.release.yaml ps -q app)"
+          docker exec "$app_cid" cat /app/public/build/manifest.json > "$EVIDENCE_DIR/container-vite-manifest.json"
+          mapfile -t assets < <(jq -r '.. | objects | select(has("file")) | .file, (.css[]? // empty)' "$EVIDENCE_DIR/container-vite-manifest.json" | sed '/^$/d' | sort -u)
+          ((${#assets[@]} > 0))
+          printf 'asset\thttp_sha256\tcontainer_sha256\tmatch\n' > "$EVIDENCE_DIR/served-asset-binding.tsv"
+          for asset in "${assets[@]}"; do
+            [[ "$asset" != *'..'* ]]
+            tmp_file="$(mktemp)"
+            curl --fail --silent --show-error "http://127.0.0.1:8081/build/${asset}" -o "$tmp_file"
+            http_sha="$(sha256sum "$tmp_file" | awk '{print $1}')"
+            container_sha="$(docker exec "$app_cid" sha256sum "/app/public/build/${asset}" | awk '{print $1}')"
+            rm -f "$tmp_file"
+            [[ "$http_sha" == "$container_sha" ]]
+            printf '%s\t%s\t%s\ttrue\n' "$asset" "$http_sha" "$container_sha" >> "$EVIDENCE_DIR/served-asset-binding.tsv"
+          done
+          jq -n \
+            --arg schema 'cep.r03-served-asset-binding.v1' \
+            --arg candidate_sha '${{ matrix.sha }}' \
+            --arg manifest_sha256 "$(sha256sum "$EVIDENCE_DIR/container-vite-manifest.json" | awk '{print $1}')" \
+            --argjson asset_count "${#assets[@]}" \
+            '{schema:$schema,candidateSha:$candidate_sha,manifestSha256:$manifest_sha256,assetCount:$asset_count,status:"PASS",proof:"HTTP served asset hashes equal the same files inside the exact candidate release container"}' \
+            > "$EVIDENCE_DIR/served-asset-binding.json"
+
+      - name: Capture exact real Chromium screenshots and browser evidence
+        id: capture
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git -C candidate rev-parse HEAD)"
+          docker run --rm --network host \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            -e BASE_URL=http://127.0.0.1:8081 \
+            -e BROWSER_EMAIL=task010-browser@example.test \
+            -e BROWSER_PASSWORD="$BROWSER_PASSWORD" \
+            -e BROWSER_ROUTE_PROFILE_FILE=/workspace/candidate/scripts/ci/browser_route_profiles.json \
+            -e LANE_PROFILE='${{ matrix.profile }}' \
+            -e EXPECTED_CANDIDATE_SHA='${{ matrix.sha }}' \
+            -e ACTUAL_CANDIDATE_SHA="$actual_sha" \
+            -e CANDIDATE_BRANCH='${{ matrix.branch }}' \
+            -e EVIDENCE_DIR="/workspace/$EVIDENCE_DIR" \
+            -e GITHUB_REPOSITORY="$GITHUB_REPOSITORY" \
+            -e GITHUB_WORKFLOW="$GITHUB_WORKFLOW" \
+            -e GITHUB_RUN_ID="$GITHUB_RUN_ID" \
+            -e GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" \
+            -e GITHUB_JOB="$GITHUB_JOB" \
+            -e RUNNER_OS="$RUNNER_OS" \
+            -e RUNNER_ARCH="$RUNNER_ARCH" \
+            mcr.microsoft.com/playwright:v1.55.0-noble \
+            bash -lc 'set -euo pipefail; CHROMIUM_PATH="$(find /ms-playwright -type f \( -name chrome -o -name chromium \) | head -n 1)"; test -x "$CHROMIUM_PATH"; export CHROMIUM_PATH; node /workspace/harness/scripts/ci/r03_exact_visual_evidence.mjs'
+
+      - name: Write exact evidence gate summary
+        if: always()
+        shell: bash
+        env:
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+          START_OUTCOME: ${{ steps.start.outcome }}
+          ASSET_OUTCOME: ${{ steps.assets.outcome }}
+          CAPTURE_OUTCOME: ${{ steps.capture.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          status=PASS
+          for outcome in "$VERIFY_OUTCOME" "$START_OUTCOME" "$ASSET_OUTCOME" "$CAPTURE_OUTCOME"; do
+            [[ "$outcome" == success ]] || status=FAIL
+          done
+          jq -n \
+            --arg schema 'cep.r03-exact-visual-gate-summary.v1' \
+            --arg status "$status" \
+            --arg lane '${{ matrix.lane }}' \
+            --arg profile '${{ matrix.profile }}' \
+            --arg candidate_sha '${{ matrix.sha }}' \
+            --arg verify "$VERIFY_OUTCOME" \
+            --arg runtime "$START_OUTCOME" \
+            --arg assets "$ASSET_OUTCOME" \
+            --arg capture "$CAPTURE_OUTCOME" \
+            '{schema:$schema,status:$status,lane:$lane,profile:$profile,candidateSha:$candidate_sha,steps:{candidateProvenance:$verify,releaseRuntime:$runtime,servedAssetBinding:$assets,realChromiumCapture:$capture},productAcceptance:"CONTROLLER_REVIEW_REQUIRED"}' \
+            > "$EVIDENCE_DIR/gate-summary.json"
+
+      - name: Finalize exact evidence manifest and checksums
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          GITHUB_SHA='${{ matrix.sha }}' bash candidate/scripts/ci/finalize_evidence.sh "$EVIDENCE_DIR"
+          final_code=$?
+          if [[ "$final_code" -ne 0 ]]; then
+            printf '%s\n' "finalize_evidence.sh failed with exit code $final_code" > "$EVIDENCE_DIR/finalization-failure.txt"
+          fi
+          exit "$final_code"
+
+      - name: Upload exact lane evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Cybersecurity-Education-Platform-${{ matrix.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-r03-${{ matrix.lane }}-visual-evidence
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Clean exact candidate runtime
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          if [[ -n "${RELEASE_ENV_FILE:-}" && -f "$RELEASE_ENV_FILE" ]]; then
+            docker compose --project-directory candidate --env-file "$RELEASE_ENV_FILE" -f candidate/compose.release.yaml down --volumes --remove-orphans
+            shred -u "$RELEASE_ENV_FILE" 2>/dev/null || rm -f "$RELEASE_ENV_FILE"
+          fi
+          docker image rm "$RELEASE_IMAGE" 2>/dev/null || true
+
+  shared-shell-binding:
+    name: Frozen shared-shell binding
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      EVIDENCE_DIR: evidence/shared-shell
+      SHELL_SHA: 1808e2384a6f99b6b4c1d6b816ed08f39cfd689b
+      SHELL_PARENT: 0dfbd88c83206d774fab07a64a6dfbe629cef2df
+      W01_SHA: 2cd522f4bc6dadf9a229472d24ff8c48637099e0
+      W05_SHA: 57e960b034ea79d4949e723f47686bd7cba381d5
+    steps:
+      - name: Check out evidence branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 1
+
+      - name: Verify frozen shared-shell blob binding
+        id: shell
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          for sha in "$SHELL_SHA" "$SHELL_PARENT" "$W01_SHA" "$W05_SHA"; do
+            git fetch --no-tags --depth=1 origin "$sha"
+          done
+          paths=(
+            'resources/css/app.css'
+            'resources/js/layouts/CepWorkspaceLayout.vue'
+            'resources/js/tests/CepWorkspaceLayoutResponsive.spec.ts'
+          )
+          printf 'path\tfrozen_blob\tw01_blob\tw05_blob\tw01_match\tw05_match\n' > "$EVIDENCE_DIR/shared-shell-blob-binding.tsv"
+          all_match=true
+          for path in "${paths[@]}"; do
+            frozen_blob="$(git rev-parse "$SHELL_SHA:$path")"
+            w01_blob="$(git rev-parse "$W01_SHA:$path")"
+            w05_blob="$(git rev-parse "$W05_SHA:$path")"
+            w01_match=false; [[ "$w01_blob" == "$frozen_blob" ]] && w01_match=true
+            w05_match=false; [[ "$w05_blob" == "$frozen_blob" ]] && w05_match=true
+            [[ "$w01_match" == true && "$w05_match" == true ]] || all_match=false
+            printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$path" "$frozen_blob" "$w01_blob" "$w05_blob" "$w01_match" "$w05_match" >> "$EVIDENCE_DIR/shared-shell-blob-binding.tsv"
+          done
+          [[ "$all_match" == true ]]
+          mapfile -t delta_paths < <(git diff --name-only "$SHELL_PARENT..$SHELL_SHA")
+          printf '%s\n' "${delta_paths[@]}" > "$EVIDENCE_DIR/frozen-shell-delta-paths.txt"
+          [[ "${#delta_paths[@]}" -eq 3 ]]
+          jq -n \
+            --arg schema 'cep.r03-shared-shell-binding.v1' \
+            --arg shell_sha "$SHELL_SHA" \
+            --arg shell_parent "$SHELL_PARENT" \
+            --arg w01_sha "$W01_SHA" \
+            --arg w05_sha "$W05_SHA" \
+            '{schema:$schema,status:"PASS",frozenShellSha:$shell_sha,frozenShellParent:$shell_parent,w01CombinedSha:$w01_sha,w05CombinedSha:$w05_sha,proof:"All three frozen shared-shell path blobs exactly match W01 and W05 combined heads"}' \
+            > "$EVIDENCE_DIR/shared-shell-binding.json"
+          cp "$EVIDENCE_DIR/shared-shell-binding.json" "$EVIDENCE_DIR/gate-summary.json"
+
+      - name: Finalize shared-shell evidence
+        if: always()
+        shell: bash
+        run: GITHUB_SHA="$SHELL_SHA" bash scripts/ci/finalize_evidence.sh "$EVIDENCE_DIR"
+
+      - name: Upload shared-shell evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Cybersecurity-Education-Platform-${{ env.SHELL_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}-r03-shared-shell-binding
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 14
