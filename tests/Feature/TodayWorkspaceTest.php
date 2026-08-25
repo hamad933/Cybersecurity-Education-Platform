@@ -18,7 +18,7 @@ class TodayWorkspaceTest extends TestCase
         $this->get('/')->assertRedirect('/login');
     }
 
-    public function test_authenticated_owner_renders_today_with_real_route_registration_state(): void
+    public function test_authenticated_owner_renders_today_with_real_orchestration_hierarchy(): void
     {
         $owner = $this->owner();
 
@@ -28,12 +28,35 @@ class TodayWorkspaceTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Today/Index')
                 ->where('orchestration.expectedDomainEntries', 4)
-                ->has('orchestration.registeredDomainEntries'));
+                ->has('orchestration.registeredDomainEntries')
+                ->where('orchestration.continueSession', null)
+                ->where('orchestration.nextAction', null)
+                ->where('orchestration.rationale', null)
+                ->where('orchestration.attentionItems', [])
+                ->where('orchestration.recentContext', [])
+                ->where('orchestration.progressProjection', null));
     }
 
     public function test_root_route_keeps_the_existing_authentication_compatibility_name(): void
     {
         $this->assertSame(url('/'), route('dashboard'));
+    }
+
+    public function test_mastery_is_not_gamified_or_rendered_as_percentage_in_payload(): void
+    {
+        $owner = $this->owner();
+
+        $response = $this->actingAs($owner)->get('/');
+        $response->assertOk();
+
+        $pageProps = $response->getOriginalContent()->getData()['page']['props'];
+        $orchestration = $pageProps['orchestration'];
+
+        $this->assertArrayNotHasKey('mastery_percent', $orchestration);
+        $this->assertArrayNotHasKey('masteryPercent', $orchestration);
+        $this->assertArrayNotHasKey('xp', $orchestration);
+        $this->assertArrayNotHasKey('points', $orchestration);
+        $this->assertArrayNotHasKey('gamification', $orchestration);
     }
 
     private function owner(): OwnerAccount

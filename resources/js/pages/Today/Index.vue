@@ -1,21 +1,46 @@
 <script setup lang="ts">
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
-import { CEP_GLOBAL_DESTINATIONS } from '../../components/cep/navigation';
-import CepEmptyState from '../../components/shared/CepEmptyState.vue';
+import TodayAttentionItems from '../../components/today/TodayAttentionItems.vue';
+import TodayContinueSession from '../../components/today/TodayContinueSession.vue';
+import TodayNextAction from '../../components/today/TodayNextAction.vue';
+import TodayProgressProjection from '../../components/today/TodayProgressProjection.vue';
+import TodayRationale from '../../components/today/TodayRationale.vue';
+import TodayRecentContext from '../../components/today/TodayRecentContext.vue';
+import type { TodayOrchestrationPayload } from '../../components/today/types';
+import TodayWorkspaceHandoffs from '../../components/today/TodayWorkspaceHandoffs.vue';
 import TechnicalText from '../../components/shared/TechnicalText.vue';
 import CepWorkspaceLayout from '../../layouts/CepWorkspaceLayout.vue';
-import type { SharedProps } from '../../types';
 
-const props = defineProps<{
-  orchestration: {
-    registeredDomainEntries: number;
-    expectedDomainEntries: number;
-  };
+interface PageEnvironment {
+  name: string;
+  profile: string;
+  localOnly: boolean;
+}
+
+const props = withDefaults(
+  defineProps<{
+    orchestration?: TodayOrchestrationPayload;
+  }>(),
+  {
+    orchestration: () => ({
+      registeredDomainEntries: 0,
+      expectedDomainEntries: 4,
+      continueSession: null,
+      nextAction: null,
+      rationale: null,
+      attentionItems: [],
+      recentContext: [],
+      progressProjection: null,
+    }),
+  },
+);
+
+const page = usePage<{
+  environment: PageEnvironment;
 }>();
 
-const page = usePage<SharedProps>();
 const diagnosticsOpen = ref(false);
 const refreshing = ref(false);
 
@@ -24,27 +49,10 @@ const routeRegistrationSummary = computed(
     `${props.orchestration.registeredDomainEntries}/${props.orchestration.expectedDomainEntries}`,
 );
 
-const workspaceDescriptions = {
-  today: '',
-  knowledge: 'الوصول إلى المعرفة والتعلّم والتصور والبحث والجودة ضمن ملكيتها الأساسية.',
-  simulation: 'الانتقال إلى المؤسسة والسيناريوهات والمختبرات والتشغيل والنتائج.',
-  progress: 'الانتقال إلى الأدلة والمراجعات والإتقان والمحفظة دون نسخ سجلاتها هنا.',
-  system: 'الانتقال إلى الصحة والمعالجة والتحقق والجسر اليدوي والنسخ والتدقيق والإصدارات.',
-} as const;
-
-const workspaceReferences = CEP_GLOBAL_DESTINATIONS.filter(
-  (destination) => destination.key !== 'today',
-).map((destination) => ({
-  ...destination,
-  description: workspaceDescriptions[destination.key],
-}));
-
-function refreshOrchestration(): void {
+function refreshOrchestration() {
+  refreshing.value = true;
   router.reload({
     only: ['orchestration'],
-    onStart: () => {
-      refreshing.value = true;
-    },
     onFinish: () => {
       refreshing.value = false;
     },
@@ -53,21 +61,19 @@ function refreshOrchestration(): void {
 </script>
 
 <template>
-  <Head title="اليوم" />
+  <Head title="اليوم | منصة تعليم الأمن السيبراني" />
 
   <CepWorkspaceLayout
     active-destination="today"
     :temporary-workspace-open="diagnosticsOpen"
-    temporary-workspace-label="تشخيص ربط سطح اليوم"
+    temporary-workspace-label="تشخيص ربط مساحات العمل"
     @close-temporary-workspace="diagnosticsOpen = false"
   >
     <template #top>
       <div class="today-command-bar">
         <div class="today-command-bar__copy">
-          <p class="today-command-bar__title">أوامر سطح اليوم</p>
-          <p class="today-command-bar__meta">
-            حدّث الحالة الحالية أو افتح التشخيص المؤقت دون مغادرة سياق العمل.
-          </p>
+          <p class="today-command-bar__title">سطح قيادة وتنسيق اليوم</p>
+          <p class="today-command-bar__meta">إدارة أولويات المسار والتوجيه بين مساحات المنصة</p>
         </div>
         <div class="today-command-bar__actions">
           <button
@@ -93,69 +99,83 @@ function refreshOrchestration(): void {
 
     <template #left>
       <nav class="cep-structure-nav" aria-label="بنية سطح اليوم">
-        <p class="cep-kicker">اليوم</p>
-        <a
-          class="cep-structure-nav__link cep-structure-nav__link--active focus-ring"
-          href="#today-focus"
-        >
-          الآن
+        <p class="cep-kicker">بنية السطح</p>
+        <a class="cep-structure-nav__link focus-ring" href="#continue-session"> الجلسة الحالية </a>
+        <a class="cep-structure-nav__link focus-ring" href="#next-action"> الإجراء التالي </a>
+        <a class="cep-structure-nav__link focus-ring" href="#rationale"> مسوغ التوصية </a>
+        <a class="cep-structure-nav__link focus-ring" href="#attention-items">
+          بنود تحتاج انتباهك
+        </a>
+        <a class="cep-structure-nav__link focus-ring" href="#recent-context"> السياق الحديث </a>
+        <a class="cep-structure-nav__link focus-ring" href="#progress-projection">
+          التوقعات المرحلية
         </a>
         <a class="cep-structure-nav__link focus-ring" href="#workspace-handoffs"> مساحات العمل </a>
       </nav>
     </template>
 
-    <section id="today-focus" aria-labelledby="today-title">
+    <!-- CENTER PRIMARY SURFACE: Sequential Orchestration Hierarchy -->
+    <header id="today-header">
       <p class="cep-kicker">سطح قيادة وتنسيق</p>
       <h1 id="today-title" class="cep-page-title">اليوم</h1>
       <p class="cep-lede">
-        نقطة بدء للعمل عبر المنصة. يعرض هذا السطح فقط الحالة التي تصل من مصادر حقيقية، ويوجّهك إلى
-        مساحة العمل الأساسية المناسبة بدل إنشاء نسخ محلية من سجلات المجالات.
+        نقطة بدء مركزية للعمل عبر المنصة. ينسق هذا السطح الأولويات التشغيلية الحقيقية فقط، ويوجّهك
+        إلى مساحة العمل الأساسية المعتمدة بدل إنشاء نسخ مكررة من سجلات المجالات.
       </p>
-    </section>
+    </header>
 
-    <section class="cep-section" aria-labelledby="attention-title">
-      <p class="cep-kicker">ما يحتاج انتباهك</p>
-      <h2 id="attention-title" class="cep-section-title">الحالة التشغيلية المتاحة الآن</h2>
-      <CepEmptyState
-        class="cep-section__body"
-        title="لا توجد بنود تشغيلية موثوقة مربوطة بسطح اليوم"
-        description="لا يتلقى هذا السطح حاليًا مهامًا أو تنبيهات أو مواعيد أو نشاط مجال. لن تنشئ المنصة أرقامًا أو تقدمًا أو نشاطًا افتراضيًا لملء هذه المساحة."
-      />
-    </section>
+    <!-- Level 1: Continue Current Session -->
+    <TodayContinueSession :session="orchestration.continueSession" />
 
-    <section id="workspace-handoffs" class="cep-section" aria-labelledby="workspace-handoffs-title">
-      <p class="cep-kicker">انتقال يحفظ الملكية</p>
-      <h2 id="workspace-handoffs-title" class="cep-section-title">اذهب إلى مساحة العمل المناسبة</h2>
-      <p class="cep-context-copy today-workspace-intro">
-        هذه روابط انتقال فقط. لا يعرض سطح اليوم نسخًا من السجلات الأساسية ولا يفسر حالة مجال لم
-        يزوّده ببيانات فعلية.
-      </p>
+    <!-- Level 2: Next Recommended Action -->
+    <TodayNextAction :action="orchestration.nextAction" />
 
-      <div class="today-workspace-grid" aria-label="مساحات العمل الرئيسية">
-        <Link
-          v-for="workspace in workspaceReferences"
-          :key="workspace.key"
-          :href="workspace.href"
-          class="today-workspace-card focus-ring"
-          :data-today-workspace="workspace.key"
-        >
-          <span class="today-workspace-card__title">{{ workspace.label }}</span>
-          <span class="today-workspace-card__description">{{ workspace.description }}</span>
-          <span class="today-workspace-card__action">فتح مساحة العمل</span>
-        </Link>
-      </div>
-    </section>
+    <!-- Level 3: Why / rationale / what it unlocks -->
+    <TodayRationale :rationale="orchestration.rationale" />
+
+    <!-- Level 4: Attention / Review Required / blockers -->
+    <TodayAttentionItems :items="orchestration.attentionItems" />
+
+    <!-- Level 5: Recent Context -->
+    <TodayRecentContext :items="orchestration.recentContext" />
+
+    <!-- Level 6: Progress Projection only where truthful -->
+    <TodayProgressProjection :projection="orchestration.progressProjection" />
+
+    <!-- Domain Ownership Handoffs -->
+    <TodayWorkspaceHandoffs />
 
     <template #right>
       <div class="cep-context-stack">
-        <section aria-labelledby="today-context-title">
-          <p class="cep-kicker">حدود السياق</p>
-          <h2 id="today-context-title" class="cep-context-title">ما الذي يملكه سطح اليوم؟</h2>
+        <section aria-labelledby="today-scope-title">
+          <p class="cep-kicker">حدود سلطة سطح اليوم</p>
+          <h2 id="today-scope-title" class="cep-context-title">ما الذي يملكه سطح اليوم؟</h2>
           <ul class="today-context-list">
-            <li>التوجيه والتنسيق بين مساحات العمل، لا ملكية السجلات الأساسية.</li>
-            <li>عرض الحالة العابرة للمجالات فقط عندما يوجد مصدر تطبيق موثوق لها.</li>
-            <li>تفاصيل البيئة وربط المسارات موجودة في التشخيص المؤقت، وليست معلومات دائمة.</li>
+            <li>التوجيه والتنسيق التشغيلي بين مساحات العمل الأربع.</li>
+            <li>عدم احتواء أدوات تعديل وحدات معرفية أو مراجعة أدلة داخلية.</li>
+            <li>عرض الحالة العابرة فقط عندما يوجد مصدر تطبيق موثوق لها.</li>
           </ul>
+        </section>
+
+        <section aria-labelledby="today-law-title">
+          <p class="cep-kicker">قوانين التقييم والقياس</p>
+          <h2 id="today-law-title" class="cep-context-title">الإنجاز لا يعني الإتقان</h2>
+          <ul class="today-context-list">
+            <li>الإتقان لا يُقاس بنسب مئوية خادعة ولا يُكافأ بنقاط تفاعلية شكلية.</li>
+            <li>كل قفل معرفي يُفتح حصريًا بالأدلة الموثوقة المحققة في مجالها الأصلي.</li>
+            <li>التوقعات المرحلية تُعرض فقط إذا كانت مستندة إلى بيانات مثبتة.</li>
+          </ul>
+        </section>
+
+        <section aria-labelledby="today-handoff-title">
+          <p class="cep-kicker">استقلالية المجالات</p>
+          <h2 id="today-handoff-title" class="cep-context-title">التوجيه للمالك المعتمد</h2>
+          <p class="cep-context-copy">
+            تنتقل كافة الإجراءات فورًا إلى مساحة العمل المعتمدة (<TechnicalText
+              value="/knowledge"
+            />، <TechnicalText value="/simulation" />، <TechnicalText value="/progress" />،
+            <TechnicalText value="/system" />) لضمان اتساق البيانات.
+          </p>
         </section>
       </div>
     </template>
@@ -176,11 +196,11 @@ function refreshOrchestration(): void {
             </div>
             <div class="cep-fact-list__row">
               <dt>بيئة التطبيق</dt>
-              <dd><TechnicalText :value="page.props.environment.name" /></dd>
+              <dd><TechnicalText :value="page.props.environment?.name || 'local'" /></dd>
             </div>
             <div class="cep-fact-list__row">
               <dt>ملف التشغيل</dt>
-              <dd><TechnicalText :value="page.props.environment.profile" /></dd>
+              <dd><TechnicalText :value="page.props.environment?.profile || 'development'" /></dd>
             </div>
           </dl>
         </section>
@@ -190,9 +210,8 @@ function refreshOrchestration(): void {
 </template>
 
 <style scoped>
-#today-focus,
-#workspace-handoffs {
-  scroll-margin-top: 8rem;
+#today-header {
+  scroll-margin-top: 6.5rem;
 }
 
 .today-command-bar {
@@ -234,61 +253,10 @@ function refreshOrchestration(): void {
   opacity: 0.58;
 }
 
-.today-workspace-intro {
-  max-width: 54rem;
-}
-
-.today-workspace-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-top: 1rem;
-}
-
-.today-workspace-card {
-  display: grid;
-  min-width: 0;
-  gap: 0.55rem;
-  border: 1px solid var(--cep-border);
-  border-radius: var(--cep-radius-md);
-  background: rgb(4 17 29 / 0.76);
-  padding: 1rem;
-  color: inherit;
-  text-decoration: none;
-  transition:
-    border-color 140ms ease,
-    background 140ms ease,
-    transform 140ms ease;
-}
-
-.today-workspace-card:hover {
-  border-color: var(--cep-border-strong);
-  background: rgb(10 35 51 / 0.88);
-  transform: translateY(-1px);
-}
-
-.today-workspace-card__title {
-  color: var(--cep-text);
-  font-size: 0.95rem;
-  font-weight: 780;
-}
-
-.today-workspace-card__description {
-  color: var(--cep-text-muted);
-  font-size: 0.82rem;
-  line-height: 1.75;
-}
-
-.today-workspace-card__action {
-  color: #8ce8f7;
-  font-size: 0.78rem;
-  font-weight: 750;
-}
-
 .today-context-list {
   display: grid;
-  gap: 0.75rem;
-  margin: 0.85rem 0 0;
+  gap: 0.65rem;
+  margin: 0.75rem 0 0;
   padding-inline-start: 1.1rem;
   color: var(--cep-text-muted);
   font-size: 0.84rem;
@@ -311,10 +279,6 @@ function refreshOrchestration(): void {
 
   .today-command-bar__actions button {
     flex: 1 1 10rem;
-  }
-
-  .today-workspace-grid {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

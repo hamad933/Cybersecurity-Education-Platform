@@ -38,6 +38,12 @@ class TodayController extends Controller
             'orchestration' => [
                 'registeredDomainEntries' => $registeredDomainEntries,
                 'expectedDomainEntries' => count(self::DOMAIN_ENTRY_PATHS),
+                'continueSession' => null,
+                'nextAction' => null,
+                'rationale' => null,
+                'attentionItems' => [],
+                'recentContext' => [],
+                'progressProjection' => null,
             ],
         ]);
     }
