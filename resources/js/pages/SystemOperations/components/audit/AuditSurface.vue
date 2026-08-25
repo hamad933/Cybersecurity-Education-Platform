@@ -51,11 +51,7 @@ const inspectAudit = (rec: AuditRecord) => {
             :status="state.chain.valid ? 'VALID_CHAIN' : 'CHAIN_INVALID'"
             :variant="state.chain.valid ? 'ok' : 'danger'"
           />
-          <StatusPill
-            v-else
-            status="UNAVAILABLE"
-            variant="neutral"
-          />
+          <StatusPill v-else status="UNAVAILABLE" variant="neutral" />
           <small class="chain-count">
             {{
               state.chain && typeof state.chain.count === 'number'

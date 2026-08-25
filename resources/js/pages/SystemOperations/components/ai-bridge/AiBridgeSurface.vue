@@ -294,17 +294,11 @@ const inspectResult = (res: AiResult) => {
         <span class="section-subtext">حزم الموجهات التاريخية</span>
       </div>
 
-      <div
-        v-if="state.prompt_revisions === undefined"
-        class="cep-empty-state"
-      >
+      <div v-if="state.prompt_revisions === undefined" class="cep-empty-state">
         <p class="cep-empty-state__title">غير متاح — لم تتم ملاحظة مراجعات الموجهات</p>
       </div>
 
-      <div
-        v-else-if="state.prompt_revisions.length === 0"
-        class="cep-empty-state"
-      >
+      <div v-else-if="state.prompt_revisions.length === 0" class="cep-empty-state">
         <p class="cep-empty-state__title">لا توجد مراجعات موجهات سابقة</p>
       </div>
 

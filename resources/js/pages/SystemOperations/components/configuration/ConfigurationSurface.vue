@@ -77,11 +77,7 @@ const formatBytes = (bytes: number | undefined): string => {
               :status="state.release_loopback_only ? 'ENABLED' : 'DISABLED'"
               :variant="state.release_loopback_only ? 'ok' : 'warning'"
             />
-            <StatusPill
-              v-else
-              status="UNAVAILABLE"
-              variant="neutral"
-            />
+            <StatusPill v-else status="UNAVAILABLE" variant="neutral" />
           </div>
           <small class="param-hint">حصر التحقق في النطاق المحلي</small>
         </article>
@@ -96,11 +92,7 @@ const formatBytes = (bytes: number | undefined): string => {
               :variant="state.ai_network_provider_enabled ? 'danger' : 'ok'"
               :label="state.ai_network_provider_enabled ? 'مفعل (خطر)' : 'معطل (آمن)'"
             />
-            <StatusPill
-              v-else
-              status="UNAVAILABLE"
-              variant="neutral"
-            />
+            <StatusPill v-else status="UNAVAILABLE" variant="neutral" />
           </div>
           <small class="param-hint">حظر الاتصال بمزود خارجي</small>
         </article>
@@ -114,11 +106,7 @@ const formatBytes = (bytes: number | undefined): string => {
               :status="state.force_https ? 'ENABLED' : 'DISABLED'"
               :variant="state.force_https ? 'ok' : 'neutral'"
             />
-            <StatusPill
-              v-else
-              status="UNAVAILABLE"
-              variant="neutral"
-            />
+            <StatusPill v-else status="UNAVAILABLE" variant="neutral" />
           </div>
           <small class="param-hint">تشفير القنوات</small>
         </article>

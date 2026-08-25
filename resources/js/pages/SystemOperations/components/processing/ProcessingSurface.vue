@@ -90,17 +90,11 @@ const inspectRun = (run: ProcessingRun) => {
         <span class="section-subtext">أحدث 30 تشغيل مسجل في النظام</span>
       </div>
 
-      <div
-        v-if="state.processing?.runs === undefined"
-        class="cep-empty-state"
-      >
+      <div v-if="state.processing?.runs === undefined" class="cep-empty-state">
         <p class="cep-empty-state__title">غير متاح — لم تتم ملاحظة سجل المعالجات</p>
       </div>
 
-      <div
-        v-else-if="state.processing.runs.length === 0"
-        class="cep-empty-state"
-      >
+      <div v-else-if="state.processing.runs.length === 0" class="cep-empty-state">
         <p class="cep-empty-state__title">لا توجد معالجات تشغيلية مسجلة حالياً</p>
       </div>
 
@@ -164,17 +158,11 @@ const inspectRun = (run: ProcessingRun) => {
         <span class="section-subtext">توزيع رسائل النشر غير التزامنية</span>
       </div>
 
-      <div
-        v-if="state.outbox?.messages === undefined"
-        class="cep-empty-state"
-      >
+      <div v-if="state.outbox?.messages === undefined" class="cep-empty-state">
         <p class="cep-empty-state__title">غير متاح — لم تتم ملاحظة رسائل Outbox</p>
       </div>
 
-      <div
-        v-else-if="state.outbox.messages.length === 0"
-        class="cep-empty-state"
-      >
+      <div v-else-if="state.outbox.messages.length === 0" class="cep-empty-state">
         <p class="cep-empty-state__title">طابور Outbox خالٍ من الرسائل المعلقة</p>
       </div>
 

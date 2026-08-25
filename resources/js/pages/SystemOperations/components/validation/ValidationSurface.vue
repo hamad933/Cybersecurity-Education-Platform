@@ -195,17 +195,11 @@ const inspectPackage = (pkg: PackageRecord) => {
         <span class="section-subtext">أحدث المصادر المفحوصة</span>
       </div>
 
-      <div
-        v-if="state.source_imports?.records === undefined"
-        class="cep-empty-state"
-      >
+      <div v-if="state.source_imports?.records === undefined" class="cep-empty-state">
         <p class="cep-empty-state__title">غير متاح — لم تتم ملاحظة سجل استيراد المصادر</p>
       </div>
 
-      <div
-        v-else-if="state.source_imports.records.length === 0"
-        class="cep-empty-state"
-      >
+      <div v-else-if="state.source_imports.records.length === 0" class="cep-empty-state">
         <p class="cep-empty-state__title">لا توجد ملفات مصدرية مسجلة</p>
       </div>
 

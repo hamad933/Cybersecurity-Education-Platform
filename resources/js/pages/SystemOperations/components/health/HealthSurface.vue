@@ -52,9 +52,6 @@ const hasKeys = (obj: Record<string, unknown> | undefined | null) =>
 
 const foundationChecks = computed(() => props.state.foundation?.checks);
 const hasFoundationChecks = computed(() => hasKeys(foundationChecks.value));
-const foundationHealthy = computed(
-  () => hasFoundationChecks.value && props.state.foundation?.healthy === true,
-);
 const foundationAttention = computed(
   () =>
     hasFoundationChecks.value &&
@@ -498,21 +495,9 @@ const inspectorDetails = computed(() => {
         </p>
       </div>
       <div class="hero-state__badge">
-        <StatusPill
-          v-if="!hasFoundationChecks"
-          status="UNAVAILABLE"
-          variant="neutral"
-        />
-        <StatusPill
-          v-else-if="foundationAttention"
-          status="ATTENTION"
-          variant="danger"
-        />
-        <StatusPill
-          v-else
-          status="HEALTHY"
-          variant="ok"
-        />
+        <StatusPill v-if="!hasFoundationChecks" status="UNAVAILABLE" variant="neutral" />
+        <StatusPill v-else-if="foundationAttention" status="ATTENTION" variant="danger" />
+        <StatusPill v-else status="HEALTHY" variant="ok" />
       </div>
     </section>
 

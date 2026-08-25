@@ -414,8 +414,8 @@ describe('System Operations Components & Surfaces', () => {
       const emptyWrapper = mount(ProcessingSurface, {
         props: {
           state: {
-            processing: { runs: [] },
-            outbox: { messages: [] },
+            processing: { counts: {}, runs: [] },
+            outbox: { counts: {}, messages: [] },
           },
         },
       });
@@ -515,7 +515,7 @@ describe('System Operations Components & Surfaces', () => {
         props: {
           state: {
             packages: { records: [] },
-            source_imports: { records: [] },
+            source_imports: { counts: {}, records: [] },
           },
         },
       });
@@ -655,7 +655,9 @@ describe('System Operations Components & Surfaces', () => {
       const unavailableSurface = mount(AiBridgeSurface, {
         props: { state: {} },
       });
-      expect(unavailableSurface.text()).toContain('غير متاح — لم تتم ملاحظة نتائج الذكاء الاصطناعي');
+      expect(unavailableSurface.text()).toContain(
+        'غير متاح — لم تتم ملاحظة نتائج الذكاء الاصطناعي',
+      );
       expect(unavailableSurface.text()).toContain('غير متاح — لم تتم ملاحظة مراجعات الموجهات');
 
       const emptySurface = mount(AiBridgeSurface, {

@@ -44,28 +44,25 @@ const observedEmbeddings = computed<boolean | undefined>(() => props.state.polic
         {{ executionMode === undefined ? '○' : executionMode === 'MANUAL_ONLY' ? '📑' : '🚨' }}
       </div>
       <div class="context-block__content">
-        <h4 class="context-block__heading">
-          نمط التنفيذ: {{ executionMode ?? 'غير متاح' }}
-        </h4>
+        <h4 class="context-block__heading">نمط التنفيذ: {{ executionMode ?? 'غير متاح' }}</h4>
         <p class="context-block__body">
           <template v-if="executionMode === undefined">
-            سياسة المنصة تفرض نمط التنفيذ اليدوي (MANUAL_ONLY)، ولكن لم تتم ملاحظة تكوين نمط التنفيذ الفعلي في البيئة الحالية.
+            سياسة المنصة تفرض نمط التنفيذ اليدوي (MANUAL_ONLY)، ولكن لم تتم ملاحظة تكوين نمط التنفيذ
+            الفعلي في البيئة الحالية.
           </template>
           <template v-else-if="executionMode === 'MANUAL_ONLY'">
             يعتمد سير عمل هذا الجسر على تصدير ملفات Prompts واستيراد النتائج يدوياً.
           </template>
           <template v-else>
-            انتهاك لسياسة الحوكمة: تم رصد نمط تنفيذ ({{ executionMode }}) يتعارض مع سياسة الحصر اليدوي.
+            انتهاك لسياسة الحوكمة: تم رصد نمط تنفيذ ({{ executionMode }}) يتعارض مع سياسة الحصر
+            اليدوي.
           </template>
         </p>
       </div>
     </article>
 
     <!-- 2. Provider Configuration Block (Bound to automatic_provider_enabled) -->
-    <article
-      class="context-block"
-      :class="{ 'context-block--danger': observedProvider === true }"
-    >
+    <article class="context-block" :class="{ 'context-block--danger': observedProvider === true }">
       <div
         class="context-block__icon-box"
         :class="
@@ -92,13 +89,16 @@ const observedEmbeddings = computed<boolean | undefined>(() => props.state.polic
         </h4>
         <p class="context-block__body">
           <template v-if="observedProvider === undefined">
-            سياسة الحوكمة تحظر استخدام المزود الشبكي التلقائي، ولكن لم تتم ملاحظة حالة تفعيل المزود في الإعدادات الحالية.
+            سياسة الحوكمة تحظر استخدام المزود الشبكي التلقائي، ولكن لم تتم ملاحظة حالة تفعيل المزود
+            في الإعدادات الحالية.
           </template>
           <template v-else-if="observedProvider">
-            تم تمكين الاتصال التلقائي بمزود الشبكة في إعدادات البيئة (automatic_provider_enabled: true).
+            تم تمكين الاتصال التلقائي بمزود الشبكة في إعدادات البيئة (automatic_provider_enabled:
+            true).
           </template>
           <template v-else>
-            المزود التلقائي معطّل في تكوين هذه البيئة (automatic_provider_enabled: false). لا يتم إجراء طلبات شبكية تلقائية من هذا الجسر.
+            المزود التلقائي معطّل في تكوين هذه البيئة (automatic_provider_enabled: false). لا يتم
+            إجراء طلبات شبكية تلقائية من هذا الجسر.
           </template>
         </p>
       </div>
@@ -128,13 +128,15 @@ const observedEmbeddings = computed<boolean | undefined>(() => props.state.polic
         </h4>
         <p class="context-block__body">
           <template v-if="observedAutoPublish === undefined">
-            تفرض السياسة مراجعة المشغل البشري قبل أي اعتماد، ولكن لم تتم ملاحظة حالة النشر التلقائي في الإعدادات.
+            تفرض السياسة مراجعة المشغل البشري قبل أي اعتماد، ولكن لم تتم ملاحظة حالة النشر التلقائي
+            في الإعدادات.
           </template>
           <template v-else-if="observedAutoPublish">
             النشر التلقائي مفعّل بموجب السياسة التشغيلية (automatic_publish: true).
           </template>
           <template v-else>
-            النشر التلقائي معطّل (automatic_publish: false)؛ تتطلب النتائج المستوردة مراجعة المشغل البشري وكتابة مبرر موثق قبل التحويل لمسودة.
+            النشر التلقائي معطّل (automatic_publish: false)؛ تتطلب النتائج المستوردة مراجعة المشغل
+            البشري وكتابة مبرر موثق قبل التحويل لمسودة.
           </template>
         </p>
       </div>
@@ -162,20 +164,10 @@ const observedEmbeddings = computed<boolean | undefined>(() => props.state.polic
         <h4 class="context-block__heading">سياسات الاستطلاع والتضمين</h4>
         <p class="context-block__body">
           الاستطلاع التلقائي (Polling):
-          {{
-            observedPolling === undefined
-              ? 'غير متاح'
-              : observedPolling
-                ? 'مفعّل'
-                : 'معطّل'
-          }}
+          {{ observedPolling === undefined ? 'غير متاح' : observedPolling ? 'مفعّل' : 'معطّل' }}
           | توليد التضمينات (Embeddings):
           {{
-            observedEmbeddings === undefined
-              ? 'غير متاح'
-              : observedEmbeddings
-                ? 'مفعّل'
-                : 'معطّل'
+            observedEmbeddings === undefined ? 'غير متاح' : observedEmbeddings ? 'مفعّل' : 'معطّل'
           }}
         </p>
       </div>
