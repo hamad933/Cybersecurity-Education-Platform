@@ -1,0 +1,128 @@
+name: R03 Exact Visual Evidence
+
+on:
+  push:
+    branches:
+      - 'chore/cep-r03-evidence-*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r03-exact-visual-evidence-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_PORT: '8081'
+  RELEASE_IMAGE: cep-r03-evidence:${{ github.sha }}
+
+jobs:
+  exact-lane-visual-evidence:
+    name: Exact lane visual evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - name: Check out evidence branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: { fetch-depth: 2 }
+      - name: Bind evidence branch to exact source candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$GITHUB_REF_NAME" in
+            chore/cep-r03-evidence-w01) profile=W01 ;;
+            chore/cep-r03-evidence-w02) profile=W02 ;;
+            chore/cep-r03-evidence-w03) profile=W03 ;;
+            chore/cep-r03-evidence-w04) profile=W04 ;;
+            chore/cep-r03-evidence-w05) profile=W05 ;;
+            *) exit 2 ;;
+          esac
+          source_sha="$(git rev-parse HEAD^)"; harness_sha="$(git rev-parse HEAD)"; changed="$(git diff --name-only "$source_sha".."$harness_sha")"
+          test "$changed" = '.github/workflows/r03-exact-visual-evidence.yml'
+          echo "BROWSER_ROUTE_PROFILES=$profile" >> "$GITHUB_ENV"; echo "SOURCE_CANDIDATE_SHA=$source_sha" >> "$GITHUB_ENV"; echo "EVIDENCE_HARNESS_SHA=$harness_sha" >> "$GITHUB_ENV"
+          mkdir -p evidence/r03
+          jq -n --arg profile "$profile" --arg source_candidate_sha "$source_sha" --arg evidence_harness_sha "$harness_sha" --arg branch "$GITHUB_REF_NAME" '{schema:"cep.r03-source-binding.v1",profile:$profile,sourceCandidateSha:$source_candidate_sha,evidenceHarnessSha:$evidence_harness_sha,evidenceBranch:$branch,productDeltaFromCandidate:[],harnessOnlyDelta:[".github/workflows/r03-exact-visual-evidence.yml"]}' > evidence/r03/source-binding.json
+      - name: Generate ephemeral runtime credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_KEY="base64:$(openssl rand -base64 32 | tr -d '\n')"; DB_PASSWORD="$(openssl rand -hex 32)"; BROWSER_PASSWORD="$(openssl rand -base64 36 | tr -d '\n')"
+          echo "::add-mask::${APP_KEY}"; echo "::add-mask::${DB_PASSWORD}"; echo "::add-mask::${BROWSER_PASSWORD}"
+          ENV_FILE="${RUNNER_TEMP}/cep-r03-evidence-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.env"
+          { printf 'APP_KEY=%s\n' "$APP_KEY"; printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"; printf 'APP_PORT=%s\n' "$APP_PORT"; printf 'RELEASE_IMAGE=%s\n' "$RELEASE_IMAGE"; } > "$ENV_FILE"
+          chmod 600 "$ENV_FILE"; echo "RELEASE_ENV_FILE=$ENV_FILE" >> "$GITHUB_ENV"; echo "BROWSER_PASSWORD=$BROWSER_PASSWORD" >> "$GITHUB_ENV"
+      - name: Build and start exact release runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml up -d --build postgres app
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml up -d --no-deps queue
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml exec -T app php artisan migrate:fresh --seed --force
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml exec -T -e TASK010_BROWSER_PASSWORD="$BROWSER_PASSWORD" app php artisan platform:release-gate-owner > evidence/r03/owner-preparation.json
+          for i in $(seq 1 60); do if curl --fail --silent http://127.0.0.1:8081/health/live > evidence/r03/health-live.json; then break; fi; [[ "$i" -lt 60 ]] || exit 3; sleep 2; done
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml ps --format json > evidence/r03/compose-ps.json
+      - name: Prepare viewport-precise browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/ci/browser_evidence.mjs'); s=p.read_text(encoding='utf-8')
+          old="""const viewports = [
+            { name: 'desktop', width: 1440, height: 1000, mobile: false },
+            { name: 'mobile', width: 390, height: 844, mobile: true },
+          ];"""
+          new="""const viewports = [
+            { name: 'desktop-1440', width: 1440, height: 1000, mobile: false },
+            { name: 'tablet-768', width: 768, height: 1024, mobile: false },
+            { name: 'narrow-430', width: 430, height: 932, mobile: true },
+            { name: 'narrow-390', width: 390, height: 844, mobile: true },
+          ];"""
+          if old not in s: raise SystemExit('Expected viewport block not found')
+          s=s.replace(old,new,1)
+          if s.count('captureBeyondViewport: true') < 2: raise SystemExit('Expected capture flags not found')
+          s=s.replace('captureBeyondViewport: true','captureBeyondViewport: false'); p.write_text(s,encoding='utf-8')
+          PY
+          jq -n --arg source_candidate_sha "$SOURCE_CANDIDATE_SHA" --arg evidence_harness_sha "$EVIDENCE_HARNESS_SHA" '{schema:"cep.r03-browser-harness-adjustment.v1",sourceCandidateSha:$source_candidate_sha,evidenceHarnessSha:$evidence_harness_sha,committedProductMutation:false,runnerOnlyEvidenceHarnessMutation:true,viewports:[{"name":"desktop-1440","width":1440,"height":1000},{"name":"tablet-768","width":768,"height":1024},{"name":"narrow-430","width":430,"height":932},{"name":"narrow-390","width":390,"height":844}],captureBeyondViewport:false}' > evidence/r03/browser-harness-adjustment.json
+      - name: Capture authenticated real Chromium evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host -v "$PWD:/repo" -w /repo -e BASE_URL=http://127.0.0.1:8081 -e BROWSER_EMAIL=task010-browser@example.test -e BROWSER_PASSWORD="$BROWSER_PASSWORD" -e BROWSER_ROUTE_PROFILES="$BROWSER_ROUTE_PROFILES" -e EVIDENCE_DIR=evidence/r03/browser mcr.microsoft.com/playwright:v1.55.0-noble bash -lc 'set -euo pipefail; CHROMIUM_PATH="$(find /ms-playwright -type f \( -name chrome -o -name chromium \) | head -n 1)"; test -x "$CHROMIUM_PATH"; export CHROMIUM_PATH; node scripts/ci/browser_evidence.mjs'
+      - name: Measure screenshot binaries independently
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,struct,os
+          root=Path('evidence/r03/browser/screenshots'); records=[]
+          if root.exists():
+              for path in sorted(root.glob('*')):
+                  if not path.is_file(): continue
+                  data=path.read_bytes(); media='unknown'; width=height=None
+                  if data[:8]==b'\x89PNG\r\n\x1a\n' and len(data)>=24: media='image/png'; width,height=struct.unpack('>II',data[16:24])
+                  elif data[:3]==b'\xff\xd8\xff': media='image/jpeg'
+                  records.append({'path':str(path.relative_to(Path('evidence/r03'))).replace('\\','/'),'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),'mediaType':media,'actualWidth':width,'actualHeight':height})
+          Path('evidence/r03/screenshot-binary-facts.json').write_text(json.dumps({'schema':'cep.r03-screenshot-binary-facts.v1','sourceCandidateSha':os.environ.get('SOURCE_CANDIDATE_SHA'),'evidenceHarnessSha':os.environ.get('EVIDENCE_HARNESS_SHA'),'profile':os.environ.get('BROWSER_ROUTE_PROFILES'),'files':records},indent=2)+'\n',encoding='utf-8')
+          PY
+      - name: Finalize checksummed evidence
+        if: always()
+        shell: bash
+        run: bash scripts/ci/finalize_evidence.sh evidence/r03
+      - name: Upload R03 exact visual evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ${{ github.ref_name }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-r03-visual-evidence
+          path: evidence/r03
+          if-no-files-found: error
+          retention-days: 14
+      - name: Clean evidence runtime
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          if [[ -n "${RELEASE_ENV_FILE:-}" && -f "$RELEASE_ENV_FILE" ]]; then docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml down --volumes --remove-orphans; shred -u "$RELEASE_ENV_FILE" 2>/dev/null || rm -f "$RELEASE_ENV_FILE"; fi
+          docker image rm "$RELEASE_IMAGE" 2>/dev/null || true
