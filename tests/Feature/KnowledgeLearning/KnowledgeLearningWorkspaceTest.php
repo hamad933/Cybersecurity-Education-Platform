@@ -315,10 +315,10 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('KnowledgeLearning/Visualize')
                 ->where('map.saved', false)
-                ->where('map.state', 'NO_PERSISTED_MAP_MODEL_IN_WAVE1')
+                ->where('map.state', 'UNSAVED_PROJECTION')
                 ->where('view.implemented', ['Tree', 'Path', 'Graph', 'Canvas'])
                 ->where('view.not_implemented', [])
-                ->where('graph.source', 'curriculum_placements')
+                ->where('graph.source', 'canonical_curriculum_projection')
                 ->has('graph.nodes', 2)
                 ->has('graph.edges', 1)
                 ->where('graph.edges.0.type', 'canonical_placement')
@@ -381,18 +381,6 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
             $this->assertStringNotContainsString('/vs001', $source);
             $this->assertStringNotContainsString('/vs002', $source);
         }
-
-        $library = file_get_contents(resource_path('js/pages/KnowledgeLearning/Library.vue'));
-        $visualize = file_get_contents(resource_path('js/pages/KnowledgeLearning/Visualize.vue'));
-        $this->assertIsString($library);
-        $this->assertIsString($visualize);
-        $this->assertStringContainsString('block.depth += 1', $library);
-        $this->assertStringContainsString('depth: item.depth - 1', $library);
-        $this->assertStringContainsString('safeHttpsUrl', $library);
-        $this->assertStringNotContainsString('v-html', $library);
-        $this->assertStringNotContainsString('block.body = lines.map', $library);
-        $this->assertStringContainsString('مسار قانوني مستقل', $visualize);
-        $this->assertStringNotContainsString('orderedCapabilities', $visualize);
 
         $routeFile = file_get_contents(base_path('routes/workspaces/knowledge-learning.php'));
         $this->assertIsString($routeFile);

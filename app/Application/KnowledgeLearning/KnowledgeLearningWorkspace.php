@@ -83,34 +83,8 @@ final class KnowledgeLearningWorkspace
         $catalog = $this->knowledge->catalog();
         $activeUnitId = $this->knowledge->resolveUnitId($requestedUnitId);
         $active = $this->knowledge->unit($activeUnitId);
-        $placements = $this->curriculum->placementsForUnit($activeUnitId);
-
-        $nodes = [];
-        if ($active !== null) {
-            $nodes[] = [
-                'id' => 'ku:'.$active['id'],
-                'kind' => 'knowledge_unit',
-                'label' => $active['title_ar'],
-                'technical_label' => $active['id'],
-            ];
-        }
-        foreach (collect($placements)->pluck('capability_id')->unique()->values() as $capabilityId) {
-            $nodes[] = [
-                'id' => 'capability:'.$capabilityId,
-                'kind' => 'capability',
-                'label' => $capabilityId,
-                'technical_label' => $capabilityId,
-            ];
-        }
-
-        $edges = array_map(static fn (array $placement): array => [
-            'id' => 'placement:'.$placement['id'],
-            'from' => 'capability:'.$placement['capability_id'],
-            'to' => 'ku:'.$placement['knowledge_unit_id'],
-            'type' => 'canonical_placement',
-            'revision' => $placement['revision'],
-            'lifecycle' => $placement['lifecycle'],
-        ], $placements);
+        
+        $visualization = $this->curriculum->visualization($active, [], null);
 
         return [
             'catalog' => $catalog,
@@ -119,24 +93,10 @@ final class KnowledgeLearningWorkspace
                 'title_ar' => $active['title_ar'],
                 'title_en' => $active['title_en'],
             ],
-            'map' => [
-                'saved' => false,
-                'id' => null,
-                'state' => 'NO_PERSISTED_MAP_MODEL_IN_WAVE1',
-            ],
-            'view' => [
-                'implemented' => ['Tree', 'Path', 'Graph', 'Canvas'],
-                'not_implemented' => [],
-            ],
-            'overlay' => [
-                'active' => null,
-                'available' => [],
-            ],
-            'graph' => [
-                'nodes' => $nodes,
-                'edges' => $edges,
-                'source' => 'curriculum_placements',
-            ],
+            'map' => $visualization['map'],
+            'view' => $visualization['view'],
+            'overlay' => $visualization['overlay'],
+            'graph' => $visualization['graph'],
         ];
     }
 
