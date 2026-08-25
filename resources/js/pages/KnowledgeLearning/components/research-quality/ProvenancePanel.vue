@@ -15,8 +15,15 @@ const row = computed(
 <template>
   <section aria-labelledby="provenance-heading">
     <div class="border-b border-slate-800/80 pb-3">
-      <span class="font-mono text-[10px] font-bold text-slate-500 uppercase tracking-widest" dir="ltr">PROVENANCE</span>
-      <h2 id="provenance-heading" class="mt-1 text-xs font-bold text-slate-200">تتبّع المصدر المحدد</h2>
+      <span
+        class="font-mono text-[10px] font-bold tracking-widest text-slate-500 uppercase"
+        dir="ltr"
+      >
+        PROVENANCE
+      </span>
+      <h2 id="provenance-heading" class="mt-1 text-xs font-bold text-slate-200">
+        تتبّع المصدر المحدد
+      </h2>
     </div>
 
     <div v-if="source" class="mt-4 space-y-4 text-xs">
@@ -28,7 +35,7 @@ const row = computed(
           target="_blank"
           rel="noreferrer"
           dir="ltr"
-          class="focus-ring mt-1.5 block text-left text-xs break-all text-cyan-300 underline font-mono"
+          class="focus-ring mt-1.5 block text-left font-mono text-xs break-all text-cyan-300 underline"
         >
           {{ source.exact_url }}
         </a>
@@ -76,4 +83,3 @@ const row = computed(
     <p v-else class="mt-4 text-xs text-slate-500">لا يوجد مصدر محدد.</p>
   </section>
 </template>
-

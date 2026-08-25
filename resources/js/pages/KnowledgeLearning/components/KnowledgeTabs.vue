@@ -10,10 +10,34 @@ const withObject = (path: string) =>
   props.objectId ? `${path}?object=${encodeURIComponent(props.objectId)}` : path;
 
 const tabs = [
-  { key: 'library', ar: 'المعرفة / المحتوى', en: 'Knowledge / Content', icon: '📖', href: '/knowledge' },
-  { key: 'learn', ar: 'التعلم المرتبط', en: 'Related Learning', icon: '🎓', href: '/knowledge/learn' },
-  { key: 'visualize', ar: 'السياق المرتبط', en: 'Related Context', icon: '🕸️', href: '/knowledge/visualize' },
-  { key: 'research-quality', ar: 'البحث والجودة', en: 'Research & Quality', icon: '⚖️', href: '/knowledge/research-quality' },
+  {
+    key: 'library',
+    ar: 'المعرفة / المحتوى',
+    en: 'Knowledge / Content',
+    icon: '📖',
+    href: '/knowledge',
+  },
+  {
+    key: 'learn',
+    ar: 'التعلم المرتبط',
+    en: 'Related Learning',
+    icon: '🎓',
+    href: '/knowledge/learn',
+  },
+  {
+    key: 'visualize',
+    ar: 'السياق المرتبط',
+    en: 'Related Context',
+    icon: '🕸️',
+    href: '/knowledge/visualize',
+  },
+  {
+    key: 'research-quality',
+    ar: 'البحث والجودة',
+    en: 'Research & Quality',
+    icon: '⚖️',
+    href: '/knowledge/research-quality',
+  },
 ] as const;
 </script>
 
@@ -34,10 +58,16 @@ const tabs = [
           : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700 hover:bg-slate-800/80 hover:text-slate-200 dark:border-slate-800/90 dark:bg-slate-900/40 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:text-slate-100'
       "
     >
-      <span class="text-xs select-none opacity-80 group-hover:opacity-100">{{ tab.icon }}</span>
+      <span class="select-none text-xs opacity-80 group-hover:opacity-100">
+        {{ tab.icon }}
+      </span>
       <span class="font-bold">{{ tab.ar }}</span>
-      <bdi dir="ltr" class="font-mono text-[10px] opacity-60 group-hover:opacity-80">{{ tab.en }}</bdi>
+      <bdi
+        dir="ltr"
+        class="font-mono text-[10px] opacity-60 group-hover:opacity-80"
+      >
+        {{ tab.en }}
+      </bdi>
     </Link>
   </nav>
 </template>
-

@@ -55,7 +55,8 @@ describe('Knowledge & Learning Phase 1 Layouts', () => {
 
     // CENTER Lesson surface with truthful no-lesson state
     expect(html).toContain('سطح الدرس والمحتوى التعليمي');
-    expect(html).toContain('لا يوجد درس تعليمي مخصص (No Lesson State)');
+    expect(html).toContain('LESSON_UNAVAILABLE');
+    expect(html).toContain('No Lesson State');
     expect(html).toContain('NO_ASSESSMENT');
 
     // RIGHT Context & Lab Readiness
