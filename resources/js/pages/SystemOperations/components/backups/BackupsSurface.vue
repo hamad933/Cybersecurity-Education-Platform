@@ -94,8 +94,12 @@ const inspectRestore = (restore: Restore) => {
         <span class="section-subtext">النسخ المحفوظة محلياً</span>
       </div>
 
-      <div v-if="!state.backups || state.backups.length === 0" class="cep-empty-state">
-        <p class="cep-empty-state__title">لا توجد نسخ احتياطية مسجلة</p>
+      <div v-if="state.backups === undefined" class="cep-empty-state">
+        <p class="cep-empty-state__title">غير متاح — لم تتم ملاحظة سجل النسخ الاحتياطية</p>
+      </div>
+
+      <div v-else-if="state.backups.length === 0" class="cep-empty-state">
+        <p class="cep-empty-state__title">لم تسجل نسخ احتياطية في السجل المرصود</p>
       </div>
 
       <div v-else class="backup-list">
@@ -185,9 +189,15 @@ const inspectRestore = (restore: Restore) => {
           </form>
 
           <!-- Restore Runs History -->
-          <div v-if="state.restores && state.restores.length > 0" class="restores-history">
+          <div class="restores-history">
             <h5 class="restores-history__title">سجل عمليات الفحص المرحلي السابقة:</h5>
-            <div class="restores-list">
+            <div v-if="state.restores === undefined" class="cep-empty-state">
+              <p class="cep-empty-state__title">غير متاح — لم تتم ملاحظة عمليات الفحص المرحلي</p>
+            </div>
+            <div v-else-if="state.restores.length === 0" class="cep-empty-state">
+              <p class="cep-empty-state__title">لم تسجل عمليات فحص مرحلي سابقة</p>
+            </div>
+            <div v-else class="restores-list">
               <div v-for="r in state.restores" :key="r.id" class="restore-item">
                 <div>
                   <strong

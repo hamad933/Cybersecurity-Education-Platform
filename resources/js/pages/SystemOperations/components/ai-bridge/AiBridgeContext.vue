@@ -7,16 +7,15 @@ const props = defineProps<{
   state: WorkspaceState;
 }>();
 
-const policy = computed(() => props.state.policy ?? {});
-const executionMode = computed(() => policy.value.execution ?? 'MANUAL_ONLY');
-const isProviderEnabled = computed(() =>
-  Boolean(
-    policy.value.automatic_provider_enabled ?? props.state.ai_network_provider_enabled ?? false,
-  ),
+const executionMode = computed<string | undefined>(() => props.state.policy?.execution);
+const observedProvider = computed<boolean | undefined>(
+  () => props.state.policy?.automatic_provider_enabled ?? props.state.ai_network_provider_enabled,
 );
-const isAutoPublish = computed(() => Boolean(policy.value.automatic_publish ?? false));
-const isPolling = computed(() => Boolean(policy.value.polling ?? false));
-const isEmbeddings = computed(() => Boolean(policy.value.embeddings ?? false));
+const observedAutoPublish = computed<boolean | undefined>(
+  () => props.state.policy?.automatic_publish,
+);
+const observedPolling = computed<boolean | undefined>(() => props.state.policy?.polling);
+const observedEmbeddings = computed<boolean | undefined>(() => props.state.policy?.embeddings);
 </script>
 
 <template>
@@ -27,67 +26,157 @@ const isEmbeddings = computed(() => Boolean(policy.value.embeddings ?? false));
     </div>
 
     <!-- 1. Execution Workflow Block -->
-    <article class="context-block">
-      <div class="context-block__icon-box icon-box--info" aria-hidden="true">📑</div>
+    <article
+      class="context-block"
+      :class="{ 'context-block--danger': executionMode && executionMode !== 'MANUAL_ONLY' }"
+    >
+      <div
+        class="context-block__icon-box"
+        :class="
+          executionMode === undefined
+            ? 'icon-box--neutral'
+            : executionMode === 'MANUAL_ONLY'
+              ? 'icon-box--info'
+              : 'icon-box--danger'
+        "
+        aria-hidden="true"
+      >
+        {{ executionMode === undefined ? '○' : executionMode === 'MANUAL_ONLY' ? '📑' : '🚨' }}
+      </div>
       <div class="context-block__content">
-        <h4 class="context-block__heading">نمط التنفيذ: {{ executionMode }}</h4>
+        <h4 class="context-block__heading">
+          نمط التنفيذ: {{ executionMode ?? 'غير متاح' }}
+        </h4>
         <p class="context-block__body">
-          {{
-            executionMode === 'MANUAL_ONLY'
-              ? 'يعتمد سير عمل هذا الجسر على تصدير ملفات Prompts واستيراد النتائج يدوياً.'
-              : `يعمل الجسر وفق نمط التنفيذ: ${executionMode}.`
-          }}
+          <template v-if="executionMode === undefined">
+            سياسة المنصة تفرض نمط التنفيذ اليدوي (MANUAL_ONLY)، ولكن لم تتم ملاحظة تكوين نمط التنفيذ الفعلي في البيئة الحالية.
+          </template>
+          <template v-else-if="executionMode === 'MANUAL_ONLY'">
+            يعتمد سير عمل هذا الجسر على تصدير ملفات Prompts واستيراد النتائج يدوياً.
+          </template>
+          <template v-else>
+            انتهاك لسياسة الحوكمة: تم رصد نمط تنفيذ ({{ executionMode }}) يتعارض مع سياسة الحصر اليدوي.
+          </template>
         </p>
       </div>
     </article>
 
     <!-- 2. Provider Configuration Block (Bound to automatic_provider_enabled) -->
-    <article class="context-block">
+    <article
+      class="context-block"
+      :class="{ 'context-block--danger': observedProvider === true }"
+    >
       <div
         class="context-block__icon-box"
-        :class="isProviderEnabled ? 'icon-box--danger' : 'icon-box--accent'"
+        :class="
+          observedProvider === undefined
+            ? 'icon-box--neutral'
+            : observedProvider
+              ? 'icon-box--danger'
+              : 'icon-box--accent'
+        "
         aria-hidden="true"
       >
-        {{ isProviderEnabled ? '🌐' : '🔒' }}
+        {{ observedProvider === undefined ? '○' : observedProvider ? '🌐' : '🔒' }}
       </div>
       <div class="context-block__content">
         <h4 class="context-block__heading">
           المزود الشبكي:
-          {{ isProviderEnabled ? 'مفعّل في الإعدادات' : 'معطّل (Off)' }}
+          {{
+            observedProvider === undefined
+              ? 'غير متاح'
+              : observedProvider
+                ? 'مفعّل في الإعدادات'
+                : 'معطّل (Off)'
+          }}
         </h4>
         <p class="context-block__body">
-          {{
-            isProviderEnabled
-              ? 'تم تمكين الاتصال التلقائي بمزود الشبكة في إعدادات البيئة (automatic_provider_enabled: true).'
-              : 'المزود التلقائي معطّل في تكوين هذه البيئة (automatic_provider_enabled: false). لا يتم إجراء طلبات شبكية تلقائية من هذا الجسر.'
-          }}
+          <template v-if="observedProvider === undefined">
+            سياسة الحوكمة تحظر استخدام المزود الشبكي التلقائي، ولكن لم تتم ملاحظة حالة تفعيل المزود في الإعدادات الحالية.
+          </template>
+          <template v-else-if="observedProvider">
+            تم تمكين الاتصال التلقائي بمزود الشبكة في إعدادات البيئة (automatic_provider_enabled: true).
+          </template>
+          <template v-else>
+            المزود التلقائي معطّل في تكوين هذه البيئة (automatic_provider_enabled: false). لا يتم إجراء طلبات شبكية تلقائية من هذا الجسر.
+          </template>
         </p>
       </div>
     </article>
 
     <!-- 3. Human Decision Gate Block (Bound to automatic_publish) -->
-    <article class="context-block">
-      <div class="context-block__icon-box icon-box--warning" aria-hidden="true">👤</div>
+    <article
+      class="context-block"
+      :class="{ 'context-block--danger': observedAutoPublish === true }"
+    >
+      <div
+        class="context-block__icon-box"
+        :class="
+          observedAutoPublish === undefined
+            ? 'icon-box--neutral'
+            : observedAutoPublish
+              ? 'icon-box--danger'
+              : 'icon-box--warning'
+        "
+        aria-hidden="true"
+      >
+        {{ observedAutoPublish === undefined ? '○' : observedAutoPublish ? '🚨' : '👤' }}
+      </div>
       <div class="context-block__content">
-        <h4 class="context-block__heading">بوابة القرار البشري</h4>
+        <h4 class="context-block__heading">
+          بوابة القرار البشري{{ observedAutoPublish === undefined ? ': غير متاح' : '' }}
+        </h4>
         <p class="context-block__body">
-          {{
-            isAutoPublish
-              ? 'النشر التلقائي مفعّل بموجب السياسة التشغيلية (automatic_publish: true).'
-              : 'النشر التلقائي معطّل (automatic_publish: false)؛ تتطلب النتائج المستوردة مراجعة المشغل البشري وكتابة مبرر موثق قبل التحويل لمسودة.'
-          }}
+          <template v-if="observedAutoPublish === undefined">
+            تفرض السياسة مراجعة المشغل البشري قبل أي اعتماد، ولكن لم تتم ملاحظة حالة النشر التلقائي في الإعدادات.
+          </template>
+          <template v-else-if="observedAutoPublish">
+            النشر التلقائي مفعّل بموجب السياسة التشغيلية (automatic_publish: true).
+          </template>
+          <template v-else>
+            النشر التلقائي معطّل (automatic_publish: false)؛ تتطلب النتائج المستوردة مراجعة المشغل البشري وكتابة مبرر موثق قبل التحويل لمسودة.
+          </template>
         </p>
       </div>
     </article>
 
     <!-- 4. Polling and Embeddings Governance Block -->
-    <article class="context-block">
-      <div class="context-block__icon-box icon-box--neutral" aria-hidden="true">⚙️</div>
+    <article
+      class="context-block"
+      :class="{
+        'context-block--danger': observedPolling === true || observedEmbeddings === true,
+      }"
+    >
+      <div
+        class="context-block__icon-box"
+        :class="
+          observedPolling === true || observedEmbeddings === true
+            ? 'icon-box--danger'
+            : 'icon-box--neutral'
+        "
+        aria-hidden="true"
+      >
+        {{ observedPolling === true || observedEmbeddings === true ? '⚠️' : '⚙️' }}
+      </div>
       <div class="context-block__content">
         <h4 class="context-block__heading">سياسات الاستطلاع والتضمين</h4>
         <p class="context-block__body">
-          الاستطلاع التلقائي (Polling): {{ isPolling ? 'مفعّل' : 'معطّل' }} | توليد التضمينات
-          (Embeddings): {{ isEmbeddings ? 'مفعّل' : 'معطّل' }}
+          الاستطلاع التلقائي (Polling):
+          {{
+            observedPolling === undefined
+              ? 'غير متاح'
+              : observedPolling
+                ? 'مفعّل'
+                : 'معطّل'
+          }}
+          | توليد التضمينات (Embeddings):
+          {{
+            observedEmbeddings === undefined
+              ? 'غير متاح'
+              : observedEmbeddings
+                ? 'مفعّل'
+                : 'معطّل'
+          }}
         </p>
       </div>
     </article>

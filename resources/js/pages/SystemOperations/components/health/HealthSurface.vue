@@ -50,7 +50,17 @@ const packageCounts = computed<Counts | undefined>(() => {
 const hasKeys = (obj: Record<string, unknown> | undefined | null) =>
   Boolean(obj && Object.keys(obj).length > 0);
 
-const isHealthy = computed(() => props.state.foundation?.healthy ?? false);
+const foundationChecks = computed(() => props.state.foundation?.checks);
+const hasFoundationChecks = computed(() => hasKeys(foundationChecks.value));
+const foundationHealthy = computed(
+  () => hasFoundationChecks.value && props.state.foundation?.healthy === true,
+);
+const foundationAttention = computed(
+  () =>
+    hasFoundationChecks.value &&
+    (props.state.foundation?.healthy === false ||
+      (props.state.foundation?.failed_checks && props.state.foundation.failed_checks.length > 0)),
+);
 
 const processingHasCounts = computed(() => hasKeys(props.state.processing?.counts));
 const processingFailed = computed(() => count(props.state.processing?.counts, 'failed'));
@@ -472,26 +482,45 @@ const inspectorDetails = computed(() => {
         <span class="cep-kicker">الحالة التقنية</span>
         <h2 class="hero-state__headline">
           {{
-            isHealthy ? 'المكوّنات الأساسية اجتازت فحوص الصحة' : 'توجد فحوص أساسية تتطلب الانتباه'
+            !hasFoundationChecks
+              ? 'حالة المكونات الأساسية غير متوفرة'
+              : foundationAttention
+                ? 'توجد فحوص أساسية تتطلب الانتباه'
+                : 'المكوّنات الأساسية اجتازت فحوص الصحة'
           }}
         </h2>
         <p class="hero-state__desc">
-          حالة المكونات وقواعد البيانات بناءً على الفحوص المسجلة للنظام.
+          {{
+            !hasFoundationChecks
+              ? 'تعذر تحديد الحالة التشغيلية للمنصة قبل توفر نتائج الفحوص الأساسية.'
+              : 'حالة المكونات وقواعد البيانات بناءً على الفحوص المسجلة للنظام.'
+          }}
         </p>
       </div>
       <div class="hero-state__badge">
         <StatusPill
-          :status="isHealthy ? 'HEALTHY' : 'ATTENTION'"
-          :variant="isHealthy ? 'ok' : 'danger'"
+          v-if="!hasFoundationChecks"
+          status="UNAVAILABLE"
+          variant="neutral"
+        />
+        <StatusPill
+          v-else-if="foundationAttention"
+          status="ATTENTION"
+          variant="danger"
+        />
+        <StatusPill
+          v-else
+          status="HEALTHY"
+          variant="ok"
         />
       </div>
     </section>
 
     <!-- Platform Checks Grid -->
-    <section v-if="state.foundation?.checks" class="cep-section">
+    <section v-if="hasFoundationChecks" class="cep-section">
       <h3 class="cep-section-title">فحوص المنصة</h3>
       <div class="status-grid">
-        <article v-for="(status, name) in state.foundation.checks" :key="name" class="status-card">
+        <article v-for="(status, name) in state.foundation!.checks" :key="name" class="status-card">
           <span class="status-card__name"
             ><bdi dir="ltr">{{ name }}</bdi></span
           >

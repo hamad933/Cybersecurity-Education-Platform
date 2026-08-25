@@ -7,7 +7,8 @@ defineProps<{
 }>();
 
 const formatBytes = (bytes: number | undefined): string => {
-  if (!bytes) return '—';
+  if (typeof bytes !== 'number' || isNaN(bytes)) return '—';
+  if (bytes === 0) return '0 B';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -44,7 +45,7 @@ const formatBytes = (bytes: number | undefined): string => {
         <article class="param-card">
           <span class="param-label">بيئة التشغيل (Profile)</span>
           <strong class="param-value"
-            ><bdi dir="ltr">{{ state.profile ?? 'local' }}</bdi></strong
+            ><bdi dir="ltr">{{ state.profile ?? '—' }}</bdi></strong
           >
           <small class="param-hint">الملف التعريفي للبيئة</small>
         </article>
@@ -53,7 +54,7 @@ const formatBytes = (bytes: number | undefined): string => {
         <article class="param-card">
           <span class="param-label">اتصال الطوابير (Queue Driver)</span>
           <strong class="param-value"
-            ><bdi dir="ltr">{{ state.queue_connection ?? 'database' }}</bdi></strong
+            ><bdi dir="ltr">{{ state.queue_connection ?? '—' }}</bdi></strong
           >
           <small class="param-hint">محرك المعالجة الخلفية</small>
         </article>
@@ -62,7 +63,7 @@ const formatBytes = (bytes: number | undefined): string => {
         <article class="param-card">
           <span class="param-label">قرص التخزين (Blob Disk)</span>
           <strong class="param-value"
-            ><bdi dir="ltr">{{ state.blob_disk ?? 'local' }}</bdi></strong
+            ><bdi dir="ltr">{{ state.blob_disk ?? '—' }}</bdi></strong
           >
           <small class="param-hint">تخزين الحزم والمصادر</small>
         </article>
@@ -72,8 +73,14 @@ const formatBytes = (bytes: number | undefined): string => {
           <span class="param-label">عزل الإطلاق المحلي (Loopback Only)</span>
           <div class="param-value-flex">
             <StatusPill
+              v-if="typeof state.release_loopback_only === 'boolean'"
               :status="state.release_loopback_only ? 'ENABLED' : 'DISABLED'"
               :variant="state.release_loopback_only ? 'ok' : 'warning'"
+            />
+            <StatusPill
+              v-else
+              status="UNAVAILABLE"
+              variant="neutral"
             />
           </div>
           <small class="param-hint">حصر التحقق في النطاق المحلي</small>
@@ -84,9 +91,15 @@ const formatBytes = (bytes: number | undefined): string => {
           <span class="param-label">مزود شبكة الذكاء الاصطناعي</span>
           <div class="param-value-flex">
             <StatusPill
+              v-if="typeof state.ai_network_provider_enabled === 'boolean'"
               :status="state.ai_network_provider_enabled ? 'ENABLED' : 'DISABLED'"
               :variant="state.ai_network_provider_enabled ? 'danger' : 'ok'"
               :label="state.ai_network_provider_enabled ? 'مفعل (خطر)' : 'معطل (آمن)'"
+            />
+            <StatusPill
+              v-else
+              status="UNAVAILABLE"
+              variant="neutral"
             />
           </div>
           <small class="param-hint">حظر الاتصال بمزود خارجي</small>
@@ -97,8 +110,14 @@ const formatBytes = (bytes: number | undefined): string => {
           <span class="param-label">فرض HTTPS</span>
           <div class="param-value-flex">
             <StatusPill
+              v-if="typeof state.force_https === 'boolean'"
               :status="state.force_https ? 'ENABLED' : 'DISABLED'"
               :variant="state.force_https ? 'ok' : 'neutral'"
+            />
+            <StatusPill
+              v-else
+              status="UNAVAILABLE"
+              variant="neutral"
             />
           </div>
           <small class="param-hint">تشفير القنوات</small>

@@ -47,10 +47,22 @@ const inspectAudit = (rec: AuditRecord) => {
         <div class="chain-status-card">
           <span class="chain-status-label">سلسلة التجزئة المشفرة:</span>
           <StatusPill
-            :status="state.chain?.valid ? 'VALID_CHAIN' : 'CHAIN_INVALID'"
-            :variant="state.chain?.valid ? 'ok' : 'danger'"
+            v-if="state.chain && typeof state.chain.valid === 'boolean'"
+            :status="state.chain.valid ? 'VALID_CHAIN' : 'CHAIN_INVALID'"
+            :variant="state.chain.valid ? 'ok' : 'danger'"
           />
-          <small class="chain-count">({{ state.chain?.count ?? 0 }} سجلات موثقة)</small>
+          <StatusPill
+            v-else
+            status="UNAVAILABLE"
+            variant="neutral"
+          />
+          <small class="chain-count">
+            {{
+              state.chain && typeof state.chain.count === 'number'
+                ? `(${state.chain.count} سجلات موثقة)`
+                : '(غير متاح)'
+            }}
+          </small>
         </div>
       </div>
     </section>
@@ -62,7 +74,11 @@ const inspectAudit = (rec: AuditRecord) => {
         <span class="section-subtext">أحدث 50 حدثاً مرتبة بالتسلسل العكسي</span>
       </div>
 
-      <div v-if="!state.records || state.records.length === 0" class="cep-empty-state">
+      <div v-if="state.records === undefined" class="cep-empty-state">
+        <p class="cep-empty-state__title">غير متاح — لم تتم ملاحظة سجل الأحداث التشغيلية</p>
+      </div>
+
+      <div v-else-if="state.records.length === 0" class="cep-empty-state">
         <p class="cep-empty-state__title">لا توجد سجلات تدقيق مسجلة</p>
       </div>
 

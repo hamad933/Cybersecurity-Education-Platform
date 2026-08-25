@@ -197,7 +197,11 @@ const inspectResult = (res: AiResult) => {
         <span class="section-subtext">المراجعة البشرية الكاملة للمقترح قبل القرار</span>
       </div>
 
-      <div v-if="!state.results || state.results.length === 0" class="cep-empty-state">
+      <div v-if="state.results === undefined" class="cep-empty-state">
+        <p class="cep-empty-state__title">غير متاح — لم تتم ملاحظة نتائج الذكاء الاصطناعي</p>
+      </div>
+
+      <div v-else-if="state.results.length === 0" class="cep-empty-state">
         <p class="cep-empty-state__title">لا توجد نتائج ذكاء اصطناعي بانتظار المراجعة</p>
       </div>
 
@@ -291,7 +295,14 @@ const inspectResult = (res: AiResult) => {
       </div>
 
       <div
-        v-if="!state.prompt_revisions || state.prompt_revisions.length === 0"
+        v-if="state.prompt_revisions === undefined"
+        class="cep-empty-state"
+      >
+        <p class="cep-empty-state__title">غير متاح — لم تتم ملاحظة مراجعات الموجهات</p>
+      </div>
+
+      <div
+        v-else-if="state.prompt_revisions.length === 0"
         class="cep-empty-state"
       >
         <p class="cep-empty-state__title">لا توجد مراجعات موجهات سابقة</p>

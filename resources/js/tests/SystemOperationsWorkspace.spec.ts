@@ -365,4 +365,30 @@ describe('System & Operations workspace', () => {
     expect(wrapper.text()).toContain('بلا mutation runtime ولا مفاتيح API');
     expect(wrapper.find('form').exists()).toBe(false);
   });
+
+  it('renders unobserved workspace states truthfully across all surfaces without crash or invented data', () => {
+    const surfaces = [
+      'health',
+      'processing',
+      'validation',
+      'ai-bridge',
+      'backups',
+      'audit',
+      'releases',
+      'configuration',
+    ] as const;
+
+    for (const surface of surfaces) {
+      const wrapper = mount(Workspace, {
+        props: {
+          surface,
+          state: {},
+        },
+      });
+
+      expect(wrapper.find('.system-surface-container').exists()).toBe(true);
+      expect(wrapper.text()).not.toContain('99.9%');
+      expect(wrapper.text()).not.toContain('تم النشر');
+    }
+  });
 });

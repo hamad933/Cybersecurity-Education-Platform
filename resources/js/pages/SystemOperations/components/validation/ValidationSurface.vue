@@ -41,6 +41,12 @@ const formatBytes = (bytes: number): string => {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 };
 
+const packagesAvailable = computed<boolean>(() => {
+  if (props.state.packages === undefined) return false;
+  if (Array.isArray(props.state.packages)) return true;
+  return props.state.packages.records !== undefined || props.state.packages.counts !== undefined;
+});
+
 const packageRecords = computed<PackageRecord[]>(() =>
   Array.isArray(props.state.packages)
     ? props.state.packages
@@ -97,7 +103,7 @@ const inspectPackage = (pkg: PackageRecord) => {
           <input
             type="file"
             class="form-file-input"
-            aria-label="اختر ملفاً مصدرrollاً للتحقق"
+            aria-label="اختر ملفاً مصدرياً للتحقق"
             @change="handleFileSelect"
           />
           <button
@@ -134,7 +140,11 @@ const inspectPackage = (pkg: PackageRecord) => {
         </div>
       </div>
 
-      <div v-if="packageRecords.length === 0" class="cep-empty-state">
+      <div v-if="!packagesAvailable" class="cep-empty-state">
+        <p class="cep-empty-state__title">غير متاح — لم تتم ملاحظة سجل الحزم المحمولة</p>
+      </div>
+
+      <div v-else-if="packageRecords.length === 0" class="cep-empty-state">
         <p class="cep-empty-state__title">لا توجد حزم محمولة مسجلة للتحقق</p>
       </div>
 
@@ -186,7 +196,14 @@ const inspectPackage = (pkg: PackageRecord) => {
       </div>
 
       <div
-        v-if="!state.source_imports?.records || state.source_imports.records.length === 0"
+        v-if="state.source_imports?.records === undefined"
+        class="cep-empty-state"
+      >
+        <p class="cep-empty-state__title">غير متاح — لم تتم ملاحظة سجل استيراد المصادر</p>
+      </div>
+
+      <div
+        v-else-if="state.source_imports.records.length === 0"
         class="cep-empty-state"
       >
         <p class="cep-empty-state__title">لا توجد ملفات مصدرية مسجلة</p>

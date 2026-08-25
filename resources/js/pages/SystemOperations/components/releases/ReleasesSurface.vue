@@ -15,6 +15,12 @@ const emit = defineEmits<{
 const when = (value: string | null | undefined): string =>
   value ? new Date(value).toLocaleString('ar-YE') : '—';
 
+const packagesAvailable = computed<boolean>(() => {
+  if (props.state.packages === undefined) return false;
+  if (Array.isArray(props.state.packages)) return true;
+  return props.state.packages.records !== undefined;
+});
+
 const packageRecords = computed<PackageRecord[]>(() =>
   Array.isArray(props.state.packages)
     ? props.state.packages
@@ -95,7 +101,11 @@ const inspectPackage = (pkg: PackageRecord) => {
         <span class="section-subtext">حزم الأدلة التقنية المصدّرة</span>
       </div>
 
-      <div v-if="packageRecords.length === 0" class="cep-empty-state">
+      <div v-if="!packagesAvailable" class="cep-empty-state">
+        <p class="cep-empty-state__title">غير متاح — لم تتم ملاحظة حزم الأدلة</p>
+      </div>
+
+      <div v-else-if="packageRecords.length === 0" class="cep-empty-state">
         <p class="cep-empty-state__title">لا توجد حزم أدلة إصدار مسجلة</p>
       </div>
 
