@@ -51,7 +51,7 @@ const tabs = [
       v-for="tab in tabs"
       :key="tab.key"
       :href="withObject(tab.href)"
-      class="focus-ring group inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all duration-150"
+      class="focus-ring group inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all duration-150"
       :class="
         active === tab.key
           ? 'border-cyan-500/50 bg-cyan-500/15 text-cyan-200 shadow-sm shadow-cyan-950/50 dark:border-cyan-400/60 dark:bg-cyan-950/40 dark:text-cyan-100'

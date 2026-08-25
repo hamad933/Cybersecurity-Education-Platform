@@ -22,13 +22,13 @@ const row = computed(
         PROVENANCE
       </span>
       <h2 id="provenance-heading" class="mt-1 text-xs font-bold text-slate-200">
-        تتبّع المصدر المحدد
+        تتبّع المنشأ للمصدر المحدد
       </h2>
     </div>
 
     <div v-if="source" class="mt-4 space-y-4 text-xs">
       <section class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-        <p class="text-[11px] font-bold text-slate-400">Locator</p>
+        <p class="text-[11px] font-bold text-slate-400">موقع المصدر (Locator)</p>
         <a
           v-if="source.exact_url"
           :href="source.exact_url"
@@ -46,21 +46,21 @@ const row = computed(
         >
           {{ source.relative_path }}
         </bdi>
-        <p v-else class="mt-1.5 text-xs text-slate-500">لا يوجد locator محفوظ.</p>
+        <p v-else class="mt-1.5 text-xs text-slate-500">لا يوجد موقع مرجعي محفوظ.</p>
       </section>
 
       <section class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-        <p class="text-[11px] font-bold text-slate-400">Integrity digest</p>
+        <p class="text-[11px] font-bold text-slate-400">بصمة السلامة الرقمية (Integrity Digest)</p>
         <bdi dir="ltr" class="mt-1.5 block font-mono text-[10px] break-all text-emerald-400">
-          sha256:{{ source.sha256 || 'missing' }}
+          sha256:{{ source.sha256 || 'غير متوفر' }}
         </bdi>
       </section>
 
       <section class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
         <div class="flex items-center justify-between gap-2">
-          <p class="text-[11px] font-bold text-slate-400">Claim anchors</p>
+          <p class="text-[11px] font-bold text-slate-400">مراسي الادعاءات (Claim Anchors)</p>
           <span class="rounded bg-slate-900 px-2 py-0.5 font-mono text-[10px] text-cyan-400">
-            {{ row?.traceability_state ?? 'unknown' }}
+            {{ row?.traceability_state ?? 'غير محدد' }}
           </span>
         </div>
         <ul v-if="row?.anchors.length" class="mt-2.5 space-y-2">
@@ -77,7 +77,7 @@ const row = computed(
             </bdi>
           </li>
         </ul>
-        <p v-else class="mt-2 text-xs text-slate-500">لا توجد anchors محفوظة لهذا المصدر.</p>
+        <p v-else class="mt-2 text-xs text-slate-500">لا توجد مراسي ادعاءات محفوظة لهذا المصدر.</p>
       </section>
     </div>
     <p v-else class="mt-4 text-xs text-slate-500">لا يوجد مصدر محدد.</p>

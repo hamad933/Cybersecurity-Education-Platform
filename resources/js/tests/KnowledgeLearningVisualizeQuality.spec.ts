@@ -12,8 +12,8 @@ const stubComponents = {
   KnowledgeTabs: { template: '<nav data-testid="gateways"><slot></slot></nav>' },
 };
 
-describe('Knowledge & Learning Phase 1 Layouts', () => {
-  it('Learn.vue enforces exact semantic layout: Left Journey, Center Content (No Lesson), Right Context', () => {
+describe('Knowledge & Learning Phase 1 Layouts & Governance (W02-C01 through W02-C06)', () => {
+  it('Learn.vue enforces exact semantic layout: Left Journey, Center Content (Truthful No Lesson), Right Context', () => {
     const wrapper = mount(Learn, {
       props: {
         catalog: [],
@@ -53,15 +53,19 @@ describe('Knowledge & Learning Phase 1 Layouts', () => {
     expect(html).toContain('رحلة التعلّم');
     expect(html).toContain('p1');
 
-    // CENTER Lesson surface with truthful no-lesson state
+    // CENTER Lesson surface with truthful no-lesson state and clear Arabic strings (W02-C06)
     expect(html).toContain('سطح الدرس والمحتوى التعليمي');
-    expect(html).toContain('LESSON_UNAVAILABLE');
-    expect(html).toContain('No Lesson State');
+    expect(html).toContain('الدرس غير متوفر');
+    expect(html).toContain('لا يتوفر درس مسجل لهذه الوحدة');
     expect(html).toContain('NO_ASSESSMENT');
+
+    // No fake SQL Injection or fabricated 28% completion data
+    expect(html).not.toContain('28%');
+    expect(html).not.toContain('3/7');
 
     // RIGHT Context & Lab Readiness
     expect(html).toContain('سياق النشاط المحدد');
-    expect(html).toContain('Lab Reference');
+    expect(html).toContain('مرجع المختبر (Lab Reference)');
     expect(html).toContain('lab-1');
 
     // KU != Lesson; Completion != Mastery
@@ -71,7 +75,7 @@ describe('Knowledge & Learning Phase 1 Layouts', () => {
     expect(wrapper.find('[data-testid="gateways"]').exists()).toBe(true);
   });
 
-  it('Visualize.vue enforces view modes, overlay panel, and temporary trace', () => {
+  it('Visualize.vue enforces view modes, overlay panel, physical orientation, and temporary trace', () => {
     const wrapper = mount(Visualize, {
       props: {
         catalog: [],
@@ -83,7 +87,7 @@ describe('Knowledge & Learning Phase 1 Layouts', () => {
           visual_positions: {},
           saved: true,
         },
-        view: { implemented: ['Graph'], not_implemented: [] },
+        view: { implemented: ['Graph', 'Tree'], not_implemented: [] },
         overlay: { active: null, available: [], layers: {} },
         graph: {
           nodes: [],
@@ -105,14 +109,15 @@ describe('Knowledge & Learning Phase 1 Layouts', () => {
 
     const html = wrapper.html();
 
-    // View modes
+    // View modes with responsive tabs
     expect(html).toContain('Graph');
+    expect(html).toContain('Tree');
 
     // Center Gateways
     expect(wrapper.find('[data-testid="gateways"]').exists()).toBe(true);
 
     // BOTTOM Trace
-    expect(html).toContain('أثر العلاقات canonical — مساحة مؤقتة');
+    expect(html).toContain('أثر العلاقات القانونية — مساحة مؤقتة');
     expect(html).toContain('a → rel → b');
   });
 
@@ -145,7 +150,7 @@ describe('Knowledge & Learning Phase 1 Layouts', () => {
     expect(wrapper.find('[data-testid="gateways"]').exists()).toBe(true);
   });
 
-  it('Library.vue provides history compare in BOTTOM and context in RIGHT', async () => {
+  it('Library.vue provides history compare in BOTTOM, context in RIGHT, and removes hardcoded SQL Injection', async () => {
     const wrapper = mount(Library, {
       props: {
         catalog: [],
@@ -195,6 +200,11 @@ describe('Knowledge & Learning Phase 1 Layouts', () => {
 
     const html = wrapper.html();
 
+    // W02-C01: Verified absence of fixed SQL Injection mock content
+    expect(html).not.toContain('CWE-89');
+    expect(html).not.toContain("SELECT * FROM users WHERE username = '' OR '1'='1'");
+    expect(html).not.toContain('18 مايو 2025');
+
     // Right aside context
     expect(html).toContain('السياق');
 
@@ -204,7 +214,11 @@ describe('Knowledge & Learning Phase 1 Layouts', () => {
     expect(html).toContain('تشخيص التزامن');
 
     // Expand bottom shelf and verify diagnostics / compare content
-    await wrapper.find('button[aria-label="طي أو توسيع المساحة السفلية"]').trigger('click');
+    const toggleButton = wrapper.find('button[aria-label="طي أو توسيع المساحة السفلية"]');
+    expect(toggleButton.attributes('aria-expanded')).toBe('false');
+    await toggleButton.trigger('click');
+    expect(toggleButton.attributes('aria-expanded')).toBe('true');
+
     const expandedHtml = wrapper.html();
     expect(expandedHtml).toContain('مقارنة مراجعتين دون تعديل السجل المنشور');
 

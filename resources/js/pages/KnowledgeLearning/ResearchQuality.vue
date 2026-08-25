@@ -62,13 +62,13 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
           </div>
 
           <div
-            class="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-950/80 p-1"
+            class="flex flex-wrap items-center gap-1 rounded-xl border border-slate-800 bg-slate-950/80 p-1"
           >
             <button
               v-for="item in modes"
               :key="item.key"
               type="button"
-              class="focus-ring flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold shadow-sm transition"
+              class="focus-ring flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap shadow-sm transition"
               :class="
                 mode === item.key
                   ? 'border border-cyan-500/40 bg-cyan-500/20 text-cyan-200 shadow-cyan-950/50'
@@ -85,10 +85,11 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
         </div>
       </header>
 
-      <!-- 3-Column Layout -->
-      <div class="grid min-h-[740px] gap-4 xl:grid-cols-[285px_minmax(0,1fr)_315px]">
-        <!-- LEFT: Source Set Sidebar -->
+      <!-- 3-Column Layout with strict physical region ownership -->
+      <div dir="ltr" class="grid min-h-[740px] gap-4 xl:grid-cols-[285px_minmax(0,1fr)_315px]">
+        <!-- LEFT: Source Set Sidebar (Visual LEFT) -->
         <aside
+          dir="rtl"
           class="flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
           aria-label="مصادر البحث والجودة"
         >
@@ -98,8 +99,9 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
               <span
                 class="font-mono text-[10px] font-bold tracking-widest text-slate-500 uppercase"
                 dir="ltr"
-                >SOURCE SET</span
               >
+                SOURCE SET
+              </span>
             </div>
             <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
               اختيار المصدر يغيّر سياق الفحص فقط؛ ولا يمنحه أفضلية حقيقة تلقائية.
@@ -130,13 +132,15 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
             </li>
           </ul>
           <p v-else class="mt-4 text-xs leading-6 text-slate-500">
-            لا توجد <bdi dir="ltr">Source Records</bdi> محفوظة؛ لن تُنشأ مصادر وهمية.
+            لا توجد مصادر محفوظة؛ لن تُنشأ مصادر وهمية.
           </p>
         </aside>
 
-        <!-- CENTER: Research & Quality Workspace -->
+        <!-- CENTER: Research & Quality Workspace (Visual CENTER) -->
         <main
+          dir="rtl"
           class="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 shadow-lg backdrop-blur sm:p-7 dark:bg-[#0b1322]/90"
+          aria-label="مساحة فحص الجودة والمقارنة"
         >
           <div class="mb-5 border-b border-slate-800/80 pb-4">
             <KnowledgeTabs active="research-quality" :object-id="active?.id" />
@@ -162,7 +166,7 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
               v-if="quality.analysis"
               class="rounded-xl border border-slate-800 bg-slate-950/60 p-2.5 text-left font-mono text-[11px]"
             >
-              <span class="block text-[9px] text-slate-500 uppercase">Decision authority</span>
+              <span class="block text-[9px] text-slate-500">سلطة القرار</span>
               <bdi dir="ltr" class="font-bold text-emerald-400">
                 {{ quality.analysis.review.decision_authority }}
               </bdi>
@@ -183,10 +187,11 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
           </div>
         </main>
 
-        <!-- RIGHT: Provenance & Review Boundary -->
+        <!-- RIGHT: Provenance & Review Boundary (Visual RIGHT) -->
         <aside
+          dir="rtl"
           class="flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
-          aria-label="Provenance and review boundary"
+          aria-label="تتبّع المنشأ وحدود المراجعة"
         >
           <ProvenancePanel
             :source="quality.active_source"
@@ -199,8 +204,9 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
               <span
                 class="font-mono text-[10px] font-bold tracking-widest text-slate-500 uppercase"
                 dir="ltr"
-                >REVIEW BOUNDARY</span
               >
+                REVIEW BOUNDARY
+              </span>
             </div>
             <div class="mt-3 space-y-2.5 text-xs leading-relaxed">
               <p
@@ -212,14 +218,14 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
               <p
                 class="rounded-xl border border-amber-900/60 bg-amber-950/20 p-3 text-[11px] text-amber-200"
               >
-                النظام لا يقرر حقيقة المعرفة. يمكنه كشف التعارضات وتجميع provenance فقط؛ أما
-                reconciliation النهائي فحكم بشري.
+                النظام لا يقرر حقيقة المعرفة. يمكنه كشف التعارضات وتجميع المنشأ (provenance) فقط؛
+                أما التوفيق النهائي (reconciliation) فحكم بشري.
               </p>
               <dl
                 class="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-[11px] text-slate-400"
               >
                 <div class="flex justify-between gap-3">
-                  <dt>Review semantics</dt>
+                  <dt>دلالات المراجعة:</dt>
                   <dd>
                     <bdi dir="ltr" class="font-mono text-cyan-300">{{
                       quality.review_semantics
@@ -227,7 +233,7 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
                   </dd>
                 </div>
                 <div class="mt-2 flex justify-between gap-3 border-t border-slate-800/80 pt-2">
-                  <dt>Pending conflicts</dt>
+                  <dt>التعارضات المعلقة:</dt>
                   <dd class="font-mono font-bold text-amber-300">
                     {{ quality.analysis?.reconciliation.pending_conflict_count ?? 0 }}
                   </dd>
@@ -238,19 +244,20 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
         </aside>
       </div>
 
-      <!-- BOTTOM: Trace Telemetry Drawer -->
+      <!-- BOTTOM: Trace Telemetry Drawer (Closed by default) -->
       <details
+        dir="rtl"
         class="mt-4 rounded-2xl border border-slate-800/80 bg-slate-900/40 px-4 py-3 shadow-lg"
       >
         <summary
           class="flex cursor-pointer items-center justify-between text-xs font-bold text-slate-300"
         >
-          <span>أثر reconciliation و revision — مساحة مقارنة مؤقتة</span>
-          <span class="font-mono text-[10px] text-cyan-400">Telemetry Details</span>
+          <span>أثر التوفيق والمراجعة (Reconciliation & Revision) — مساحة مقارنة مؤقتة</span>
+          <span class="font-mono text-[10px] text-cyan-400">تفاصيل التتبع</span>
         </summary>
         <div class="mt-4 grid gap-4 md:grid-cols-2">
           <section>
-            <h3 class="text-xs font-bold text-slate-400">Unresolved canonical claims</h3>
+            <h3 class="text-xs font-bold text-slate-400">ادعاءات قانونية غير محلولة</h3>
             <div class="mt-2 space-y-1.5">
               <bdi
                 v-for="claimId in quality.analysis?.revision_reasoning.unresolved_claim_ids ?? []"
@@ -264,12 +271,12 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
                 v-if="!quality.analysis?.revision_reasoning.unresolved_claim_ids.length"
                 class="text-xs text-slate-500"
               >
-                لا توجد Claims canonical بلا provenance مرصود.
+                لا توجد ادعاءات قانونية بلا منشأ مرصود.
               </p>
             </div>
           </section>
           <section>
-            <h3 class="text-xs font-bold text-slate-400">Allowed next tools</h3>
+            <h3 class="text-xs font-bold text-slate-400">الأدوات التالية المسموحة</h3>
             <div class="mt-2 flex flex-wrap gap-1.5">
               <bdi
                 v-for="tool in quality.analysis?.reconciliation.allowed_next_tools ?? []"

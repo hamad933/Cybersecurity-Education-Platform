@@ -19,11 +19,9 @@ defineProps<{
             dir="ltr"
             >CLAIMS</span
           >
-          <h2 class="mt-1 text-base font-bold text-slate-100">Claims ومواضع الدعم للمصدر</h2>
+          <h2 class="mt-1 text-base font-bold text-slate-100">الادعاءات ومواضع الدعم للمصدر</h2>
         </div>
-        <p class="text-xs text-slate-400">
-          الـ assessment حالة مصدر؛ وليست حكمًا آليًا على حقيقة المعرفة.
-        </p>
+        <p class="text-xs text-slate-400">التقييم حالة مصدر؛ وليس حكمًا آليًا على حقيقة المعرفة.</p>
       </div>
 
       <div v-if="source.claims.length" class="mt-4 space-y-3">
@@ -71,7 +69,7 @@ defineProps<{
         v-else
         class="mt-5 rounded-2xl border border-dashed border-slate-800 bg-slate-950/40 p-8 text-center text-xs text-slate-500"
       >
-        هذا المصدر لا يملك Claims محفوظة.
+        هذا المصدر لا يملك ادعاءات محفوظة.
       </p>
     </div>
     <p v-else class="py-16 text-center text-xs text-slate-500">لا يوجد مصدر محدد.</p>
@@ -130,15 +128,15 @@ defineProps<{
               مستبعد: {{ variant.excluded_semantics }}
             </p>
             <bdi dir="ltr" class="mt-2.5 block font-mono text-[10px] text-slate-400">
-              assessment = {{ variant.assessment }}
+              تقييم المصدر = {{ variant.assessment }}
             </bdi>
           </section>
         </div>
 
         <p class="mt-4 border-t border-amber-900/40 pt-3 text-xs leading-relaxed text-amber-200">
           لا يختار النظام مصدرًا مفضلًا ولا يصدر
-          <bdi dir="ltr" class="font-bold">system_truth_decision</bdi>. قرار reconciliation من
-          اختصاص المراجع البشري.
+          <bdi dir="ltr" class="font-bold">system_truth_decision</bdi>. قرار التوفيق
+          (reconciliation) من اختصاص المراجع البشري.
         </p>
       </article>
     </div>
@@ -146,7 +144,7 @@ defineProps<{
       v-else
       class="mt-5 rounded-2xl border border-dashed border-slate-800 bg-slate-950/40 p-8 text-center text-xs text-slate-500"
     >
-      لا توجد تعارضات مرصودة بين Claim variants الحالية.
+      لا توجد تعارضات مرصودة بين تنويعات الادعاءات الحالية.
     </p>
   </section>
 
@@ -164,19 +162,19 @@ defineProps<{
 
     <div class="mt-4 grid gap-3 md:grid-cols-3">
       <article class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 shadow-sm">
-        <p class="text-xs text-slate-400">Canonical claims</p>
+        <p class="text-xs text-slate-400">ادعاءات قانونية (Canonical Claims)</p>
         <p class="mt-2 font-mono text-2xl font-black text-slate-100">
           {{ analysis?.revision_reasoning.canonical_claim_ids.length ?? 0 }}
         </p>
       </article>
       <article class="rounded-2xl border border-emerald-900/60 bg-emerald-950/20 p-4 shadow-sm">
-        <p class="text-xs text-emerald-400">Resolved to sources</p>
+        <p class="text-xs text-emerald-400">مربوطة بمصادر (Resolved)</p>
         <p class="mt-2 font-mono text-2xl font-black text-emerald-300">
           {{ analysis?.revision_reasoning.resolved_claim_ids.length ?? 0 }}
         </p>
       </article>
       <article class="rounded-2xl border border-amber-900/60 bg-amber-950/20 p-4 shadow-sm">
-        <p class="text-xs text-amber-400">Unresolved provenance</p>
+        <p class="text-xs text-amber-400">بلا منشأ مرصود (Unresolved)</p>
         <p class="mt-2 font-mono text-2xl font-black text-amber-300">
           {{ analysis?.revision_reasoning.unresolved_claim_ids.length ?? 0 }}
         </p>
@@ -203,7 +201,7 @@ defineProps<{
             v-if="!analysis.revision_reasoning.claim_sources[claimId]?.length"
             class="text-xs text-amber-300"
           >
-            لا يوجد source provenance محفوظ
+            لا يوجد منشأ مصدر محفوظ
           </span>
         </div>
       </div>

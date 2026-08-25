@@ -78,13 +78,13 @@ const handleZoomReset = () => {
         <div class="flex flex-wrap items-center justify-between gap-3">
           <!-- View Switcher Tabs -->
           <div
-            class="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-950/80 p-1"
+            class="flex flex-wrap items-center gap-1 rounded-xl border border-slate-800 bg-slate-950/80 p-1"
           >
             <button
               v-for="viewName in views"
               :key="viewName"
               type="button"
-              class="focus-ring flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold shadow-sm transition"
+              class="focus-ring flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap shadow-sm transition"
               :class="
                 activeView === viewName
                   ? 'border border-cyan-500/40 bg-cyan-500/20 text-cyan-200 shadow-cyan-950/50'
@@ -110,11 +110,11 @@ const handleZoomReset = () => {
           <div class="flex flex-wrap items-center gap-2 text-xs">
             <!-- Filter Pills -->
             <div
-              class="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-950 p-0.5"
+              class="flex flex-wrap items-center gap-1 rounded-lg border border-slate-800 bg-slate-950 p-0.5"
             >
               <button
                 type="button"
-                class="rounded px-2 py-1 text-[11px] transition"
+                class="rounded px-2 py-1 text-[11px] whitespace-nowrap transition"
                 :class="
                   activeFilter === 'all'
                     ? 'bg-slate-800 font-semibold text-slate-100'
@@ -126,7 +126,7 @@ const handleZoomReset = () => {
               </button>
               <button
                 type="button"
-                class="rounded px-2 py-1 text-[11px] transition"
+                class="rounded px-2 py-1 text-[11px] whitespace-nowrap transition"
                 :class="
                   activeFilter === 'units'
                     ? 'bg-slate-800 font-semibold text-cyan-300'
@@ -138,7 +138,7 @@ const handleZoomReset = () => {
               </button>
               <button
                 type="button"
-                class="rounded px-2 py-1 text-[11px] transition"
+                class="rounded px-2 py-1 text-[11px] whitespace-nowrap transition"
                 :class="
                   activeFilter === 'capabilities'
                     ? 'bg-slate-800 font-semibold text-indigo-300'
@@ -158,6 +158,7 @@ const handleZoomReset = () => {
                 type="button"
                 class="focus-ring rounded px-2 py-1 text-slate-300 hover:bg-slate-800"
                 title="تصغير"
+                aria-label="تصغير"
                 @click="handleZoomOut"
               >
                 −
@@ -167,6 +168,7 @@ const handleZoomReset = () => {
                 type="button"
                 class="focus-ring rounded px-2 py-1 text-slate-300 hover:bg-slate-800"
                 title="تكبير"
+                aria-label="تكبير"
                 @click="handleZoomIn"
               >
                 ＋
@@ -175,7 +177,8 @@ const handleZoomReset = () => {
               <button
                 type="button"
                 class="focus-ring rounded px-2 py-1 text-slate-400 hover:text-white"
-                title="ملاءمة"
+                title="ملاءمة العرض"
+                aria-label="ملاءمة العرض"
                 @click="handleZoomReset"
               >
                 Fit
@@ -185,12 +188,13 @@ const handleZoomReset = () => {
         </div>
       </header>
 
-      <!-- 3-Column Work Surface -->
-      <div class="grid min-h-[740px] gap-4 xl:grid-cols-[280px_minmax(0,1fr)_320px]">
-        <!-- LEFT: Map Scope & Catalog Structure -->
+      <!-- 3-Column Work Surface with strict physical orientation -->
+      <div dir="ltr" class="grid min-h-[740px] gap-4 xl:grid-cols-[280px_minmax(0,1fr)_320px]">
+        <!-- LEFT: Map Scope & Catalog Structure (Visual LEFT) -->
         <aside
+          dir="rtl"
           class="flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
-          aria-label="MAP scope"
+          aria-label="نطاق الخريطة والوحدات"
         >
           <div class="border-b border-slate-800/80 pb-4">
             <div class="flex items-center justify-between">
@@ -198,8 +202,9 @@ const handleZoomReset = () => {
               <span
                 class="font-mono text-[10px] font-bold tracking-widest text-slate-500 uppercase"
                 dir="ltr"
-                >MAP</span
               >
+                MAP
+              </span>
             </div>
             <div class="mt-3 space-y-2 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
               <div class="flex items-center justify-between gap-2 text-xs">
@@ -213,11 +218,11 @@ const handleZoomReset = () => {
                 </bdi>
               </div>
               <div class="flex items-center justify-between gap-2 text-xs">
-                <span class="text-slate-400">Map ID</span>
+                <span class="text-slate-400">معرّف الخريطة</span>
                 <bdi dir="ltr" class="font-mono text-slate-300">{{ map.id ?? '—' }}</bdi>
               </div>
               <div class="flex items-center justify-between gap-2 text-xs">
-                <span class="text-slate-400">Canonical scope</span>
+                <span class="text-slate-400">النطاق القانوني</span>
                 <bdi dir="ltr" class="font-mono font-bold text-cyan-300">{{ mapScope ?? '—' }}</bdi>
               </div>
             </div>
@@ -247,13 +252,15 @@ const handleZoomReset = () => {
             </li>
           </ul>
           <p v-else class="mt-3 text-xs leading-6 text-slate-500">
-            لا توجد وحدات canonical في النطاق الحالي.
+            لا توجد وحدات قانونية في النطاق الحالي.
           </p>
         </aside>
 
-        <!-- CENTER: Visualization Canvas Workspace -->
+        <!-- CENTER: Visualization Canvas Workspace (Visual CENTER) -->
         <main
+          dir="rtl"
           class="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 shadow-lg backdrop-blur sm:p-7 dark:bg-[#0b1322]/90"
+          aria-label="مساحة التمثيل والتصوّر"
         >
           <div class="mb-5 border-b border-slate-800/80 pb-4">
             <KnowledgeTabs active="visualize" :object-id="active?.id" />
@@ -263,7 +270,7 @@ const handleZoomReset = () => {
             class="flex flex-wrap items-end justify-between gap-4 border-b border-slate-800/80 pb-5"
           >
             <div>
-              <div class="flex items-center gap-2">
+              <div class="flex flex-wrap items-center gap-2">
                 <span
                   class="inline-flex items-center gap-1 rounded-full border border-cyan-500/40 bg-cyan-950/60 px-2.5 py-0.5 text-xs font-semibold text-cyan-300"
                 >
@@ -272,7 +279,7 @@ const handleZoomReset = () => {
                 <span
                   class="rounded-full bg-slate-800 px-2 py-0.5 font-mono text-[10px] text-slate-400"
                 >
-                  {{ graph.nodes.length }} Nodes · {{ graph.edges.length }} Edges
+                  {{ graph.nodes.length }} عقدة · {{ graph.edges.length }} رابط
                 </span>
               </div>
               <h1 class="mt-2 text-2xl font-black tracking-tight text-slate-100 sm:text-3xl">
@@ -283,7 +290,7 @@ const handleZoomReset = () => {
               </bdi>
             </div>
             <div class="text-left font-mono text-[11px] text-slate-400">
-              <span class="block text-[10px] text-slate-500 uppercase">Projection source</span>
+              <span class="block text-[10px] text-slate-500">مصدر الإسقاط</span>
               <bdi dir="ltr" class="text-slate-300">{{ graph.source }}</bdi>
             </div>
           </header>
@@ -303,17 +310,17 @@ const handleZoomReset = () => {
             <div>
               <h2 class="text-lg font-bold text-slate-300">لا توجد علاقات قابلة للتصوّر.</h2>
               <p class="mx-auto mt-2 max-w-sm text-xs leading-relaxed">
-                المشهد لا يختلق <bdi dir="ltr">Nodes</bdi> أو <bdi dir="ltr">Edges</bdi> عند غياب
-                البيانات القانونية.
+                المشهد لا يختلق عقدًا أو روابط عند غياب البيانات القانونية.
               </p>
             </div>
           </div>
         </main>
 
-        <!-- RIGHT: Overlay Analysis & Rules -->
+        <!-- RIGHT: Overlay Analysis & Rules (Visual RIGHT) -->
         <aside
+          dir="rtl"
           class="flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
-          aria-label="OVERLAY analysis"
+          aria-label="تحليل الطبقات المرصودة"
         >
           <OverlayPanel :overlay="overlay" :selected="selectedOverlay" @select="selectOverlay" />
 
@@ -322,12 +329,12 @@ const handleZoomReset = () => {
             <dl class="mt-3 space-y-2.5 text-xs leading-relaxed">
               <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
                 <dt dir="ltr" class="font-bold text-cyan-300">MAP</dt>
-                <dd class="mt-1 text-[11px] text-slate-400">Saved visualization scope / world.</dd>
+                <dd class="mt-1 text-[11px] text-slate-400">النطاق المحفوظ وعالم العرض.</dd>
               </div>
               <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
                 <dt dir="ltr" class="font-bold text-indigo-300">VIEW</dt>
                 <dd class="mt-1 text-[11px] text-slate-400">
-                  Tree, Path, Graph, Canvas — تمثيلات لنفس العلاقات.
+                  Tree, Path, Graph, Canvas — تمثيلات لنفس العلاقات القانونية.
                 </dd>
               </div>
               <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
@@ -341,15 +348,16 @@ const handleZoomReset = () => {
         </aside>
       </div>
 
-      <!-- BOTTOM: Trace Telemetry Drawer -->
+      <!-- BOTTOM: Trace Telemetry Drawer (Closed by default) -->
       <details
+        dir="rtl"
         class="mt-4 rounded-2xl border border-slate-800/80 bg-slate-900/40 px-4 py-3 shadow-lg"
       >
         <summary
           class="flex cursor-pointer items-center justify-between text-xs font-bold text-slate-300"
         >
-          <span>أثر العلاقات canonical — مساحة مؤقتة</span>
-          <span class="font-mono text-[10px] text-cyan-400">{{ graph.edges.length }} edges</span>
+          <span>أثر العلاقات القانونية — مساحة مؤقتة</span>
+          <span class="font-mono text-[10px] text-cyan-400">{{ graph.edges.length }} روابط</span>
         </summary>
         <div class="mt-4 max-h-48 space-y-2 overflow-y-auto pr-0.5">
           <bdi
