@@ -32,12 +32,6 @@ function reached(run: RunItem, step: string): boolean {
   return current >= target;
 }
 
-const mockAlerts = [
-  { id: 'ALERT-7f3a8c1b', time: '10:24:31', title: 'Anomalous SQL query detected', subtitle: 'SQL Injection signature match', severity: 'High', status: 'New', source: 'Web Application', sourceIp: '203.0.113.45', user: 'anonymous', uri: '/search.php', method: 'POST', rule: 'SIM-RULE-1007 (SQL Injection)', technique: 'T1190 - Exploit Public-Facing App' },
-  { id: 'ALERT-8c2b9a4f', time: '10:22:11', title: 'Multiple suspicious parameter patterns', subtitle: 'SQLi pattern observed', severity: 'High', status: 'New', source: 'Web Application', sourceIp: '203.0.113.45', user: 'anonymous', uri: '/login.php', method: 'POST', rule: 'SIM-RULE-1004 (Parameter Tamper)', technique: 'T1190 - Exploit Public-Facing App' },
-  { id: 'ALERT-3e5f1d9a', time: '10:20:47', title: 'Potential database access anomaly', subtitle: 'Unusual query volume', severity: 'Medium', status: 'New', source: 'Database', sourceIp: '10.0.2.15', user: 'db_app_user', uri: 'db://main/customers', method: 'QUERY', rule: 'SIM-RULE-2001 (High Volume Query)', technique: 'T1005 - Data from Local System' },
-  { id: 'ALERT-1a4b7c2e', time: '10:18:09', title: 'Failed login attempts spike', subtitle: 'From single source IP', severity: 'Low', status: 'New', source: 'Identity Service', sourceIp: '203.0.113.45', user: 'admin', uri: '/auth/token', method: 'POST', rule: 'SIM-RULE-3002 (Brute Force Threshold)', technique: 'T1110 - Brute Force' },
-];
 </script>
 
 <template>
@@ -68,17 +62,17 @@ const mockAlerts = [
         <div class="sim-ops-banner__metrics">
           <div class="sim-metric-block">
             <small>CURRENT PHASE</small>
-            <strong class="sim-text-cyan">03 Detection</strong>
+            <strong class="sim-text-cyan">{{ run.runtime_state?.telemetry?.current_phase ?? 'غير متاح' }}</strong>
           </div>
           <div class="sim-metric-divider" />
           <div class="sim-metric-block">
             <small>OPERATIONAL ROLE</small>
-            <strong>SOC Analyst</strong>
+            <strong>{{ run.runtime_state?.telemetry?.operational_role ?? 'غير متاح' }}</strong>
           </div>
           <div class="sim-metric-divider" />
           <div class="sim-metric-block">
             <small>CURRENT TASK</small>
-            <strong>Investigate suspicious SQL activity</strong>
+            <strong>{{ run.runtime_state?.telemetry?.current_task ?? 'غير متاح' }}</strong>
           </div>
         </div>
       </div>
@@ -136,13 +130,8 @@ const mockAlerts = [
         <section class="sim-alerts-panel">
           <div class="sim-alerts-panel__header">
             <div class="sim-flex-row">
-              <h3>Alerts</h3>
-              <span class="sim-badge sim-badge--danger">4</span>
-            </div>
-            <div class="sim-filter-chips">
-              <span class="sim-filter-pill">Severity: High ✕</span>
-              <span class="sim-filter-dropdown">Last 1 hour ▾</span>
-              <button type="button" class="sim-icon-btn-sm" title="تحديث">↻</button>
+              <h3>Events</h3>
+              <span class="sim-badge sim-badge--danger">{{ run.events.length }}</span>
             </div>
           </div>
 
@@ -151,172 +140,99 @@ const mockAlerts = [
               <thead>
                 <tr>
                   <th>Time (UTC)</th>
-                  <th>Alert Title</th>
+                  <th>Event Type</th>
                   <th>Severity</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 <tr
-                  v-for="(alert, idx) in mockAlerts"
-                  :key="alert.id"
-                  :class="{ 'is-selected': idx === selectedAlertIndex }"
-                  @click="selectedAlertIndex = idx"
+                  v-for="event in run.events"
+                  :key="event.sequence"
+                  :class="{ 'is-selected': event.sequence === selectedSequence }"
+                  @click="selectedSequence = event.sequence"
                 >
                   <td class="sim-technical">
-                    <span class="sim-alert-dot" :class="`sim-alert-dot--${alert.severity.toLowerCase()}`" />
-                    {{ alert.time }}
+                    <span class="sim-alert-dot sim-alert-dot--info" />
+                    {{ event.occurred_at }}
                   </td>
                   <td>
-                    <strong>{{ alert.title }}</strong>
-                    <small>{{ alert.subtitle }}</small>
+                    <strong>{{ event.event_type }}</strong>
+                    <small>{{ event.actor_id }}</small>
                   </td>
                   <td>
-                    <span class="sim-severity-tag" :class="`sim-severity-tag--${alert.severity.toLowerCase()}`">
-                      {{ alert.severity }}
+                    <span class="sim-severity-tag sim-severity-tag--info">
+                      INFO
                     </span>
                   </td>
                   <td>
-                    <span class="sim-status-pill">{{ alert.status }}</span>
+                    <span class="sim-status-pill">LOGGED</span>
                   </td>
+                </tr>
+                <tr v-if="!run.events.length">
+                  <td colspan="4" class="sim-muted">لم تتم ملاحظة أحداث بعد.</td>
                 </tr>
               </tbody>
             </table>
-          </div>
-          <div class="sim-table-footer">
-            <span>1–4 of 4</span>
-            <div class="sim-pagination">
-              <button type="button" disabled>‹</button>
-              <span class="is-active">1</span>
-              <button type="button" disabled>›</button>
-            </div>
           </div>
         </section>
 
         <!-- Right Pane: Alert Details / Inspector -->
         <section class="sim-alert-inspector-panel">
           <div class="sim-inspector-panel__header">
-            <h3>Alert Details</h3>
-            <span class="sim-badge sim-badge--cyan">{{ mockAlerts[selectedAlertIndex]?.id }}</span>
+            <h3>Event Details</h3>
+            <span class="sim-badge sim-badge--cyan" v-if="selectedEvent">SEQ {{ selectedEvent.sequence }}</span>
           </div>
 
-          <!-- Alert Key-Values Grid -->
-          <div class="sim-alert-kv-grid">
-            <div>
-              <dt>Source</dt>
-              <dd>{{ mockAlerts[selectedAlertIndex]?.source }}</dd>
+          <template v-if="selectedEvent">
+            <!-- Event Key-Values Grid -->
+            <div class="sim-alert-kv-grid">
+              <div>
+                <dt>Event Type</dt>
+                <dd>{{ selectedEvent.event_type }}</dd>
+              </div>
+              <div>
+                <dt>Sequence</dt>
+                <dd class="sim-technical">{{ selectedEvent.sequence }}</dd>
+              </div>
+              <div>
+                <dt>Actor ID</dt>
+                <dd class="sim-technical">{{ selectedEvent.actor_id }}</dd>
+              </div>
+              <div>
+                <dt>Occurred At</dt>
+                <dd class="sim-technical">{{ selectedEvent.occurred_at }}</dd>
+              </div>
             </div>
-            <div>
-              <dt>Alert ID</dt>
-              <dd class="sim-technical">{{ mockAlerts[selectedAlertIndex]?.id }}</dd>
-            </div>
-            <div>
-              <dt>Source IP</dt>
-              <dd class="sim-technical">{{ mockAlerts[selectedAlertIndex]?.sourceIp }}</dd>
-            </div>
-            <div>
-              <dt>Detection Rule</dt>
-              <dd class="sim-technical">{{ mockAlerts[selectedAlertIndex]?.rule }}</dd>
-            </div>
-            <div>
-              <dt>User</dt>
-              <dd class="sim-technical">{{ mockAlerts[selectedAlertIndex]?.user }}</dd>
-            </div>
-            <div>
-              <dt>Technique</dt>
-              <dd class="sim-technical">{{ mockAlerts[selectedAlertIndex]?.technique }}</dd>
-            </div>
-            <div>
-              <dt>URI</dt>
-              <dd class="sim-technical">{{ mockAlerts[selectedAlertIndex]?.uri }}</dd>
-            </div>
-            <div>
-              <dt>Triggered At</dt>
-              <dd class="sim-technical">2025-05-14 {{ mockAlerts[selectedAlertIndex]?.time }} UTC</dd>
-            </div>
-            <div>
-              <dt>HTTP Method</dt>
-              <dd class="sim-technical">{{ mockAlerts[selectedAlertIndex]?.method }}</dd>
-            </div>
-            <div>
-              <dt>Ingested At</dt>
-              <dd class="sim-technical">2025-05-14 10:24:32 UTC</dd>
-            </div>
-          </div>
 
-          <!-- Sub-Tabs inside Alert Inspector -->
-          <div class="sim-inspector-tabs">
-            <button type="button" class="is-active">Event Timeline</button>
-            <button type="button">Matched Rule</button>
-            <button type="button">Attributes</button>
-            <button type="button">Related Artifacts (2)</button>
-          </div>
-
-          <!-- Correlated Event Timeline Table -->
-          <div class="sim-inspector-timeline-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>Time (UTC)</th>
-                  <th>Source</th>
-                  <th>Event</th>
-                  <th>Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td class="sim-technical">10:24:31</td>
-                  <td>Web Application</td>
-                  <td class="sim-technical">WAF: SQLi pattern detected</td>
-                  <td>Param 'q' matched SQLi signature</td>
-                </tr>
-                <tr>
-                  <td class="sim-technical">10:24:31</td>
-                  <td>Web Application</td>
-                  <td class="sim-technical">Request blocked by WAF</td>
-                  <td>Action: Block</td>
-                </tr>
-                <tr>
-                  <td class="sim-technical">10:24:30</td>
-                  <td>Web Application</td>
-                  <td class="sim-technical">Request received</td>
-                  <td>POST /search.php</td>
-                </tr>
-                <tr>
-                  <td class="sim-technical">10:24:30</td>
-                  <td>Web Application</td>
-                  <td class="sim-technical">Suspicious parameter</td>
-                  <td>q=1' OR '1'='1--</td>
-                </tr>
-                <tr>
-                  <td class="sim-technical">10:24:29</td>
-                  <td>Web Application</td>
-                  <td class="sim-technical">Session established</td>
-                  <td>IP 203.0.113.45</td>
-                </tr>
-                <tr>
-                  <td class="sim-technical">10:24:28</td>
-                  <td>Firewall</td>
-                  <td class="sim-technical">Allowed traffic</td>
-                  <td>203.0.113.45 → Web App</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="sim-inspector-footer">
-            <div class="sim-search-box">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input type="text" placeholder="Filter events..." />
+            <!-- Sub-Tabs inside Alert Inspector -->
+            <div class="sim-inspector-tabs">
+              <button type="button" class="is-active">Payload</button>
             </div>
-            <div class="sim-toggle-row">
-              <span>Highlight</span>
-              <input type="checkbox" checked />
+
+            <!-- Correlated Event Timeline Table -->
+            <div class="sim-inspector-timeline-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Key</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(value, key) in selectedEvent.payload" :key="String(key)">
+                    <td class="sim-technical">{{ key }}</td>
+                    <td class="sim-technical">{{ displayValue(value) }}</td>
+                  </tr>
+                  <tr v-if="!selectedEvent.payload || !Object.keys(selectedEvent.payload).length">
+                    <td colspan="2" class="sim-muted">لا يوجد حمولة (Payload)</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <button type="button" class="sim-button sim-button--quiet">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Export
-            </button>
+          </template>
+          <div v-else class="sim-empty" style="padding: 2rem; text-align: center;">
+            <span class="sim-muted">اختر حدثًا لعرض التفاصيل.</span>
           </div>
         </section>
       </div>

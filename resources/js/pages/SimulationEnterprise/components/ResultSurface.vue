@@ -178,34 +178,19 @@ function getEventCategory(eventType: string): string {
                 <dd class="sim-technical">{{ selectedEvent.event_type }}</dd>
               </div>
               <div class="sim-detail-row">
-                <dt>المرحلة الحالية</dt>
-                <dd>03 Detection</dd>
-              </div>
-              <div class="sim-detail-row">
-                <dt>السبب / الرابط</dt>
-                <dd>Detection condition satisfied</dd>
-              </div>
-              <div class="sim-detail-row">
-                <dt>الأثر الفوري</dt>
-                <dd>SOC Analyst task became available</dd>
-              </div>
-              <div class="sim-detail-row">
-                <dt>الأثر على الحالة</dt>
-                <dd>Investigation workflow activated</dd>
-              </div>
-              <div class="sim-detail-row">
                 <dt>المرجع</dt>
                 <dd class="sim-technical">EVT-RUN-{{ selectedEvent.sequence.toString().padStart(5, '0') }}</dd>
               </div>
             </div>
 
             <!-- Additional Payload Fields -->
-            <dl v-if="Object.keys(selectedEvent.payload).length" class="sim-operational-facts">
+            <dl v-if="selectedEvent.payload && Object.keys(selectedEvent.payload).length" class="sim-operational-facts">
               <div v-for="(value, key) in selectedEvent.payload" :key="String(key)">
                 <dt class="sim-technical">{{ key }}</dt>
                 <dd class="sim-technical">{{ displayValue(value) }}</dd>
               </div>
             </dl>
+            <p v-else class="sim-muted" style="padding: 1rem;">لا توجد تفاصيل إضافية للحمولة (Payload) في هذا الحدث.</p>
           </template>
 
           <div class="sim-sealed-state-block">
@@ -226,50 +211,9 @@ function getEventCategory(eventType: string): string {
         </header>
 
         <div class="sim-point-state-grid">
-          <!-- Web App Node Status -->
-          <article class="sim-point-card sim-point-card--red">
-            <div class="sim-point-card__header">
-              <div class="sim-flex-row">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sim-text-cyan"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                <strong>Web Application</strong>
-              </div>
-              <span class="sim-status-pill sim-status-pill--red">● Compromised</span>
-            </div>
-            <div class="sim-point-card__facts">
-              <div><small>External Access</small><strong>Active</strong></div>
-              <div><small>Requests</small><strong>Anomalous</strong></div>
-            </div>
-          </article>
-
-          <!-- Database Node Status -->
-          <article class="sim-point-card sim-point-card--amber">
-            <div class="sim-point-card__header">
-              <div class="sim-flex-row">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sim-text-warning"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-                <strong>Database</strong>
-              </div>
-              <span class="sim-status-pill sim-status-pill--amber">● At Risk</span>
-            </div>
-            <div class="sim-point-card__facts">
-              <div><small>Access Pattern</small><strong>Abnormal</strong></div>
-              <div><small>Query Behavior</small><strong>Suspicious</strong></div>
-            </div>
-          </article>
-
-          <!-- Security Control Status -->
-          <article class="sim-point-card sim-point-card--purple">
-            <div class="sim-point-card__header">
-              <div class="sim-flex-row">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sim-text-purple"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                <strong>Security Control</strong>
-              </div>
-              <span class="sim-status-pill sim-status-pill--purple">● Alerted</span>
-            </div>
-            <div class="sim-point-card__facts">
-              <div><small>WAF</small><strong>Alerted</strong></div>
-              <div><small>Monitoring</small><strong>Active</strong></div>
-            </div>
-          </article>
+          <div class="sim-empty-slot" style="padding: 1.5rem; text-align: center; border: 1px dashed var(--sim-border); border-radius: 4px; width: 100%;">
+            <span class="sim-muted">لا تتوفر حالة العقد (Node State) في هذا الحدث التاريخي</span>
+          </div>
         </div>
       </section>
 

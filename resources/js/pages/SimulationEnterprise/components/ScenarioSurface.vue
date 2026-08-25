@@ -9,19 +9,6 @@ const props = defineProps<{ scenario: ScenarioItem | null }>();
 
 const phases = computed(() => orderedItems(props.scenario?.orchestration.phases, 'Phase'));
 
-function getPhaseInject(phaseOrdinal: number): {
-  type: 'inject' | 'decision' | 'action' | 'alert';
-  title: string;
-  subtitle: string;
-} {
-  const mapping: Record<number, { type: 'inject' | 'decision' | 'action' | 'alert'; title: string; subtitle: string }> = {
-    1: { type: 'inject', title: 'Malicious Link Delivery', subtitle: 'Simulated User Action' },
-    2: { type: 'decision', title: 'Use Data for Priv Escalation?', subtitle: 'Attacker Decision Branch' },
-    3: { type: 'alert', title: 'SOC Alert Notification', subtitle: 'SIEM Correlation Rule' },
-    4: { type: 'action', title: 'Containment Actions', subtitle: 'Host Isolation & Token Revocation' },
-  };
-  return mapping[phaseOrdinal] ?? { type: 'inject', title: `Phase 0${phaseOrdinal} Inject`, subtitle: 'Stimulus payload' };
-}
 </script>
 
 <template>
@@ -135,24 +122,11 @@ function getPhaseInject(phaseOrdinal: number): {
                 </article>
               </template>
 
-              <!-- Dynamic Inject/Decision Card matching visual reference pattern -->
-              <article
-                v-else
-                class="sim-flow-node"
-                :class="{
-                  'sim-flow-node--inject': getPhaseInject(phase.ordinal).type === 'inject' || getPhaseInject(phase.ordinal).type === 'alert',
-                  'sim-flow-node--decision': getPhaseInject(phase.ordinal).type === 'decision',
-                  'sim-flow-node--action': getPhaseInject(phase.ordinal).type === 'action',
-                }"
-              >
-                <div class="sim-node-header">
-                  <svg v-if="getPhaseInject(phase.ordinal).type === 'inject' || getPhaseInject(phase.ordinal).type === 'alert'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sim-text-purple"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-                  <svg v-else-if="getPhaseInject(phase.ordinal).type === 'decision'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sim-text-warning"><polygon points="12 2 22 12 12 22 2 12"/></svg>
-                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sim-text-blue"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                  <small>{{ getPhaseInject(phase.ordinal).subtitle }}</small>
-                </div>
-                <strong>{{ getPhaseInject(phase.ordinal).title }}</strong>
-              </article>
+              <!-- Dynamic nodes should be derived from governed orchestration. No mock data. -->
+              <!-- Empty state for Phase without Lab Modules -->
+              <div v-else class="sim-empty-slot" style="padding: 1rem; border: 1px dashed var(--sim-border); border-radius: 4px; text-align: center;">
+                <span class="sim-muted">لم يتم العثور على عقد مرتبطة</span>
+              </div>
 
               <!-- Add Element Slot Placeholder -->
               <button type="button" class="sim-add-element-slot" title="إضافة عنصر إضافي">
