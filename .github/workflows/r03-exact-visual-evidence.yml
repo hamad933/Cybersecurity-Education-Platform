@@ -23,28 +23,33 @@ jobs:
       matrix:
         include:
           - lane: W01
+            image_lane: w01
             profile: W01
             branch: work/cep-ui-w01-visual-r02
             sha: 2cd522f4bc6dadf9a229472d24ff8c48637099e0
           - lane: W02
+            image_lane: w02
             profile: W02
             branch: work/cep-ui-w02-visual-r02
             sha: 0e1f4e543f2371e637b8eeb90d6a43b00af13861
           - lane: W03
+            image_lane: w03
             profile: W03
             branch: work/cep-ui-w03-visual-r02
             sha: e09100bf3e65faf90ff2c835021ac8fa92a11565
           - lane: W04
+            image_lane: w04
             profile: W04
             branch: work/cep-ui-w04-visual-r02
             sha: 93b092926941e8214043df5b31d6dfda333f43e2
           - lane: W05
+            image_lane: w05
             profile: W05
             branch: work/cep-ui-w05-visual-r02
             sha: 57e960b034ea79d4949e723f47686bd7cba381d5
     env:
       APP_PORT: '8081'
-      RELEASE_IMAGE: cep-r03-evidence-${{ matrix.lane }}:${{ matrix.sha }}
+      RELEASE_IMAGE: cep-r03-evidence-${{ matrix.image_lane }}:${{ matrix.sha }}
       EVIDENCE_DIR: evidence/${{ matrix.lane }}
 
     steps:
@@ -98,7 +103,7 @@ jobs:
           echo "::add-mask::${APP_KEY}"
           echo "::add-mask::${DB_PASSWORD}"
           echo "::add-mask::${BROWSER_PASSWORD}"
-          ENV_FILE="${RUNNER_TEMP}/cep-r03-${{ matrix.lane }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.env"
+          ENV_FILE="${RUNNER_TEMP}/cep-r03-${{ matrix.image_lane }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.env"
           {
             printf 'APP_KEY=%s\n' "$APP_KEY"
             printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
