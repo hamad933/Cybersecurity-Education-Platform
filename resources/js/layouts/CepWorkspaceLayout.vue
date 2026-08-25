@@ -15,9 +15,18 @@ const DEFAULT_RIGHT_WIDTH = 320;
 const MIN_RIGHT_WIDTH = 220;
 const MAX_RIGHT_WIDTH = 500;
 
+function clampLeftWidth(w: number): number {
+  return Math.min(Math.max(MIN_LEFT_WIDTH, w), MAX_LEFT_WIDTH);
+}
+
+function clampRightWidth(w: number): number {
+  return Math.min(Math.max(MIN_RIGHT_WIDTH, w), MAX_RIGHT_WIDTH);
+}
+
 const props = withDefaults(
   defineProps<{
     activeDestination: CepDestinationKey;
+    userSession?: string;
     temporaryWorkspaceOpen?: boolean;
     temporaryWorkspaceLabel?: string;
     initialLeftWidth?: number;
@@ -45,9 +54,17 @@ const hasTop = computed(() => Boolean(slots.top));
 const hasLeft = computed(() => Boolean(slots.left));
 const hasRight = computed(() => Boolean(slots.right));
 
-// Reactive Panel State
-const leftWidth = ref<number>(props.initialLeftWidth ?? DEFAULT_LEFT_WIDTH);
-const rightWidth = ref<number>(props.initialRightWidth ?? DEFAULT_RIGHT_WIDTH);
+// Reactive Panel State - Initialized with bounded clamping
+const leftWidth = ref<number>(
+  props.initialLeftWidth !== undefined
+    ? clampLeftWidth(props.initialLeftWidth)
+    : DEFAULT_LEFT_WIDTH,
+);
+const rightWidth = ref<number>(
+  props.initialRightWidth !== undefined
+    ? clampRightWidth(props.initialRightWidth)
+    : DEFAULT_RIGHT_WIDTH,
+);
 const leftCollapsed = ref<boolean>(props.initialLeftCollapsed ?? false);
 const rightCollapsed = ref<boolean>(props.initialRightCollapsed ?? false);
 
@@ -77,7 +94,7 @@ onMounted(() => {
     if (savedLeftWidth) {
       const parsed = parseInt(savedLeftWidth, 10);
       if (!isNaN(parsed)) {
-        leftWidth.value = Math.min(Math.max(MIN_LEFT_WIDTH, parsed), MAX_LEFT_WIDTH);
+        leftWidth.value = clampLeftWidth(parsed);
       }
     }
   }
@@ -87,7 +104,7 @@ onMounted(() => {
     if (savedRightWidth) {
       const parsed = parseInt(savedRightWidth, 10);
       if (!isNaN(parsed)) {
-        rightWidth.value = Math.min(Math.max(MIN_RIGHT_WIDTH, parsed), MAX_RIGHT_WIDTH);
+        rightWidth.value = clampRightWidth(parsed);
       }
     }
   }
@@ -167,7 +184,7 @@ function startDragLeft(e: PointerEvent) {
 function onDragLeft(e: PointerEvent) {
   if (!isDraggingLeft.value) return;
   const deltaX = e.clientX - dragStartX;
-  const newWidth = Math.min(Math.max(MIN_LEFT_WIDTH, dragStartWidth + deltaX), MAX_LEFT_WIDTH);
+  const newWidth = clampLeftWidth(dragStartWidth + deltaX);
   leftWidth.value = newWidth;
 }
 
@@ -207,7 +224,7 @@ function onDragRight(e: PointerEvent) {
   if (!isDraggingRight.value) return;
   const deltaX = e.clientX - dragStartX;
   // Physical LTR grid: Right handle moving right (positive delta) decreases right panel width
-  const newWidth = Math.min(Math.max(MIN_RIGHT_WIDTH, dragStartWidth - deltaX), MAX_RIGHT_WIDTH);
+  const newWidth = clampRightWidth(dragStartWidth - deltaX);
   rightWidth.value = newWidth;
 }
 
@@ -234,10 +251,10 @@ onUnmounted(() => {
 function handleLeftKeydown(e: KeyboardEvent) {
   if (e.key === 'ArrowRight') {
     e.preventDefault();
-    leftWidth.value = Math.min(MAX_LEFT_WIDTH, leftWidth.value + 10);
+    leftWidth.value = clampLeftWidth(leftWidth.value + 10);
   } else if (e.key === 'ArrowLeft') {
     e.preventDefault();
-    leftWidth.value = Math.max(MIN_LEFT_WIDTH, leftWidth.value - 10);
+    leftWidth.value = clampLeftWidth(leftWidth.value - 10);
   } else if (e.key === 'Home') {
     e.preventDefault();
     leftWidth.value = MIN_LEFT_WIDTH;
@@ -253,10 +270,10 @@ function handleLeftKeydown(e: KeyboardEvent) {
 function handleRightKeydown(e: KeyboardEvent) {
   if (e.key === 'ArrowLeft') {
     e.preventDefault();
-    rightWidth.value = Math.min(MAX_RIGHT_WIDTH, rightWidth.value + 10);
+    rightWidth.value = clampRightWidth(rightWidth.value + 10);
   } else if (e.key === 'ArrowRight') {
     e.preventDefault();
-    rightWidth.value = Math.max(MIN_RIGHT_WIDTH, rightWidth.value - 10);
+    rightWidth.value = clampRightWidth(rightWidth.value - 10);
   } else if (e.key === 'Home') {
     e.preventDefault();
     rightWidth.value = MIN_RIGHT_WIDTH;
@@ -293,7 +310,11 @@ const gridStyle = computed(() => {
 <template>
   <div class="cep-app-shell" dir="rtl" lang="ar">
     <a class="skip-link" href="#main-content">تجاوز إلى المحتوى</a>
-    <CepGlobalNavigation :active-destination="activeDestination" />
+    <CepGlobalNavigation :active-destination="activeDestination" :user-session="userSession">
+      <template v-if="$slots.session" #session>
+        <slot name="session" />
+      </template>
+    </CepGlobalNavigation>
 
     <nav
       v-if="hasPrimaryNavigation"
@@ -304,16 +325,17 @@ const gridStyle = computed(() => {
     </nav>
 
     <div class="cep-workspace">
-      <CepActionBar v-if="hasTop">
+      <!-- Render action bar whenever top slot OR left/right side panels exist -->
+      <CepActionBar v-if="hasTop || hasLeft || hasRight">
         <slot name="top" />
 
-        <div class="cep-panel-controls">
+        <div v-if="hasLeft || hasRight" class="cep-panel-controls">
           <button
             v-if="hasLeft"
             type="button"
             class="cep-text-button cep-panel-toggle"
             :aria-expanded="!leftCollapsed"
-            aria-label="تبديل عرض اللوحة الجانبية اليمنى (البنية)"
+            aria-label="تبديل عرض لوحة البنية (الجانب الأيسر)"
             @click="toggleLeftPanel"
           >
             {{ leftCollapsed ? 'إظهار البنية ◀' : 'إخفاء البنية ▶' }}
@@ -323,7 +345,7 @@ const gridStyle = computed(() => {
             type="button"
             class="cep-text-button cep-panel-toggle"
             :aria-expanded="!rightCollapsed"
-            aria-label="تبديل عرض اللوحة الجانبية اليسرى (السياق)"
+            aria-label="تبديل عرض لوحة السياق (الجانب الأيمن)"
             @click="toggleRightPanel"
           >
             {{ rightCollapsed ? 'إظهار السياق ▶' : 'إخفاء السياق ◀' }}
@@ -339,13 +361,13 @@ const gridStyle = computed(() => {
           'cep-workspace-grid--dragging': isDraggingLeft || isDraggingRight,
         }"
       >
-        <!-- LEFT PANEL (Structure/Navigation) -->
+        <!-- LEFT PANEL (Structure/Navigation, physical LEFT) -->
         <aside
           v-if="isLeftVisible"
           class="cep-structure-panel"
           data-cep-region="left"
           dir="rtl"
-          aria-label="البنية"
+          aria-label="البنية (الجانب الأيسر)"
         >
           <slot name="left" />
         </aside>
@@ -361,7 +383,7 @@ const gridStyle = computed(() => {
           :aria-valuenow="leftWidth"
           :aria-valuemin="MIN_LEFT_WIDTH"
           :aria-valuemax="MAX_LEFT_WIDTH"
-          aria-label="تغيير عرض لوحة البنية"
+          aria-label="تغيير عرض لوحة البنية (الجانب الأيسر)"
           @pointerdown="startDragLeft"
           @dblclick="resetLeftWidth"
           @keydown="handleLeftKeydown"
@@ -391,7 +413,7 @@ const gridStyle = computed(() => {
           :aria-valuenow="rightWidth"
           :aria-valuemin="MIN_RIGHT_WIDTH"
           :aria-valuemax="MAX_RIGHT_WIDTH"
-          aria-label="تغيير عرض لوحة السياق"
+          aria-label="تغيير عرض لوحة السياق (الجانب الأيمن)"
           @pointerdown="startDragRight"
           @dblclick="resetRightWidth"
           @keydown="handleRightKeydown"
@@ -399,7 +421,7 @@ const gridStyle = computed(() => {
           <span class="cep-resize-handle__indicator" />
         </div>
 
-        <!-- RIGHT PANEL (Unique Contextual Info) -->
+        <!-- RIGHT PANEL (Unique Contextual Info, physical RIGHT) -->
         <CepContextPanel v-if="isRightVisible">
           <slot name="right" />
         </CepContextPanel>

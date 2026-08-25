@@ -6,6 +6,7 @@ import { CEP_GLOBAL_DESTINATIONS, type CepDestinationKey } from './navigation';
 
 defineProps<{
   activeDestination: CepDestinationKey;
+  userSession?: string;
 }>();
 
 const { theme, initTheme, toggleTheme } = useTheme();
@@ -48,7 +49,10 @@ onMounted(() => {
           <span v-if="theme === 'dark'">☀️ فاتح</span>
           <span v-else>🌙 داكن</span>
         </button>
-        <span class="cep-session__owner" dir="ltr">user@cep.local</span>
+
+        <slot name="session">
+          <span v-if="userSession" class="cep-session__owner" dir="ltr">{{ userSession }}</span>
+        </slot>
       </div>
     </div>
   </header>

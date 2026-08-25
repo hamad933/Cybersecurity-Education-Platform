@@ -48,6 +48,29 @@ describe('CEP Shared Adaptive Shell Foundation', () => {
     expect(wrapper.find('[aria-current="page"]').text()).toBe('المعرفة والتعلّم');
   });
 
+  it('renders no fabricated owner/session identity by default, and supports truthful identity when provided', () => {
+    // No session provided -> no session owner element rendered
+    const defaultNav = mount(CepGlobalNavigation, {
+      props: { activeDestination: 'today' },
+    });
+    expect(defaultNav.find('.cep-session__owner').exists()).toBe(false);
+    expect(defaultNav.text()).not.toContain('user@cep.local');
+
+    // Truthful prop session provided
+    const propNav = mount(CepGlobalNavigation, {
+      props: { activeDestination: 'today', userSession: 'security.lead@enterprise.gov' },
+    });
+    expect(propNav.find('.cep-session__owner').exists()).toBe(true);
+    expect(propNav.find('.cep-session__owner').text()).toBe('security.lead@enterprise.gov');
+
+    // Slot session provided
+    const slotNav = mount(CepGlobalNavigation, {
+      props: { activeDestination: 'today' },
+      slots: { session: '<span class="custom-session">مشغّل للنظام</span>' },
+    });
+    expect(slotNav.find('.custom-session').text()).toBe('مشغّل للنظام');
+  });
+
   it('manages shared theme switching and persists owner preference in localStorage', async () => {
     const { theme, initTheme, toggleTheme, setTheme } = useTheme();
 
@@ -93,6 +116,24 @@ describe('CEP Shared Adaptive Shell Foundation', () => {
     expect(wrapper.find('[data-cep-region="bottom"]').exists()).toBe(false);
   });
 
+  it('renders side-panel toggle controls even when consumer provides no custom top slot', () => {
+    const wrapper = mount(CepWorkspaceLayout, {
+      props: { activeDestination: 'today' },
+      slots: {
+        left: '<p>لوحة البنية</p>',
+        default: '<h1>السطح الرئيسي</h1>',
+        right: '<p>لوحة السياق</p>',
+      },
+    });
+
+    // Action bar exists due to side panels
+    expect(wrapper.find('.cep-action-bar').exists()).toBe(true);
+    const toggleButtons = wrapper.findAll('.cep-panel-toggle');
+    expect(toggleButtons).toHaveLength(2);
+    expect(toggleButtons[0].attributes('aria-label')).toBe('تبديل عرض لوحة البنية (الجانب الأيسر)');
+    expect(toggleButtons[1].attributes('aria-label')).toBe('تبديل عرض لوحة السياق (الجانب الأيمن)');
+  });
+
   it('supports independent left/right panel collapsing and restores state', async () => {
     const wrapper = mount(CepWorkspaceLayout, {
       props: {
@@ -114,15 +155,55 @@ describe('CEP Shared Adaptive Shell Foundation', () => {
     const toggleButtons = wrapper.findAll('.cep-panel-toggle');
     expect(toggleButtons.length).toBeGreaterThanOrEqual(2);
 
-    // Toggle Left Panel Collapse
+    // Toggle Left Panel Collapse (Structure / Left side)
     await toggleButtons[0].trigger('click');
     expect(wrapper.find('[data-cep-region="left"]').exists()).toBe(false);
     expect(localStorage.getItem('cep-left-collapsed')).toBe('true');
 
-    // Toggle Right Panel Collapse
+    // Toggle Right Panel Collapse (Context / Right side)
     await toggleButtons[1].trigger('click');
     expect(wrapper.find('[data-cep-region="right"]').exists()).toBe(false);
     expect(localStorage.getItem('cep-right-collapsed')).toBe('true');
+  });
+
+  it('clamps caller-provided initial widths to min/max bounds and enforces bounds contract', async () => {
+    // Under-bound initial width (left 50 < 200 min, right 10 < 220 min)
+    const underBoundWrapper = mount(CepWorkspaceLayout, {
+      props: {
+        activeDestination: 'today',
+        initialLeftWidth: 50,
+        initialRightWidth: 10,
+      },
+      slots: {
+        left: '<p>لوحة البنية</p>',
+        default: '<h1>السطح الرئيسي</h1>',
+        right: '<p>لوحة السياق</p>',
+      },
+    });
+
+    const underLeftHandle = underBoundWrapper.find('.cep-resize-handle--left');
+    const underRightHandle = underBoundWrapper.find('.cep-resize-handle--right');
+    expect(underLeftHandle.attributes('aria-valuenow')).toBe('200');
+    expect(underRightHandle.attributes('aria-valuenow')).toBe('220');
+
+    // Over-bound initial width (left 999 > 480 max, right 800 > 500 max)
+    const overBoundWrapper = mount(CepWorkspaceLayout, {
+      props: {
+        activeDestination: 'today',
+        initialLeftWidth: 999,
+        initialRightWidth: 800,
+      },
+      slots: {
+        left: '<p>لوحة البنية</p>',
+        default: '<h1>السطح الرئيسي</h1>',
+        right: '<p>لوحة السياق</p>',
+      },
+    });
+
+    const overLeftHandle = overBoundWrapper.find('.cep-resize-handle--left');
+    const overRightHandle = overBoundWrapper.find('.cep-resize-handle--right');
+    expect(overLeftHandle.attributes('aria-valuenow')).toBe('480');
+    expect(overRightHandle.attributes('aria-valuenow')).toBe('500');
   });
 
   it('enforces min/max width bounds, reset, and persistence for side panels', async () => {
