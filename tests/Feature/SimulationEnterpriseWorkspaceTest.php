@@ -41,6 +41,9 @@ final class SimulationEnterpriseWorkspaceTest extends TestCase
             ->component('SimulationEnterprise/Workspace')
             ->where('section', 'scenarios')
             ->has('scenarios', 1)
+            ->where('scenarios.0.environment_contract.schema', 'cep.simulation.environment-contract.v1')
+            ->missing('scenarios.0.baseline_id')
+            ->has('scenarios.0.preparation_targets', 1)
             ->has('scenarios.0.lab_module_references', 1));
 
         $this->actingAs($owner)->get('/simulation/labs')->assertOk()->assertInertia(fn (Assert $page) => $page
@@ -77,8 +80,9 @@ final class SimulationEnterpriseWorkspaceTest extends TestCase
         $this->seed(SimulationEnterpriseWave1Seeder::class);
         $owner = $this->owner();
         $scenarioId = (string) DB::table('simulation_scenario_definitions')->value('id');
+        $baselineId = (string) DB::table('simulation_baselines')->value('id');
 
-        $this->actingAs($owner)->post("/simulation/scenarios/{$scenarioId}/runs", ['seed' => 77, 'mode' => 'TEAM'])
+        $this->actingAs($owner)->post("/simulation/scenarios/{$scenarioId}/runs", ['baseline_id' => $baselineId, 'seed' => 77, 'mode' => 'TEAM'])
             ->assertRedirect(route('cep.simulation.runs'));
         $runId = (string) DB::table('simulation_runs')->where('seed', 77)->value('id');
         $this->assertDatabaseHas('simulation_runs', ['id' => $runId, 'lifecycle' => 'PREPARING', 'run_type' => 'Scenario Run']);
@@ -131,7 +135,8 @@ final class SimulationEnterpriseWorkspaceTest extends TestCase
         $this->seed(SimulationEnterpriseWave1Seeder::class);
         $owner = $this->owner();
         $scenarioId = (string) DB::table('simulation_scenario_definitions')->value('id');
-        $this->actingAs($owner)->post("/simulation/scenarios/{$scenarioId}/runs", ['seed' => 99, 'mode' => 'GUIDED']);
+        $baselineId = (string) DB::table('simulation_baselines')->value('id');
+        $this->actingAs($owner)->post("/simulation/scenarios/{$scenarioId}/runs", ['baseline_id' => $baselineId, 'seed' => 99, 'mode' => 'GUIDED']);
         $runId = (string) DB::table('simulation_runs')->where('seed', 99)->value('id');
         $this->actingAs($owner)->post("/simulation/runs/{$runId}/ready");
         $this->actingAs($owner)->post("/simulation/runs/{$runId}/start");

@@ -17,6 +17,12 @@ final class SimulationEnterpriseService
 
     private const RESULT_REPLAY_COMPARES_TABLE = 'simulation_result_replay_compares';
 
+    private const RUNTIME_CHECKPOINTS_TABLE = 'simulation_runtime_checkpoints';
+
+    private const ENVIRONMENT_CONTRACT_SCHEMA = 'cep.simulation.environment-contract.v1';
+
+    private const INTERNAL_EXECUTION_MODEL = 'CEP_INTERNAL_HIGH_FIDELITY_SIMULATION';
+
     public const RUN_STANDALONE_LAB = 'Standalone Lab Run';
 
     public const RUN_SCENARIO = 'Scenario Run';
@@ -48,36 +54,83 @@ final class SimulationEnterpriseService
     public function __construct(private readonly SimulationEnterpriseStateReader $enterpriseState) {}
 
     /**
+     * @param  array<string, mixed>  $environmentContract
+     * @return list<array<string, mixed>>
+     */
+    public function compatiblePreparationTargets(array $environmentContract): array
+    {
+        $this->assertEnvironmentContract($environmentContract);
+        $targets = [];
+
+        foreach ($this->enterpriseState->listForSimulationWorkspace() as $enterprise) {
+            foreach (($enterprise['digital_twins'] ?? []) as $digitalTwin) {
+                if (! is_array($digitalTwin)) {
+                    continue;
+                }
+                foreach (($digitalTwin['revisions'] ?? []) as $revision) {
+                    if (! is_array($revision)) {
+                        continue;
+                    }
+                    foreach (($revision['baselines'] ?? []) as $baseline) {
+                        if (! is_array($baseline)) {
+                            continue;
+                        }
+                        $baselineState = is_array($baseline['state'] ?? null) ? $baseline['state'] : [];
+                        if ($this->missingEnvironmentCapabilities($environmentContract, $baselineState) !== []) {
+                            continue;
+                        }
+                        $targets[] = [
+                            'baseline_id' => (string) ($baseline['id'] ?? ''),
+                            'baseline_revision' => (int) ($baseline['revision'] ?? 0),
+                            'baseline_digest' => (string) ($baseline['digest'] ?? ''),
+                            'enterprise_id' => (string) ($enterprise['id'] ?? ''),
+                            'enterprise_name_ar' => (string) ($enterprise['name_ar'] ?? ''),
+                            'digital_twin_id' => (string) ($digitalTwin['id'] ?? ''),
+                            'digital_twin_name_ar' => (string) ($digitalTwin['name_ar'] ?? ''),
+                            'digital_twin_revision_id' => (string) ($revision['id'] ?? ''),
+                            'digital_twin_revision' => (int) ($revision['revision'] ?? 0),
+                            'capabilities' => $this->capabilityList($baselineState),
+                            'provenance' => self::PROVENANCE_SIMULATED,
+                            'source_fixture' => (bool) ($enterprise['is_fixture'] ?? false) || (bool) ($digitalTwin['is_fixture'] ?? false),
+                        ];
+                    }
+                }
+            }
+        }
+
+        return $targets;
+    }
+
+    /**
+     * @param  array<string, mixed>  $environmentContract
      * @param  array<string, mixed>  $orchestration
      * @param  array<string, mixed>  $validation
-     * @return array{id: string, enterprise_id: string, baseline_id: string, slug: string, title_ar: string, title_en: string|null, revision: int, status: string, orchestration: string, validation: string, digest: string, created_by: string|null, created_at: string, updated_at: string}
+     * @return array{id: string, slug: string, title_ar: string, title_en: string|null, revision: int, status: string, environment_contract: string, orchestration: string, validation: string, digest: string, created_by: string|null, created_at: string, updated_at: string}
      */
     public function publishScenario(
-        string $enterpriseId,
-        string $baselineId,
         string $slug,
         string $titleAr,
+        array $environmentContract,
         array $orchestration,
         array $validation = [],
         ?string $actorId = null,
     ): array {
-        $enterpriseState = $this->requirePublishedBaseline($enterpriseId, $baselineId);
+        $this->assertEnvironmentContract($environmentContract);
         $revision = (int) DB::table('simulation_scenario_definitions')->where('slug', $slug)->max('revision') + 1;
         $id = (string) Str::uuid7();
         $now = now();
         DB::table('simulation_scenario_definitions')->insert([
             'id' => $id,
-            'enterprise_id' => $enterpriseId,
-            'baseline_id' => $baselineId,
             'slug' => $slug,
             'title_ar' => $titleAr,
             'title_en' => null,
             'revision' => $revision,
             'status' => 'PUBLISHED',
+            'environment_contract' => $this->json($environmentContract),
             'orchestration' => $this->json($orchestration),
             'validation' => $this->json($validation),
             'digest' => $this->digest([
-                'baseline' => $enterpriseState->baseline['digest'],
+                'environment_contract' => $environmentContract,
                 'orchestration' => $orchestration,
                 'validation' => $validation,
             ]),
@@ -137,14 +190,8 @@ final class SimulationEnterpriseService
      */
     public function attachLabModule(string $scenarioDefinitionId, string $labDefinitionId, string $moduleKey, array $policy = []): array
     {
-        $scenario = $this->requireRow('simulation_scenario_definitions', $scenarioDefinitionId);
-        $lab = $this->requireRow('simulation_lab_definitions', $labDefinitionId);
-        if ((string) $scenario->enterprise_id !== (string) $lab->enterprise_id) {
-            throw new LogicException('Scenario Lab Module Reference must remain inside one Enterprise.');
-        }
-        if ((string) $scenario->baseline_id !== (string) $lab->baseline_id) {
-            throw new LogicException('Scenario and referenced Lab must pin the same Baseline in Wave 1.');
-        }
+        $this->requireRow('simulation_scenario_definitions', $scenarioDefinitionId);
+        $this->requireRow('simulation_lab_definitions', $labDefinitionId);
         $ordinal = (int) DB::table('simulation_scenario_lab_references')->where('scenario_definition_id', $scenarioDefinitionId)->max('ordinal') + 1;
         $id = (string) Str::uuid7();
         $now = now();
@@ -166,16 +213,18 @@ final class SimulationEnterpriseService
      * @param  array<string, mixed>  $executionPolicies
      * @return array{id: string, run_type: string, lifecycle: string, enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, scenario_definition_id: string|null, standalone_lab_definition_id: string|null, seed: int, execution_policies: string, runtime_state: string, input_digest: string, definition_digest: string, provenance: string, source_fixture: bool, started_at: string|null, ready_at: string|null, stopped_at: string|null, completed_at: string|null, failed_at: string|null, created_at: string, updated_at: string}
      */
-    public function prepareScenarioRun(string $scenarioDefinitionId, int $seed, array $executionPolicies, string $actorId): array
+    public function prepareScenarioRun(string $scenarioDefinitionId, string $baselineId, int $seed, array $executionPolicies, string $actorId): array
     {
         $this->assertActor($actorId);
 
-        return DB::transaction(function () use ($scenarioDefinitionId, $seed, $executionPolicies, $actorId): array {
+        return DB::transaction(function () use ($scenarioDefinitionId, $baselineId, $seed, $executionPolicies, $actorId): array {
             $scenario = $this->requireRow('simulation_scenario_definitions', $scenarioDefinitionId);
             if ((string) $scenario->status !== 'PUBLISHED') {
                 throw new LogicException('Scenario Run requires a published Scenario Definition.');
             }
-            $lineage = $this->lineage((string) $scenario->enterprise_id, (string) $scenario->baseline_id);
+            $environmentContract = $this->decodeJson($scenario->environment_contract);
+            $lineage = $this->targetLineage($baselineId);
+            $this->assertTargetSatisfiesEnvironmentContract($environmentContract, $lineage);
             $run = $this->insertRun(self::RUN_SCENARIO, $lineage, $seed, $executionPolicies, $actorId, $scenarioDefinitionId, null, (string) $scenario->digest);
             $references = DB::table('simulation_scenario_lab_references')->where('scenario_definition_id', $scenarioDefinitionId)->orderBy('ordinal')->get();
             foreach ($references as $reference) {
@@ -184,10 +233,13 @@ final class SimulationEnterpriseService
             $this->appendEvent((string) $run['id'], 'RUN_PREPARED', [
                 'run_type' => self::RUN_SCENARIO,
                 'scenario_definition_id' => $scenarioDefinitionId,
+                'environment_contract_digest' => $this->digest($environmentContract),
+                'selected_baseline_id' => $baselineId,
                 'lab_module_instance_count' => $references->count(),
                 'provenance' => self::PROVENANCE_SIMULATED,
             ], $actorId);
-            $this->insertSnapshot($this->requireRow('simulation_runs', (string) $run['id']), $actorId);
+            $snapshot = $this->insertSnapshot($this->requireRow('simulation_runs', (string) $run['id']), $actorId, 'RUN_PREPARATION');
+            $this->insertPreparedCheckpoint($snapshot, $actorId);
 
             return $this->row('simulation_runs', (string) $run['id']);
         });
@@ -213,7 +265,8 @@ final class SimulationEnterpriseService
                 'lab_definition_id' => $labDefinitionId,
                 'provenance' => self::PROVENANCE_SIMULATED,
             ], $actorId);
-            $this->insertSnapshot($this->requireRow('simulation_runs', (string) $run['id']), $actorId);
+            $snapshot = $this->insertSnapshot($this->requireRow('simulation_runs', (string) $run['id']), $actorId, 'RUN_PREPARATION');
+            $this->insertPreparedCheckpoint($snapshot, $actorId);
 
             return $this->row('simulation_runs', (string) $run['id']);
         });
@@ -315,7 +368,7 @@ final class SimulationEnterpriseService
                 'post_state_digest' => $postStateDigest,
                 'telemetry' => $telemetry,
             ], $actorId);
-            $this->insertSnapshot($this->requireRow('simulation_runs', $runId), $actorId);
+            $this->insertSnapshot($this->requireRow('simulation_runs', $runId), $actorId, 'OPERATION');
 
             return $this->row(self::RUN_OPERATIONS_TABLE, $operationId);
         });
@@ -361,7 +414,7 @@ final class SimulationEnterpriseService
                 'state_change_count' => $changedOperations,
                 'runtime_state_digest' => $this->digest($state),
             ], $actorId);
-            $this->insertSnapshot($this->requireRow('simulation_runs', $runId), $actorId);
+            $this->insertSnapshot($this->requireRow('simulation_runs', $runId), $actorId, 'FINALIZATION');
 
             return $this->transitionLocked($runId, 'RUNNING', 'COMPLETED', 'RUN_COMPLETED', $actorId);
         });
@@ -380,7 +433,7 @@ final class SimulationEnterpriseService
             if (in_array((string) $run->lifecycle, ['COMPLETED', 'STOPPED', 'FAILED'], true)) {
                 throw new DomainException('Terminal Run snapshots are sealed by historical Result data.');
             }
-            $snapshot = $this->insertSnapshot($run, $actorId);
+            $snapshot = $this->insertSnapshot($run, $actorId, 'MANUAL');
             $this->appendEvent($runId, 'RUNTIME_SNAPSHOT_CAPTURED', [
                 'snapshot_id' => $snapshot['id'],
                 'state_digest' => $snapshot['state_digest'],
@@ -426,10 +479,21 @@ final class SimulationEnterpriseService
                 'digital_twin_id' => (string) $snapshot->digital_twin_id,
                 'digital_twin_revision_id' => (string) $snapshot->digital_twin_revision_id,
                 'baseline_id' => (string) $snapshot->baseline_id,
+                'snapshot_kind' => (string) $snapshot->snapshot_kind,
                 'state' => $this->decodeJson($snapshot->state),
                 'state_digest' => (string) $snapshot->state_digest,
                 'captured_by' => (string) $snapshot->captured_by,
                 'captured_at' => (string) $snapshot->captured_at,
+            ])->all();
+            $checkpoints = DB::table(self::RUNTIME_CHECKPOINTS_TABLE)->where('run_id', $runId)->orderBy('sequence')->get()->map(fn (stdClass $checkpoint): array => [
+                'id' => (string) $checkpoint->id,
+                'sequence' => (int) $checkpoint->sequence,
+                'source_snapshot_id' => (string) $checkpoint->source_snapshot_id,
+                'state' => $this->decodeJson($checkpoint->state),
+                'state_digest' => (string) $checkpoint->state_digest,
+                'restorable' => (bool) $checkpoint->restorable,
+                'created_by' => (string) $checkpoint->created_by,
+                'created_at' => (string) $checkpoint->created_at,
             ])->all();
             $operations = DB::table(self::RUN_OPERATIONS_TABLE)->where('run_id', $runId)->orderBy('occurred_at')->get()->map(fn (stdClass $operation): array => [
                 'id' => (string) $operation->id,
@@ -471,6 +535,7 @@ final class SimulationEnterpriseService
                 'runtime_state' => $this->decodeJson($run->runtime_state),
                 'operations' => $operations,
                 'snapshots' => $snapshots,
+                'checkpoints' => $checkpoints,
             ];
             $resultRevision = 1;
             $digestPayload = $this->resultDigestPayload(
@@ -520,6 +585,7 @@ final class SimulationEnterpriseService
         $artifacts = $this->decodeList($result->artifacts);
         $operations = is_array($sealedPayload['operations'] ?? null) ? $sealedPayload['operations'] : [];
         $snapshots = is_array($sealedPayload['snapshots'] ?? null) ? $sealedPayload['snapshots'] : [];
+        $checkpoints = is_array($sealedPayload['checkpoints'] ?? null) ? $sealedPayload['checkpoints'] : [];
         $state = is_array($sealedPayload['initial_runtime_state'] ?? null) ? $sealedPayload['initial_runtime_state'] : [];
         $operationByKey = [];
         $operationChainValid = true;
@@ -616,6 +682,7 @@ final class SimulationEnterpriseService
         $operationChainValid = $operationChainValid && count($appliedOperationKeys) === count($operationByKey);
         $sealedLineage = is_array($sealedPayload['lineage'] ?? null) ? $sealedPayload['lineage'] : [];
         $snapshotIntegrity = $snapshots !== [];
+        $snapshotById = [];
         $previousSnapshotEventSequence = 0;
         $expectedSnapshotSequence = 1;
         foreach ($snapshots as $snapshot) {
@@ -643,6 +710,31 @@ final class SimulationEnterpriseService
             }
             $previousSnapshotEventSequence = $eventSequence;
             $expectedSnapshotSequence++;
+            $snapshotById[(string) $snapshot['id']] = $snapshot;
+        }
+        $checkpointIntegrity = $checkpoints !== [];
+        $expectedCheckpointSequence = 1;
+        foreach ($checkpoints as $checkpoint) {
+            $sourceSnapshotId = is_array($checkpoint) ? ($checkpoint['source_snapshot_id'] ?? null) : null;
+            $sourceSnapshot = is_string($sourceSnapshotId) ? ($snapshotById[$sourceSnapshotId] ?? null) : null;
+            if (
+                ! is_array($checkpoint)
+                || ! is_int($checkpoint['sequence'] ?? null)
+                || $checkpoint['sequence'] !== $expectedCheckpointSequence
+                || ! is_array($sourceSnapshot)
+                || ($sourceSnapshot['snapshot_kind'] ?? null) !== 'RUN_PREPARATION'
+                || ! is_array($checkpoint['state'] ?? null)
+                || ! hash_equals((string) ($checkpoint['state_digest'] ?? ''), $this->digest($checkpoint['state']))
+                || ! hash_equals((string) ($checkpoint['state_digest'] ?? ''), (string) ($sourceSnapshot['state_digest'] ?? ''))
+                || $checkpoint['state'] !== $sourceSnapshot['state']
+                || ($checkpoint['restorable'] ?? null) !== true
+                || ! is_string($checkpoint['created_by'] ?? null)
+                || $checkpoint['created_by'] === ''
+            ) {
+                $checkpointIntegrity = false;
+                break;
+            }
+            $expectedCheckpointSequence++;
         }
         $artifactIntegrity = true;
         foreach ($operationByKey as $operation) {
@@ -661,18 +753,20 @@ final class SimulationEnterpriseService
         $reconstructedStateDigest = $this->digest($state);
         $finalStateMatches = hash_equals($this->digest($finalRuntimeState), $reconstructedStateDigest);
         $storedDigestValid = hash_equals((string) $result->result_digest, $this->digest($this->resultDigestPayloadFromRow($result)));
-        $integrityMatch = $operationChainValid && $snapshotIntegrity && $artifactIntegrity && $finalStateMatches && $timelineIntegrity && $storedDigestValid;
+        $integrityMatch = $operationChainValid && $snapshotIntegrity && $checkpointIntegrity && $artifactIntegrity && $finalStateMatches && $timelineIntegrity && $storedDigestValid;
         $reconstruction = [
             'schema' => 'cep.simulation.semantic-replay-compare.v1',
             'sealed_lineage' => $sealedLineage,
             'timeline' => $timeline,
             'artifacts' => $artifacts,
             'runtime_snapshots' => $snapshots,
+            'runtime_checkpoints' => $checkpoints,
             'operation_count' => count($operations),
             'reconstructed_runtime_state' => $state,
             'checks' => [
                 'operation_chain_valid' => $operationChainValid,
                 'snapshot_integrity' => $snapshotIntegrity,
+                'checkpoint_integrity' => $checkpointIntegrity,
                 'artifact_integrity' => $artifactIntegrity,
                 'final_state_matches' => $finalStateMatches,
                 'timeline_integrity' => $timelineIntegrity,
@@ -855,6 +949,24 @@ final class SimulationEnterpriseService
     private function lineage(string $enterpriseId, string $baselineId): array
     {
         $state = $this->requirePublishedBaseline($enterpriseId, $baselineId);
+
+        return $this->lineageFromState($state);
+    }
+
+    /** @return array{enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, baseline_state: string, provenance: string, source_fixture: bool} */
+    private function targetLineage(string $baselineId): array
+    {
+        $state = $this->enterpriseState->findPublishedBaselineTargetForSimulation($baselineId);
+        if ($state === null) {
+            throw new LogicException('Scenario Run preparation requires an explicitly selected published Baseline target.');
+        }
+
+        return $this->lineageFromState($state);
+    }
+
+    /** @return array{enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, baseline_state: string, provenance: string, source_fixture: bool} */
+    private function lineageFromState(SimulationEnterpriseState $state): array
+    {
         if ((string) ($state->digitalTwinRevision['status'] ?? '') !== 'PUBLISHED') {
             throw new LogicException('Run lineage requires a published Digital Twin Revision.');
         }
@@ -863,7 +975,7 @@ final class SimulationEnterpriseService
         }
 
         return [
-            'enterprise_id' => $enterpriseId,
+            'enterprise_id' => (string) $state->enterprise['id'],
             'digital_twin_id' => (string) $state->digitalTwin['id'],
             'digital_twin_revision_id' => (string) $state->digitalTwinRevision['id'],
             'baseline_id' => (string) $state->baseline['id'],
@@ -881,6 +993,87 @@ final class SimulationEnterpriseService
         }
 
         return $state;
+    }
+
+    /** @param array<string, mixed> $environmentContract */
+    private function assertEnvironmentContract(array $environmentContract): void
+    {
+        if (($environmentContract['schema'] ?? null) !== self::ENVIRONMENT_CONTRACT_SCHEMA) {
+            throw new InvalidArgumentException('Scenario Environment Contract schema is unsupported.');
+        }
+        if (($environmentContract['execution_model'] ?? null) !== self::INTERNAL_EXECUTION_MODEL) {
+            throw new InvalidArgumentException('Scenario Environment Contract must require CEP internal high-fidelity simulation.');
+        }
+        $requiredCapabilities = $environmentContract['required_capabilities'] ?? null;
+        if (! is_array($requiredCapabilities) || ! array_is_list($requiredCapabilities) || $requiredCapabilities === [] || count($requiredCapabilities) > 64) {
+            throw new InvalidArgumentException('Scenario Environment Contract requires a bounded capability list.');
+        }
+        foreach ($requiredCapabilities as $capability) {
+            if (! is_string($capability) || preg_match('/^[A-Z0-9][A-Z0-9._:-]{1,79}$/i', $capability) !== 1) {
+                throw new InvalidArgumentException('Scenario Environment Contract capabilities must be bounded identifiers.');
+            }
+        }
+        if (count(array_unique($requiredCapabilities)) !== count($requiredCapabilities)) {
+            throw new InvalidArgumentException('Scenario Environment Contract capabilities must be unique.');
+        }
+        if ($this->containsFixedExecutionTarget($environmentContract)) {
+            throw new InvalidArgumentException('Scenario Environment Contract cannot contain fixed execution-target identifiers.');
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $environmentContract
+     * @param  array<string, mixed>  $lineage
+     */
+    private function assertTargetSatisfiesEnvironmentContract(array $environmentContract, array $lineage): void
+    {
+        $this->assertEnvironmentContract($environmentContract);
+        $baselineState = is_array($lineage['baseline_state'] ?? null) ? $lineage['baseline_state'] : [];
+        $missing = $this->missingEnvironmentCapabilities($environmentContract, $baselineState);
+        if ($missing !== []) {
+            throw new LogicException('Selected Baseline does not satisfy Scenario Environment Contract capabilities: '.implode(', ', $missing));
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $environmentContract
+     * @param  array<string, mixed>  $baselineState
+     * @return list<string>
+     */
+    private function missingEnvironmentCapabilities(array $environmentContract, array $baselineState): array
+    {
+        $required = array_values(array_filter(
+            $environmentContract['required_capabilities'] ?? [],
+            static fn (mixed $capability): bool => is_string($capability),
+        ));
+
+        return array_values(array_diff($required, $this->capabilityList($baselineState)));
+    }
+
+    /** @param array<string, mixed> $baselineState
+     * @return list<string>
+     */
+    private function capabilityList(array $baselineState): array
+    {
+        return array_values(array_unique(array_filter(
+            is_array($baselineState['capabilities'] ?? null) ? $baselineState['capabilities'] : [],
+            static fn (mixed $capability): bool => is_string($capability),
+        )));
+    }
+
+    /** @param array<array-key, mixed> $value */
+    private function containsFixedExecutionTarget(array $value): bool
+    {
+        foreach ($value as $key => $item) {
+            if (is_string($key) && in_array($key, ['enterprise_id', 'digital_twin_id', 'digital_twin_revision_id', 'baseline_id', 'provider_id', 'runtime_target_id'], true)) {
+                return true;
+            }
+            if (is_array($item) && $this->containsFixedExecutionTarget($item)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function instantiateLabModule(string $runId, stdClass $reference): void
@@ -964,8 +1157,8 @@ final class SimulationEnterpriseService
         return $this->row('simulation_run_events', $id);
     }
 
-    /** @return array{id: string, run_id: string, sequence: int, event_sequence: int, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, state: string, state_digest: string, captured_by: string, captured_at: string, created_at: string} */
-    private function insertSnapshot(stdClass $run, string $actorId): array
+    /** @return array{id: string, run_id: string, sequence: int, event_sequence: int, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, snapshot_kind: string, state: string, state_digest: string, captured_by: string, captured_at: string, created_at: string} */
+    private function insertSnapshot(stdClass $run, string $actorId, string $snapshotKind): array
     {
         $sequence = (int) DB::table('simulation_runtime_snapshots')->where('run_id', $run->id)->max('sequence') + 1;
         $eventSequence = (int) DB::table('simulation_run_events')->where('run_id', $run->id)->max('sequence');
@@ -980,6 +1173,7 @@ final class SimulationEnterpriseService
             'digital_twin_id' => $run->digital_twin_id,
             'digital_twin_revision_id' => $run->digital_twin_revision_id,
             'baseline_id' => $run->baseline_id,
+            'snapshot_kind' => $snapshotKind,
             'state' => $this->json($state),
             'state_digest' => $this->digest($state),
             'captured_by' => $actorId,
@@ -988,6 +1182,30 @@ final class SimulationEnterpriseService
         ]);
 
         return $this->row('simulation_runtime_snapshots', $id);
+    }
+
+    /**
+     * @param  array{id: string, run_id: string, state: string, state_digest: string}  $snapshot
+     * @return array{id: string, run_id: string, source_snapshot_id: string, sequence: int, state: string, state_digest: string, restorable: bool, created_by: string, created_at: string}
+     */
+    private function insertPreparedCheckpoint(array $snapshot, string $actorId): array
+    {
+        $sequence = (int) DB::table(self::RUNTIME_CHECKPOINTS_TABLE)->where('run_id', $snapshot['run_id'])->max('sequence') + 1;
+        $id = (string) Str::uuid7();
+        $now = now();
+        DB::table(self::RUNTIME_CHECKPOINTS_TABLE)->insert([
+            'id' => $id,
+            'run_id' => $snapshot['run_id'],
+            'source_snapshot_id' => $snapshot['id'],
+            'sequence' => $sequence,
+            'state' => $snapshot['state'],
+            'state_digest' => $snapshot['state_digest'],
+            'restorable' => true,
+            'created_by' => $actorId,
+            'created_at' => $now,
+        ]);
+
+        return $this->row(self::RUNTIME_CHECKPOINTS_TABLE, $id);
     }
 
     /**

@@ -21,6 +21,10 @@ interface SimulationEnterpriseStateReader
         string $baselineId,
     ): ?SimulationEnterpriseState;
 
+    public function findPublishedBaselineTargetForSimulation(
+        string $baselineId,
+    ): ?SimulationEnterpriseState;
+
     /** @return list<array<string,mixed>> */
     public function listForSimulationWorkspace(): array;
 }

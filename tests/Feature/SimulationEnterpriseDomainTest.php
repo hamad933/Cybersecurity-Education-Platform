@@ -9,7 +9,10 @@ use DomainException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
+use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -71,6 +74,101 @@ final class SimulationEnterpriseDomainTest extends TestCase
         $this->assertSame((string) $scenario->id, (string) $run->scenario_definition_id);
         $this->assertNull($run->standalone_lab_definition_id);
         $this->assertDatabaseCount('simulation_run_lab_module_instances', 1);
+    }
+
+    #[Test]
+    public function scenario_is_target_agnostic_and_preparation_materializes_a_snapshot_then_checkpoint(): void
+    {
+        $this->seed(SimulationEnterpriseWave1Seeder::class);
+        $this->assertFalse(Schema::hasColumn('simulation_scenario_definitions', 'enterprise_id'));
+        $this->assertFalse(Schema::hasColumn('simulation_scenario_definitions', 'baseline_id'));
+        $this->assertTrue(Schema::hasColumn('simulation_scenario_definitions', 'environment_contract'));
+
+        $scenario = DB::table('simulation_scenario_definitions')->firstOrFail();
+        $contract = json_decode((string) $scenario->environment_contract, true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('cep.simulation.environment-contract.v1', $contract['schema']);
+        $this->assertArrayNotHasKey('baseline_id', $contract);
+        $this->assertArrayNotHasKey('digital_twin_id', $contract);
+
+        $enterpriseId = (string) DB::table('simulation_enterprises')->value('id');
+        $secondaryTwin = DB::table('simulation_digital_twins')->where('slug', 'recovery-validation-twin')->firstOrFail();
+        $secondaryRevision = DB::table('simulation_digital_twin_revisions')->where('digital_twin_id', $secondaryTwin->id)->firstOrFail();
+        $target = app(SimulationEnterpriseFixtureWriter::class)->publishBaseline(
+            $enterpriseId,
+            (string) $secondaryTwin->id,
+            (string) $secondaryRevision->id,
+            [
+                'capabilities' => ['IDENTITY_POLICY', 'APPLICATION_STATE', 'INTERNAL_TELEMETRY'],
+                'identity_policy' => ['mfa_required' => true],
+            ],
+            self::ACTOR,
+        );
+
+        $run = app(SimulationEnterpriseService::class)->prepareScenarioRun(
+            (string) $scenario->id,
+            (string) $target['id'],
+            903,
+            ['mode' => 'GUIDED'],
+            self::ACTOR,
+        );
+
+        $this->assertSame((string) $target['id'], (string) $run['baseline_id']);
+        $this->assertSame((string) $secondaryTwin->id, (string) $run['digital_twin_id']);
+        $snapshot = DB::table('simulation_runtime_snapshots')->where('run_id', $run['id'])->firstOrFail();
+        $checkpoint = DB::table('simulation_runtime_checkpoints')->where('run_id', $run['id'])->firstOrFail();
+        $this->assertSame('RUN_PREPARATION', $snapshot->snapshot_kind);
+        $this->assertSame((string) $snapshot->id, (string) $checkpoint->source_snapshot_id);
+        $this->assertSame((string) $snapshot->state_digest, (string) $checkpoint->state_digest);
+        $this->assertSame((string) $snapshot->state, (string) $checkpoint->state);
+        $this->assertTrue((bool) $checkpoint->restorable);
+    }
+
+    #[Test]
+    public function scenario_environment_contract_rejects_fixed_targets_and_incompatible_preparation_targets(): void
+    {
+        $this->seed(SimulationEnterpriseWave1Seeder::class);
+        $simulation = app(SimulationEnterpriseService::class);
+
+        try {
+            $simulation->publishScenario(
+                'invalid-fixed-target',
+                'سيناريو غير صالح',
+                [
+                    'schema' => 'cep.simulation.environment-contract.v1',
+                    'execution_model' => 'CEP_INTERNAL_HIGH_FIDELITY_SIMULATION',
+                    'required_capabilities' => ['IDENTITY_POLICY'],
+                    'baseline_id' => (string) Str::uuid7(),
+                ],
+                ['phases' => []],
+                [],
+                self::ACTOR,
+            );
+            $this->fail('A fixed Scenario execution target unexpectedly passed validation.');
+        } catch (InvalidArgumentException) {
+            $this->assertDatabaseMissing('simulation_scenario_definitions', ['slug' => 'invalid-fixed-target']);
+        }
+
+        $scenarioId = (string) DB::table('simulation_scenario_definitions')->value('id');
+        $enterpriseId = (string) DB::table('simulation_enterprises')->value('id');
+        $writer = app(SimulationEnterpriseFixtureWriter::class);
+        $twin = $writer->createDigitalTwin($enterpriseId, 'incompatible-target', 'هدف غير متوافق', self::ACTOR);
+        $revision = $writer->publishDigitalTwinRevision(
+            $enterpriseId,
+            (string) $twin['id'],
+            ['nodes' => [], 'links' => []],
+            ['behavior' => 'SIMULATED'],
+            self::ACTOR,
+        );
+        $baseline = $writer->publishBaseline(
+            $enterpriseId,
+            (string) $twin['id'],
+            (string) $revision['id'],
+            ['capabilities' => ['APPLICATION_STATE']],
+            self::ACTOR,
+        );
+
+        $this->expectException(LogicException::class);
+        $simulation->prepareScenarioRun($scenarioId, (string) $baseline['id'], 904, ['mode' => 'SOLO'], self::ACTOR);
     }
 
     #[Test]
@@ -156,6 +254,7 @@ final class SimulationEnterpriseDomainTest extends TestCase
             'digital_twin_id' => $run['digital_twin_id'],
             'digital_twin_revision_id' => $run['digital_twin_revision_id'],
             'baseline_id' => $run['baseline_id'],
+            'snapshot_kind' => 'MANUAL',
             'state' => $initialSnapshot->state,
             'state_digest' => $initialSnapshot->state_digest,
             'captured_by' => self::ACTOR,
@@ -290,6 +389,7 @@ final class SimulationEnterpriseDomainTest extends TestCase
             'Operation' => ['simulation_run_operations', 'actor_id'],
             'Event' => ['simulation_run_events', 'actor_id'],
             'Runtime Snapshot' => ['simulation_runtime_snapshots', 'captured_by'],
+            'Runtime Checkpoint' => ['simulation_runtime_checkpoints', 'created_by'],
         ];
     }
 

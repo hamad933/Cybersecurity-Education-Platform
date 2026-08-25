@@ -61,6 +61,25 @@ final class DatabaseSimulationEnterpriseStateReader implements SimulationEnterpr
         );
     }
 
+    public function findPublishedBaselineTargetForSimulation(string $baselineId): ?SimulationEnterpriseState
+    {
+        $baseline = DB::table('simulation_baselines')
+            ->where('id', $baselineId)
+            ->where('status', 'PUBLISHED')
+            ->first();
+
+        if ($baseline === null) {
+            return null;
+        }
+
+        return $this->findForSimulation(
+            (string) $baseline->enterprise_id,
+            (string) $baseline->digital_twin_id,
+            (string) $baseline->digital_twin_revision_id,
+            $baselineId,
+        );
+    }
+
     /** @return list<array<string,mixed>> */
     public function listForSimulationWorkspace(): array
     {

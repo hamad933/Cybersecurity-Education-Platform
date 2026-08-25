@@ -27,6 +27,7 @@ final class SimulationEnterpriseOwnershipBoundaryTest extends TestCase
         $this->assertTrue($contract->isInterface());
         $this->assertSame('App\\Modules\\Enterprise\\Application', $contract->getNamespaceName());
         $this->assertTrue($contract->hasMethod('findPublishedBaselineForSimulation'));
+        $this->assertTrue($contract->hasMethod('findPublishedBaselineTargetForSimulation'));
         $this->assertTrue($contract->hasMethod('listForSimulationWorkspace'));
 
         $method = $contract->getMethod('findForSimulation');

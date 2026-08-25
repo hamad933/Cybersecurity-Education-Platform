@@ -66,6 +66,7 @@ final class SimulationEnterpriseWave1Seeder extends Seeder
             (string) $primaryTwin['id'],
             (string) $twinRevision['id'],
             [
+                'capabilities' => ['IDENTITY_POLICY', 'APPLICATION_STATE', 'INTERNAL_TELEMETRY'],
                 'identity_policy' => ['mfa_required' => true],
                 'application_state' => ['maintenance' => false],
                 'telemetry_state' => ['collection' => 'enabled'],
@@ -77,15 +78,22 @@ final class SimulationEnterpriseWave1Seeder extends Seeder
             (string) $baseline['id'],
             'lab-auth-investigation',
             'مختبر تحليل مصادقة داخلي',
-            ['objective' => 'trace-authentication-causality', 'steps' => ['observe', 'correlate', 'validate']],
+            [
+                'objective' => 'trace-authentication-causality',
+                'required_capabilities' => ['IDENTITY_POLICY', 'INTERNAL_TELEMETRY'],
+                'steps' => ['observe', 'correlate', 'validate'],
+            ],
             ['requires_trace' => true],
             $actorId,
         );
         $scenario = $simulation->publishScenario(
-            (string) $enterprise['id'],
-            (string) $baseline['id'],
             'scenario-privileged-login',
             'سيناريو دخول مميّز مشتبه به',
+            [
+                'schema' => 'cep.simulation.environment-contract.v1',
+                'execution_model' => 'CEP_INTERNAL_HIGH_FIDELITY_SIMULATION',
+                'required_capabilities' => ['IDENTITY_POLICY', 'APPLICATION_STATE', 'INTERNAL_TELEMETRY'],
+            ],
             ['phases' => ['initial_access', 'identity_validation', 'telemetry_review']],
             ['deterministic' => true, 'trace_required' => true],
             $actorId,
@@ -95,7 +103,7 @@ final class SimulationEnterpriseWave1Seeder extends Seeder
             'required' => true,
         ]);
 
-        $run = $simulation->prepareScenarioRun((string) $scenario['id'], 20260814, ['mode' => 'GUIDED'], $actorId);
+        $run = $simulation->prepareScenarioRun((string) $scenario['id'], (string) $baseline['id'], 20260814, ['mode' => 'GUIDED'], $actorId);
         $simulation->markReady((string) $run['id'], $actorId);
         $simulation->start((string) $run['id'], $actorId);
         $simulation->applyOperation((string) $run['id'], [

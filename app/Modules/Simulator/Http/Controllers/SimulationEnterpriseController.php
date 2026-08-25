@@ -52,12 +52,14 @@ final class SimulationEnterpriseController extends Controller
     public function prepareScenario(Request $request, string $scenario): RedirectResponse
     {
         $validated = $request->validate([
+            'baseline_id' => ['required', 'uuid'],
             'seed' => ['required', 'integer', 'min:0', 'max:2147483647'],
             'mode' => ['nullable', 'string', 'in:GUIDED,UNGUIDED,SOLO,TEAM,ROLE_BASED'],
         ]);
 
         return $this->mutate(fn () => $this->simulation->prepareScenarioRun(
             $scenario,
+            (string) $validated['baseline_id'],
             (int) $validated['seed'],
             ['mode' => $validated['mode'] ?? 'GUIDED'],
             $this->actorId(),
@@ -198,6 +200,7 @@ final class SimulationEnterpriseController extends Controller
     private function scenariosData(): array
     {
         return DB::table('simulation_scenario_definitions')->where('status', 'PUBLISHED')->orderByDesc('created_at')->get()->map(function (stdClass $scenario): array {
+            $environmentContract = $this->decode($scenario->environment_contract);
             $modules = DB::table('simulation_scenario_lab_references as reference')
                 ->join('simulation_lab_definitions as lab', 'lab.id', '=', 'reference.lab_definition_id')
                 ->where('reference.scenario_definition_id', $scenario->id)
@@ -217,11 +220,12 @@ final class SimulationEnterpriseController extends Controller
                 'slug' => (string) $scenario->slug,
                 'title_ar' => (string) $scenario->title_ar,
                 'revision' => (int) $scenario->revision,
-                'baseline_id' => (string) $scenario->baseline_id,
                 'digest' => (string) $scenario->digest,
+                'environment_contract' => $environmentContract,
                 'orchestration' => $this->decode($scenario->orchestration),
                 'validation' => $this->decode($scenario->validation),
                 'lab_module_references' => $modules,
+                'preparation_targets' => $this->simulation->compatiblePreparationTargets($environmentContract),
                 'provenance' => SimulationEnterpriseService::PROVENANCE_SIMULATED,
             ];
         })->all();
@@ -261,10 +265,21 @@ final class SimulationEnterpriseController extends Controller
                 'id' => (string) $snapshot->id,
                 'sequence' => (int) $snapshot->sequence,
                 'event_sequence' => (int) $snapshot->event_sequence,
+                'snapshot_kind' => (string) $snapshot->snapshot_kind,
                 'state' => $this->decode($snapshot->state),
                 'state_digest' => (string) $snapshot->state_digest,
                 'captured_by' => (string) $snapshot->captured_by,
                 'captured_at' => (string) $snapshot->captured_at,
+            ])->all();
+            $checkpoints = DB::table('simulation_runtime_checkpoints')->where('run_id', $run->id)->orderBy('sequence')->get()->map(fn (stdClass $checkpoint): array => [
+                'id' => (string) $checkpoint->id,
+                'sequence' => (int) $checkpoint->sequence,
+                'source_snapshot_id' => (string) $checkpoint->source_snapshot_id,
+                'state' => $this->decode($checkpoint->state),
+                'state_digest' => (string) $checkpoint->state_digest,
+                'restorable' => (bool) $checkpoint->restorable,
+                'created_by' => (string) $checkpoint->created_by,
+                'created_at' => (string) $checkpoint->created_at,
             ])->all();
             $operations = DB::table(self::RUN_OPERATIONS_TABLE)->where('run_id', $run->id)->orderBy('occurred_at')->get()->map(fn (stdClass $operation): array => [
                 'id' => (string) $operation->id,
@@ -298,6 +313,7 @@ final class SimulationEnterpriseController extends Controller
                 'events' => $events,
                 'operations' => $operations,
                 'snapshots' => $snapshots,
+                'checkpoints' => $checkpoints,
                 'result_id' => $resultId === null ? null : (string) $resultId,
             ];
         })->all();

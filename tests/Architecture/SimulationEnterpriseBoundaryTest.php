@@ -48,4 +48,22 @@ final class SimulationEnterpriseBoundaryTest extends TestCase
         $this->assertStringContainsString("Route::post('/runs/{run}/operations'", $routes);
         $this->assertStringContainsString("Route::post('/results/{result}/replay-compare'", $routes);
     }
+
+    #[Test]
+    public function scenario_contract_is_target_agnostic_and_runtime_state_types_remain_distinct(): void
+    {
+        $migration = file_get_contents(database_path('migrations/2026_08_14_010300_create_simulation_enterprise_wave1_tables.php')) ?: '';
+        $service = file_get_contents(app_path('Modules/Simulator/Application/SimulationEnterpriseService.php')) ?: '';
+        $scenarioBlock = explode("Schema::create('simulation_lab_definitions'", explode("Schema::create('simulation_scenario_definitions'", $migration)[1] ?? '')[0] ?? '';
+
+        $this->assertStringContainsString("jsonb('environment_contract')", $scenarioBlock);
+        $this->assertStringNotContainsString("uuid('baseline_id')", $scenarioBlock);
+        $this->assertStringNotContainsString("uuid('enterprise_id')", $scenarioBlock);
+        $this->assertStringContainsString('Scenario Environment Contract cannot contain fixed execution-target identifiers.', $service);
+        $this->assertStringContainsString("Schema::create('simulation_runtime_snapshots'", $migration);
+        $this->assertStringContainsString("Schema::create('simulation_runtime_checkpoints'", $migration);
+        $this->assertStringContainsString("'source_snapshot_id'", $migration);
+        $this->assertStringContainsString("'checkpoints' => \$checkpoints", $service);
+        $this->assertStringNotContainsString("DB::table('evidence_records')", $service);
+    }
 }
