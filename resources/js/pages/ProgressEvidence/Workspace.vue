@@ -229,7 +229,7 @@ const selectedPortfolioFilters = computed(() =>
   })),
 );
 
-// Grouped portfolio items by capability or curated categories
+// Grouped portfolio items are reference-only projections. Group membership does not infer status.
 const portfolioGroups = computed(() => {
   const items = selectedPortfolio.value?.items ?? [];
   if (!items.length) return [];
@@ -242,7 +242,6 @@ const portfolioGroups = computed(() => {
     items.forEach((item) => {
       const ev = props.evidence.find((e) => e.id === item.evidence_id);
       const capId = ev ? ev.capability_id : 'UNKNOWN_CAPABILITY';
-      const masteryState = props.mastery.find((m) => m.target_id === capId);
 
       if (!groupsMap.has(capId)) {
         groupsMap.set(capId, {
@@ -256,8 +255,8 @@ const portfolioGroups = computed(() => {
 
       groupsMap.get(capId).items.push({
         ...item,
-        typeLabel: ev?.source_type ?? 'UNKNOWN',
-        effectiveDecision: ev?.effective_review_decision ?? 'NONE',
+        typeLabel: ev?.source_type ?? 'غير متوفر',
+        effectiveDecision: ev?.effective_review_decision ?? null,
         annotationText: item.annotation ?? '',
       });
     });
@@ -265,7 +264,7 @@ const portfolioGroups = computed(() => {
     return Array.from(groupsMap.values());
   }
 
-  // Fallback single group
+  // Fallback single reference group without inferred mastery, freshness, verification, or acceptance.
   return [
     {
       id: selectedPortfolio.value?.id || 'group-1',
@@ -276,8 +275,8 @@ const portfolioGroups = computed(() => {
         const ev = props.evidence.find((e) => e.id === item.evidence_id);
         return {
           ...item,
-          typeLabel: ev?.source_type ?? 'UNKNOWN',
-          effectiveDecision: ev?.effective_review_decision ?? 'NONE',
+          typeLabel: ev?.source_type ?? 'غير متوفر',
+          effectiveDecision: ev?.effective_review_decision ?? null,
           annotationText: item.annotation ?? '',
         };
       }),
@@ -299,6 +298,47 @@ const selectedMasteryCriteria = computed(() => {
   });
   return Array.from(criteria);
 });
+
+function masteryFindingLabel(findingState: string): string {
+  const labels: Record<string, string> = {
+    SATISFIED: 'مستوفى',
+    PARTIALLY_SATISFIED: 'مستوفى جزئيًا',
+    NOT_SATISFIED: 'غير مستوفى',
+    NOT_ASSESSABLE: 'غير قابل للتقييم',
+  };
+
+  return labels[findingState] ?? findingState;
+}
+
+const selectedMasteryCriterionFindings = computed(() => {
+  const decisionIds = new Set(selectedMastery.value?.review_decision_ids ?? []);
+  const findingsByCriterion = new Map<string, Set<string>>();
+
+  props.reviews
+    .filter((review) => review.decision !== null && decisionIds.has(review.decision.id))
+    .forEach((review) => {
+      review.findings.forEach((finding) => {
+        const governedStates = findingsByCriterion.get(finding.criterion_key) ?? new Set<string>();
+        governedStates.add(finding.finding);
+        findingsByCriterion.set(finding.criterion_key, governedStates);
+      });
+    });
+
+  return findingsByCriterion;
+});
+
+const selectedMasteryCriteriaRows = computed(() =>
+  selectedMasteryCriteria.value.map((criterion) => {
+    const governedStates = selectedMasteryCriterionFindings.value.get(criterion);
+    const findingState = governedStates?.size === 1 ? [...governedStates][0] : null;
+
+    return {
+      criterion,
+      findingState,
+      findingLabel: findingState ? masteryFindingLabel(findingState) : 'غير محسوم على مستوى المعيار',
+    };
+  }),
+);
 
 const panelTitle = computed(() => {
   const titles: Record<Exclude<Panel, null>, string> = {
@@ -720,7 +760,7 @@ function removePortfolioItem(): void {
             </button>
 
             <button class="rail-menu-item" type="button">
-              <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+              <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 1-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
               <span class="menu-label">المسحوبة</span>
             </button>
 
@@ -1044,7 +1084,7 @@ function removePortfolioItem(): void {
             <!-- Metadata Rows -->
             <div class="meta-field-row">
               <div class="field-label-col">
-                <svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2 2z"/></svg>
                 <span>Evidence Claim</span>
               </div>
               <div class="field-value-col claim-text">
@@ -1118,7 +1158,7 @@ function removePortfolioItem(): void {
                   <div class="ref-title-group">
                     <svg v-if="index === 0" class="w-4 h-4 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                     <svg v-else-if="index === 1" class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-                    <svg v-else class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    <svg v-else class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2 2z"/></svg>
                     <span class="ref-name">{{ refItem }}</span>
                   </div>
                   <div class="ref-actions-group">
@@ -1162,7 +1202,7 @@ function removePortfolioItem(): void {
 
             <div class="meta-field-row">
               <div class="field-label-col">
-                <svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2 2z"/></svg>
                 <span>Evidence Claim</span>
               </div>
               <div class="field-value-col">
@@ -1418,28 +1458,35 @@ function removePortfolioItem(): void {
               </div>
               <div class="stepper-arrow">↓</div>
 
-              <!-- Step 2: Required Criteria -->
+              <!-- Step 2: Criterion scope from supporting revisions, status from governed findings only -->
               <div class="stepper-block">
                 <div class="stepper-num">2</div>
                 <div class="stepper-content">
-                  <span class="stepper-title">Required Criteria Scope</span>
+                  <span class="stepper-title">Supporting Evidence Criterion Scope</span>
                   <table class="stepper-table mt-2">
                     <thead>
                       <tr>
-                        <th>Criterion</th>
-                        <th>Status</th>
+                        <th>Criterion Reference</th>
+                        <th>Governed Review Finding</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="crit in selectedMasteryCriteria" :key="crit">
-                        <td>{{ crit }}</td>
+                      <tr v-for="row in selectedMasteryCriteriaRows" :key="row.criterion">
+                        <td>{{ row.criterion }}</td>
                         <td>
-                          <span v-if="selectedMastery.judgment === 'MASTERED'" class="satisfied-text">مستوفى <svg class="w-4 h-4 inline text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>
-                          <span v-else class="text-slate-400">Peding / Unavailable</span>
+                          <span
+                            v-if="row.findingState"
+                            :class="row.findingState === 'SATISFIED' ? 'satisfied-text' : 'text-slate-300'"
+                          >
+                            {{ row.findingLabel }}
+                            <bdi dir="ltr" class="ml-1 text-xs text-slate-400">({{ row.findingState }})</bdi>
+                            <svg v-if="row.findingState === 'SATISFIED'" class="w-4 h-4 inline text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                          </span>
+                          <span v-else class="text-slate-400">غير محسوم على مستوى المعيار</span>
                         </td>
                       </tr>
-                      <tr v-if="selectedMasteryCriteria.length === 0">
-                        <td colspan="2" class="text-slate-500 italic">No Criteria Available</td>
+                      <tr v-if="selectedMasteryCriteriaRows.length === 0">
+                        <td colspan="2" class="text-slate-500 italic">غير متوفر: لا توجد معايير مرتبطة مباشرةً بإصدارات الأدلة الداعمة.</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1455,15 +1502,15 @@ function removePortfolioItem(): void {
                   <table class="stepper-table mt-2">
                     <thead>
                       <tr>
-                        <th>Review ID</th>
+                        <th>Review Decision ID</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr v-for="revId in selectedMastery.review_decision_ids" :key="revId">
-                        <td><span class="cyan-link">{{ revId }}</span></td>
+                        <td><span class="cyan-link"><bdi dir="ltr">{{ revId }}</bdi></span></td>
                       </tr>
                       <tr v-if="selectedMastery.review_decision_ids.length === 0">
-                        <td class="text-slate-500 italic">No Review Decisions</td>
+                        <td class="text-slate-500 italic">غير متوفر: لا توجد Review Decisions مرتبطة.</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1471,17 +1518,17 @@ function removePortfolioItem(): void {
               </div>
               <div class="stepper-arrow">↓</div>
 
-              <!-- Step 4: Supporting Evidence -->
+              <!-- Step 4: Supporting Evidence revisions retain revision semantics -->
               <div class="stepper-block">
                 <div class="stepper-num">4</div>
                 <div class="stepper-content">
                   <span class="stepper-title">Supporting Evidence Revisions</span>
                   <div class="evidence-pill-stack mt-2">
                     <div class="evidence-ref-pill" v-for="evId in selectedMastery.supporting_evidence_revision_ids" :key="evId">
-                      <span>{{ evId }}</span>
+                      <span><bdi dir="ltr">{{ evId }}</bdi></span>
                     </div>
                   </div>
-                  <div v-if="selectedMastery.supporting_evidence_revision_ids.length === 0" class="text-slate-500 italic mt-2">No Supporting Evidence</div>
+                  <div v-if="selectedMastery.supporting_evidence_revision_ids.length === 0" class="text-slate-500 italic mt-2">غير متوفر: لا توجد Supporting Evidence Revisions مرتبطة.</div>
                 </div>
               </div>
               <div class="stepper-arrow">↓</div>
@@ -1495,7 +1542,7 @@ function removePortfolioItem(): void {
                   </div>
                   <div class="basis-note mt-2">
                     <svg class="w-5 h-5 text-slate-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    <span>جميع المعايير المطلوبة مستوفاة بموجب السياسة الحاكمة، ومدعومة بقرارات مراجعة فعالة مقبولة وأدلة مؤهلة تدعم الكفاءة.</span>
+                    <span>تُعرض حالة كل معيار فقط عندما يمكن ربطها مباشرةً بـ Review Finding محكوم عبر Review Decision المشار إليه. لا يُستنتج استيفاء أي معيار من Mastery Judgment الإجمالي.</span>
                   </div>
                 </div>
               </div>
@@ -1514,16 +1561,16 @@ function removePortfolioItem(): void {
             <div class="portfolio-header-area">
               <div class="portfolio-subject-line">
                 <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
-                <span>Ahmed</span>
+                <span>عرض مرجعي منسّق · Reference-only curated projection</span>
               </div>
               <h2 class="portfolio-main-title">{{ selectedPortfolio.name }}</h2>
               <div class="portfolio-meta-bar">
                 <div class="meta-counters">
-                  <span>{{ portfolioGroups.length }} Capabilities</span>
+                  <span>{{ portfolioGroups.length }} Groups</span>
                   <span>{{ selectedPortfolio.items.length }} Evidence References</span>
                 </div>
                 <div class="meta-sorting">
-                  <span>Sorted By: <strong>Capability Order</strong></span>
+                  <span>Grouping: <strong><bdi dir="ltr">{{ selectedPortfolio.grouping }}</bdi></strong></span>
                 </div>
               </div>
             </div>
@@ -1552,16 +1599,16 @@ function removePortfolioItem(): void {
                 <table class="portfolio-evidence-table">
                   <thead>
                     <tr>
-                      <th>الهدف</th>
+                      <th>Evidence ID</th>
                       <th>عنوان الدليل (مرجع)</th>
                       <th>النوع</th>
                       <th>قرار المراجعة</th>
-                      <th>ملاحظة سرعة (تغذية)</th>
+                      <th>ملاحظة مرجعية</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr
-                      v-for="(item, idx) in grp.items"
+                      v-for="item in grp.items"
                       :key="item.id"
                       :class="{ selected: item.id === portfolioItemId }"
                       @click="portfolioItemId = item.id"
@@ -1572,22 +1619,23 @@ function removePortfolioItem(): void {
                           {{ item.title }}
                           <svg class="w-3.5 h-3.5 inline ml-1 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                         </span>
-                        <small class="block text-slate-400 text-xs mt-0.5">Canonical Evidence Reference · {{ item.current_revision_id }}</small>
+                        <small class="block text-slate-400 text-xs mt-0.5">Canonical Evidence Reference · <bdi dir="ltr">{{ item.current_revision_id }}</bdi></small>
                       </td>
                       <td><span class="type-badge">{{ item.typeLabel }}</span></td>
                       <td>
-                        <span v-if="item.effectiveDecision === 'ACCEPT' || item.effectiveDecision === 'ACCEPT_WITH_LIMITATIONS'" class="stat-badge green-badge">{{ item.effectiveDecision }}</span>
-                        <span v-else-if="item.effectiveDecision === 'NONE'" class="stat-badge gray-badge">{{ item.effectiveDecision }}</span>
-                        <span v-else class="stat-badge red-badge">{{ item.effectiveDecision }}</span>
+                        <span v-if="item.effectiveDecision === 'ACCEPT' || item.effectiveDecision === 'ACCEPT_WITH_LIMITATIONS'" class="stat-badge green-badge"><bdi dir="ltr">{{ item.effectiveDecision }}</bdi></span>
+                        <span v-else-if="item.effectiveDecision === 'NONE'" class="stat-badge gray-badge"><bdi dir="ltr">{{ item.effectiveDecision }}</bdi></span>
+                        <span v-else-if="item.effectiveDecision" class="stat-badge red-badge"><bdi dir="ltr">{{ item.effectiveDecision }}</bdi></span>
+                        <span v-else class="stat-badge gray-badge">غير متوفر</span>
                       </td>
-                      <td><span class="notes-text" v-if="item.annotationText">{{ item.annotationText }}</span><span class="notes-text text-slate-500" v-else>بدون ملاحظة</span></td>
+                      <td><span class="notes-text" v-if="item.annotationText">{{ item.annotationText }}</span><span class="notes-text text-slate-500" v-else>غير متوفر</span></td>
                     </tr>
                   </tbody>
                 </table>
 
                 <div class="group-card-footer">
                   <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                  <span>عرض {{ grp.items.length }} من {{ grp.items.length }} أدلة</span>
+                  <span>عرض {{ grp.items.length }} من {{ grp.items.length }} مراجع Evidence</span>
                 </div>
               </div>
             </div>
@@ -1649,7 +1697,7 @@ function removePortfolioItem(): void {
               <div class="context-item-card">
                 <div class="item-card-header">
                   <div class="card-icon-title">
-                    <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 1-4-4H6a4 4 0 0 1-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     <h5>فحص التكرار</h5>
                   </div>
                   <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
@@ -1898,8 +1946,8 @@ function removePortfolioItem(): void {
                   <h5>نطاق العرض</h5>
                 </div>
               </div>
-              <div class="prov-row"><span class="prov-k">المجال:</span><span class="prov-v"><bdi dir="ltr">{{ selectedPortfolio?.view_scope || 'CAP-WEB' }}</bdi></span></div>
-              <div class="prov-row"><span class="prov-k">العرض:</span><span class="prov-v">عرض مهني التقدم والأدلة</span></div>
+              <div class="prov-row"><span class="prov-k">المجال:</span><span class="prov-v"><bdi dir="ltr">{{ selectedPortfolio?.view_scope || 'غير متوفر' }}</bdi></span></div>
+              <div class="prov-row"><span class="prov-k">العرض:</span><span class="prov-v">Reference-only curated projection</span></div>
             </div>
 
             <!-- Display Organization -->
@@ -1910,8 +1958,8 @@ function removePortfolioItem(): void {
                   <h5>تنظيم العرض</h5>
                 </div>
               </div>
-              <div class="prov-row"><span class="prov-k">التجميع:</span><span class="prov-v"><bdi dir="ltr">{{ selectedPortfolio?.grouping || 'CAPABILITY' }}</bdi></span></div>
-              <div class="prov-row"><span class="prov-k">الترتيب:</span><span class="prov-v">ترتيب القدرات النضاضي</span></div>
+              <div class="prov-row"><span class="prov-k">التجميع:</span><span class="prov-v"><bdi dir="ltr">{{ selectedPortfolio?.grouping || 'غير متوفر' }}</bdi></span></div>
+              <div class="prov-row"><span class="prov-k">الترتيب:</span><span class="prov-v">غير متوفر</span></div>
             </div>
 
             <!-- Active Filters -->
@@ -1922,8 +1970,13 @@ function removePortfolioItem(): void {
                   <h5>الفلاتر النشطة</h5>
                 </div>
               </div>
-              <div class="prov-row"><span class="prov-k">دورة حياة الأدلة:</span><span class="prov-v"><span class="status-dot green-dot"></span>ACTIVE</span></div>
-              <div class="prov-row"><span class="prov-k">إستبعاد القرار:</span><span class="prov-v"><span class="status-dot green-dot"></span>Accepted Evidence</span></div>
+              <div v-if="selectedPortfolioFilters.length" class="provenance-details-grid">
+                <div v-for="filter in selectedPortfolioFilters" :key="filter.key" class="prov-row">
+                  <span class="prov-k"><bdi dir="ltr">{{ filter.key }}</bdi>:</span>
+                  <span class="prov-v"><bdi dir="ltr">{{ filter.value }}</bdi></span>
+                </div>
+              </div>
+              <p v-else class="context-text-single">غير متوفر</p>
             </div>
 
             <!-- Customization Data -->
@@ -1934,10 +1987,10 @@ function removePortfolioItem(): void {
                   <h5>بيانات التخصيص</h5>
                 </div>
               </div>
-              <div class="prov-row"><span class="prov-k">المالك:</span><span class="prov-v">Ahmed</span></div>
+              <div class="prov-row"><span class="prov-k">المالك:</span><span class="prov-v">غير متوفر</span></div>
               <div class="prov-row"><span class="prov-k">إنشاء العرض:</span><span class="prov-v">غير متوفر</span></div>
-              <div class="prov-row"><span class="prov-k">آخر تحديث:</span><span class="prov-v"><bdi dir="ltr">غير متوفر</bdi></span></div>
-              <div class="prov-row"><span class="prov-k">وضع التخصيص:</span><span class="prov-v"><span class="status-dot green-dot"></span>تخصيص</span></div>
+              <div class="prov-row"><span class="prov-k">آخر تحديث:</span><span class="prov-v">غير متوفر</span></div>
+              <div class="prov-row"><span class="prov-k">وضع التخصيص:</span><span class="prov-v">غير متوفر</span></div>
             </div>
 
             <!-- Display Context & Export -->
@@ -1948,10 +2001,10 @@ function removePortfolioItem(): void {
                   <h5>سياق العرض والتصدير</h5>
                 </div>
               </div>
-              <div class="prov-row"><span class="prov-k">المنفذ:</span><span class="prov-v">Professional Portfolio</span></div>
-              <div class="prov-row"><span class="prov-k">اللغة:</span><span class="prov-v">(RTL) العربية</span></div>
-              <div class="prov-row"><span class="prov-k">تضمين الكائنات:</span><span class="prov-v">نعم</span></div>
-              <div class="prov-row"><span class="prov-k">تضمين المقاييس:</span><span class="prov-v">نعم</span></div>
+              <div class="prov-row"><span class="prov-k">السياق:</span><span class="prov-v">Reference-only projection</span></div>
+              <div class="prov-row"><span class="prov-k">اللغة:</span><span class="prov-v">غير متوفر</span></div>
+              <div class="prov-row"><span class="prov-k">تضمين الكائنات:</span><span class="prov-v">غير متوفر</span></div>
+              <div class="prov-row"><span class="prov-k">تضمين المقاييس:</span><span class="prov-v">غير متوفر</span></div>
             </div>
 
             <button class="context-action-btn" type="button">
