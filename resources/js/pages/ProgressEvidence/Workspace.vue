@@ -2,6 +2,8 @@
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
+import CepWorkspaceLayout from '../../layouts/CepWorkspaceLayout.vue';
+
 type HandoffReceipt = {
   id: string;
   source_type: string;
@@ -16,11 +18,14 @@ type MasteryPolicy = {
   id: string;
   policy_key: string;
   revision: number;
+  target_type?: string;
+  target_id?: string;
   qualifying_review_decisions: string[];
 };
 
 type Candidate = {
   id: string;
+  handoff_receipt_id: string;
   capability_id: string;
   proposed_title: string;
   proposed_summary: string;
@@ -65,6 +70,7 @@ type Evidence = {
   source_type: string;
   source_id: string;
   source_revision: string;
+  source_digest: string;
   revisions: EvidenceRevision[];
 };
 
@@ -111,6 +117,7 @@ type MasteryState = {
   review_decision_ids: string[];
   supporting_evidence_revision_ids: string[];
   contradicting_evidence_revision_ids: string[];
+  rationale?: string;
 };
 
 type PortfolioItem = {
@@ -125,6 +132,8 @@ type Portfolio = {
   name: string;
   view_scope: string | null;
   grouping: string;
+  filters?: Record<string, unknown>;
+  annotations?: Record<string, unknown>;
   items: PortfolioItem[];
 };
 
@@ -132,7 +141,15 @@ type Surface = 'evidence' | 'reviews' | 'mastery' | 'portfolio';
 type EvidenceFocus = 'candidate' | 'evidence';
 type ReviewFocus = 'request' | 'review';
 type Panel =
-  'intake' | 'revision' | 'finding' | 'decision' | 'mastery' | 'portfolio' | 'portfolio-add' | null;
+  | 'intake'
+  | 'revision'
+  | 'finding'
+  | 'decision'
+  | 'mastery'
+  | 'mastery-history'
+  | 'portfolio'
+  | 'portfolio-add'
+  | null;
 
 const props = defineProps<{
   surface: Surface;
@@ -197,6 +214,18 @@ const selectedMasteryHistory = computed(() => {
   const item = selectedMastery.value;
   return item ? props.mastery_history.filter((state) => state.target_id === item.target_id) : [];
 });
+const selectedCandidateReceipt = computed(() =>
+  props.handoff_receipts.find((receipt) => receipt.id === candidate.value?.handoff_receipt_id),
+);
+const selectedMasteryPolicy = computed(() =>
+  props.mastery_policies.find((policy) => policy.id === selectedMastery.value?.policy_revision_id),
+);
+const selectedPortfolioFilters = computed(() =>
+  Object.entries(selectedPortfolio.value?.filters ?? {}).map(([key, value]) => ({
+    key,
+    value: Array.isArray(value) ? value.join(', ') : String(value),
+  })),
+);
 
 const panelTitle = computed(() => {
   const titles: Record<Exclude<Panel, null>, string> = {
@@ -205,6 +234,7 @@ const panelTitle = computed(() => {
     finding: 'تسجيل Review Finding',
     decision: 'إصدار Review Decision',
     mastery: 'إلحاق Mastery State',
+    'mastery-history': 'سجل Mastery التاريخي',
     portfolio: 'إنشاء Portfolio View',
     'portfolio-add': 'إضافة Canonical Evidence Reference',
   };
@@ -228,7 +258,6 @@ const finding = useForm({
 });
 const decision = useForm({ decision: 'ACCEPT', rationale: '' });
 const masteryForm = useForm({
-  capability_id: '',
   policy_revision_id: props.mastery_policies?.[0]?.id ?? '',
   judgment: 'NOT_EVALUATED',
   freshness_status: 'CURRENT',
@@ -347,7 +376,6 @@ function openMastery(): void {
       (evidence) =>
         evidence.effective_review_decision_id !== null && evidence.lifecycle_state === 'ACTIVE',
     ) ?? props.evidence[0];
-  masteryForm.capability_id = item?.capability_id ?? selectedMastery.value?.target_id ?? '';
   masteryForm.policy_revision_id = props.mastery_policies?.[0]?.id ?? '';
   masteryForm.review_decision_ids = item?.effective_review_decision_id
     ? [item.effective_review_decision_id]
@@ -374,18 +402,32 @@ function removePortfolioItem(): void {
 
 <template>
   <Head title="التقدم والأدلة" />
-  <main class="workspace" dir="rtl">
-    <header class="top-bar">
-      <div class="workspace-identity">
-        <p class="eyebrow"><bdi dir="ltr">PROGRESS &amp; EVIDENCE</bdi></p>
-        <div>
-          <h1>التقدم والأدلة</h1>
-          <p>
-            {{ activeNav.ar }} <span>·</span> <bdi dir="ltr">{{ activeNav.en }}</bdi>
-          </p>
-        </div>
-      </div>
+  <CepWorkspaceLayout
+    class="progress-evidence-shell"
+    active-destination="progress"
+    :temporary-workspace-open="panel !== null"
+    :temporary-workspace-label="panelTitle"
+    @close-temporary-workspace="panel = null"
+  >
+    <template #primaryNavigation>
+      <a
+        v-for="item in nav"
+        :key="item.key"
+        class="surface-tab"
+        :class="{ active: surface === item.key }"
+        :href="item.href"
+        :aria-current="surface === item.key ? 'page' : undefined"
+      >
+        <span>{{ item.ar }}</span>
+        <bdi dir="ltr">{{ item.en }}</bdi>
+      </a>
+    </template>
 
+    <template #top>
+      <span class="top-mode">
+        وضع الصفحة: <strong>{{ activeNav.ar }}</strong>
+        <bdi dir="ltr">{{ activeNav.en }}</bdi>
+      </span>
       <div class="top-actions" aria-label="إجراءات سير العمل الحالي">
         <template v-if="surface === 'evidence'">
           <button
@@ -461,15 +503,24 @@ function removePortfolioItem(): void {
           </template>
         </template>
 
-        <button
-          v-else-if="surface === 'mastery'"
-          class="button primary"
-          type="button"
-          :disabled="!mastery_policies.length"
-          @click="openMastery"
-        >
-          إلحاق Mastery State
-        </button>
+        <template v-else-if="surface === 'mastery'">
+          <button
+            class="button secondary"
+            type="button"
+            :disabled="!selectedMastery"
+            @click="panel = 'mastery-history'"
+          >
+            عرض السجل التاريخي
+          </button>
+          <button
+            class="button primary"
+            type="button"
+            :disabled="!mastery_policies.length"
+            @click="openMastery"
+          >
+            إلحاق Mastery State
+          </button>
+        </template>
 
         <template v-else>
           <button class="button secondary" type="button" @click="panel = 'portfolio'">
@@ -493,30 +544,158 @@ function removePortfolioItem(): void {
           </button>
         </template>
       </div>
-    </header>
+    </template>
 
-    <p v-if="page.props.flash?.status" class="notice success">{{ page.props.flash.status }}</p>
-    <p v-if="page.props.errors?.workflow" class="notice error">{{ page.props.errors.workflow }}</p>
-
-    <div class="workspace-grid">
-      <nav class="left-rail panel" aria-label="المناطق الأساسية للتقدم والأدلة">
+    <template #left>
+      <nav class="left-rail" data-testid="structure-panel" aria-label="البنية والاختيار الحالي">
         <div class="rail-heading">
-          <span>المناطق الأساسية</span>
-          <bdi dir="ltr">4 AREAS</bdi>
+          <span>البنية والاختيار</span>
+          <bdi dir="ltr">{{ activeNav.en }}</bdi>
         </div>
-        <a
-          v-for="item in nav"
-          :key="item.key"
-          class="area-link"
-          :class="{ active: surface === item.key }"
-          :href="item.href"
-        >
-          <span>{{ item.ar }}</span>
-          <bdi dir="ltr">{{ item.en }}</bdi>
-        </a>
-      </nav>
 
-      <section class="center-workspace panel">
+        <template v-if="surface === 'evidence'">
+          <div class="browser-group candidate-group">
+            <div class="browser-title">
+              <span>Candidate Evidence</span><bdi dir="ltr">{{ candidates.length }}</bdi>
+            </div>
+            <button
+              v-for="item in candidates"
+              :key="item.id"
+              class="record-row"
+              :class="{ selected: evidenceFocus === 'candidate' && item.id === candidateId }"
+              type="button"
+              @click="selectCandidate(item.id)"
+            >
+              <span
+                ><strong>{{ item.proposed_title }}</strong
+                ><small>{{ item.evidence_claim }}</small></span
+              >
+              <bdi dir="ltr" class="state candidate-state">{{ item.state }}</bdi>
+            </button>
+            <p v-if="!candidates.length" class="empty-state">لا توجد Candidate Evidence.</p>
+          </div>
+          <div class="browser-group canonical-group">
+            <div class="browser-title">
+              <span>Canonical Evidence</span><bdi dir="ltr">{{ evidence.length }}</bdi>
+            </div>
+            <button
+              v-for="item in evidence"
+              :key="item.id"
+              class="record-row"
+              :class="{ selected: evidenceFocus === 'evidence' && item.id === evidenceId }"
+              type="button"
+              @click="selectEvidence(item.id)"
+            >
+              <span
+                ><strong>{{ item.title }}</strong
+                ><small>{{ item.evidence_claim }}</small></span
+              >
+              <bdi dir="ltr" class="state">R{{ item.current_revision_number }}</bdi>
+            </button>
+            <p v-if="!evidence.length" class="empty-state">لا توجد Evidence مقبولة عبر Intake.</p>
+          </div>
+        </template>
+
+        <template v-else-if="surface === 'reviews'">
+          <div class="browser-group">
+            <div class="browser-title">
+              <span>Review Requests</span><bdi dir="ltr">{{ review_requests.length }}</bdi>
+            </div>
+            <button
+              v-for="item in review_requests"
+              :key="item.id"
+              class="record-row"
+              :class="{ selected: reviewFocus === 'request' && item.id === requestId }"
+              type="button"
+              @click="selectRequest(item.id)"
+            >
+              <span
+                ><strong>{{ evidenceTitle(item.evidence_id) }}</strong
+                ><small
+                  ><bdi dir="ltr">{{ item.review_scope_key }}</bdi></small
+                ></span
+              >
+              <bdi dir="ltr" class="state request-state">{{ item.status }}</bdi>
+            </button>
+            <p v-if="!review_requests.length" class="empty-state">لا توجد Review Requests.</p>
+          </div>
+          <div class="browser-group">
+            <div class="browser-title">
+              <span>Formal Reviews</span><bdi dir="ltr">{{ reviews.length }}</bdi>
+            </div>
+            <button
+              v-for="item in reviews"
+              :key="item.id"
+              class="record-row"
+              :class="{ selected: reviewFocus === 'review' && item.id === reviewId }"
+              type="button"
+              @click="selectReview(item.id)"
+            >
+              <span
+                ><strong>{{ evidenceTitle(item.evidence_id) }}</strong
+                ><small>{{ item.findings.length }} Finding(s)</small></span
+              >
+              <bdi dir="ltr" class="state review-state">{{ item.status }}</bdi>
+            </button>
+            <p v-if="!reviews.length" class="empty-state">لم تبدأ Formal Review بعد.</p>
+          </div>
+        </template>
+
+        <template v-else-if="surface === 'mastery'">
+          <div class="browser-title">
+            <span>Mastery Targets</span><bdi dir="ltr">{{ mastery.length }}</bdi>
+          </div>
+          <button
+            v-for="item in mastery"
+            :key="item.id"
+            class="record-row"
+            :class="{ selected: item.id === masteryId }"
+            type="button"
+            @click="masteryId = item.id"
+          >
+            <span
+              ><strong
+                ><bdi dir="ltr">{{ item.target_id }}</bdi></strong
+              ><small>Policy-governed state</small></span
+            >
+            <bdi dir="ltr" class="state">{{ item.judgment }}</bdi>
+          </button>
+          <p v-if="!mastery.length" class="empty-state">لا توجد Mastery State محكومة.</p>
+        </template>
+
+        <template v-else>
+          <div class="browser-title">
+            <span>Portfolio Views</span><bdi dir="ltr">{{ portfolios.length }}</bdi>
+          </div>
+          <button
+            v-for="item in portfolios"
+            :key="item.id"
+            class="record-row"
+            :class="{ selected: item.id === portfolioId }"
+            type="button"
+            @click="
+              portfolioId = item.id;
+              portfolioItemId = item.items[0]?.id ?? '';
+            "
+          >
+            <span
+              ><strong>{{ item.name }}</strong
+              ><small>{{ item.items.length }} reference(s)</small></span
+            >
+            <bdi dir="ltr" class="state projection-state">VIEW</bdi>
+          </button>
+          <p v-if="!portfolios.length" class="empty-state">لا توجد Portfolio Views.</p>
+        </template>
+      </nav>
+    </template>
+
+    <template #default>
+      <p v-if="page.props.flash?.status" class="notice success">{{ page.props.flash.status }}</p>
+      <p v-if="page.props.errors?.workflow" class="notice error">
+        {{ page.props.errors.workflow }}
+      </p>
+
+      <section class="center-workspace" data-testid="primary-workspace">
         <div class="surface-heading">
           <div>
             <p class="eyebrow">مساحة العمل الأساسية</p>
@@ -535,50 +714,6 @@ function removePortfolioItem(): void {
         </div>
 
         <div v-if="surface === 'evidence'" class="workbench-grid">
-          <aside class="record-browser" aria-label="قائمة Evidence">
-            <div class="browser-group candidate-group">
-              <div class="browser-title">
-                <span>Candidate Evidence</span><bdi dir="ltr">{{ candidates.length }}</bdi>
-              </div>
-              <button
-                v-for="item in candidates"
-                :key="item.id"
-                class="record-row"
-                :class="{ selected: evidenceFocus === 'candidate' && item.id === candidateId }"
-                type="button"
-                @click="selectCandidate(item.id)"
-              >
-                <span
-                  ><strong>{{ item.proposed_title }}</strong
-                  ><small>{{ item.evidence_claim }}</small></span
-                >
-                <bdi dir="ltr" class="state candidate-state">{{ item.state }}</bdi>
-              </button>
-              <p v-if="!candidates.length" class="empty-state">لا توجد Candidate Evidence.</p>
-            </div>
-
-            <div class="browser-group canonical-group">
-              <div class="browser-title">
-                <span>Canonical Evidence</span><bdi dir="ltr">{{ evidence.length }}</bdi>
-              </div>
-              <button
-                v-for="item in evidence"
-                :key="item.id"
-                class="record-row"
-                :class="{ selected: evidenceFocus === 'evidence' && item.id === evidenceId }"
-                type="button"
-                @click="selectEvidence(item.id)"
-              >
-                <span
-                  ><strong>{{ item.title }}</strong
-                  ><small>{{ item.evidence_claim }}</small></span
-                >
-                <bdi dir="ltr" class="state">R{{ item.current_revision_number }}</bdi>
-              </button>
-              <p v-if="!evidence.length" class="empty-state">لا توجد Evidence مقبولة عبر Intake.</p>
-            </div>
-          </aside>
-
           <article
             v-if="evidenceFocus === 'candidate' && candidate"
             class="object-workbench"
@@ -665,18 +800,6 @@ function removePortfolioItem(): void {
                 ><bdi dir="ltr">{{ selectedEvidence.effective_review_decision }}</bdi>
               </section>
             </div>
-            <section class="detail-block">
-              <span class="label">Sealed Revision History</span>
-              <ol class="timeline-list">
-                <li v-for="item in selectedEvidence.revisions" :key="item.id">
-                  <span class="timeline-marker" aria-hidden="true"></span>
-                  <div>
-                    <bdi dir="ltr">R{{ item.revision }} · {{ item.id }}</bdi>
-                    <p>{{ item.revision_reason }}</p>
-                  </div>
-                </li>
-              </ol>
-            </section>
           </article>
 
           <div v-else class="empty-workbench">
@@ -689,51 +812,6 @@ function removePortfolioItem(): void {
           class="workbench-grid"
           data-testid="review-workbench"
         >
-          <aside class="record-browser" aria-label="قائمة المراجعات">
-            <div class="browser-group">
-              <div class="browser-title">
-                <span>Review Requests</span><bdi dir="ltr">{{ review_requests.length }}</bdi>
-              </div>
-              <button
-                v-for="item in review_requests"
-                :key="item.id"
-                class="record-row"
-                :class="{ selected: reviewFocus === 'request' && item.id === requestId }"
-                type="button"
-                @click="selectRequest(item.id)"
-              >
-                <span
-                  ><strong>{{ evidenceTitle(item.evidence_id) }}</strong
-                  ><small
-                    ><bdi dir="ltr">{{ item.review_scope_key }}</bdi></small
-                  ></span
-                >
-                <bdi dir="ltr" class="state request-state">{{ item.status }}</bdi>
-              </button>
-              <p v-if="!review_requests.length" class="empty-state">لا توجد Review Requests.</p>
-            </div>
-            <div class="browser-group">
-              <div class="browser-title">
-                <span>Formal Reviews</span><bdi dir="ltr">{{ reviews.length }}</bdi>
-              </div>
-              <button
-                v-for="item in reviews"
-                :key="item.id"
-                class="record-row"
-                :class="{ selected: reviewFocus === 'review' && item.id === reviewId }"
-                type="button"
-                @click="selectReview(item.id)"
-              >
-                <span
-                  ><strong>{{ evidenceTitle(item.evidence_id) }}</strong
-                  ><small>{{ item.findings.length }} Finding(s)</small></span
-                >
-                <bdi dir="ltr" class="state review-state">{{ item.status }}</bdi>
-              </button>
-              <p v-if="!reviews.length" class="empty-state">لم تبدأ Formal Review بعد.</p>
-            </div>
-          </aside>
-
           <article v-if="reviewFocus === 'request' && selectedRequest" class="object-workbench">
             <div class="object-heading">
               <div>
@@ -802,28 +880,6 @@ function removePortfolioItem(): void {
         </div>
 
         <div v-else-if="surface === 'mastery'" class="workbench-grid mastery-grid">
-          <aside class="record-browser" aria-label="حالات Mastery">
-            <div class="browser-title">
-              <span>Mastery Targets</span><bdi dir="ltr">{{ mastery.length }}</bdi>
-            </div>
-            <button
-              v-for="item in mastery"
-              :key="item.id"
-              class="record-row"
-              :class="{ selected: item.id === masteryId }"
-              type="button"
-              @click="masteryId = item.id"
-            >
-              <span
-                ><strong
-                  ><bdi dir="ltr">{{ item.target_id }}</bdi></strong
-                ><small>Policy-governed state</small></span
-              >
-              <bdi dir="ltr" class="state">{{ item.id }}</bdi>
-            </button>
-            <p v-if="!mastery.length" class="empty-state">لا توجد Mastery State محكومة.</p>
-          </aside>
-
           <article v-if="selectedMastery" class="object-workbench" data-testid="mastery-detail">
             <div class="object-heading">
               <div>
@@ -909,30 +965,6 @@ function removePortfolioItem(): void {
         </div>
 
         <div v-else class="workbench-grid portfolio-grid">
-          <aside class="record-browser" aria-label="عروض Portfolio">
-            <div class="browser-title">
-              <span>Saved Views</span><bdi dir="ltr">{{ portfolios.length }}</bdi>
-            </div>
-            <button
-              v-for="item in portfolios"
-              :key="item.id"
-              class="record-row"
-              :class="{ selected: item.id === portfolioId }"
-              type="button"
-              @click="
-                portfolioId = item.id;
-                portfolioItemId = item.items[0]?.id ?? '';
-              "
-            >
-              <span
-                ><strong>{{ item.name }}</strong
-                ><small>{{ item.items.length }} reference(s)</small></span
-              >
-              <bdi dir="ltr" class="state projection-state">VIEW</bdi>
-            </button>
-            <p v-if="!portfolios.length" class="empty-state">لا توجد Portfolio Views.</p>
-          </aside>
-
           <article v-if="selectedPortfolio" class="object-workbench" data-testid="portfolio-detail">
             <div class="object-heading">
               <div>
@@ -974,9 +1006,11 @@ function removePortfolioItem(): void {
           <div v-else class="empty-workbench">أنشئ أو اختر Portfolio View.</div>
         </div>
       </section>
+    </template>
 
-      <aside
-        class="right-context panel"
+    <template #right>
+      <div
+        class="right-context"
         data-testid="context-panel"
         aria-label="السياق الفريد للاختيار الحالي"
       >
@@ -991,6 +1025,11 @@ function removePortfolioItem(): void {
                 Admission.
               </p>
             </div>
+            <div v-if="selectedCandidateReceipt" class="context-section">
+              <span class="label">Trusted Handoff Receipt</span>
+              <bdi dir="ltr" class="identifier">{{ selectedCandidateReceipt.id }}</bdi>
+              <p class="digest" dir="ltr">sha256:{{ selectedCandidateReceipt.source_digest }}</p>
+            </div>
             <div class="context-section">
               <span class="label">المعنى الحاكم</span>
               <p>
@@ -1000,10 +1039,27 @@ function removePortfolioItem(): void {
             </div>
           </template>
           <template v-else-if="selectedEvidence">
-            <h2>سياق الحوكمة</h2>
+            <h2>الأصل والإصدار المختوم</h2>
             <div class="context-callout">
               <span class="context-icon">i</span>
               <p>الحالات الثلاث المعروضة في CENTER مستقلة. لا تُختزل في Status واحد.</p>
+            </div>
+            <div class="context-section">
+              <span class="label">Current Sealed Revision</span>
+              <bdi dir="ltr" class="identifier">{{ selectedEvidence.current_revision_id }}</bdi>
+              <p class="digest" dir="ltr">sha256:{{ selectedEvidence.source_digest }}</p>
+            </div>
+            <div class="context-section">
+              <span class="label">Revision History</span>
+              <ol class="timeline-list">
+                <li v-for="item in selectedEvidence.revisions" :key="item.id">
+                  <span class="timeline-marker" aria-hidden="true"></span>
+                  <div>
+                    <bdi dir="ltr">R{{ item.revision }} · {{ item.id }}</bdi>
+                    <p>{{ item.revision_reason }}</p>
+                  </div>
+                </li>
+              </ol>
             </div>
             <div class="context-section">
               <span class="label">Review eligibility</span>
@@ -1047,19 +1103,31 @@ function removePortfolioItem(): void {
         </template>
 
         <template v-else-if="surface === 'mastery' && selectedMastery">
-          <p class="eyebrow">State Provenance</p>
-          <h2>السجل التاريخي</h2>
+          <p class="eyebrow">Policy Authority</p>
+          <h2>سياق الحكم المحكوم</h2>
           <p class="context-intro">
-            هذه السلسلة توضّح append-only provenance فقط؛ الحكم والحداثة لهما Home دائم في CENTER.
+            الحكم الحالي مؤسس على Policy Revision منشورة ومراجع Decision وEvidence محددة، وليس على
+            نسبة نشاط أو إكمال.
           </p>
-          <ol class="history-chain">
-            <li v-for="state in selectedMasteryHistory" :key="state.id">
-              <bdi dir="ltr">{{ state.id }}</bdi
-              ><small v-if="state.previous_state_id"
-                >previous: <bdi dir="ltr">{{ state.previous_state_id }}</bdi></small
-              ><small v-else>initial state</small>
-            </li>
-          </ol>
+          <div class="context-section">
+            <span class="label">Published Policy Revision</span>
+            <bdi dir="ltr" class="identifier">{{ selectedMastery.policy_revision_id }}</bdi>
+          </div>
+          <div v-if="selectedMasteryPolicy" class="context-section">
+            <span class="label">Qualifying Review Decisions</span>
+            <ul class="reference-list">
+              <li
+                v-for="outcome in selectedMasteryPolicy.qualifying_review_decisions"
+                :key="outcome"
+              >
+                <bdi dir="ltr">{{ outcome }}</bdi>
+              </li>
+            </ul>
+          </div>
+          <div v-if="selectedMastery.rationale" class="context-section">
+            <span class="label">Evaluation Rationale</span>
+            <p>{{ selectedMastery.rationale }}</p>
+          </div>
         </template>
 
         <template v-else-if="surface === 'portfolio' && selectedPortfolio">
@@ -1075,6 +1143,14 @@ function removePortfolioItem(): void {
             <span class="label">Grouping</span
             ><bdi dir="ltr" class="identifier">{{ selectedPortfolio.grouping }}</bdi>
           </div>
+          <div v-if="selectedPortfolioFilters.length" class="context-section">
+            <span class="label">Governed Filters</span>
+            <ul class="reference-list">
+              <li v-for="filter in selectedPortfolioFilters" :key="filter.key">
+                <bdi dir="ltr">{{ filter.key }}: {{ filter.value }}</bdi>
+              </li>
+            </ul>
+          </div>
           <div class="context-callout">
             <span class="context-icon">i</span>
             <p>
@@ -1085,189 +1161,267 @@ function removePortfolioItem(): void {
         </template>
 
         <p v-else class="empty-state">لا يوجد سياق فريد للاختيار الحالي.</p>
-      </aside>
-    </div>
-
-    <section v-if="panel" class="bottom-workspace panel" aria-label="مساحة العمل المؤقتة">
-      <div class="bottom-header">
-        <div>
-          <p class="eyebrow">Temporary Deep Workspace</p>
-          <h2>{{ panelTitle }}</h2>
-        </div>
-        <button class="button ghost" type="button" @click="panel = null">إغلاق</button>
       </div>
+    </template>
 
-      <form
-        v-if="panel === 'intake'"
-        class="form-grid"
-        @submit.prevent="intake.post('/progress/intake', { onSuccess: () => (panel = null) })"
-      >
-        <p v-if="!handoff_receipts.length" class="empty-state">
-          لا يوجد Handoff/Submission موثوق متاح للاستلام؛ لا يمكن إنشاء Candidate من بيانات مصدر
-          يكتبها المتصفح.
-        </p>
-        <label>
-          Verified Handoff Receipt
-          <select v-model="intake.handoff_receipt_id" dir="ltr" required>
-            <option v-for="receipt in handoff_receipts" :key="receipt.id" :value="receipt.id">
-              {{ receipt.source_type }}/{{ receipt.source_id }}@{{ receipt.source_revision }} ·
-              {{ receipt.capability_id }}
-            </option>
-          </select>
-        </label>
-        <label class="wide"
-          >Evidence Claim<textarea v-model="intake.evidence_claim" required />
-        </label>
-        <label
-          >Criterion Reference<input v-model="intake.criterion_scope[0]" dir="ltr" required
-        /></label>
-        <label
-          >Governed Purpose<input v-model="intake.governed_purpose" dir="ltr" required
-        /></label>
-        <label>العنوان<input v-model="intake.title" required /></label>
-        <label class="wide">الملخص<textarea v-model="intake.summary" required /></label>
-        <button class="button primary form-submit" type="submit">
-          إنشاء Candidate في RECEIVED
-        </button>
-      </form>
+    <template #bottom>
+      <div class="bottom-workspace" data-testid="temporary-workspace-content">
+        <section v-if="panel === 'mastery-history' && selectedMastery" class="history-workspace">
+          <p class="form-note">
+            سجل append-only للهدف <bdi dir="ltr">{{ selectedMastery.target_id }}</bdi
+            >. لا يغيّر العرض أي حكم أو حالة حداثة.
+          </p>
+          <ol class="history-table" aria-label="سجل Mastery التاريخي">
+            <li v-for="state in selectedMasteryHistory" :key="state.id">
+              <bdi dir="ltr">{{ state.id }}</bdi>
+              <span
+                ><bdi dir="ltr">{{ state.judgment }}</bdi></span
+              >
+              <span
+                ><bdi dir="ltr">{{ state.freshness_status }}</bdi></span
+              >
+              <small v-if="state.previous_state_id">
+                previous: <bdi dir="ltr">{{ state.previous_state_id }}</bdi>
+              </small>
+              <small v-else>initial state</small>
+            </li>
+          </ol>
+        </section>
 
-      <form
-        v-else-if="panel === 'revision' && selectedEvidence"
-        class="form-grid"
-        @submit.prevent="
-          revision.post(`/progress/evidence/${selectedEvidence.id}/revisions`, {
-            onSuccess: () => (panel = null),
-          })
-        "
-      >
-        <label>العنوان<input v-model="revision.title" required /></label>
-        <label>
-          Superseding Handoff Receipt (optional)
-          <select v-model="revision.handoff_receipt_id" dir="ltr">
-            <option value="">Retain current pinned source</option>
-            <option
-              v-for="receipt in revisionHandoffReceipts"
-              :key="receipt.id"
-              :value="receipt.id"
-            >
-              {{ receipt.source_type }}/{{ receipt.source_id }}@{{ receipt.source_revision }}
-            </option>
-          </select>
-        </label>
-        <label>سبب Revision<input v-model="revision.revision_reason" required /></label>
-        <label class="wide">الملخص<textarea v-model="revision.summary" required /></label>
-        <button class="button primary form-submit" type="submit">Seal Superseding Revision</button>
-      </form>
-
-      <form
-        v-else-if="panel === 'finding' && selectedReview"
-        class="form-grid"
-        @submit.prevent="submitFinding"
-      >
-        <label>Criterion Key<input v-model="finding.criterion_key" dir="ltr" required /></label>
-        <label
-          >Finding<select v-model="finding.finding" dir="ltr">
-            <option>SATISFIED</option>
-            <option>PARTIALLY_SATISFIED</option>
-            <option>NOT_SATISFIED</option>
-            <option>NOT_ASSESSABLE</option>
-          </select></label
+        <form
+          v-else-if="panel === 'intake'"
+          class="form-grid"
+          @submit.prevent="intake.post('/progress/intake', { onSuccess: () => (panel = null) })"
         >
-        <label class="wide">البيان<textarea v-model="finding.statement" required /></label>
-        <button class="button primary form-submit" type="submit">تسجيل Finding</button>
-      </form>
+          <p v-if="!handoff_receipts.length" class="empty-state">
+            لا يوجد Handoff/Submission موثوق متاح للاستلام؛ لا يمكن إنشاء Candidate من بيانات مصدر
+            يكتبها المتصفح.
+          </p>
+          <label>
+            Verified Handoff Receipt
+            <select v-model="intake.handoff_receipt_id" dir="ltr" required>
+              <option v-for="receipt in handoff_receipts" :key="receipt.id" :value="receipt.id">
+                {{ receipt.source_type }}/{{ receipt.source_id }}@{{ receipt.source_revision }} ·
+                {{ receipt.capability_id }}
+              </option>
+            </select>
+          </label>
+          <label class="wide"
+            >Evidence Claim<textarea v-model="intake.evidence_claim" required />
+          </label>
+          <label
+            >Criterion Reference<input v-model="intake.criterion_scope[0]" dir="ltr" required
+          /></label>
+          <label
+            >Governed Purpose<input v-model="intake.governed_purpose" dir="ltr" required
+          /></label>
+          <label>العنوان<input v-model="intake.title" required /></label>
+          <label class="wide">الملخص<textarea v-model="intake.summary" required /></label>
+          <button class="button primary form-submit" type="submit">
+            إنشاء Candidate في RECEIVED
+          </button>
+        </form>
 
-      <form
-        v-else-if="panel === 'decision' && selectedReview"
-        class="form-grid"
-        @submit.prevent="submitDecision"
-      >
-        <label
-          >Review Decision<select v-model="decision.decision" dir="ltr">
-            <option>ACCEPT</option>
-            <option>ACCEPT_WITH_LIMITATIONS</option>
-            <option>MORE_EVIDENCE_REQUIRED</option>
-            <option>REJECT</option>
-          </select></label
+        <form
+          v-else-if="panel === 'revision' && selectedEvidence"
+          class="form-grid"
+          @submit.prevent="
+            revision.post(`/progress/evidence/${selectedEvidence.id}/revisions`, {
+              onSuccess: () => (panel = null),
+            })
+          "
         >
-        <label class="wide">المسوّغ<textarea v-model="decision.rationale" required /></label>
-        <button class="button primary form-submit" type="submit">Seal Decision</button>
-      </form>
+          <label>العنوان<input v-model="revision.title" required /></label>
+          <label>
+            Superseding Handoff Receipt (optional)
+            <select v-model="revision.handoff_receipt_id" dir="ltr">
+              <option value="">Retain current pinned source</option>
+              <option
+                v-for="receipt in revisionHandoffReceipts"
+                :key="receipt.id"
+                :value="receipt.id"
+              >
+                {{ receipt.source_type }}/{{ receipt.source_id }}@{{ receipt.source_revision }}
+              </option>
+            </select>
+          </label>
+          <label>سبب Revision<input v-model="revision.revision_reason" required /></label>
+          <label class="wide">الملخص<textarea v-model="revision.summary" required /></label>
+          <button class="button primary form-submit" type="submit">
+            Seal Superseding Revision
+          </button>
+        </form>
 
-      <form
-        v-else-if="panel === 'mastery'"
-        class="form-grid"
-        @submit.prevent="
-          masteryForm.post('/progress/mastery/evaluate', { onSuccess: () => (panel = null) })
-        "
-      >
-        <label>Capability ID<input v-model="masteryForm.capability_id" dir="ltr" required /></label>
-        <p v-if="!mastery_policies.length" class="empty-state">
-          لا توجد Mastery Policy Revision معتمدة؛ لن يُنشأ حكم إتقان من Policy ID حر.
-        </p>
-        <label>Capability ID<input v-model="masteryForm.capability_id" dir="ltr" required /></label>
-        <label>
-          Policy Revision
-          <select v-model="masteryForm.policy_revision_id" dir="ltr" required>
-            <option v-for="policy in mastery_policies" :key="policy.id" :value="policy.id">
-              {{ policy.policy_key }}@{{ policy.revision }} ·
-              {{ policy.qualifying_review_decisions.join(', ') }}
-            </option>
-          </select>
-        </label>
-        <label
-          >Freshness<select v-model="masteryForm.freshness_status" dir="ltr">
-            <option>CURRENT</option>
-            <option>REVALIDATION_REQUIRED</option>
-          </select></label
+        <form
+          v-else-if="panel === 'finding' && selectedReview"
+          class="form-grid"
+          @submit.prevent="submitFinding"
         >
-        <label class="wide">المسوّغ<textarea v-model="masteryForm.rationale" required /></label>
-        <p class="wide form-note">
-          <bdi dir="ltr">MASTERED + REVALIDATION_REQUIRED</bdi> حالة قانونية؛ البعدان مستقلان.
-        </p>
-        <button class="button primary form-submit" type="submit">Append Mastery State</button>
-      </form>
+          <label>Criterion Key<input v-model="finding.criterion_key" dir="ltr" required /></label>
+          <label
+            >Finding<select v-model="finding.finding" dir="ltr">
+              <option>SATISFIED</option>
+              <option>PARTIALLY_SATISFIED</option>
+              <option>NOT_SATISFIED</option>
+              <option>NOT_ASSESSABLE</option>
+            </select></label
+          >
+          <label class="wide">البيان<textarea v-model="finding.statement" required /></label>
+          <button class="button primary form-submit" type="submit">تسجيل Finding</button>
+        </form>
 
-      <form
-        v-else-if="panel === 'portfolio'"
-        class="form-grid"
-        @submit.prevent="
-          portfolioForm.post('/progress/portfolio', { onSuccess: () => (panel = null) })
-        "
-      >
-        <label>اسم العرض<input v-model="portfolioForm.name" required /></label>
-        <label>View Scope<input v-model="portfolioForm.view_scope" dir="ltr" /></label>
-        <label>Grouping<input v-model="portfolioForm.grouping" dir="ltr" required /></label>
-        <button class="button primary form-submit" type="submit">إنشاء Reference Projection</button>
-      </form>
-
-      <form
-        v-else-if="panel === 'portfolio-add' && selectedPortfolio"
-        class="form-grid"
-        @submit.prevent="
-          portfolioAdd.post(`/progress/portfolio/${selectedPortfolio.id}/evidence`, {
-            onSuccess: () => (panel = null),
-          })
-        "
-      >
-        <label
-          >Evidence<select v-model="portfolioAdd.evidence_id">
-            <option v-for="item in evidence" :key="item.id" :value="item.id">
-              {{ item.title }}
-            </option>
-          </select></label
+        <form
+          v-else-if="panel === 'decision' && selectedReview"
+          class="form-grid"
+          @submit.prevent="submitDecision"
         >
-        <label class="wide">ملاحظة<textarea v-model="portfolioAdd.annotation" /></label>
-        <button class="button primary form-submit" type="submit">إضافة Canonical Reference</button>
-      </form>
-    </section>
-  </main>
+          <label
+            >Review Decision<select v-model="decision.decision" dir="ltr">
+              <option>ACCEPT</option>
+              <option>ACCEPT_WITH_LIMITATIONS</option>
+              <option>MORE_EVIDENCE_REQUIRED</option>
+              <option>REJECT</option>
+            </select></label
+          >
+          <label class="wide">المسوّغ<textarea v-model="decision.rationale" required /></label>
+          <button class="button primary form-submit" type="submit">Seal Decision</button>
+        </form>
+
+        <form
+          v-else-if="panel === 'mastery'"
+          class="form-grid"
+          @submit.prevent="
+            masteryForm.post('/progress/mastery/evaluate', { onSuccess: () => (panel = null) })
+          "
+        >
+          <p v-if="!mastery_policies.length" class="empty-state">
+            لا توجد Mastery Policy Revision معتمدة؛ لن يُنشأ حكم إتقان من Policy ID حر.
+          </p>
+          <label>
+            Policy Revision
+            <select v-model="masteryForm.policy_revision_id" dir="ltr" required>
+              <option v-for="policy in mastery_policies" :key="policy.id" :value="policy.id">
+                {{ policy.policy_key }}@{{ policy.revision }} ·
+                {{ policy.qualifying_review_decisions.join(', ') }}
+              </option>
+            </select>
+          </label>
+          <label>
+            Mastery Judgment
+            <select v-model="masteryForm.judgment" dir="ltr" required>
+              <option>NOT_EVALUATED</option>
+              <option>INSUFFICIENT_EVIDENCE</option>
+              <option>INCONCLUSIVE</option>
+              <option>NOT_MASTERED</option>
+              <option>MASTERED</option>
+            </select>
+          </label>
+          <label
+            >Freshness<select v-model="masteryForm.freshness_status" dir="ltr">
+              <option>CURRENT</option>
+              <option>REVALIDATION_REQUIRED</option>
+            </select></label
+          >
+          <label class="wide">المسوّغ<textarea v-model="masteryForm.rationale" required /></label>
+          <p class="wide form-note">
+            <bdi dir="ltr">MASTERED + REVALIDATION_REQUIRED</bdi> حالة قانونية؛ البعدان مستقلان.
+          </p>
+          <button class="button primary form-submit" type="submit">Append Mastery State</button>
+        </form>
+
+        <form
+          v-else-if="panel === 'portfolio'"
+          class="form-grid"
+          @submit.prevent="
+            portfolioForm.post('/progress/portfolio', { onSuccess: () => (panel = null) })
+          "
+        >
+          <label>اسم العرض<input v-model="portfolioForm.name" required /></label>
+          <label>View Scope<input v-model="portfolioForm.view_scope" dir="ltr" /></label>
+          <label>
+            Grouping
+            <select v-model="portfolioForm.grouping" dir="ltr" required>
+              <option>CAPABILITY</option>
+              <option>PROJECT</option>
+              <option>OBJECTIVE</option>
+              <option>EVIDENCE_TYPE</option>
+              <option>TIME</option>
+              <option>MASTERY_JUDGMENT</option>
+              <option>FRESHNESS_STATUS</option>
+            </select>
+          </label>
+          <button class="button primary form-submit" type="submit">
+            إنشاء Reference Projection
+          </button>
+        </form>
+
+        <form
+          v-else-if="panel === 'portfolio-add' && selectedPortfolio"
+          class="form-grid"
+          @submit.prevent="
+            portfolioAdd.post(`/progress/portfolio/${selectedPortfolio.id}/evidence`, {
+              onSuccess: () => (panel = null),
+            })
+          "
+        >
+          <label
+            >Evidence<select v-model="portfolioAdd.evidence_id">
+              <option v-for="item in evidence" :key="item.id" :value="item.id">
+                {{ item.title }}
+              </option>
+            </select></label
+          >
+          <label class="wide">ملاحظة<textarea v-model="portfolioAdd.annotation" /></label>
+          <button class="button primary form-submit" type="submit">
+            إضافة Canonical Reference
+          </button>
+        </form>
+      </div>
+    </template>
+  </CepWorkspaceLayout>
 </template>
 
 <style scoped>
+.progress-evidence-shell {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+:global([data-theme='dark']) {
+  --pe-code: #a8c5d7;
+  --pe-positive: #a7e5cc;
+  --pe-positive-border: #2d6754;
+  --pe-positive-bg: rgb(35 105 76 / 0.12);
+  --pe-danger: #f1b4bc;
+  --pe-danger-border: #7c3b47;
+  --pe-danger-bg: rgb(118 48 61 / 0.12);
+  --pe-warning: #e2c580;
+  --pe-warning-border: #66532e;
+  --pe-warning-bg: rgb(106 77 29 / 0.14);
+  --pe-info: #9edfe1;
+  --pe-info-border: #315c66;
+  --pe-info-bg: rgb(43 107 112 / 0.13);
+}
+
+:global([data-theme='light']) .progress-evidence-shell {
+  --pe-code: #355269;
+  --pe-positive: #166534;
+  --pe-positive-border: #86b998;
+  --pe-positive-bg: rgb(22 101 52 / 0.08);
+  --pe-danger: #9f1239;
+  --pe-danger-border: #d7a0ad;
+  --pe-danger-bg: rgb(159 18 57 / 0.07);
+  --pe-warning: #854d0e;
+  --pe-warning-border: #d1b176;
+  --pe-warning-bg: rgb(133 77 14 / 0.08);
+  --pe-info: #0e7490;
+  --pe-info-border: #77afbb;
+  --pe-info-bg: rgb(14 116 144 / 0.08);
+}
+
 :global(body) {
   margin: 0;
-  background: #050b12;
+  background: var(--cep-bg-canvas);
 }
 
 * {
@@ -1277,9 +1431,8 @@ function removePortfolioItem(): void {
 .workspace {
   min-height: 100vh;
   padding: 1rem;
-  color: #d6e1ea;
-  background:
-    radial-gradient(circle at 55% -20%, rgba(36, 99, 116, 0.15), transparent 34rem), #050b12;
+  color: var(--cep-text);
+  background: var(--cep-bg-canvas);
 }
 
 .panel,
@@ -1341,7 +1494,7 @@ h3 {
 .surface-heading > p,
 .context-intro {
   margin: 0;
-  color: #7890a4;
+  color: var(--cep-text-muted);
   font-size: 0.72rem;
   line-height: 1.6;
 }
@@ -1349,7 +1502,7 @@ h3 {
 .eyebrow,
 .label {
   margin: 0;
-  color: #6fc5cd;
+  color: var(--cep-accent);
   font-size: 0.66rem;
   font-weight: 800;
   letter-spacing: 0.03em;
@@ -1358,7 +1511,7 @@ h3 {
 .label {
   display: block;
   margin-bottom: 0.35rem;
-  color: #7690a5;
+  color: var(--cep-text-muted);
 }
 
 .top-actions {
@@ -1368,29 +1521,67 @@ h3 {
   justify-content: flex-end;
 }
 
+.top-mode {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  color: var(--cep-text-muted);
+  font-size: 0.72rem;
+}
+
+.top-mode strong {
+  color: var(--cep-text);
+}
+
+.surface-tab {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.45rem;
+  align-items: center;
+  min-height: 2.35rem;
+  padding: 0.45rem 0.7rem;
+  color: var(--cep-text-muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+
+.surface-tab:hover,
+.surface-tab.active {
+  color: var(--cep-accent);
+  background: var(--cep-accent-soft);
+  border-bottom-color: var(--cep-accent);
+}
+
+.surface-tab bdi {
+  font-size: 0.64rem;
+}
+
 .button {
   min-height: 2.25rem;
   padding: 0.48rem 0.72rem;
-  color: #c9d8e3;
+  color: var(--cep-text);
   font: inherit;
   font-size: 0.72rem;
   font-weight: 700;
-  border: 1px solid #2b475a;
+  border: 1px solid var(--cep-border-strong);
   border-radius: 0.45rem;
-  background: #0a1824;
+  background: var(--cep-bg-panel-strong);
   cursor: pointer;
 }
 
 .button.primary {
-  color: #062027;
-  border-color: #61c3c8;
-  background: #70cbd0;
+  color: var(--cep-bg-canvas);
+  border-color: var(--cep-accent);
+  background: var(--cep-accent);
 }
 
 .button.secondary:hover,
 .button.ghost:hover {
-  border-color: #4d7e94;
-  background: #0d2130;
+  border-color: var(--cep-accent);
+  background: var(--cep-accent-soft);
 }
 
 .button.ghost {
@@ -1411,15 +1602,15 @@ h3 {
 }
 
 .notice.success {
-  color: #a7e5cc;
-  border-color: #2d6754;
-  background: rgba(35, 105, 76, 0.12);
+  color: var(--pe-positive);
+  border-color: var(--pe-positive-border);
+  background: var(--pe-positive-bg);
 }
 
 .notice.error {
-  color: #f1b4bc;
-  border-color: #7c3b47;
-  background: rgba(118, 48, 61, 0.12);
+  color: var(--pe-danger);
+  border-color: var(--pe-danger-border);
+  background: var(--pe-danger-bg);
 }
 
 .workspace-grid {
@@ -1440,10 +1631,11 @@ h3 {
   border-radius: 0.8rem;
 }
 
+:deep(.cep-primary-surface) {
+  padding: 0;
+}
+
 .left-rail {
-  grid-area: left;
-  position: sticky;
-  top: 1rem;
   overflow: hidden;
 }
 
@@ -1452,9 +1644,9 @@ h3 {
   align-items: center;
   justify-content: space-between;
   padding: 0.72rem;
-  color: #70889b;
+  color: var(--cep-text-muted);
   font-size: 0.64rem;
-  border-bottom: 1px solid #1d3143;
+  border-bottom: 1px solid var(--cep-border);
 }
 
 .area-link {
@@ -1463,7 +1655,7 @@ h3 {
   justify-content: space-between;
   min-height: 3.2rem;
   padding: 0.72rem;
-  color: #8da2b4;
+  color: var(--cep-text-muted);
   font-size: 0.76rem;
   text-decoration: none;
   border-bottom: 1px solid #172a3a;
@@ -1474,25 +1666,24 @@ h3 {
 }
 
 .area-link.active {
-  color: #e5f1f7;
-  background: linear-gradient(90deg, rgba(77, 183, 193, 0.16), rgba(12, 32, 46, 0.65));
-  box-shadow: inset 3px 0 #66c5cd;
+  color: var(--cep-text);
+  background: var(--cep-accent-soft);
+  box-shadow: inset 3px 0 var(--cep-accent);
 }
 
 .area-link bdi {
-  color: #627b8f;
+  color: var(--cep-text-muted);
   font-size: 0.62rem;
 }
 
 .center-workspace {
-  grid-area: center;
   overflow: hidden;
 }
 
 .surface-heading {
   min-height: 4.2rem;
   padding: 0.85rem 1rem;
-  border-bottom: 1px solid #1d3143;
+  border-bottom: 1px solid var(--cep-border);
 }
 
 .surface-heading > p {
@@ -1502,7 +1693,7 @@ h3 {
 
 .workbench-grid {
   display: grid;
-  grid-template-columns: 16rem minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   min-height: 35rem;
 }
 
@@ -1521,9 +1712,9 @@ h3 {
   align-items: center;
   justify-content: space-between;
   padding: 0.65rem 0.75rem;
-  color: #6f879b;
+  color: var(--cep-text-muted);
   font-size: 0.66rem;
-  background: rgba(14, 31, 44, 0.58);
+  background: var(--cep-bg-panel-strong);
 }
 
 .record-row {
@@ -1533,7 +1724,7 @@ h3 {
   align-items: center;
   width: 100%;
   padding: 0.68rem 0.75rem;
-  color: #aebfcb;
+  color: var(--cep-text-muted);
   text-align: right;
   border: 0;
   border-top: 1px solid #172a3a;
@@ -1543,11 +1734,11 @@ h3 {
 
 .record-row:hover,
 .record-row.selected {
-  background: #0c2030;
+  background: var(--cep-accent-soft);
 }
 
 .record-row.selected {
-  box-shadow: inset -2px 0 #62c4cb;
+  box-shadow: inset -2px 0 var(--cep-accent);
 }
 
 .record-row span,
@@ -1564,13 +1755,13 @@ h3 {
 }
 
 .record-row strong {
-  color: #cddce7;
+  color: var(--cep-text);
   font-size: 0.73rem;
 }
 
 .record-row small {
   margin-top: 0.2rem;
-  color: #6f879b;
+  color: var(--cep-text-muted);
   font-size: 0.65rem;
 }
 
@@ -1578,34 +1769,34 @@ h3 {
   display: inline-flex;
   max-width: 10rem;
   padding: 0.25rem 0.42rem;
-  color: #9edfe1;
+  color: var(--pe-info);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.61rem;
-  border: 1px solid #315c66;
+  border: 1px solid var(--pe-info-border);
   border-radius: 999px;
-  background: rgba(43, 107, 112, 0.13);
+  background: var(--pe-info-bg);
   overflow-wrap: anywhere;
 }
 
 .candidate-state {
-  color: #e2c580;
-  border-color: #66532e;
-  background: rgba(106, 77, 29, 0.14);
+  color: var(--pe-warning);
+  border-color: var(--pe-warning-border);
+  background: var(--pe-warning-bg);
 }
 
 .request-state {
-  color: #9fd3ef;
-  border-color: #315976;
+  color: var(--pe-info);
+  border-color: var(--pe-info-border);
 }
 
 .review-state {
-  color: #9ce4c9;
-  border-color: #2b6452;
+  color: var(--pe-positive);
+  border-color: var(--pe-positive-border);
 }
 
 .projection-state {
-  color: #a8cde1;
-  border-color: #3a586d;
+  color: var(--pe-code);
+  border-color: var(--cep-border-strong);
 }
 
 .object-workbench {
@@ -1615,15 +1806,15 @@ h3 {
 
 .object-heading {
   padding-bottom: 0.85rem;
-  border-bottom: 1px solid #1d3143;
+  border-bottom: 1px solid var(--cep-border);
 }
 
 .truth-banner,
 .context-callout {
   padding: 0.72rem;
-  border: 1px solid #2a4b60;
+  border: 1px solid var(--cep-border-strong);
   border-radius: 0.55rem;
-  background: rgba(25, 66, 86, 0.12);
+  background: var(--cep-accent-soft);
 }
 
 .truth-banner {
@@ -1633,30 +1824,30 @@ h3 {
 }
 
 .truth-banner strong {
-  color: #d6e6ef;
+  color: var(--cep-text);
   font-size: 0.72rem;
 }
 
 .truth-banner span,
 .context-callout p {
   margin: 0;
-  color: #839aab;
+  color: var(--cep-text-muted);
   font-size: 0.72rem;
   line-height: 1.65;
 }
 
 .candidate-banner {
-  border-color: #66532e;
-  background: rgba(98, 72, 29, 0.12);
+  border-color: var(--pe-warning-border);
+  background: var(--pe-warning-bg);
 }
 
 .detail-block,
 .decision-block {
   padding: 0.8rem;
   margin-top: 0.75rem;
-  border: 1px solid #1d3447;
+  border: 1px solid var(--cep-border);
   border-radius: 0.55rem;
-  background: rgba(5, 15, 24, 0.6);
+  background: var(--cep-bg-panel-strong);
 }
 
 .detail-block.compact {
@@ -1667,7 +1858,7 @@ h3 {
 .decision-block p,
 .context-section p {
   margin-bottom: 0;
-  color: #9aafbf;
+  color: var(--cep-text-muted);
   font-size: 0.75rem;
   line-height: 1.65;
 }
@@ -1691,14 +1882,14 @@ h3 {
 .portfolio-reference bdi,
 .history-chain bdi,
 .causal-steps bdi {
-  color: #a8c5d7;
+  color: var(--pe-code);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.68rem;
   overflow-wrap: anywhere;
 }
 
 .muted {
-  color: #687f92 !important;
+  color: var(--cep-text-muted) !important;
   font-size: 0.68rem !important;
 }
 
@@ -1712,9 +1903,9 @@ h3 {
 
 .reference-list li {
   padding: 0.35rem 0.42rem;
-  border: 1px solid #1b3042;
+  border: 1px solid var(--cep-border);
   border-radius: 0.35rem;
-  background: #07131e;
+  background: var(--cep-bg-panel-strong);
 }
 
 .dimension-card,
@@ -1724,20 +1915,20 @@ h3 {
   align-content: center;
   min-height: 4.2rem;
   padding: 0.65rem;
-  border: 1px solid #223c50;
+  border: 1px solid var(--cep-border);
   border-radius: 0.5rem;
-  background: #081724;
+  background: var(--cep-bg-panel-strong);
 }
 
 .dimension-card span,
 .mastery-dimension span {
-  color: #6d8497;
+  color: var(--cep-text-muted);
   font-size: 0.63rem;
 }
 
 .dimension-card bdi,
 .mastery-dimension bdi {
-  color: #dce9f1;
+  color: var(--cep-text);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.71rem;
   font-weight: 800;
@@ -1767,13 +1958,13 @@ h3 {
   width: 0.4rem;
   height: 0.4rem;
   margin-top: 0.25rem;
-  border: 2px solid #64c1ca;
+  border: 2px solid var(--cep-accent);
   border-radius: 50%;
 }
 
 .timeline-list p {
   margin: 0.15rem 0 0;
-  color: #7890a3;
+  color: var(--cep-text-muted);
   font-size: 0.68rem;
 }
 
@@ -1785,21 +1976,21 @@ h3 {
 
 .finding-card {
   padding: 0.6rem;
-  border: 1px solid #20394c;
+  border: 1px solid var(--cep-border);
   border-radius: 0.45rem;
-  background: #071522;
+  background: var(--cep-bg-panel-strong);
 }
 
 .finding-value,
 .decision-value {
-  color: #a3e5cc;
+  color: var(--pe-positive);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.68rem;
 }
 
 .decision-block {
-  border-color: #29495d;
-  background: rgba(9, 29, 42, 0.74);
+  border-color: var(--cep-border-strong);
+  background: var(--cep-bg-panel-strong);
 }
 
 .decision-content {
@@ -1809,7 +2000,7 @@ h3 {
 .decision-value {
   display: inline-flex;
   padding: 0.25rem 0.4rem;
-  border: 1px solid #316553;
+  border: 1px solid var(--pe-positive-border);
   border-radius: 0.35rem;
 }
 
@@ -1818,13 +2009,13 @@ h3 {
 }
 
 .judgment-card {
-  border-color: #355b74;
-  background: rgba(28, 70, 94, 0.17);
+  border-color: var(--pe-info-border);
+  background: var(--pe-info-bg);
 }
 
 .freshness-card {
-  border-color: #66532e;
-  background: rgba(101, 74, 28, 0.14);
+  border-color: var(--pe-warning-border);
+  background: var(--pe-warning-bg);
 }
 
 .causal-steps {
@@ -1837,9 +2028,9 @@ h3 {
   grid-template-columns: 1.7rem minmax(0, 1fr);
   gap: 0.55rem;
   padding: 0.55rem;
-  border: 1px solid #1e3547;
+  border: 1px solid var(--cep-border);
   border-radius: 0.45rem;
-  background: #07141f;
+  background: var(--cep-bg-panel-strong);
 }
 
 .step-number {
@@ -1848,16 +2039,16 @@ h3 {
   justify-content: center;
   width: 1.55rem;
   height: 1.55rem;
-  color: #86d8df;
+  color: var(--cep-accent);
   font-size: 0.62rem;
-  border: 1px solid #2c6670;
+  border: 1px solid var(--pe-info-border);
   border-radius: 50%;
 }
 
 .causal-steps strong {
   display: block;
   margin-bottom: 0.25rem;
-  color: #c4d6e2;
+  color: var(--cep-text);
   font-size: 0.69rem;
 }
 
@@ -1874,18 +2065,18 @@ h3 {
   justify-content: space-between;
   width: 100%;
   padding: 0.65rem;
-  color: #b9cad6;
+  color: var(--cep-text);
   text-align: right;
-  border: 1px solid #203749;
+  border: 1px solid var(--cep-border);
   border-radius: 0.48rem;
-  background: #071522;
+  background: var(--cep-bg-panel-strong);
   cursor: pointer;
 }
 
 .portfolio-reference.selected,
 .portfolio-reference:hover {
-  border-color: #3d7084;
-  background: #0b2030;
+  border-color: var(--cep-accent);
+  background: var(--cep-accent-soft);
 }
 
 .portfolio-reference strong,
@@ -1895,16 +2086,16 @@ h3 {
 
 .portfolio-reference small {
   margin-top: 0.15rem;
-  color: #647e92;
+  color: var(--cep-text-muted);
   font-size: 0.62rem;
 }
 
 .empty-state,
 .empty-workbench {
-  color: #617a8e;
+  color: var(--cep-text-muted);
   font-size: 0.7rem;
   text-align: center;
-  border: 1px dashed #294052;
+  border: 1px dashed var(--cep-border-strong);
   border-radius: 0.45rem;
 }
 
@@ -1921,11 +2112,8 @@ h3 {
 }
 
 .right-context {
-  grid-area: right;
-  position: sticky;
-  top: 1rem;
   min-width: 0;
-  padding: 0.85rem;
+  padding: 0;
 }
 
 .right-context h2 {
@@ -1936,7 +2124,7 @@ h3 {
 .context-section {
   padding-top: 0.7rem;
   margin-top: 0.7rem;
-  border-top: 1px solid #1d3143;
+  border-top: 1px solid var(--cep-border);
 }
 
 .context-section.no-border {
@@ -1952,8 +2140,8 @@ h3 {
 }
 
 .warning-context {
-  border-color: #66532e;
-  background: rgba(91, 67, 24, 0.12);
+  border-color: var(--pe-warning-border);
+  background: var(--pe-warning-bg);
 }
 
 .context-icon {
@@ -1962,10 +2150,10 @@ h3 {
   justify-content: center;
   width: 1.4rem;
   height: 1.4rem;
-  color: #86d8df;
+  color: var(--cep-accent);
   font-size: 0.68rem;
   font-weight: 900;
-  border: 1px solid #356779;
+  border: 1px solid var(--pe-info-border);
   border-radius: 50%;
 }
 
@@ -1976,7 +2164,7 @@ h3 {
 }
 
 .authority-block > span {
-  color: #71899c;
+  color: var(--cep-text-muted);
   font-size: 0.64rem;
 }
 
@@ -1989,26 +2177,59 @@ h3 {
   display: grid;
   gap: 0.18rem;
   padding: 0.5rem;
-  border: 1px solid #1e3547;
+  border: 1px solid var(--cep-border);
   border-radius: 0.4rem;
-  background: #07141f;
+  background: var(--cep-bg-panel-strong);
 }
 
 .history-chain small {
-  color: #627b8f;
+  color: var(--cep-text-muted);
   font-size: 0.6rem;
 }
 
+.digest {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.62rem !important;
+  overflow-wrap: anywhere;
+}
+
+.history-workspace {
+  max-width: 72rem;
+  margin: 0 auto;
+}
+
+.history-table {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  list-style: none;
+}
+
+.history-table li {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1.5fr) repeat(2, minmax(9rem, 0.75fr)) minmax(12rem, 1fr);
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.65rem;
+  color: var(--cep-text-muted);
+  font-size: 0.7rem;
+  border: 1px solid var(--cep-border);
+  border-radius: var(--cep-radius-sm);
+  background: var(--cep-bg-panel);
+}
+
+.history-table bdi {
+  color: var(--cep-text);
+}
+
 .bottom-workspace {
-  padding: 0.9rem;
-  margin-top: 0.75rem;
-  border-radius: 0.8rem;
-  box-shadow: 0 -16px 44px rgba(0, 0, 0, 0.24);
+  min-width: 0;
 }
 
 .bottom-header {
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid #1d3143;
+  border-bottom: 1px solid var(--cep-border);
 }
 
 .form-grid {
@@ -2023,7 +2244,7 @@ h3 {
 .form-grid label {
   display: grid;
   gap: 0.28rem;
-  color: #91a8b8;
+  color: var(--cep-text-muted);
   font-size: 0.68rem;
 }
 
@@ -2032,11 +2253,11 @@ h3 {
 .form-grid select {
   width: 100%;
   padding: 0.58rem 0.62rem;
-  color: #e5eff5;
+  color: var(--cep-text);
   font: inherit;
-  border: 1px solid #2a4558;
+  border: 1px solid var(--cep-border-strong);
   border-radius: 0.42rem;
-  background: #050e17;
+  background: var(--cep-bg-panel);
 }
 
 .form-grid textarea {
@@ -2055,7 +2276,7 @@ h3 {
 
 .form-note {
   margin: 0;
-  color: #8198a9;
+  color: var(--cep-text-muted);
   font-size: 0.68rem;
 }
 
@@ -2097,8 +2318,7 @@ bdi {
 
   .left-rail {
     position: static;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    display: block;
   }
 
   .rail-heading {
@@ -2125,7 +2345,8 @@ bdi {
   .detail-grid,
   .dimension-grid,
   .mastery-dimensions,
-  .form-grid {
+  .form-grid,
+  .history-table li {
     grid-template-columns: minmax(0, 1fr);
   }
 

@@ -113,6 +113,68 @@ final class EvidenceReviewService
         });
     }
 
+    /**
+     * Resolve a single canonical Evidence object's current sealed Revision for the
+     * workspace route, then enter the same governed multi-item Review boundary.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function requestCurrentRevisionReview(
+        string $evidenceId,
+        string $requestedBy,
+        array $data = [],
+    ): array {
+        $current = DB::table('governed_evidence as evidence')
+            ->join('governed_evidence_revisions as revision', function ($join): void {
+                $join->on('revision.evidence_id', '=', 'evidence.id')
+                    ->on('revision.revision', '=', 'evidence.current_revision_number');
+            })
+            ->where('evidence.id', $evidenceId)
+            ->select(
+                'evidence.id as evidence_id',
+                'evidence.capability_id',
+                'evidence.governed_purpose',
+                'revision.id as evidence_revision_id',
+                'revision.criterion_scope',
+            )
+            ->first();
+
+        if ($current === null) {
+            throw new IntakeReviewException('Current sealed Evidence Revision was not found.');
+        }
+
+        $criterionRefs = $data['criterion_refs'] ?? json_decode(
+            (string) $current->criterion_scope,
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
+        if (! is_array($criterionRefs) || ! array_is_list($criterionRefs)) {
+            throw new IntakeReviewException('Formal Review criterion scope must be a list.');
+        }
+        $criteria = [];
+        foreach ($criterionRefs as $criterionRef) {
+            if (! is_string($criterionRef) || trim($criterionRef) === '') {
+                throw new IntakeReviewException('Formal Review criterion references must be non-empty strings.');
+            }
+            $criteria[] = trim($criterionRef);
+        }
+        if ($criteria === [] && $current->governed_purpose !== 'GOVERNED_PROVENANCE_ATTESTATION') {
+            throw new IntakeReviewException('Formal capability Evidence requires a non-empty governed Review criterion scope.');
+        }
+
+        return $this->requestReview(
+            [[
+                'evidence_id' => (string) $current->evidence_id,
+                'evidence_revision_id' => (string) $current->evidence_revision_id,
+            ]],
+            $requestedBy,
+            (string) ($data['review_scope_key'] ?? "CAPABILITY:{$current->capability_id}"),
+            $criteria,
+            (string) ($data['purpose'] ?? 'FORMAL_EVIDENCE_REVIEW'),
+        );
+    }
+
     /** @return array<string, mixed> */
     public function startReview(string $reviewRequestId, string $reviewerId): array
     {

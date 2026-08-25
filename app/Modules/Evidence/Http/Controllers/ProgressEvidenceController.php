@@ -121,11 +121,10 @@ final class ProgressEvidenceController extends Controller
     {
         $data = $request->validate([
             'target_state' => ['required', 'in:WITHDRAWN,SUPERSEDED'],
-            'reason' => ['required', 'string', 'max:1000'],
         ]);
 
         return $this->workflow(
-            fn () => $this->service->transitionLifecycle($evidence, $this->actorId($request), $data['target_state'], $data['reason']),
+            fn () => $this->service->transitionLifecycle($evidence, $this->actorId($request), $data['target_state']),
             'تم تحديث Evidence Lifecycle بنجاح Review و Decision و Mastery history.',
         );
     }
@@ -140,7 +139,7 @@ final class ProgressEvidenceController extends Controller
         ]);
 
         return $this->workflow(
-            fn () => $this->reviewService->requestReview($evidence, $this->actorId($request), $data),
+            fn () => $this->reviewService->requestCurrentRevisionReview($evidence, $this->actorId($request), $data),
             'تم طلب Review Request لـ Evidence Revision الحالي. قيد الانتظار للقبول.',
         );
     }
@@ -148,7 +147,7 @@ final class ProgressEvidenceController extends Controller
     public function admitReview(Request $request, string $reviewRequest): RedirectResponse
     {
         return $this->workflow(
-            fn () => $this->reviewService->admitReviewRequest($reviewRequest, $this->actorId($request)),
+            fn () => $this->reviewService->startReview($reviewRequest, $this->actorId($request)),
             'تم قبول طلب المراجعة وإنشاء Evidence Review رسمي. يمكن إضافة النتائج.',
         );
     }
@@ -167,12 +166,10 @@ final class ProgressEvidenceController extends Controller
             fn () => $this->reviewService->recordFinding(
                 $review,
                 $this->actorId($request),
-                [
-                    'criterion_key' => $data['criterion_key'],
-                    'finding' => $data['finding'],
-                    'statement' => $data['statement'],
-                    'supporting_evidence_revision_ids' => $data['supporting_evidence_revision_ids'] ?? [],
-                ]
+                $data['criterion_key'],
+                $data['finding'],
+                $data['statement'],
+                $data['supporting_evidence_revision_ids'] ?? [],
             ),
             'تم تسجيل Review Finding بنجاح. Evidence Revision مدعوم بالنتائج لإصدار Review Decision.',
         );
@@ -189,10 +186,8 @@ final class ProgressEvidenceController extends Controller
             fn () => $this->decisionService->recordDecision(
                 $review,
                 $this->actorId($request),
-                [
-                    'decision' => $data['decision'],
-                    'rationale' => $data['rationale'],
-                ]
+                $data['decision'],
+                $data['rationale'],
             ),
             'تم إصدار Review Decision. قد يؤثر على حالة التقييم لإصدار Superseding Decision لاحقاً.',
         );
@@ -201,7 +196,6 @@ final class ProgressEvidenceController extends Controller
     public function evaluateMastery(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'capability_id' => ['required', 'string', 'max:100'],
             'policy_revision_id' => ['required', 'uuid'],
             'judgment' => ['required', 'in:NOT_EVALUATED,INSUFFICIENT_EVIDENCE,INCONCLUSIVE,NOT_MASTERED,MASTERED'],
             'freshness_status' => ['required', 'in:CURRENT,REVALIDATION_REQUIRED'],

@@ -654,7 +654,10 @@ final class MasteryPortfolioService
         return $items;
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @param  list<string>  $jsonFields
+     * @return array<string, mixed>
+     */
     private function array(object $row, array $jsonFields = []): array
     {
         $result = (array) $row;

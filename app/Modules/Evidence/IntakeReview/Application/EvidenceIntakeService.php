@@ -256,11 +256,13 @@ final class EvidenceIntakeService
                 'created_at' => $now,
             ]);
 
+            $admission = EvidenceAdmissionRecord::query()->where('id', $admissionId)->firstOrFail();
+
             return [
                 'candidate' => $this->candidate($candidateId),
                 'evidence' => (array) DB::table('governed_evidence')->where('id', $evidenceId)->firstOrFail(),
                 'revision' => (array) DB::table('governed_evidence_revisions')->where('id', $revisionId)->firstOrFail(),
-                'admission' => (array) EvidenceAdmissionRecord::query()->where('id', $admissionId)->firstOrFail(),
+                'admission' => $admission->attributesToArray(),
             ];
         });
     }

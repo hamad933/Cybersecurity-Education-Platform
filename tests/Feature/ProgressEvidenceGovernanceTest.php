@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Modules\Evidence\Application\ProgressEvidence\MasteryPortfolio\MasteryPortfolioService;
 use App\Modules\Evidence\Application\ProgressEvidenceService;
+use App\Modules\Evidence\IntakeReview\Application\IntakeReviewReadModel;
 use App\Modules\IdentityAccess\Actions\CreateOwner;
 use App\Modules\IdentityAccess\Models\OwnerAccount;
 use Illuminate\Database\QueryException;
@@ -23,6 +25,8 @@ class ProgressEvidenceGovernanceTest extends TestCase
     private ProgressEvidenceService $service;
 
     private OwnerAccount $owner;
+
+    private ?string $masteryPolicyRevisionId = null;
 
     protected function setUp(): void
     {
@@ -61,10 +65,20 @@ class ProgressEvidenceGovernanceTest extends TestCase
         $this->assertDatabaseHas('evidence_candidates', ['id' => $candidate['id'], 'state' => 'ADMITTED']);
         $this->assertDatabaseCount('governed_evidence', 1);
         $this->assertDatabaseCount('governed_evidence_revisions', 1);
+        $this->assertDatabaseHas('evidence_admission_records', [
+            'candidate_id' => $candidate['id'],
+            'evidence_id' => $admitted['evidence']['id'],
+            'evidence_revision_id' => $admitted['revision']['id'],
+        ]);
         $this->assertDatabaseCount('evidence_review_requests', 0);
         $this->assertDatabaseCount('evidence_reviews', 0);
         $this->assertDatabaseCount('evidence_review_decisions', 0);
         $this->assertDatabaseCount('evidence_mastery_states', 0);
+        $timeline = app(IntakeReviewReadModel::class)->candidateTimeline($candidate['id']);
+        $this->assertSame(
+            ['RECEIVED', 'PREPARED', 'SUBMITTED_FOR_INTAKE', 'ADMITTED'],
+            array_column($timeline, 'to_state'),
+        );
     }
 
     #[Test]
@@ -97,7 +111,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
             'selected_material_refs' => ['artifact:02', 'artifact:01'],
             'criterion_scope' => ['CRIT-B', 'CRIT-A'],
         ]);
-        $first = $this->service->intakeCandidate($this->owner->id, $this->owner->id, $handoff);
+        $first = $this->intakeCandidateForActor($this->owner->id, $handoff);
         $sameSemanticIdentity = [
             ...$handoff,
             'title' => 'Different display title does not create a new Evidence identity',
@@ -105,7 +119,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
             'selected_material_refs' => ['artifact:01', 'artifact:02'],
             'criterion_scope' => ['CRIT-A', 'CRIT-B'],
         ];
-        $duplicate = $this->service->intakeCandidate($this->owner->id, $this->owner->id, $sameSemanticIdentity);
+        $duplicate = $this->intakeCandidateForActor($this->owner->id, $sameSemanticIdentity);
         $this->assertSame($first['id'], $duplicate['id']);
         $this->assertDatabaseCount('evidence_candidates', 1);
 
@@ -113,16 +127,29 @@ class ProgressEvidenceGovernanceTest extends TestCase
             ...$handoff,
             'evidence_claim' => 'A materially different governed claim over the same source revision.',
         ];
-        $second = $this->service->intakeCandidate($this->owner->id, $this->owner->id, $differentClaim);
+        $second = $this->intakeCandidateForActor($this->owner->id, $differentClaim);
         $this->assertNotSame($first['id'], $second['id']);
         $this->assertDatabaseCount('evidence_candidates', 2);
 
+        $receipt = DB::table('evidence_source_handoff_receipts')
+            ->where('id', $handoff['handoff_receipt_id'])
+            ->firstOrFail();
         $integrityConflict = [
-            ...$sameSemanticIdentity,
+            'source_type' => $receipt->source_type,
+            'source_id' => $receipt->source_id,
+            'source_revision' => $receipt->source_revision,
             'source_digest' => hash('sha256', 'different-bytes-for-same-source-revision'),
+            'selected_material_refs' => json_decode($receipt->selected_material_refs, true, 512, JSON_THROW_ON_ERROR),
+            'capability_id' => $receipt->capability_id,
+            'facts' => json_decode($receipt->facts, true, 512, JSON_THROW_ON_ERROR),
+            'metadata' => json_decode($receipt->metadata, true, 512, JSON_THROW_ON_ERROR),
         ];
         $this->assertLogicRejected(
-            fn () => $this->service->intakeCandidate($this->owner->id, $this->owner->id, $integrityConflict),
+            fn () => $this->service->registerSourceHandoffReceipt(
+                $this->owner->id,
+                $this->owner->id,
+                $integrityConflict,
+            ),
             'integrity digest',
         );
     }
@@ -306,7 +333,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
             $this->owner->id,
             $supporting['evidence']['capability_id'],
             $this->owner->id,
-            'MP-APPSEC-v4',
+            $this->publishedPolicyRevisionId(),
             'INCONCLUSIVE',
             'CURRENT',
             [$supporting['decision']['id'], $contradicting['decision']['id']],
@@ -336,7 +363,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
                 $this->owner->id,
                 $reviewed['evidence']['capability_id'],
                 $this->owner->id,
-                'MP-APPSEC-v4',
+                $this->publishedPolicyRevisionId(),
                 'INCONCLUSIVE',
                 'CURRENT',
                 [],
@@ -351,7 +378,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
                 $this->owner->id,
                 $reviewed['evidence']['capability_id'],
                 $this->owner->id,
-                'MP-APPSEC-v4',
+                $this->publishedPolicyRevisionId(),
                 'INCONCLUSIVE',
                 'CURRENT',
                 [],
@@ -366,7 +393,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
                 $this->owner->id,
                 $reviewed['evidence']['capability_id'],
                 $this->owner->id,
-                'MP-APPSEC-v4',
+                $this->publishedPolicyRevisionId(),
                 'INCONCLUSIVE',
                 'CURRENT',
                 [$unknownDecision],
@@ -392,7 +419,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
                 $this->owner->id,
                 $otherReviewed['evidence']['capability_id'],
                 $this->owner->id,
-                'MP-APPSEC-v4',
+                $this->publishedPolicyRevisionId(),
                 'MASTERED',
                 'CURRENT',
                 [$otherReviewed['decision']['id']],
@@ -434,7 +461,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
                 $this->owner->id,
                 $first['evidence']['capability_id'],
                 $this->owner->id,
-                'MP-APPSEC-v4',
+                $this->publishedPolicyRevisionId(),
                 'MASTERED',
                 'CURRENT',
                 [$first['decision']['id']],
@@ -449,7 +476,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
             $this->owner->id,
             $first['evidence']['capability_id'],
             $this->owner->id,
-            'MP-APPSEC-v4',
+            $this->publishedPolicyRevisionId(),
             'MASTERED',
             'CURRENT',
             [$currentDecision['id']],
@@ -490,7 +517,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
             'Application Security — Professional Evidence',
             'Application Security',
             'CAPABILITY',
-            ['lifecycle' => ['ACTIVE']],
+            ['lifecycle_states' => ['ACTIVE']],
             ['purpose' => 'professional'],
         );
         $this->service->addEvidenceToPortfolio(
@@ -563,7 +590,8 @@ class ProgressEvidenceGovernanceTest extends TestCase
                 ->where('surface', 'reviews'));
 
         $otherActorId = (string) Str::uuid();
-        $otherCandidate = $this->service->intakeCandidate($otherActorId, $otherActorId, $this->handoff([
+        $otherCandidate = $this->intakeCandidateForActor($otherActorId, $this->handoff([
+            '_actor_id' => $otherActorId,
             'source_id' => 'fixture:owned-by-other',
             'source_digest' => hash('sha256', 'owned-by-other'),
         ]));
@@ -585,10 +613,16 @@ class ProgressEvidenceGovernanceTest extends TestCase
         $this->assertSame('RECEIVED', $candidate['state']);
 
         $this->actingAs($this->owner)
-            ->post("/progress/candidates/{$candidate['id']}/state", ['state' => 'PREPARED'])
+            ->post("/progress/candidates/{$candidate['id']}/state", [
+                'target_state' => 'PREPARED',
+                'reason' => 'Prepare the governed Candidate Evidence for Intake.',
+            ])
             ->assertRedirect();
         $this->actingAs($this->owner)
-            ->post("/progress/candidates/{$candidate['id']}/state", ['state' => 'SUBMITTED_FOR_INTAKE'])
+            ->post("/progress/candidates/{$candidate['id']}/state", [
+                'target_state' => 'SUBMITTED_FOR_INTAKE',
+                'reason' => 'Submit the prepared Candidate Evidence for governed Intake.',
+            ])
             ->assertRedirect();
         $this->actingAs($this->owner)
             ->post("/progress/candidates/{$candidate['id']}/admit")
@@ -598,6 +632,60 @@ class ProgressEvidenceGovernanceTest extends TestCase
         $this->assertDatabaseCount('governed_evidence', 1);
         $this->assertDatabaseCount('evidence_review_requests', 0);
         $this->assertDatabaseCount('evidence_mastery_states', 0);
+    }
+
+    #[Test]
+    public function w04_http_review_flow_keeps_findings_and_human_decisions_distinct(): void
+    {
+        $bundle = $this->admittedBundle();
+        $evidenceId = $bundle['evidence']['id'];
+        $revisionId = $bundle['revision']['id'];
+
+        $this->actingAs($this->owner)
+            ->post("/progress/evidence/{$evidenceId}/review-requests")
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+        $request = (array) DB::table('evidence_review_requests')->firstOrFail();
+        $this->assertDatabaseHas('evidence_review_scope_items', [
+            'review_request_id' => $request['id'],
+            'evidence_id' => $evidenceId,
+            'evidence_revision_id' => $revisionId,
+        ]);
+
+        $this->actingAs($this->owner)
+            ->post("/progress/review-requests/{$request['id']}/admit")
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+        $review = (array) DB::table('evidence_reviews')->firstOrFail();
+
+        $this->actingAs($this->owner)
+            ->post("/progress/reviews/{$review['id']}/findings", [
+                'criterion_key' => 'CRIT-INPUT-VALIDATION',
+                'finding' => 'SATISFIED',
+                'statement' => 'The scoped revision satisfies the governed criterion.',
+                'supporting_evidence_revision_ids' => [$revisionId],
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('evidence_review_findings', 1);
+        $this->assertDatabaseCount('evidence_review_decisions', 0);
+
+        $this->actingAs($this->owner)
+            ->post("/progress/reviews/{$review['id']}/decision", [
+                'decision' => 'ACCEPT',
+                'rationale' => 'A human reviewer accepts the exact scoped Evidence Revision.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('evidence_review_decision_items', [
+            'evidence_id' => $evidenceId,
+            'evidence_revision_id' => $revisionId,
+        ]);
+        $this->assertDatabaseHas('governed_evidence', [
+            'id' => $evidenceId,
+            'review_status' => 'REVIEWED',
+            'effective_review_decision' => 'ACCEPT',
+        ]);
     }
 
     #[Test]
@@ -618,7 +706,11 @@ class ProgressEvidenceGovernanceTest extends TestCase
                 ->where('mastery.0.previous_state_id', $first['id'])
                 ->where('mastery.0.judgment', 'MASTERED')
                 ->where('mastery.0.freshness_status', 'REVALIDATION_REQUIRED')
-                ->has('mastery_history', 2));
+                ->has('mastery_history', 2)
+                ->has('handoff_receipts', 1)
+                ->where('handoff_receipts.0.source_type', 'SYNTHETIC_TEST_HANDOFF')
+                ->where('handoff_receipts.0.capability_id', 'CAP-APPSEC-INPUT-VALIDATION')
+                ->has('handoff_receipts.0.selected_material_refs', 1));
     }
 
     /** @return array<string, mixed> */
@@ -657,10 +749,26 @@ class ProgressEvidenceGovernanceTest extends TestCase
     /** @return array<string, mixed> */
     private function candidate(array $overrides = []): array
     {
+        return $this->intakeCandidateForActor(
+            $this->owner->id,
+            $this->handoff(array_merge(['_actor_id' => $this->owner->id], $overrides)),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $candidateInput
+     * @return array<string, mixed>
+     */
+    private function intakeCandidateForActor(string $actorId, array $candidateInput): array
+    {
+        $handoffReceiptId = (string) ($candidateInput['handoff_receipt_id'] ?? '');
+        unset($candidateInput['handoff_receipt_id']);
+
         return $this->service->intakeCandidate(
-            $this->owner->id,
-            $this->owner->id,
-            $this->handoff(array_merge(['_actor_id' => $actorId], $overrides)),
+            $actorId,
+            $actorId,
+            $handoffReceiptId,
+            $candidateInput,
         );
     }
 
@@ -694,7 +802,10 @@ class ProgressEvidenceGovernanceTest extends TestCase
     /** @return array{evidence: array<string, mixed>, revision: array<string, mixed>, decision: array<string, mixed>} */
     private function reviewedEvidenceForActor(string $actorId, string $decision, array $overrides = []): array
     {
-        $candidate = $this->service->intakeCandidate($actorId, $actorId, $this->handoff(array_merge(['_actor_id' => $actorId], $overrides)));
+        $candidate = $this->intakeCandidateForActor(
+            $actorId,
+            $this->handoff(array_merge(['_actor_id' => $actorId], $overrides)),
+        );
         $candidate = $this->service->transitionCandidate($candidate['id'], $actorId, 'PREPARED');
         $candidate = $this->service->transitionCandidate($candidate['id'], $actorId, 'SUBMITTED_FOR_INTAKE');
         $bundle = $this->service->admitCandidate($candidate['id'], $actorId);
@@ -735,7 +846,7 @@ class ProgressEvidenceGovernanceTest extends TestCase
             $this->owner->id,
             $reviewed['evidence']['capability_id'],
             $this->owner->id,
-            'MP-APPSEC-v4',
+            $this->publishedPolicyRevisionId(),
             $judgment,
             $freshness,
             [$reviewed['decision']['id']],
@@ -753,5 +864,24 @@ class ProgressEvidenceGovernanceTest extends TestCase
         } catch (LogicException $exception) {
             $this->assertStringContainsString($messageFragment, $exception->getMessage());
         }
+    }
+
+    private function publishedPolicyRevisionId(): string
+    {
+        if ($this->masteryPolicyRevisionId !== null) {
+            return $this->masteryPolicyRevisionId;
+        }
+
+        $service = app(MasteryPortfolioService::class);
+        $draft = $service->createPolicy(
+            $this->owner->id,
+            'CAP-APPSEC-INPUT-VALIDATION',
+            'Governed application security policy',
+            [],
+            'Published policy fixture for exact Mastery provenance.',
+        );
+        $published = $service->publishPolicyRevision($draft['id'], $this->owner->id);
+
+        return $this->masteryPolicyRevisionId = $published['id'];
     }
 }

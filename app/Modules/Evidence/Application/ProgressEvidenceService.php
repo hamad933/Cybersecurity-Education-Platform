@@ -3,6 +3,8 @@
 namespace App\Modules\Evidence\Application;
 
 use App\Modules\Evidence\Models\EvidenceSourceHandoffReceipt;
+use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -39,11 +41,6 @@ final class ProgressEvidenceService
         'ACCEPT_WITH_LIMITATIONS',
         'MORE_EVIDENCE_REQUIRED',
         'REJECT',
-    ];
-
-    private const MASTERY_QUALIFYING_DECISIONS = [
-        'ACCEPT',
-        'ACCEPT_WITH_LIMITATIONS',
     ];
 
     private const JUDGMENTS = [
@@ -136,59 +133,6 @@ final class ProgressEvidenceService
         return $this->row('evidence_source_handoff_receipts', $id, ['selected_material_refs', 'facts', 'metadata']);
     }
 
-    /** @return array<string, mixed> */
-    public function registerMasteryPolicyRevision(
-        string $policyKey,
-        int $revision,
-        array $qualifyingDecisions,
-        string $approvedBy,
-    ): array {
-        $policyKey = $this->text($policyKey, 100, 'Mastery Policy key');
-        if ($revision < 1) {
-            throw new InvalidArgumentException('Mastery Policy revision must be positive.');
-        }
-        $qualifying = $this->stringList($qualifyingDecisions, 'qualifying Review Decisions', true, 2, 40);
-        foreach ($qualifying as $decision) {
-            if (! in_array($decision, self::MASTERY_QUALIFYING_DECISIONS, true)) {
-                throw new InvalidArgumentException('Mastery Policy contains a non-qualifying Review Decision outcome.');
-            }
-        }
-
-        $body = [
-            'policy_key' => $policyKey,
-            'revision' => $revision,
-            'qualifying_review_decisions' => $qualifying,
-            'state' => 'APPROVED',
-        ];
-        $digest = $this->digest($body);
-        $existing = DB::table('evidence_mastery_policy_revisions')
-            ->where('policy_key', $policyKey)
-            ->where('revision', $revision)
-            ->first();
-        if ($existing) {
-            if ($existing->content_digest !== $digest) {
-                throw new LogicException('Mastery Policy Revision already exists with different governed content.');
-            }
-
-            return $this->array($existing, ['qualifying_review_decisions']);
-        }
-
-        $id = (string) Str::uuid7();
-        $now = now();
-        DB::table('evidence_mastery_policy_revisions')->insert([
-            ...$body,
-            'id' => $id,
-            'qualifying_review_decisions' => $this->json($qualifying),
-            'content_digest' => $digest,
-            'approved_by' => $approvedBy,
-            'approved_at' => $now,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
-        return $this->row('evidence_mastery_policy_revisions', $id, ['qualifying_review_decisions']);
-    }
-
     /**
      * @param  array<string, mixed>  $candidateInput
      * @return array<string, mixed>
@@ -246,29 +190,55 @@ final class ProgressEvidenceService
         $id = (string) Str::uuid7();
         $now = now();
 
-        DB::table('evidence_candidates')->insert([
-            'id' => $id,
-            'handoff_receipt_id' => $receipt->id,
-            'subject_actor_id' => $subjectId,
-            'submitted_by' => $submittedBy,
-            'source_type' => $receipt->source_type,
-            'source_id' => $receipt->source_id,
-            'source_revision' => $receipt->source_revision,
-            'source_digest' => $receipt->source_digest,
-            'selected_material_refs' => $this->json($materials),
-            'capability_id' => $receipt->capability_id,
-            'evidence_claim' => $claim,
-            'criterion_scope' => $this->json($criteria),
-            'governed_purpose' => $purpose,
-            'semantic_identity_digest' => $semanticIdentity,
-            'proposed_title' => $title,
-            'proposed_summary' => $summary,
-            'proposed_facts' => $this->json($facts),
-            'metadata' => $this->json($metadata),
-            'state' => 'RECEIVED',
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        DB::transaction(function () use (
+            $id,
+            $receipt,
+            $subjectId,
+            $submittedBy,
+            $materials,
+            $claim,
+            $criteria,
+            $purpose,
+            $semanticIdentity,
+            $title,
+            $summary,
+            $facts,
+            $metadata,
+            $now,
+        ): void {
+            DB::table('evidence_candidates')->insert([
+                'id' => $id,
+                'handoff_receipt_id' => $receipt->id,
+                'subject_actor_id' => $subjectId,
+                'submitted_by' => $submittedBy,
+                'source_type' => $receipt->source_type,
+                'source_id' => $receipt->source_id,
+                'source_revision' => $receipt->source_revision,
+                'source_digest' => $receipt->source_digest,
+                'selected_material_refs' => $this->json($materials),
+                'capability_id' => $receipt->capability_id,
+                'evidence_claim' => $claim,
+                'criterion_scope' => $this->json($criteria),
+                'governed_purpose' => $purpose,
+                'semantic_identity_digest' => $semanticIdentity,
+                'proposed_title' => $title,
+                'proposed_summary' => $summary,
+                'proposed_facts' => $this->json($facts),
+                'metadata' => $this->json($metadata),
+                'state' => 'RECEIVED',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            $this->appendCandidateEvent(
+                $id,
+                $submittedBy,
+                null,
+                'RECEIVED',
+                'Candidate Evidence received into governed Intake.',
+                $now,
+            );
+        });
 
         return $this->candidate($id);
     }
@@ -297,6 +267,14 @@ final class ProgressEvidenceService
                 'state' => $state,
                 'updated_at' => now(),
             ]);
+
+            $this->appendCandidateEvent(
+                $candidateId,
+                $actorId,
+                (string) $candidate->state,
+                $state,
+                'Governed Candidate Evidence lifecycle transition.',
+            );
 
             return $this->candidate($candidateId);
         });
@@ -384,6 +362,41 @@ final class ProgressEvidenceService
                 'updated_at' => $now,
             ]);
 
+            $this->appendCandidateEvent(
+                $candidateId,
+                $actorId,
+                (string) $candidate->state,
+                'ADMITTED',
+                'Candidate Evidence admitted as canonical Evidence; formal Review has not started.',
+                $now,
+            );
+
+            $provenanceDigest = $this->digest([
+                'candidate_id' => $candidateId,
+                'evidence_id' => $evidenceId,
+                'evidence_revision_id' => $revisionId,
+                'subject_actor_id' => (string) $candidate->subject_actor_id,
+                'source_type' => (string) $candidate->source_type,
+                'source_id' => (string) $candidate->source_id,
+                'source_revision' => (string) $candidate->source_revision,
+                'source_digest' => (string) $candidate->source_digest,
+            ]);
+            DB::table('evidence_admission_records')->insert([
+                'id' => (string) Str::uuid7(),
+                'candidate_id' => $candidateId,
+                'evidence_id' => $evidenceId,
+                'evidence_revision_id' => $revisionId,
+                'admitted_by' => $actorId,
+                'admitted_at' => $now,
+                'provenance_digest' => $provenanceDigest,
+                'content_digest' => $this->digest([
+                    'provenance_digest' => $provenanceDigest,
+                    'admitted_by' => $actorId,
+                    'admitted_at' => $now->toISOString(),
+                ]),
+                'created_at' => $now,
+            ]);
+
             return [
                 'evidence' => $this->row('governed_evidence', $evidenceId),
                 'revision' => $this->revision($evidenceId, 1),
@@ -440,7 +453,7 @@ final class ProgressEvidenceService
             $body = [
                 'id' => $revisionId,
                 'evidence_id' => $evidenceId,
-                'handoff_receipt_id' => $receipt?->id ?? $current->handoff_receipt_id,
+                'handoff_receipt_id' => $receipt ? $receipt->id : $current->handoff_receipt_id,
                 'revision' => $revisionNumber,
                 'previous_revision_id' => $current->id,
                 'title' => $title,
@@ -448,10 +461,10 @@ final class ProgressEvidenceService
                 'facts' => $facts,
                 'selected_material_refs' => $materials,
                 'criterion_scope' => $criteria,
-                'source_type' => $receipt?->source_type ?? $current->source_type,
-                'source_id' => $receipt?->source_id ?? $current->source_id,
-                'source_revision' => $receipt?->source_revision ?? $current->source_revision,
-                'source_digest' => $receipt?->source_digest ?? $current->source_digest,
+                'source_type' => $receipt ? $receipt->source_type : $current->source_type,
+                'source_id' => $receipt ? $receipt->source_id : $current->source_id,
+                'source_revision' => $receipt ? $receipt->source_revision : $current->source_revision,
+                'source_digest' => $receipt ? $receipt->source_digest : $current->source_digest,
                 'revision_reason' => $reason,
             ];
 
@@ -814,6 +827,323 @@ final class ProgressEvidenceService
      * @param  list<string>  $contradictingRevisionIds
      * @return array<string, mixed>
      */
+    public function evaluateMastery(
+        string $subjectId,
+        string $capabilityId,
+        string $evaluatorId,
+        string $policyRevision,
+        string $judgment,
+        string $freshness,
+        array $reviewDecisionIds,
+        array $supportingRevisionIds,
+        array $contradictingRevisionIds,
+        string $rationale,
+    ): array {
+        if ($subjectId !== $evaluatorId) {
+            throw new LogicException('Mastery evaluation is outside the authenticated actor boundary.');
+        }
+        if (! in_array($judgment, self::JUDGMENTS, true) || ! in_array($freshness, self::FRESHNESS, true)) {
+            throw new InvalidArgumentException('Invalid Mastery dimensions.');
+        }
+
+        $capabilityId = $this->text($capabilityId, 100, 'Capability ID');
+        $policyRevision = $this->text($policyRevision, 120, 'Mastery Policy Revision');
+        $rationale = $this->text($rationale, 4000, 'Mastery rationale');
+        $policy = DB::table('evidence_mastery_policy_revisions as r')
+            ->join('evidence_mastery_policies as p', 'p.id', '=', 'r.policy_id')
+            ->where('r.id', $policyRevision)
+            ->where('p.owner_actor_id', $subjectId)
+            ->where('p.target_type', 'CAPABILITY')
+            ->where('p.target_id', $capabilityId)
+            ->whereNotNull('r.published_at')
+            ->select('r.qualifying_review_decisions')
+            ->first();
+        if (! $policy) {
+            throw new LogicException('A real published Mastery Policy Revision is required for this subject and capability.');
+        }
+        $qualifyingDecisions = $this->stringList(
+            $this->decode($policy->qualifying_review_decisions),
+            'Mastery Policy qualifying Review Decisions',
+            true,
+            2,
+            40,
+        );
+        $decisions = $this->stringList($reviewDecisionIds, 'Review Decision references');
+        $supporting = $this->stringList($supportingRevisionIds, 'supporting Evidence Revision references');
+        $contradicting = $this->stringList($contradictingRevisionIds, 'contradicting Evidence Revision references');
+
+        if (array_intersect($supporting, $contradicting) !== []) {
+            throw new LogicException('An Evidence Revision cannot be both supporting and contradicting in the same Mastery State.');
+        }
+        if ($judgment === 'MASTERED' && ($supporting === [] || $decisions === [])) {
+            throw new LogicException('MASTERED requires exact supporting Evidence Revision and Review Decision provenance.');
+        }
+
+        $revisionRows = [];
+        foreach (array_values(array_unique([...$supporting, ...$contradicting])) as $revisionId) {
+            $row = DB::table('governed_evidence_revisions as r')
+                ->join('governed_evidence as e', 'e.id', '=', 'r.evidence_id')
+                ->where('r.id', $revisionId)
+                ->select(
+                    'r.id',
+                    'r.evidence_id',
+                    'e.subject_actor_id',
+                    'e.capability_id',
+                    'e.lifecycle_state',
+                    'e.effective_review_decision_id',
+                )
+                ->first();
+
+            if (! $row) {
+                throw new LogicException('Unknown Evidence Revision reference.');
+            }
+            if ($row->subject_actor_id !== $subjectId || $row->capability_id !== $capabilityId) {
+                throw new LogicException('Evidence Revision reference is outside the Mastery subject/capability boundary.');
+            }
+            if ($row->lifecycle_state !== 'ACTIVE') {
+                throw new LogicException('Only ACTIVE Evidence Revisions can contribute to a new Mastery State.');
+            }
+
+            $revisionRows[$revisionId] = $row;
+        }
+
+        $decisionRows = [];
+        foreach ($decisions as $decisionId) {
+            $row = DB::table('evidence_review_decisions as d')
+                ->join('governed_evidence as e', 'e.id', '=', 'd.evidence_id')
+                ->where('d.id', $decisionId)
+                ->select(
+                    'd.id',
+                    'd.decision',
+                    'd.evidence_id',
+                    'd.evidence_revision_id',
+                    'e.subject_actor_id',
+                    'e.capability_id',
+                    'e.effective_review_decision_id',
+                )
+                ->first();
+
+            if (! $row) {
+                throw new LogicException('Unknown Review Decision reference.');
+            }
+            if ($row->subject_actor_id !== $subjectId || $row->capability_id !== $capabilityId) {
+                throw new LogicException('Review Decision reference is outside the Mastery subject/capability boundary.');
+            }
+            if ($row->effective_review_decision_id !== $row->id) {
+                throw new LogicException('Superseded Review Decisions cannot be used as effective Mastery provenance.');
+            }
+            if (! isset($revisionRows[$row->evidence_revision_id])) {
+                throw new LogicException('Every Review Decision must reference an Evidence Revision explicitly included in the Mastery evaluation.');
+            }
+            $decisionRows[$row->id] = $row;
+        }
+
+        foreach ($revisionRows as $revisionId => $row) {
+            if (! in_array($row->effective_review_decision_id, $decisions, true)) {
+                throw new LogicException("Evidence Revision {$revisionId} is missing its exact effective Review Decision provenance.");
+            }
+        }
+
+        if ($judgment === 'MASTERED') {
+            foreach ($supporting as $revisionId) {
+                $decisionId = $revisionRows[$revisionId]->effective_review_decision_id;
+                $decisionOutcome = $decisionRows[$decisionId]->decision ?? null;
+                if (! is_string($decisionOutcome) || ! in_array($decisionOutcome, $qualifyingDecisions, true)) {
+                    throw new LogicException('MASTERED requires a policy-qualifying effective Review Decision for every supporting Evidence Revision.');
+                }
+            }
+        }
+
+        $body = [
+            'subject_actor_id' => $subjectId,
+            'target_type' => 'CAPABILITY',
+            'target_id' => $capabilityId,
+            'policy_revision_id' => $policyRevision,
+            'judgment' => $judgment,
+            'freshness_status' => $freshness,
+            'review_decision_ids' => $decisions,
+            'supporting_evidence_revision_ids' => $supporting,
+            'contradicting_evidence_revision_ids' => $contradicting,
+            'rationale' => $rationale,
+        ];
+
+        return DB::transaction(function () use ($body, $evaluatorId): array {
+            DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', [
+                $body['subject_actor_id'].'|'.$body['target_id'],
+            ]);
+
+            $prior = $this->masteryChainTips($body['subject_actor_id'])
+                ->where('current.target_type', 'CAPABILITY')
+                ->where('current.target_id', $body['target_id'])
+                ->lockForUpdate()
+                ->first();
+            $evaluationId = (string) Str::uuid7();
+            $stateId = (string) Str::uuid7();
+            $now = now();
+
+            DB::table('evidence_mastery_evaluations')->insert([
+                'id' => $evaluationId,
+                'subject_actor_id' => $body['subject_actor_id'],
+                'target_type' => $body['target_type'],
+                'target_id' => $body['target_id'],
+                'policy_revision_id' => $body['policy_revision_id'],
+                'judgment' => $body['judgment'],
+                'freshness_status' => $body['freshness_status'],
+                'review_decision_ids' => $this->json($body['review_decision_ids']),
+                'supporting_evidence_revision_ids' => $this->json($body['supporting_evidence_revision_ids']),
+                'contradicting_evidence_revision_ids' => $this->json($body['contradicting_evidence_revision_ids']),
+                'rationale' => $body['rationale'],
+                'evaluator_id' => $evaluatorId,
+                'content_digest' => $this->digest($body),
+                'evaluated_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            DB::table('evidence_mastery_states')->insert([
+                'id' => $stateId,
+                'subject_actor_id' => $body['subject_actor_id'],
+                'target_type' => $body['target_type'],
+                'target_id' => $body['target_id'],
+                'judgment' => $body['judgment'],
+                'freshness_status' => $body['freshness_status'],
+                'policy_revision_id' => $body['policy_revision_id'],
+                'evaluation_id' => $evaluationId,
+                'previous_state_id' => $prior?->id,
+                'reason' => $body['rationale'],
+                'evaluated_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            foreach ($body['review_decision_ids'] as $decisionId) {
+                DB::table('evidence_mastery_state_decisions')->insert([
+                    'mastery_state_id' => $stateId,
+                    'review_decision_id' => $decisionId,
+                    'created_at' => $now,
+                ]);
+            }
+
+            foreach ($body['supporting_evidence_revision_ids'] as $revisionId) {
+                DB::table('evidence_mastery_state_evidence')->insert([
+                    'mastery_state_id' => $stateId,
+                    'evidence_revision_id' => $revisionId,
+                    'contribution' => 'SUPPORTING',
+                    'created_at' => $now,
+                ]);
+            }
+
+            foreach ($body['contradicting_evidence_revision_ids'] as $revisionId) {
+                DB::table('evidence_mastery_state_evidence')->insert([
+                    'mastery_state_id' => $stateId,
+                    'evidence_revision_id' => $revisionId,
+                    'contribution' => 'CONTRADICTING',
+                    'created_at' => $now,
+                ]);
+            }
+
+            return $this->masteryState($stateId);
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @param  array<string, mixed>  $annotations
+     * @return array<string, mixed>
+     */
+    public function createPortfolio(
+        string $actorId,
+        string $name,
+        ?string $scope,
+        string $grouping,
+        array $filters = [],
+        array $annotations = [],
+    ): array {
+        $id = (string) Str::uuid7();
+        $now = now();
+        $grouping = $this->text($grouping, 80, 'Portfolio grouping');
+        if (! in_array($grouping, ['CAPABILITY', 'REVIEW_DECISION', 'MASTERY'], true)) {
+            throw new InvalidArgumentException('Unsupported Portfolio grouping.');
+        }
+        $filters = $this->boundedPortfolioFilters($filters);
+        $annotations = $this->boundedPortfolioAnnotations($annotations);
+
+        DB::table('evidence_portfolios')->insert([
+            'id' => $id,
+            'owner_actor_id' => $actorId,
+            'name' => $this->text($name, 180, 'Portfolio View name'),
+            'view_scope' => $scope ? $this->text($scope, 120, 'Portfolio View scope') : null,
+            'grouping' => $grouping,
+            'filters' => $this->json($filters),
+            'annotations' => $this->json($annotations),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return $this->row('evidence_portfolios', $id, ['filters', 'annotations']);
+    }
+
+    public function addEvidenceToPortfolio(
+        string $portfolioId,
+        string $evidenceId,
+        string $actorId,
+        ?string $annotation = null,
+        int $sort = 0,
+    ): void {
+        $portfolio = DB::table('evidence_portfolios')->where('id', $portfolioId)->first();
+        $evidence = DB::table('governed_evidence')->where('id', $evidenceId)->first();
+
+        if (! $portfolio || $portfolio->owner_actor_id !== $actorId || ! $evidence || $evidence->subject_actor_id !== $actorId) {
+            throw new LogicException('Portfolio boundary mismatch.');
+        }
+
+        $mastery = $this->masteryChainTips($actorId)
+            ->where('current.target_type', 'CAPABILITY')
+            ->where('current.target_id', $evidence->capability_id)
+            ->first();
+        $existing = DB::table('evidence_portfolio_items')
+            ->where('portfolio_id', $portfolioId)
+            ->where('evidence_id', $evidenceId)
+            ->first();
+        $now = now();
+        $values = [
+            'mastery_state_id' => $mastery?->id,
+            'sort_order' => max(0, $sort),
+            'annotation' => $annotation === null || trim($annotation) === ''
+                ? null
+                : $this->text($annotation, 4000, 'Portfolio item annotation'),
+            'updated_at' => $now,
+        ];
+
+        if ($existing) {
+            DB::table('evidence_portfolio_items')->where('id', $existing->id)->update($values);
+
+            return;
+        }
+
+        DB::table('evidence_portfolio_items')->insert([
+            ...$values,
+            'id' => (string) Str::uuid7(),
+            'portfolio_id' => $portfolioId,
+            'evidence_id' => $evidenceId,
+            'created_at' => $now,
+        ]);
+    }
+
+    public function removeEvidenceFromPortfolio(string $portfolioId, string $evidenceId, string $actorId): void
+    {
+        $portfolio = DB::table('evidence_portfolios')->where('id', $portfolioId)->first();
+        if (! $portfolio || $portfolio->owner_actor_id !== $actorId) {
+            throw new LogicException('Portfolio boundary mismatch.');
+        }
+
+        DB::table('evidence_portfolio_items')
+            ->where('portfolio_id', $portfolioId)
+            ->where('evidence_id', $evidenceId)
+            ->delete();
+    }
+
+    /** @return array<string, mixed> */
     public function workspace(string $actorId): array
     {
         $handoffReceipts = EvidenceSourceHandoffReceipt::query()
@@ -1104,6 +1434,42 @@ final class ProgressEvidenceService
         ]);
     }
 
+    private function appendCandidateEvent(
+        string $candidateId,
+        string $actorId,
+        ?string $fromState,
+        string $toState,
+        string $reason,
+        ?CarbonInterface $occurredAt = null,
+    ): void {
+        $sequence = ((int) DB::table('evidence_candidate_intake_events')
+            ->where('candidate_id', $candidateId)
+            ->max('sequence')) + 1;
+        $occurredAt ??= now();
+        $contentDigest = $this->digest([
+            'candidate_id' => $candidateId,
+            'sequence' => $sequence,
+            'actor_id' => $actorId,
+            'from_state' => $fromState,
+            'to_state' => $toState,
+            'reason' => $reason,
+            'occurred_at' => $occurredAt->toISOString(),
+        ]);
+
+        DB::table('evidence_candidate_intake_events')->insert([
+            'id' => (string) Str::uuid7(),
+            'candidate_id' => $candidateId,
+            'sequence' => $sequence,
+            'actor_id' => $actorId,
+            'from_state' => $fromState,
+            'to_state' => $toState,
+            'reason' => $reason,
+            'occurred_at' => $occurredAt,
+            'content_digest' => $contentDigest,
+            'created_at' => $occurredAt,
+        ]);
+    }
+
     private function lock(string $table, string $id): object
     {
         $row = DB::table($table)->where('id', $id)->lockForUpdate()->first();
@@ -1156,7 +1522,7 @@ final class ProgressEvidenceService
      */
     private function array(object $row, array $json = []): array
     {
-        $out = (array) $row;
+        $out = $row instanceof Model ? $row->attributesToArray() : (array) $row;
         foreach ($json as $key) {
             $out[$key] = $this->decode($out[$key] ?? null);
         }
@@ -1278,7 +1644,10 @@ final class ProgressEvidenceService
         return $metadata;
     }
 
-    /** @param array<string, mixed> $filters */
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array<string, list<string>>
+     */
     private function boundedPortfolioFilters(array $filters): array
     {
         if (array_diff(array_keys($filters), ['lifecycle_states', 'review_decisions', 'capability_ids']) !== []) {
@@ -1317,7 +1686,10 @@ final class ProgressEvidenceService
         return $normalized;
     }
 
-    /** @param array<string, mixed> $annotations */
+    /**
+     * @param  array<string, mixed>  $annotations
+     * @return array<string, string>
+     */
     private function boundedPortfolioAnnotations(array $annotations): array
     {
         if (array_diff(array_keys($annotations), ['purpose', 'audience']) !== []) {

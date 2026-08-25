@@ -8,10 +8,9 @@ use App\Modules\Evidence\IntakeReview\Domain\ReviewDecisionOutcome;
 use App\Modules\Evidence\IntakeReview\Domain\ReviewStatus;
 use App\Modules\Evidence\Models\EvidenceReviewDecisionItem;
 use App\Modules\Evidence\Models\EvidenceReviewScopeItem;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use stdClass;
 use ValueError;
 
 final class ReviewDecisionService
@@ -60,6 +59,13 @@ final class ReviewDecisionService
             if ($items->isEmpty()) {
                 throw new IntakeReviewException('Formal Review Decision requires canonical Evidence scope items.');
             }
+
+            $supersedesDecisionId ??= DB::table('evidence_review_requests')
+                ->where('id', $review->review_request_id)
+                ->value('prior_decision_id');
+            $supersedesDecisionId = $supersedesDecisionId === null
+                ? null
+                : (string) $supersedesDecisionId;
 
             if ($supersedesDecisionId !== null
                 && ! DB::table('evidence_review_decisions')->where('id', $supersedesDecisionId)->exists()) {
@@ -116,7 +122,7 @@ final class ReviewDecisionService
         });
     }
 
-    /** @return Collection<int, stdClass> */
+    /** @return Collection<int, EvidenceReviewScopeItem> */
     private function scopeItems(string $reviewRequestId): Collection
     {
         return EvidenceReviewScopeItem::query()

@@ -17,7 +17,7 @@ final class IntakeReviewReadModel
             ->where('candidate_id', $candidateId)
             ->orderBy('sequence')
             ->get()
-            ->map(static fn (object $row): array => (array) $row)
+            ->map(static fn (EvidenceCandidateIntakeEvent $row): array => $row->attributesToArray())
             ->all();
     }
 
@@ -28,7 +28,7 @@ final class IntakeReviewReadModel
             ->where('review_request_id', $reviewRequestId)
             ->orderBy('ordinal')
             ->get()
-            ->map(static fn (object $row): array => (array) $row)
+            ->map(static fn (EvidenceReviewScopeItem $row): array => $row->attributesToArray())
             ->all();
     }
 
@@ -47,7 +47,7 @@ final class IntakeReviewReadModel
                 ->where('decision_id', $decisionId)
                 ->orderBy('ordinal')
                 ->get()
-                ->map(static fn (object $row): array => (array) $row)
+                ->map(static fn (EvidenceReviewDecisionItem $row): array => $row->attributesToArray())
                 ->all(),
         ];
     }

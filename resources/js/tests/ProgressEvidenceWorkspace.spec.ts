@@ -1,9 +1,13 @@
 import { mount } from '@vue/test-utils';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import Workspace from '../pages/ProgressEvidence/Workspace.vue';
 
+const sourceDigest = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
 const candidate = {
   id: 'candidate-1',
+  handoff_receipt_id: 'handoff-1',
   capability_id: 'CAP-WEB-01',
   proposed_title: 'تحليل تدفق مصادقة',
   proposed_summary: 'ملخص مرشّح',
@@ -11,7 +15,7 @@ const candidate = {
   source_type: 'SIMULATION',
   source_id: 'RUN-0042',
   source_revision: 'result-r3',
-  source_digest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  source_digest: sourceDigest,
   evidence_claim: 'يثبت القدرة على تحليل تدفق مصادقة وتفسير السبب الجذري.',
   governed_purpose: 'FORMAL_CAPABILITY_EVIDENCE',
   selected_material_refs: ['artifact:http-transaction', 'artifact:timeline'],
@@ -34,6 +38,7 @@ const evidence = {
   source_type: 'SIMULATION',
   source_id: 'RUN-0042',
   source_revision: 'result-r3',
+  source_digest: sourceDigest,
   revisions: [
     {
       id: 'revision-1',
@@ -44,7 +49,7 @@ const evidence = {
       source_type: 'SIMULATION',
       source_id: 'RUN-0042',
       source_revision: 'result-r3',
-      source_digest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      source_digest: sourceDigest,
       selected_material_refs: ['artifact:http-transaction', 'artifact:timeline'],
       criterion_scope: ['CRIT-AUTH-01'],
     },
@@ -84,6 +89,7 @@ const mastery = {
   review_decision_ids: ['decision-1'],
   supporting_evidence_revision_ids: ['revision-1'],
   contradicting_evidence_revision_ids: [],
+  rationale: 'حكم بشري محكوم بمراجع القرار والدليل المحددة.',
 };
 
 const portfolio = {
@@ -91,6 +97,8 @@ const portfolio = {
   name: 'عرض التحقيقات المختارة',
   view_scope: 'CAP-WEB',
   grouping: 'CAPABILITY',
+  filters: { review_decisions: ['ACCEPT', 'ACCEPT_WITH_LIMITATIONS'] },
+  annotations: { purpose: 'curated-projection' },
   items: [
     {
       id: 'portfolio-item-1',
@@ -127,7 +135,7 @@ function propsFor(surface: 'evidence' | 'reviews' | 'mastery' | 'portfolio') {
         source_type: 'SIMULATION',
         source_id: 'RUN-0042',
         source_revision: 'result-r3',
-        source_digest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        source_digest: sourceDigest,
         selected_material_refs: ['artifact:http-transaction'],
         capability_id: 'CAP-WEB-01',
       },
@@ -137,6 +145,8 @@ function propsFor(surface: 'evidence' | 'reviews' | 'mastery' | 'portfolio') {
         id: 'POLICY-MASTERY-R4',
         policy_key: 'CAP-WEB-MASTERY',
         revision: 4,
+        target_type: 'CAPABILITY',
+        target_id: 'CAP-WEB-01',
         qualifying_review_decisions: ['ACCEPT', 'ACCEPT_WITH_LIMITATIONS'],
       },
     ],
@@ -144,20 +154,24 @@ function propsFor(surface: 'evidence' | 'reviews' | 'mastery' | 'portfolio') {
 }
 
 describe('Progress & Evidence governed workspace', () => {
-  it('keeps exactly four primary areas and does not project Evidence state onto a Candidate', async () => {
+  beforeEach(() => {
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+  });
+
+  it('keeps Candidate Evidence distinct from canonical Evidence and shows trusted handoff truth', async () => {
     const wrapper = mount(Workspace, { props: propsFor('evidence') });
 
-    expect(wrapper.findAll('.area-link')).toHaveLength(4);
-    expect(wrapper.get('.left-rail').text()).toContain('الأدلة');
-    expect(wrapper.get('.left-rail').text()).toContain('المراجعات');
-    expect(wrapper.get('.left-rail').text()).toContain('الإتقان');
-    expect(wrapper.get('.left-rail').text()).toContain('الملف المهني');
-
+    expect(wrapper.findAll('.surface-tab')).toHaveLength(4);
     const candidateDetail = wrapper.get('[data-testid="candidate-detail"]');
     expect(candidateDetail.text()).toContain('SUBMITTED_FOR_INTAKE');
     expect(candidateDetail.text()).not.toContain('ACTIVE');
     expect(candidateDetail.text()).not.toContain('UNREVIEWED');
     expect(candidateDetail.text()).not.toContain('NONE');
+
+    const right = wrapper.get('[data-testid="context-panel"]');
+    expect(right.text()).toContain('handoff-1');
+    expect(right.text()).toContain(sourceDigest);
 
     await wrapper.get('.canonical-group .record-row').trigger('click');
     const evidenceDetail = wrapper.get('[data-testid="evidence-detail"]');
@@ -169,22 +183,24 @@ describe('Progress & Evidence governed workspace', () => {
     expect(evidenceDetail.text()).toContain('NONE');
   });
 
-  it('keeps formal review findings and decisions in CENTER while RIGHT owns reviewer and criterion context', () => {
+  it('keeps formal Review Findings and human Review Decisions distinct', () => {
     const wrapper = mount(Workspace, { props: propsFor('reviews') });
 
     const center = wrapper.get('[data-testid="review-workbench"]');
+    expect(center.text()).toContain('Review Findings');
     expect(center.text()).toContain('SATISFIED');
+    expect(center.text()).toContain('Review Decision');
     expect(center.text()).toContain('ACCEPT_WITH_LIMITATIONS');
     expect(center.text()).toContain('القبول محكوم بالنطاق الحالي فقط.');
 
     const right = wrapper.get('[data-testid="context-panel"]');
+    expect(right.text()).toContain('سلطة المراجعة');
     expect(right.text()).toContain('reviewer-owner-1');
     expect(right.text()).toContain('CRIT-AUTH-01');
-    expect(right.text()).toContain('CRIT-TRACE-02');
     expect(right.text()).not.toContain('ACCEPT_WITH_LIMITATIONS');
   });
 
-  it('renders Mastery Judgment and Freshness as separate governed dimensions without gamification', () => {
+  it('renders Mastery Judgment and Freshness as separate governed dimensions without percentages', () => {
     const wrapper = mount(Workspace, { props: propsFor('mastery') });
 
     const detail = wrapper.get('[data-testid="mastery-detail"]');
@@ -204,12 +220,48 @@ describe('Progress & Evidence governed workspace', () => {
     expect(center.text()).toContain('تحليل المصادقة المحكوم');
     expect(center.text()).toContain('revision-1');
     expect(center.text()).toContain('Canonical Evidence Reference');
-    expect(center.text()).not.toContain('ACTIVE');
+    expect(center.text()).not.toContain(evidence.evidence_claim);
+    expect(center.text()).not.toContain(evidence.summary);
     expect(center.text()).not.toContain('MASTERED');
 
     const right = wrapper.get('[data-testid="context-panel"]');
     expect(right.text()).toContain('CAP-WEB');
     expect(right.text()).toContain('CAPABILITY');
     expect(right.text()).not.toContain('revision-1');
+  });
+
+  it('assigns TOP, LEFT, CENTER, RIGHT, and BOTTOM to their governed owners', () => {
+    const wrapper = mount(Workspace, { props: propsFor('evidence') });
+
+    const top = wrapper.get('[data-cep-region="top"]');
+    const left = wrapper.get('[data-cep-region="left"]');
+    const center = wrapper.get('[data-cep-region="center"]');
+    const right = wrapper.get('[data-cep-region="right"]');
+
+    expect(top.text()).toContain('إدخال');
+    expect(top.text()).not.toContain(candidate.proposed_title);
+    expect(left.text()).toContain(candidate.proposed_title);
+    expect(left.text()).toContain(evidence.title);
+    expect(center.text()).toContain(candidate.evidence_claim);
+    expect(center.text()).not.toContain('handoff-1');
+    expect(right.text()).toContain('handoff-1');
+    expect(wrapper.find('[data-cep-region="bottom"]').exists()).toBe(false);
+  });
+
+  it('keeps the temporary BOTTOM workspace closed until a workflow action opens it', async () => {
+    const wrapper = mount(Workspace, { props: propsFor('evidence') });
+
+    expect(wrapper.find('[data-cep-region="bottom"]').exists()).toBe(false);
+    const intakeButton = wrapper
+      .findAll('.top-actions button')
+      .find((button) => button.text().includes('إدخال'));
+    expect(intakeButton).toBeDefined();
+
+    await intakeButton!.trigger('click');
+
+    const bottom = wrapper.get('[data-cep-region="bottom"]');
+    expect(bottom.text()).toContain('إعداد Candidate Evidence');
+    expect(bottom.find('[data-testid="temporary-workspace-content"]').exists()).toBe(true);
+    expect(bottom.find('form').exists()).toBe(true);
   });
 });

@@ -275,7 +275,7 @@ class ProgressEvidenceMasteryPortfolioCompletionTest extends TestCase
             'Application Security Portfolio',
             'Professional evidence',
             'CAPABILITY',
-            ['review_decision' => ['ACCEPT', 'ACCEPT_WITH_LIMITATIONS']],
+            ['review_decisions' => ['ACCEPT', 'ACCEPT_WITH_LIMITATIONS']],
             ['purpose' => 'curated-projection'],
         );
         $this->service->addAcceptedEvidenceToPortfolio(
@@ -382,10 +382,15 @@ class ProgressEvidenceMasteryPortfolioCompletionTest extends TestCase
     /** @return array{evidence: array<string, mixed>, revision: array<string, mixed>} */
     private function admittedEvidence(array $overrides = []): array
     {
+        $candidateInput = $this->handoff(array_merge(['_actor_id' => $this->owner->id], $overrides));
+        $handoffReceiptId = (string) $candidateInput['handoff_receipt_id'];
+        unset($candidateInput['handoff_receipt_id']);
+
         $candidate = $this->progress->intakeCandidate(
             $this->owner->id,
             $this->owner->id,
-            $this->handoff(array_merge(['_actor_id' => $actorId], $overrides)),
+            $handoffReceiptId,
+            $candidateInput,
         );
         $candidate = $this->progress->transitionCandidate($candidate['id'], $this->owner->id, 'PREPARED');
         $candidate = $this->progress->transitionCandidate($candidate['id'], $this->owner->id, 'SUBMITTED_FOR_INTAKE');
