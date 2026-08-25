@@ -40,6 +40,10 @@ const titles: Record<Surface, string> = {
 
 const title = computed(() => titles[props.surface]);
 
+const selectedHealthSubsystem = ref<
+  'validation' | 'processing' | 'ai-bridge' | 'backups' | 'releases'
+>('validation');
+
 const deepWorkspace = ref<DeepWorkspace | null>(null);
 
 const openDeepWorkspace = (titleValue: string, sections: DeepSection[]) => {
@@ -109,7 +113,12 @@ const formatDeepValue = (val: unknown): string => {
 
     <!-- DEFAULT (CENTER) SLOT: Surface Dominant Operational Content -->
     <div class="system-surface-container">
-      <HealthSurface v-if="surface === 'health'" :state="state" />
+      <HealthSurface
+        v-if="surface === 'health'"
+        :state="state"
+        :selected-subsystem="selectedHealthSubsystem"
+        @select-subsystem="selectedHealthSubsystem = $event"
+      />
       <ProcessingSurface
         v-else-if="surface === 'processing'"
         :state="state"
@@ -141,7 +150,11 @@ const formatDeepValue = (val: unknown): string => {
 
     <!-- RIGHT SLOT: Contextual Inspection Panel -->
     <template #right>
-      <HealthContext v-if="surface === 'health'" :state="state" />
+      <HealthContext
+        v-if="surface === 'health'"
+        :state="state"
+        :selected-subsystem="selectedHealthSubsystem"
+      />
       <ProcessingContext v-else-if="surface === 'processing'" :state="state" />
       <ValidationContext v-else-if="surface === 'validation'" :state="state" />
       <AiBridgeContext v-else-if="surface === 'ai-bridge'" :state="state" />

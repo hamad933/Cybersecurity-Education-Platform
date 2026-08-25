@@ -39,8 +39,8 @@ describe('System Operations Components & Surfaces', () => {
     });
   });
 
-  describe('HealthSurface & HealthContext (Direct Binary Fidelity)', () => {
-    const mockState = {
+  describe('HealthSurface & HealthContext (Truthful State Derivation)', () => {
+    const mockNeutralState = {
       foundation: {
         checks: { database: 'ok', queue: 'ok', storage: 'ok' },
         healthy: true,
@@ -48,41 +48,111 @@ describe('System Operations Components & Surfaces', () => {
       },
       processing: { counts: { running: 0, pending: 0, failed: 0 } },
       outbox: { counts: { failed: 0 } },
-      packages: { counts: { rejected: 0 }, records: [] },
+      packages: { counts: { rejected: 0, exported: 0 }, records: [] },
       release_gate: { ready: true, checks: {} },
     };
 
-    it('renders operational health table and selected component detail cards', () => {
+    it('proves neutral/empty Health state does not generate fictional incidents, status, or timestamps', () => {
       const wrapper = mount(HealthSurface, {
-        props: { state: mockState },
+        props: { state: mockNeutralState },
       });
 
       expect(wrapper.find('[data-testid="health-hero"]').text()).toContain(
         'المكوّنات الأساسية اجتازت فحوص الصحة',
       );
-      expect(wrapper.text()).toContain('معالجة المحتوى');
-      expect(wrapper.text()).toContain('جسر الذكاء الاصطناعي');
-      expect(wrapper.text()).toContain('خدمة التحقق');
-      expect(wrapper.text()).toContain('حالة النسخ الاحتياطي');
-      expect(wrapper.text()).toContain('التحقق من الإصدار');
 
-      // Detail cards from direct reference binary
-      expect(wrapper.text()).toContain('تفاصيل المكوّن المحدد');
-      expect(wrapper.text()).toContain('ملخص آخر فحص');
-      expect(wrapper.text()).toContain('حالة الحجب');
-      expect(wrapper.text()).toContain('الإجراء التالي المقترح');
+      // Verify no hardcoded fabricated relative timestamps exist
+      const renderedText = wrapper.text();
+      expect(renderedText).not.toContain('الآن');
+      expect(renderedText).not.toContain('قبل 10 دقائق');
+      expect(renderedText).not.toContain('قبل 7 دقائق');
+      expect(renderedText).not.toContain('قبل ساعة');
+      expect(renderedText).not.toContain('قبل ساعتين');
+      expect(renderedText).not.toContain('اليوم 10:33');
+      expect(renderedText).not.toContain('00:02:41');
+
+      // Verify no fabricated incident details exist in neutral state
+      expect(renderedText).not.toContain('فشل في 1 من 3 تحقق');
+      expect(renderedText).not.toContain('فشل تحقق سلامة البيانات في إحدى الحزم');
+
+      // Verify truthful unobserved / unblocked state is rendered
+      expect(renderedText).toContain('لم تتم ملاحظته');
+      expect(renderedText).toContain('غير متاح');
+      expect(renderedText).toContain('لا يوجد حجب نشط');
+      expect(renderedText).toContain('جميع الحزم المسجلة مطابقة ولم تسجل أي مخالفات');
     });
 
-    it('renders Right Context Panel with impact, dependencies, and validation scope', () => {
-      const wrapper = mount(HealthContext, {
-        props: { state: mockState },
+    it('proves projected failures and counts drive truthful UI reactively', async () => {
+      const mockFailureState = {
+        foundation: {
+          checks: { database: 'failed', queue: 'ok', storage: 'ok' },
+          healthy: false,
+          failed_checks: ['database'],
+        },
+        processing: { counts: { running: 1, pending: 2, failed: 4 } },
+        outbox: { counts: { failed: 1 } },
+        packages: { counts: { rejected: 3, exported: 8 }, records: [] },
+        release_gate: { ready: false, checks: {} },
+      };
+
+      // Test processing selection
+      const wrapperProcessing = mount(HealthSurface, {
+        props: {
+          state: mockFailureState,
+          selectedSubsystem: 'processing',
+        },
       });
 
-      expect(wrapper.text()).toContain('السياق التشغيلي');
-      expect(wrapper.text()).toContain('التأثير');
-      expect(wrapper.text()).toContain('الاعتمادات');
-      expect(wrapper.text()).toContain('آخر سياق تحقق');
-      expect(wrapper.text()).toContain('نطاق التكوين');
+      expect(wrapperProcessing.text()).toContain('توجد 4 معالجة فاشلة مسجلة');
+      expect(wrapperProcessing.text()).toContain('توجد معالجات فاشلة (4)');
+      expect(wrapperProcessing.text()).toContain('✕ 4 فاشلة');
+      expect(wrapperProcessing.text()).toContain('▶ 1 جارية');
+      expect(wrapperProcessing.text()).toContain('⏳ 2 معلقة');
+      expect(wrapperProcessing.text()).toContain('تعثر مهام في الطابور');
+
+      // Test validation selection
+      const wrapperValidation = mount(HealthSurface, {
+        props: {
+          state: mockFailureState,
+          selectedSubsystem: 'validation',
+        },
+      });
+
+      expect(wrapperValidation.text()).toContain('توجد 3 حزم مرفوضة في السجل');
+      expect(wrapperValidation.text()).toContain('توجد حزم مرفوضة (3)');
+      expect(wrapperValidation.text()).toContain('✕ 3 مرفوضة');
+      expect(wrapperValidation.text()).toContain('✓ 8 مقبولة');
+      expect(wrapperValidation.text()).toContain('حجب الحزم المرفوضة');
+    });
+
+    it('renders HealthContext with state-driven impact and dependencies based on selected subsystem', () => {
+      const neutralContext = mount(HealthContext, {
+        props: {
+          state: mockNeutralState,
+          selectedSubsystem: 'validation',
+        },
+      });
+
+      expect(neutralContext.text()).toContain('السياق التشغيلي');
+      expect(neutralContext.text()).toContain('لم يتم رصد أي حجب أو تعطل تشغيلي في السجل الحالي');
+      expect(neutralContext.text()).not.toContain('تعطل قبول حزم المعرفة الجديدة');
+
+      const failureContext = mount(HealthContext, {
+        props: {
+          state: {
+            foundation: {
+              checks: { database: 'failed' },
+              healthy: false,
+              failed_checks: ['database'],
+            },
+            packages: { counts: { rejected: 2 } },
+          },
+          selectedSubsystem: 'validation',
+        },
+      });
+
+      expect(failureContext.text()).toContain('تأثير الإخفاقات الأساسية');
+      expect(failureContext.text()).toContain('توجد 1 فحوص أساسية فاشلة (database)');
     });
   });
 
@@ -215,7 +285,7 @@ describe('System Operations Components & Surfaces', () => {
     });
   });
 
-  describe('AiBridgeSurface & AiBridgeContext', () => {
+  describe('AiBridgeSurface & AiBridgeContext (Truthful Policy Governance)', () => {
     it('requires human rationale before enabling accept or reject decisions', async () => {
       const wrapper = mount(AiBridgeSurface, {
         props: {
@@ -260,15 +330,56 @@ describe('System Operations Components & Surfaces', () => {
       expect(wrapper.find('button.danger-button').attributes('disabled')).toBeUndefined();
     });
 
-    it('renders AiBridgeContext highlighting zero-provider and human decision constraints', () => {
-      const wrapper = mount(AiBridgeContext, {
-        props: { state: {} },
+    it('proves AiBridgeContext responds truthfully when automatic_provider_enabled changes and has no unconditional guarantees', () => {
+      // Disabled state
+      const disabledWrapper = mount(AiBridgeContext, {
+        props: {
+          state: {
+            policy: {
+              execution: 'MANUAL_ONLY',
+              automatic_provider_enabled: false,
+              automatic_publish: false,
+              polling: false,
+              embeddings: false,
+            },
+          },
+        },
       });
 
-      expect(wrapper.text()).toContain('ضوابط التشغيل اليدوي');
-      expect(wrapper.text()).toContain('تبادل ملفات يدوي فقط');
-      expect(wrapper.text()).toContain('القرار البشري الإلزامي');
-      expect(wrapper.text()).toContain('حماية البيانات والخصوصية');
+      const disabledText = disabledWrapper.text();
+      expect(disabledText).toContain('نمط التنفيذ: MANUAL_ONLY');
+      expect(disabledText).toContain('المزود الشبكي: معطّل (Off)');
+      expect(disabledText).toContain('automatic_provider_enabled: false');
+      expect(disabledText).toContain('automatic_publish: false');
+      expect(disabledText).toContain('الاستطلاع التلقائي (Polling): معطّل');
+      expect(disabledText).toContain('توليد التضمينات (Embeddings): معطّل');
+
+      // Verify no unconditional global guarantees remain
+      expect(disabledText).not.toContain('لا تتصل المنصة بأي مزود سحابي أو محلي تلقائياً');
+      expect(disabledText).not.toContain('يضمن التصميم المعزول عدم تسريب');
+
+      // Enabled state
+      const enabledWrapper = mount(AiBridgeContext, {
+        props: {
+          state: {
+            policy: {
+              execution: 'HYBRID',
+              automatic_provider_enabled: true,
+              automatic_publish: true,
+              polling: true,
+              embeddings: true,
+            },
+          },
+        },
+      });
+
+      const enabledText = enabledWrapper.text();
+      expect(enabledText).toContain('نمط التنفيذ: HYBRID');
+      expect(enabledText).toContain('المزود الشبكي: مفعّل في الإعدادات');
+      expect(enabledText).toContain('automatic_provider_enabled: true');
+      expect(enabledText).toContain('automatic_publish: true');
+      expect(enabledText).toContain('الاستطلاع التلقائي (Polling): مفعّل');
+      expect(enabledText).toContain('توليد التضمينات (Embeddings): مفعّل');
     });
   });
 
