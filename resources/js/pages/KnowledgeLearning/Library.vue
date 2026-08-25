@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import KnowledgeTabs from './components/KnowledgeTabs.vue';
 import LibraryHierarchyTree from './components/library/LibraryHierarchyTree.vue';
-import type { LibraryHierarchyProjection, LibraryDomainNode, LibraryCapabilityClusterNode, LibraryCapabilityNode, LibraryUnresolvedCapability, LibraryProjectionItem } from './components/library/libraryHierarchy';
+import type {
+  LibraryHierarchyProjection,
+  LibraryProjectionItem,
+} from './components/library/libraryHierarchy';
 
 type CatalogItem = {
   id: string;

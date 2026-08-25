@@ -58,7 +58,7 @@ const mapScope = computed(() => props.map.scope?.id ?? props.active?.id ?? null)
   <div dir="rtl" class="min-h-screen bg-slate-950 text-slate-100">
     <div class="mx-auto max-w-[1600px] px-4 py-5 sm:px-6">
       <header class="border-b border-slate-800 pb-4">
-          <div class="flex-1"></div>
+        <div class="flex flex-wrap items-center justify-end gap-4">
           <div class="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 p-1">
             <button
               v-for="viewName in views"
