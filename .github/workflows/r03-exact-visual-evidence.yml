@@ -24,7 +24,7 @@ jobs:
     steps:
       - name: Check out evidence branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with: { fetch-depth: 2 }
+        with: { fetch-depth: 0 }
       - name: Bind evidence branch to exact source candidate
         shell: bash
         run: |
@@ -37,9 +37,18 @@ jobs:
             chore/cep-r03-evidence-w05) profile=W05 ;;
             *) exit 2 ;;
           esac
-          source_sha="$(git rev-parse HEAD^)"; harness_sha="$(git rev-parse HEAD)"; changed="$(git diff --name-only "$source_sha".."$harness_sha")"
+          harness_sha="$(git rev-parse HEAD)"
+          first_harness_commit="$(git log --reverse --format=%H -- .github/workflows/r03-exact-visual-evidence.yml | head -n 1)"
+          test -n "$first_harness_commit"
+          source_sha="$(git rev-parse "${first_harness_commit}^")"
+          changed="$(git diff --name-only "$source_sha".."$harness_sha")"
           test "$changed" = '.github/workflows/r03-exact-visual-evidence.yml'
-          echo "BROWSER_ROUTE_PROFILES=$profile" >> "$GITHUB_ENV"; echo "SOURCE_CANDIDATE_SHA=$source_sha" >> "$GITHUB_ENV"; echo "EVIDENCE_HARNESS_SHA=$harness_sha" >> "$GITHUB_ENV"
+          safe_ref="${GITHUB_REF_NAME//\//-}"
+          artifact_name="${safe_ref}-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-r03-visual-evidence"
+          echo "BROWSER_ROUTE_PROFILES=$profile" >> "$GITHUB_ENV"
+          echo "SOURCE_CANDIDATE_SHA=$source_sha" >> "$GITHUB_ENV"
+          echo "EVIDENCE_HARNESS_SHA=$harness_sha" >> "$GITHUB_ENV"
+          echo "ARTIFACT_NAME=$artifact_name" >> "$GITHUB_ENV"
           mkdir -p evidence/r03
           jq -n --arg profile "$profile" --arg source_candidate_sha "$source_sha" --arg evidence_harness_sha "$harness_sha" --arg branch "$GITHUB_REF_NAME" '{schema:"cep.r03-source-binding.v1",profile:$profile,sourceCandidateSha:$source_candidate_sha,evidenceHarnessSha:$evidence_harness_sha,evidenceBranch:$branch,productDeltaFromCandidate:[],harnessOnlyDelta:[".github/workflows/r03-exact-visual-evidence.yml"]}' > evidence/r03/source-binding.json
       - name: Generate ephemeral runtime credentials
@@ -115,7 +124,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: ${{ github.ref_name }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-r03-visual-evidence
+          name: ${{ env.ARTIFACT_NAME }}
           path: evidence/r03
           if-no-files-found: error
           retention-days: 14
