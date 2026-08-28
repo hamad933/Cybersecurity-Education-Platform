@@ -266,6 +266,14 @@ describe('Simulation Enterprise workspace assurance states', () => {
     expect(wrapper.get('[data-testid="scenario-boundary-note"]').text()).toContain(
       'Environment Contract',
     );
+    expect(wrapper.get('[data-testid="scenario-boundary-note"]').text()).toContain(
+      'Runtime Snapshot يبقى التقاطًا تاريخيًا داخل Run',
+    );
+    expect(wrapper.get('[data-testid="scenario-boundary-note"]').text()).not.toContain(
+      'وتُنشأ منه Runtime Snapshot',
+    );
+    expect(wrapper.find('.sim-domain-mark').exists()).toBe(true);
+    expect(wrapper.find('.sim-live-dot').exists()).toBe(false);
 
     await wrapper.get('[data-testid="scenario-prepare-controls"]').trigger('submit');
     expect(vi.mocked(router.post).mock.calls[0][0]).toBe(
@@ -297,7 +305,22 @@ describe('Simulation Enterprise workspace assurance states', () => {
     expect(
       wrapper.get('[data-cep-region="left"] [data-structure-kind="digital-twin"]').text(),
     ).toContain('Revision 2');
-    expect(wrapper.get('[data-cep-region="right"]').text()).not.toContain('EDGE-01');
+    expect(center.text()).toContain('UNLABELED');
+    expect(center.text()).not.toContain('AUTHENTICATES_WITH');
+
+    const context = wrapper.get('[data-cep-region="right"]');
+    expect(context.text()).not.toContain('EDGE-01');
+    expect(context.text()).not.toContain('Enterprise-backed');
+    expect(context.text()).not.toContain('Telemetry generation');
+    expect(context.text()).not.toContain('HTTP / HTTPS interaction');
+    expect(context.text()).not.toContain('Fully compatible');
+
+    const enabledTopologyControls = center.findAll('button:not([disabled])');
+    expect(enabledTopologyControls).toHaveLength(2);
+    expect(enabledTopologyControls.map((button) => button.attributes('title'))).toEqual([
+      'تصغير',
+      'تكبير',
+    ]);
   });
 
   it('renders Scenario orchestration as a visual phase flow with truthful Lab references', async () => {
@@ -317,6 +340,15 @@ describe('Simulation Enterprise workspace assurance states', () => {
     expect(wrapper.get('[data-testid="scenario-boundary-note"]').text()).toContain(
       'Environment Contract',
     );
+    expect(center.findAll('button')).toHaveLength(0);
+
+    const context = wrapper.get('[data-cep-region="right"]');
+    expect(context.text()).toContain('IDENTITY_POLICY');
+    expect(context.text()).not.toContain('SOC Analyst');
+    expect(context.text()).not.toContain('Role: Defender');
+    expect(context.text()).not.toContain('SIEM correlation rule');
+    expect(context.text()).not.toContain('Alert Notification');
+    expect(context.text()).not.toContain('Branch impact');
   });
 
   it('renders the Lab definition as a real ordered task graph and structural branch', async () => {
@@ -331,7 +363,17 @@ describe('Simulation Enterprise workspace assurance states', () => {
     expect(
       wrapper.get('[data-cep-region="left"] [data-structure-kind="lab-step"]').text(),
     ).toContain('Task 03');
-    expect(wrapper.get('[data-cep-region="right"]').text()).not.toContain('observe');
+    expect(center.findAll('button')).toHaveLength(0);
+
+    const context = wrapper.get('[data-cep-region="right"]');
+    expect(context.text()).toContain('trace-authentication-causality');
+    expect(context.text()).toContain('requires_trace');
+    expect(context.text()).not.toContain('observe');
+    expect(context.text()).not.toContain('State confirmation');
+    expect(context.text()).not.toContain('HTTP interaction');
+    expect(context.text()).not.toContain('Request Inspector');
+    expect(context.text()).not.toContain('Vulnerable response behavior');
+    expect(center.text()).not.toContain('detecting and exploiting');
   });
 
   it('keeps primary run events, runtime telemetry, snapshots and checkpoints in CENTER', async () => {
@@ -340,10 +382,19 @@ describe('Simulation Enterprise workspace assurance states', () => {
 
     const center = wrapper.get('[data-cep-region="center"] [data-testid="run-center"]');
     expect(center.text()).toContain('RUN_PREPARED');
+    expect(center.get('.sim-lifecycle-track').text()).toContain('PREPARING');
+    expect(center.get('.sim-lifecycle-track').text()).not.toContain('PREPARED');
+    expect(center.get('[data-testid="run-runtime-telemetry"]').text()).toContain(
+      'الحالة التشغيلية المرصودة',
+    );
     expect(center.get('[data-testid="run-runtime-telemetry"]').text()).toContain('event_rate');
     expect(center.get('[data-testid="run-snapshots"]').text()).toContain('RUN_PREPARATION');
     expect(center.get('[data-testid="run-checkpoints"]').text()).toContain('RESTORABLE');
     expect(center.findAll('[data-testid="run-operation"]')).toHaveLength(1);
+    expect(center.findAll('[data-testid="run-operational-truth"]')).toHaveLength(1);
+    expect(center.findAll('[data-testid="run-event"]')).toHaveLength(run.events.length);
+    expect(center.text()).not.toContain('Split View');
+    expect(center.text()).not.toContain('SIEM / Monitoring');
     expect(wrapper.get('[data-cep-region="right"]').text()).not.toContain('event_rate');
     expect(
       wrapper.get('[data-cep-region="right"] [data-testid="run-interpretation"]').text(),
@@ -353,11 +404,23 @@ describe('Simulation Enterprise workspace assurance states', () => {
     ).toContain('Runtime Snapshots');
     expect(wrapper.find('[data-cep-region="bottom"]').exists()).toBe(false);
 
+    const eventButtons = center.findAll('[data-testid="run-event"]');
+    expect(eventButtons.every((button) => button.element.tagName === 'BUTTON')).toBe(true);
+    await eventButtons[0].trigger('click');
+    expect(eventButtons[0].attributes('aria-pressed')).toBe('true');
+    expect(center.get('.sim-event-inspector').text()).toContain(run.events[0].event_type);
+
+    const runContext = wrapper.get('[data-cep-region="right"]');
+    expect(runContext.text()).not.toContain('anomalous SQL pattern');
+    expect(runContext.text()).not.toContain('Possible injection attempt');
+    expect(runContext.text()).not.toContain('database impact');
+    expect(runContext.text()).not.toContain('before containment');
+
     await wrapper.get('[data-testid="run-actions"] button:last-child').trigger('click');
-    expect(wrapper.get('[data-cep-region="bottom"] [data-testid="run-bottom"]').text()).toContain(
-      'Event timeline',
-    );
-    expect(wrapper.get('[data-testid="run-bottom"]').text()).toContain('Prepared Checkpoints');
+    const bottom = wrapper.get('[data-cep-region="bottom"] [data-testid="run-bottom"]');
+    expect(bottom.text()).not.toContain('Event timeline');
+    expect(bottom.text()).not.toContain('RUN_PREPARED');
+    expect(bottom.text()).toContain('Prepared Checkpoints');
   });
 
   it('renders Result replay history as immutable CENTER truth while BOTTOM stays raw and closed', async () => {
@@ -371,6 +434,9 @@ describe('Simulation Enterprise workspace assurance states', () => {
       result.replay_timeline.length,
     );
     expect(center.text()).toContain('NO RUN MUTATION');
+    expect(center.text()).not.toContain('Pause Replay');
+    expect(center.text()).not.toContain('Jump to Marker');
+    expect(center.text()).not.toContain('1x');
     expect(
       wrapper.get('[data-cep-region="left"] [data-structure-kind="result-history"]').text(),
     ).toContain('Replay timeline');
@@ -383,5 +449,9 @@ describe('Simulation Enterprise workspace assurance states', () => {
     expect(wrapper.text()).toContain('Result ≠ Evidence');
     expect(wrapper.text()).toContain('Candidate Evidence Handoff');
     expect(wrapper.text()).toContain('ليس قبولًا في Evidence canonical');
+    expect(wrapper.text()).not.toContain('detected and contained');
+    expect(wrapper.text()).not.toContain('fully verified against execution digest');
+    expect(wrapper.text()).not.toContain('INTEGRITY_MATCH');
+    expect(bottom.text()).toContain('لا توجد replay_compare محكومة');
   });
 });

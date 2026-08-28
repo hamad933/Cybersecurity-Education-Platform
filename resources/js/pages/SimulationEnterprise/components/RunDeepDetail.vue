@@ -8,21 +8,6 @@ defineProps<{ run: RunItem | null }>();
 <template>
   <div v-if="run" class="sim-deep-grid" data-testid="run-bottom">
     <section class="sim-deep-section">
-      <h3>Event timeline</h3>
-      <ol class="sim-timeline">
-        <li v-for="event in run.events" :key="event.sequence">
-          <span class="sim-timeline__sequence">{{ event.sequence }}</span>
-          <div>
-            <strong class="sim-technical">{{ event.event_type }}</strong
-            ><small class="sim-technical"
-              >{{ event.occurred_at }} · Actor {{ event.actor_id }}</small
-            >
-            <pre class="sim-json">{{ jsonText(event.payload) }}</pre>
-          </div>
-        </li>
-      </ol>
-    </section>
-    <section class="sim-deep-section">
       <h3>Runtime Snapshots</h3>
       <article v-for="snapshot in run.snapshots" :key="snapshot.id" class="sim-deep-block">
         <div class="sim-card__topline">

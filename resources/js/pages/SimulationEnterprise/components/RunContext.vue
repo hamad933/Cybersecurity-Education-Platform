@@ -20,31 +20,20 @@ const resultScore = ref<number | null>(null);
 <template>
   <div class="sim-context" data-testid="run-right">
     <div class="sim-panel-heading">
-      <p class="sim-kicker">RIGHT · INTERPRETATION / ACTIONS</p>
-      <h2>سياق القرار التشغيلي</h2>
+      <div class="sim-panel-heading__title">
+        <p class="sim-kicker">RIGHT · CONTEXT</p>
+        <h2>السياق</h2>
+      </div>
     </div>
+
     <template v-if="run">
       <LifecycleBadge :value="run.lifecycle" />
-      <dl class="sim-facts">
-        <div>
-          <dt>Run type</dt>
-          <dd class="sim-technical">{{ run.run_type }}</dd>
-        </div>
-        <div>
-          <dt>Baseline</dt>
-          <dd class="sim-technical">{{ shortDigest(run.baseline_id) }}</dd>
-        </div>
-        <div>
-          <dt>Provenance</dt>
-          <dd class="sim-technical">{{ run.provenance }}</dd>
-        </div>
-      </dl>
 
       <section class="sim-context-section" data-testid="run-interpretation">
         <h3>حدود التفسير</h3>
         <p class="sim-context-copy">
-          حقائق الآلة والأحداث وTelemetry معروضة في مساحة العمليات المركزية. هذه اللوحة مخصصة
-          للإجراءات المتاحة وسياق القرار فقط.
+          تعرض CENTER حقائق Run والأحداث والعمليات والحالة المحفوظة كما وردت. لا تضيف هذه اللوحة
+          تفسيرًا أمنيًا أو سببيًا غير موجود في بيانات التشغيل المحكومة.
         </p>
       </section>
 
@@ -75,29 +64,46 @@ const resultScore = ref<number | null>(null);
       >
         <h3>ختم Result تاريخية</h3>
         <label
-          ><span>Outcome</span
-          ><select v-model="resultOutcome" :disabled="pending">
+          ><span>Outcome</span>
+          <select v-model="resultOutcome" :disabled="pending">
             <option v-for="outcome in outcomes" :key="outcome">{{ outcome }}</option>
-          </select></label
-        >
-        <label
-          ><span>التفسير</span><textarea v-model="resultSummary" rows="3" :disabled="pending" />
+          </select>
         </label>
         <label
-          ><span>Score</span
-          ><input
+          ><span>التفسير</span>
+          <textarea v-model="resultSummary" rows="3" :disabled="pending" />
+        </label>
+        <label
+          ><span>Score</span>
+          <input
             v-model.number="resultScore"
             type="number"
             min="0"
             max="100"
             step="0.01"
             :disabled="pending"
-        /></label>
+          />
+        </label>
         <button type="submit" class="sim-button" :disabled="pending">ختم النتيجة</button>
       </form>
       <div v-else-if="run.result_id" class="sim-sealed-note">
         لهذا التشغيل Result مختومة؛ لا يمكن إعادة كتابة التاريخ.
       </div>
+
+      <dl class="sim-facts">
+        <div>
+          <dt>Run type</dt>
+          <dd class="sim-technical">{{ run.run_type }}</dd>
+        </div>
+        <div>
+          <dt>Baseline</dt>
+          <dd class="sim-technical">{{ shortDigest(run.baseline_id) }}</dd>
+        </div>
+        <div>
+          <dt>Provenance</dt>
+          <dd class="sim-technical">{{ run.provenance }}</dd>
+        </div>
+      </dl>
     </template>
     <p v-else class="sim-muted">اختر تشغيلًا لعرض سياق القرار وإجراءاته المتاحة.</p>
   </div>
