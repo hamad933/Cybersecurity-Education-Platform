@@ -49,6 +49,14 @@ final class ManualAiBridgeService
                 'automatic_network_provider' => false,
             ];
             $payload = ['contract' => $declared, 'input' => $input];
+            $inputDigest = CanonicalJson::sha256($payload);
+
+            $provenance = [
+                'prompt_package_id' => (string) $prompt->id,
+                'prompt_revision' => 1,
+                'input_digest' => $inputDigest,
+            ];
+
             $package = $this->packages->create(
                 'manual-ai-prompt',
                 1,
@@ -56,8 +64,9 @@ final class ManualAiBridgeService
                 $declared,
                 [
                     'prompt.json' => CanonicalJson::encode($payload)."\n",
+                    'provenance.json' => CanonicalJson::encode($provenance)."\n",
                     'RESULT_SCHEMA.json' => CanonicalJson::encode($this->resultSchema())."\n",
-                    'README.txt' => "Run this prompt manually. Return only result.json matching RESULT_SCHEMA.json.\n",
+                    'README.txt' => "Run this prompt manually. Your final output must be exactly one JSON file matching RESULT_SCHEMA.json. Include the exact fields from provenance.json in your result.\n",
                 ],
                 ownerModule: 'MOD-AIB',
             );
@@ -65,7 +74,7 @@ final class ManualAiBridgeService
                 'prompt_package_id' => $prompt->id,
                 'revision' => 1,
                 'portable_package_id' => $package['record']->id,
-                'input_digest' => CanonicalJson::sha256($payload),
+                'input_digest' => $inputDigest,
                 'declared_scope' => $declared,
                 'exported_at' => now(),
             ]);
@@ -91,26 +100,27 @@ final class ManualAiBridgeService
     /** @param resource $stream */
     public function importResult($stream, string $actorId): ImportedAiResult
     {
-        $verified = $this->packages->verifyStream($stream, ['manual-ai-result']);
-        $scope = $verified->manifest['scope'] ?? null;
-        if (! is_array($scope) || ($verified->manifest['actor_id'] ?? null) !== $actorId) {
-            throw new InvalidArgumentException('AI result package actor or scope is invalid.');
+        $content = stream_get_contents($stream);
+        if ($content === false) {
+            throw new InvalidArgumentException('Failed to read AI result stream.');
         }
-        $promptId = $scope['prompt_package_id'] ?? null;
-        $revisionNumber = $scope['prompt_revision'] ?? null;
-        $inputDigest = $scope['input_digest'] ?? null;
-        if (! is_string($promptId) || ! is_int($revisionNumber) || ! is_string($inputDigest)) {
-            throw new InvalidArgumentException('AI result provenance is incomplete.');
-        }
+
+        $result = json_decode($content, true, 64, JSON_THROW_ON_ERROR);
+        $this->validateResult($result);
+
+        $promptId = $result['prompt_package_id'];
+        $revisionNumber = $result['prompt_revision'];
+        $inputDigest = $result['input_digest'];
+
         $revision = PromptPackageRevision::query()
             ->where('prompt_package_id', $promptId)
             ->where('revision', $revisionNumber)
             ->firstOrFail();
+
         if (! hash_equals($revision->input_digest, $inputDigest)) {
             throw new InvalidArgumentException('AI result input digest does not match the exported prompt.');
         }
-        $result = json_decode($verified->files['result.json'] ?? '', true, 64, JSON_THROW_ON_ERROR);
-        $this->validateResult($result);
+
         $digest = CanonicalJson::sha256($result);
         $existing = ImportedAiResult::query()
             ->where('prompt_package_revision_id', $revision->id)
@@ -123,7 +133,13 @@ final class ManualAiBridgeService
 
             return $existing;
         }
-        $mirror = $this->packages->create('manual-ai-result', 1, $actorId, $scope, $verified->files, ownerModule: 'MOD-AIB');
+
+        $scope = [
+            'prompt_package_id' => $promptId,
+            'prompt_revision' => $revisionNumber,
+            'input_digest' => $inputDigest,
+        ];
+        $mirror = $this->packages->create('manual-ai-result', 1, $actorId, $scope, ['result.json' => CanonicalJson::encode($result)."\n"], ownerModule: 'MOD-AIB');
 
         return DB::transaction(function () use ($actorId, $revision, $result, $digest, $mirror): ImportedAiResult {
             $import = ImportedAiResult::query()->firstOrCreate(
@@ -197,10 +213,14 @@ final class ManualAiBridgeService
     private function validateResult(mixed $result): void
     {
         if (! is_array($result) || array_diff(array_keys($result), [
+            'prompt_package_id', 'prompt_revision', 'input_digest',
             'knowledge_unit_id', 'proposed_blocks', 'citation_claim_ids', 'derived_from_revision_id',
             'authority_baseline_id', 'limitations', 'confidence',
         ]) !== []) {
             throw new InvalidArgumentException('AI result contains invalid or unknown fields.');
+        }
+        if (! is_string($result['prompt_package_id'] ?? null) || ! is_int($result['prompt_revision'] ?? null) || ! is_string($result['input_digest'] ?? null)) {
+            throw new InvalidArgumentException('AI result provenance fields are invalid.');
         }
         if (! is_string($result['knowledge_unit_id'] ?? null) || ! is_array($result['proposed_blocks'] ?? null) || ! is_array($result['citation_claim_ids'] ?? null)) {
             throw new InvalidArgumentException('AI result required fields are invalid.');
@@ -220,8 +240,11 @@ final class ManualAiBridgeService
         return [
             'type' => 'object',
             'additionalProperties' => false,
-            'required' => ['knowledge_unit_id', 'proposed_blocks', 'citation_claim_ids', 'limitations', 'confidence'],
+            'required' => ['prompt_package_id', 'prompt_revision', 'input_digest', 'knowledge_unit_id', 'proposed_blocks', 'citation_claim_ids', 'limitations', 'confidence'],
             'properties' => [
+                'prompt_package_id' => ['type' => 'string'],
+                'prompt_revision' => ['type' => 'integer'],
+                'input_digest' => ['type' => 'string'],
                 'knowledge_unit_id' => ['type' => 'string'],
                 'proposed_blocks' => ['type' => 'array'],
                 'citation_claim_ids' => ['type' => 'array', 'items' => ['type' => 'string']],
