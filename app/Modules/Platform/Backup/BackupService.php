@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use LogicException;
 use RuntimeException;
+use Throwable;
 
 final class BackupService
 {
@@ -31,73 +32,86 @@ final class BackupService
     /** @return array{manifest:BackupManifest,package_id:string,blob_key:string} */
     public function create(string $actorId): array
     {
-        $chain = $this->auditChain->verify();
-        if (! $chain['valid']) {
-            throw new RuntimeException('Backup refused because the audit chain is invalid.');
-        }
-        $tables = $this->tableSnapshot();
-        $files = ['database.json' => CanonicalJson::encode(['schema_version' => 1, 'tables' => $tables])."\n"];
-        $blobInventory = [];
-        foreach (BlobObject::query()->whereIn('status', ['ready', 'quarantined'])->orderBy('id')->get() as $blob) {
-            if (! $this->blobs->verify($blob->storage_key, $blob->sha256, (int) $blob->size_bytes)) {
-                throw new RuntimeException("Blob integrity failed before backup: {$blob->id}");
+        try {
+            $chain = $this->auditChain->verify();
+            if (! $chain['valid']) {
+                throw new RuntimeException('Backup refused because the audit chain is invalid.');
             }
-            $stream = $this->blobs->readStream($blob->storage_key);
-            try {
-                $bytes = stream_get_contents($stream);
-            } finally {
-                fclose($stream);
+            $tables = $this->tableSnapshot();
+            $files = ['database.json' => CanonicalJson::encode(['schema_version' => 1, 'tables' => $tables])."\n"];
+            $blobInventory = [];
+            foreach (BlobObject::query()->whereIn('status', ['ready', 'quarantined'])->orderBy('id')->get() as $blob) {
+                if (! $this->blobs->verify($blob->storage_key, $blob->sha256, (int) $blob->size_bytes)) {
+                    throw new RuntimeException("Blob integrity failed before backup: {$blob->id}");
+                }
+                $stream = $this->blobs->readStream($blob->storage_key);
+                try {
+                    $bytes = stream_get_contents($stream);
+                } finally {
+                    fclose($stream);
+                }
+                if (! is_string($bytes)) {
+                    throw new RuntimeException('Blob could not be read for backup.');
+                }
+                $path = 'blobs/'.strtolower((string) $blob->id).'.blob';
+                $files[$path] = $bytes;
+                $blobInventory[] = [
+                    'id' => (string) $blob->id,
+                    'path' => $path,
+                    'storage_key' => $blob->storage_key,
+                    'size_bytes' => (int) $blob->size_bytes,
+                    'sha256' => $blob->sha256,
+                    'status' => $blob->status,
+                ];
             }
-            if (! is_string($bytes)) {
-                throw new RuntimeException('Blob could not be read for backup.');
+            $counts = [];
+            foreach ($tables as $name => $rows) {
+                $counts[$name] = count($rows);
             }
-            $path = 'blobs/'.strtolower((string) $blob->id).'.blob';
-            $files[$path] = $bytes;
-            $blobInventory[] = [
-                'id' => (string) $blob->id,
-                'path' => $path,
-                'storage_key' => $blob->storage_key,
-                'size_bytes' => (int) $blob->size_bytes,
-                'sha256' => $blob->sha256,
-                'status' => $blob->status,
+            $scope = [
+                'backup_format' => 'logical-v1',
+                'actor_id' => $actorId,
+                'created_at' => now()->utc()->toIso8601String(),
+                'database_driver' => DB::connection()->getDriverName(),
+                'table_counts' => $counts,
+                'blob_inventory' => $blobInventory,
+                'audit_chain_count' => $chain['count'],
+                'encryption' => 'NOT_IMPLEMENTED_LOCAL_V1',
             ];
-        }
-        $counts = [];
-        foreach ($tables as $name => $rows) {
-            $counts[$name] = count($rows);
-        }
-        $scope = [
-            'backup_format' => 'logical-v1',
-            'actor_id' => $actorId,
-            'created_at' => now()->utc()->toIso8601String(),
-            'database_driver' => DB::connection()->getDriverName(),
-            'table_counts' => $counts,
-            'blob_inventory' => $blobInventory,
-            'audit_chain_count' => $chain['count'],
-            'encryption' => 'NOT_IMPLEMENTED_LOCAL_V1',
-        ];
-        $package = $this->packages->create('platform-backup', 1, $actorId, $scope, $files, ownerModule: 'MOD-PLT');
-        $manifest = BackupManifest::query()->create([
-            'actor_id' => $actorId,
-            'portable_package_id' => $package['record']->id,
-            'status' => 'verified',
-            'database_driver' => DB::connection()->getDriverName(),
-            'table_counts' => $counts,
-            'blob_inventory' => $blobInventory,
-            'content_digest' => CanonicalJson::sha256(['tables' => $tables, 'blobs' => $blobInventory]),
-            'created_at' => now(),
-        ]);
-        $this->audit->append([
-            'actor_identifier' => $actorId,
-            'action' => 'backup.created',
-            'target_type' => 'backup_manifest',
-            'target_identifier' => (string) $manifest->id,
-            'correlation_id' => (string) $manifest->id,
-            'outcome' => 'success',
-            'safe_metadata' => ['package_digest' => $package['manifest']['package_digest'], 'table_count' => count($counts), 'blob_count' => count($blobInventory)],
-        ]);
+            $package = $this->packages->create('platform-backup', 1, $actorId, $scope, $files, ownerModule: 'MOD-PLT');
+            $manifest = BackupManifest::query()->create([
+                'actor_id' => $actorId,
+                'portable_package_id' => $package['record']->id,
+                'status' => 'verified',
+                'database_driver' => DB::connection()->getDriverName(),
+                'table_counts' => $counts,
+                'blob_inventory' => $blobInventory,
+                'content_digest' => CanonicalJson::sha256(['tables' => $tables, 'blobs' => $blobInventory]),
+                'created_at' => now(),
+            ]);
+            $this->audit->append([
+                'actor_identifier' => $actorId,
+                'action' => 'backup.created',
+                'target_type' => 'backup_manifest',
+                'target_identifier' => (string) $manifest->id,
+                'correlation_id' => (string) $manifest->id,
+                'outcome' => 'success',
+                'safe_metadata' => ['package_digest' => $package['manifest']['package_digest'], 'table_count' => count($counts), 'blob_count' => count($blobInventory)],
+            ]);
 
-        return ['manifest' => $manifest, 'package_id' => (string) $package['record']->id, 'blob_key' => $package['blob_key']];
+            return ['manifest' => $manifest, 'package_id' => (string) $package['record']->id, 'blob_key' => $package['blob_key']];
+        } catch (Throwable $e) {
+            $this->audit->append([
+                'actor_identifier' => $actorId,
+                'action' => 'backup.created',
+                'target_type' => 'system',
+                'target_identifier' => 'failed_attempt',
+                'correlation_id' => 'failed_attempt',
+                'outcome' => 'failure',
+                'safe_metadata' => ['reason' => $this->sanitizeException($e)],
+            ]);
+            throw $e;
+        }
     }
 
     /** @param resource $stream */
@@ -112,44 +126,57 @@ final class BackupService
     /** @param resource $stream */
     public function stage($stream, string $actorId): RestoreRun
     {
-        $verified = $this->inspect($stream);
-        if (($verified->manifest['actor_id'] ?? null) !== $actorId) {
-            throw new InvalidArgumentException('Backup actor binding does not match the current owner.');
-        }
-        $mirror = $this->packages->create('platform-backup', 1, $actorId, (array) $verified->manifest['scope'], $verified->files, ownerModule: 'MOD-PLT');
-        $database = json_decode($verified->files['database.json'], true, 128, JSON_THROW_ON_ERROR);
-        $tables = $database['tables'];
-        $counts = array_map('count', $tables);
-        $inventory = (array) ($verified->manifest['scope']['blob_inventory'] ?? []);
-        $manifest = BackupManifest::query()->create([
-            'actor_id' => $actorId,
-            'portable_package_id' => $mirror['record']->id,
-            'status' => 'verified',
-            'database_driver' => (string) ($verified->manifest['scope']['database_driver'] ?? 'pgsql'),
-            'table_counts' => $counts,
-            'blob_inventory' => $inventory,
-            'content_digest' => CanonicalJson::sha256(['tables' => $tables, 'blobs' => $inventory]),
-            'created_at' => now(),
-        ]);
-        $run = RestoreRun::query()->create([
-            'actor_id' => $actorId,
-            'backup_manifest_id' => $manifest->id,
-            'target_database' => (string) config('database.connections.pgsql.database'),
-            'status' => 'staged',
-            'verification' => ['package_sha256' => $verified->archiveSha256, 'tables' => $counts, 'activation_allowed' => false],
-            'started_at' => now(),
-        ]);
-        $this->audit->append([
-            'actor_identifier' => $actorId,
-            'action' => 'restore.staged',
-            'target_type' => 'restore_run',
-            'target_identifier' => (string) $run->id,
-            'correlation_id' => (string) $run->id,
-            'outcome' => 'success',
-            'safe_metadata' => ['activation_allowed' => false, 'package_sha256' => $verified->archiveSha256],
-        ]);
+        try {
+            $verified = $this->inspect($stream);
+            if (($verified->manifest['actor_id'] ?? null) !== $actorId) {
+                throw new InvalidArgumentException('Backup actor binding does not match the current owner.');
+            }
+            $mirror = $this->packages->create('platform-backup', 1, $actorId, (array) $verified->manifest['scope'], $verified->files, ownerModule: 'MOD-PLT');
+            $database = json_decode($verified->files['database.json'], true, 128, JSON_THROW_ON_ERROR);
+            $tables = $database['tables'];
+            $counts = array_map('count', $tables);
+            $inventory = (array) ($verified->manifest['scope']['blob_inventory'] ?? []);
+            $manifest = BackupManifest::query()->create([
+                'actor_id' => $actorId,
+                'portable_package_id' => $mirror['record']->id,
+                'status' => 'verified',
+                'database_driver' => (string) ($verified->manifest['scope']['database_driver'] ?? 'pgsql'),
+                'table_counts' => $counts,
+                'blob_inventory' => $inventory,
+                'content_digest' => CanonicalJson::sha256(['tables' => $tables, 'blobs' => $inventory]),
+                'created_at' => now(),
+            ]);
+            $run = RestoreRun::query()->create([
+                'actor_id' => $actorId,
+                'backup_manifest_id' => $manifest->id,
+                'target_database' => (string) config('database.connections.pgsql.database'),
+                'status' => 'staged',
+                'verification' => ['package_sha256' => $verified->archiveSha256, 'tables' => $counts, 'activation_allowed' => false],
+                'started_at' => now(),
+            ]);
+            $this->audit->append([
+                'actor_identifier' => $actorId,
+                'action' => 'restore.staged',
+                'target_type' => 'restore_run',
+                'target_identifier' => (string) $run->id,
+                'correlation_id' => (string) $run->id,
+                'outcome' => 'success',
+                'safe_metadata' => ['activation_allowed' => false, 'package_sha256' => $verified->archiveSha256],
+            ]);
 
-        return $run;
+            return $run;
+        } catch (Throwable $e) {
+            $this->audit->append([
+                'actor_identifier' => $actorId,
+                'action' => 'restore.staged',
+                'target_type' => 'system',
+                'target_identifier' => 'failed_attempt',
+                'correlation_id' => 'failed_attempt',
+                'outcome' => 'failure',
+                'safe_metadata' => ['reason' => $this->sanitizeException($e)],
+            ]);
+            throw $e;
+        }
     }
 
     public function applyToIsolatedDatabase(PortablePackage $package, string $actorId): RestoreRun
@@ -161,81 +188,118 @@ final class BackupService
         if (! str_ends_with($databaseName, '_restore_drill')) {
             throw new LogicException('Restore activation is restricted to an isolated _restore_drill database.');
         }
-        $this->validatePayload($package);
-        $database = json_decode($package->files['database.json'], true, 128, JSON_THROW_ON_ERROR);
-        $tables = $database['tables'];
-        $inventory = (array) ($package->manifest['scope']['blob_inventory'] ?? []);
 
-        DB::transaction(function () use ($tables): void {
-            if (DB::connection()->getDriverName() === 'pgsql') {
-                DB::statement('SET LOCAL session_replication_role = replica');
-            }
-            foreach (array_reverse(array_keys($tables)) as $table) {
-                DB::statement('TRUNCATE TABLE '.$this->quoteIdentifier($table).' CASCADE');
-            }
-            foreach ($tables as $table => $rows) {
-                foreach (array_chunk($rows, 100) as $chunk) {
-                    if ($chunk !== []) {
-                        DB::table($table)->insert($chunk);
-                    }
-                }
-            }
-        }, 1);
+        try {
+            $this->validatePayload($package);
+            $database = json_decode($package->files['database.json'], true, 128, JSON_THROW_ON_ERROR);
+            $tables = $database['tables'];
+            $inventory = (array) ($package->manifest['scope']['blob_inventory'] ?? []);
 
-        foreach ($inventory as $item) {
-            if (! is_array($item)) {
-                throw new InvalidArgumentException('Backup blob inventory entry is invalid.');
-            }
-            $path = $item['path'] ?? null;
-            if (! is_string($path) || ! isset($package->files[$path])) {
-                throw new InvalidArgumentException('Backup blob payload is missing.');
-            }
-            $stream = fopen('php://temp', 'w+b');
-            fwrite($stream, $package->files[$path]);
-            rewind($stream);
-            try {
-                $this->blobs->restoreStream((string) $item['storage_key'], $stream, (string) $item['sha256'], (int) $item['size_bytes']);
-            } finally {
-                fclose($stream);
-            }
+            $mirror = $this->packages->create('platform-backup', 1, $actorId, (array) $package->manifest['scope'], $package->files, ownerModule: 'MOD-PLT');
+            $counts = array_map('count', $tables);
+            
+            $manifest = BackupManifest::query()->create([
+                'actor_id' => $actorId,
+                'portable_package_id' => $mirror['record']->id,
+                'status' => 'verified',
+                'database_driver' => DB::connection()->getDriverName(),
+                'table_counts' => $counts,
+                'blob_inventory' => $inventory,
+                'content_digest' => CanonicalJson::sha256(['tables' => $tables, 'blobs' => $inventory]),
+                'created_at' => now(),
+            ]);
+
+            $run = RestoreRun::query()->create([
+                'actor_id' => $actorId,
+                'backup_manifest_id' => $manifest->id,
+                'target_database' => $databaseName,
+                'status' => 'applying',
+                'verification' => [],
+                'started_at' => now(),
+            ]);
+        } catch (Throwable $e) {
+            $this->audit->append([
+                'actor_identifier' => $actorId,
+                'action' => 'restore.drill.completed',
+                'target_type' => 'system',
+                'target_identifier' => 'failed_attempt',
+                'correlation_id' => 'failed_attempt',
+                'outcome' => 'failure',
+                'safe_metadata' => ['target_database' => $databaseName, 'reason' => $this->sanitizeException($e)],
+            ]);
+            throw $e;
         }
 
-        $counts = array_map('count', $tables);
-        // Verify the restored snapshot before recovery bookkeeping writes
-        // new package, manifest, audit, and restore-run rows.
-        $verification = $this->verifyRestoredCounts($counts, $inventory);
+        try {
+            DB::transaction(function () use ($tables, $inventory, $package): void {
+                if (DB::connection()->getDriverName() === 'pgsql') {
+                    DB::statement('SET LOCAL session_replication_role = replica');
+                }
+                foreach (array_reverse(array_keys($tables)) as $table) {
+                    DB::statement('TRUNCATE TABLE '.$this->quoteIdentifier($table).' CASCADE');
+                }
+                foreach ($tables as $table => $rows) {
+                    foreach (array_chunk($rows, 100) as $chunk) {
+                        if ($chunk !== []) {
+                            DB::table($table)->insert($chunk);
+                        }
+                    }
+                }
+                foreach ($inventory as $item) {
+                    if (! is_array($item)) {
+                        throw new InvalidArgumentException('Backup blob inventory entry is invalid.');
+                    }
+                    $path = $item['path'] ?? null;
+                    if (! is_string($path) || ! isset($package->files[$path])) {
+                        throw new InvalidArgumentException('Backup blob payload is missing.');
+                    }
+                    $stream = fopen('php://temp', 'w+b');
+                    fwrite($stream, $package->files[$path]);
+                    rewind($stream);
+                    try {
+                        $this->blobs->restoreStream((string) $item['storage_key'], $stream, (string) $item['sha256'], (int) $item['size_bytes']);
+                    } finally {
+                        fclose($stream);
+                    }
+                }
+            }, 1);
 
-        $mirror = $this->packages->create('platform-backup', 1, $actorId, (array) $package->manifest['scope'], $package->files, ownerModule: 'MOD-PLT');
-        $manifest = BackupManifest::query()->create([
-            'actor_id' => $actorId,
-            'portable_package_id' => $mirror['record']->id,
-            'status' => 'verified',
-            'database_driver' => DB::connection()->getDriverName(),
-            'table_counts' => $counts,
-            'blob_inventory' => $inventory,
-            'content_digest' => CanonicalJson::sha256(['tables' => $tables, 'blobs' => $inventory]),
-            'created_at' => now(),
-        ]);
-        $run = RestoreRun::query()->create([
-            'actor_id' => $actorId,
-            'backup_manifest_id' => $manifest->id,
-            'target_database' => $databaseName,
-            'status' => $verification['valid'] ? 'verified' : 'failed',
-            'verification' => $verification,
-            'started_at' => now(),
-            'completed_at' => now(),
-        ]);
-        $this->audit->append([
-            'actor_identifier' => $actorId,
-            'action' => 'restore.drill.completed',
-            'target_type' => 'restore_run',
-            'target_identifier' => (string) $run->id,
-            'correlation_id' => (string) $run->id,
-            'outcome' => $verification['valid'] ? 'success' : 'failure',
-            'safe_metadata' => ['target_database' => $databaseName, 'valid' => $verification['valid']],
-        ]);
+            $verification = $this->verifyRestoredCounts($counts, $inventory);
+            $status = $verification['valid'] ? 'activation_pending' : 'failed';
 
-        return $run;
+            $run->update([
+                'status' => $status,
+                'verification' => $verification,
+                'completed_at' => now(),
+            ]);
+
+            $this->audit->append([
+                'actor_identifier' => $actorId,
+                'action' => 'restore.drill.completed',
+                'target_type' => 'restore_run',
+                'target_identifier' => (string) $run->id,
+                'correlation_id' => (string) $run->id,
+                'outcome' => $verification['valid'] ? 'success' : 'failure',
+                'safe_metadata' => ['target_database' => $databaseName, 'valid' => $verification['valid']],
+            ]);
+
+            return $run;
+        } catch (Throwable $e) {
+            $run->update([
+                'status' => 'rollback_failed',
+                'completed_at' => now(),
+            ]);
+            $this->audit->append([
+                'actor_identifier' => $actorId,
+                'action' => 'restore.drill.completed',
+                'target_type' => 'restore_run',
+                'target_identifier' => (string) $run->id,
+                'correlation_id' => (string) $run->id,
+                'outcome' => 'failure',
+                'safe_metadata' => ['target_database' => $databaseName, 'reason' => $this->sanitizeException($e)],
+            ]);
+            throw $e;
+        }
     }
 
     /** @return array<string,list<array<string,mixed>>> */
@@ -331,5 +395,14 @@ final class BackupService
             'blob_failures' => $blobFailures,
             'audit_chain' => $chain,
         ];
+    }
+
+    private function sanitizeException(Throwable $e): string
+    {
+        $class = class_basename($e);
+        if ($e instanceof InvalidArgumentException || $e instanceof LogicException || $e instanceof RuntimeException) {
+            return $class . ': ' . $e->getMessage();
+        }
+        return $class . ' (details omitted for safe provenance)';
     }
 }
