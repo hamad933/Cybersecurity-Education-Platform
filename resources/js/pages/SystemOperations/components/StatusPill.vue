@@ -19,17 +19,17 @@ const normalizedVariant = computed(() => {
   }
   const s = props.status.toLowerCase().trim();
   if (
-    ['ok', 'healthy', 'completed', 'valid', 'success', 'exported', 'accepted', 'ready'].includes(s)
+    ['ok', 'healthy', 'completed', 'valid', 'valid_chain', 'success', 'exported', 'accepted', 'ready', 'pass'].includes(s)
   ) {
     return 'ok';
   }
-  if (['failed', 'danger', 'error', 'rejected', 'attention', 'invalid', 'not_ready'].includes(s)) {
+  if (['failed', 'danger', 'error', 'rejected', 'attention', 'invalid', 'chain_invalid', 'not_ready', 'fail', 'degraded'].includes(s)) {
     return 'danger';
   }
   if (['running', 'processing', 'pending_review', 'staged', 'enabled'].includes(s)) {
     return 'info';
   }
-  if (['pending', 'warning', 'attention_required'].includes(s)) {
+  if (['pending', 'warning', 'warn', 'attention_required'].includes(s)) {
     return 'warning';
   }
   return 'neutral';

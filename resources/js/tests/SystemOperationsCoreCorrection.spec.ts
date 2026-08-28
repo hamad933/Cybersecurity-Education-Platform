@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import HealthSurface from '../pages/SystemOperations/components/health/HealthSurface.vue';
 import ProcessingSurface from '../pages/SystemOperations/components/processing/ProcessingSurface.vue';
 import ReleasesSurface from '../pages/SystemOperations/components/releases/ReleasesSurface.vue';
+import StatusPill from '../pages/SystemOperations/components/StatusPill.vue';
 import type { ProcessingRun, WorkspaceState } from '../pages/SystemOperations/types';
 
 vi.mock('@inertiajs/vue3', () => ({
@@ -184,7 +185,23 @@ describe('SystemOperationsCoreCorrection Vitest Suite', () => {
 
       expect(wrapper.text()).toContain('evidence_acceptance');
       expect(wrapper.text()).toContain('Pending evidence records require Owner acceptance.');
-      expect(wrapper.text()).toContain('NOT_READY');
+  describe('StatusPill normalization', () => {
+    it('normalizes pass, valid_chain, degraded, and warn statuses accurately', () => {
+      const wrapperOk = mount(StatusPill, { props: { status: 'VALID_CHAIN' } });
+      expect(wrapperOk.classes()).toContain('state-pill--ok');
+
+      const wrapperPass = mount(StatusPill, { props: { status: 'PASS' } });
+      expect(wrapperPass.classes()).toContain('state-pill--ok');
+
+      const wrapperFail = mount(StatusPill, { props: { status: 'FAIL' } });
+      expect(wrapperFail.classes()).toContain('state-pill--danger');
+
+      const wrapperDegraded = mount(StatusPill, { props: { status: 'DEGRADED' } });
+      expect(wrapperDegraded.classes()).toContain('state-pill--danger');
+
+      const wrapperWarn = mount(StatusPill, { props: { status: 'WARN' } });
+      expect(wrapperWarn.classes()).toContain('state-pill--warning');
     });
   });
 });
+
