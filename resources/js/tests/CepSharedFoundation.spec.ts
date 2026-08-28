@@ -88,7 +88,7 @@ describe('CEP Shared Adaptive Shell Foundation', () => {
     expect(localStorage.getItem('cep-theme')).toBe('dark');
   });
 
-  it('keeps Arabic content RTL while fixing the physical workspace grid axis LTR', () => {
+  it('keeps Arabic content RTL while preserving the five workspace regions', () => {
     const wrapper = mount(CepWorkspaceLayout, {
       props: { activeDestination: 'today' },
       slots: {
@@ -104,7 +104,7 @@ describe('CEP Shared Adaptive Shell Foundation', () => {
     const right = wrapper.find('[data-cep-region="right"]');
 
     expect(wrapper.attributes('dir')).toBe('rtl');
-    expect(grid.attributes('dir')).toBe('ltr');
+    expect(grid.attributes('dir')).toBeUndefined();
     expect(left.attributes('dir')).toBe('rtl');
     expect(center.attributes('dir')).toBe('rtl');
     expect(right.attributes('dir')).toBe('rtl');
@@ -130,8 +130,8 @@ describe('CEP Shared Adaptive Shell Foundation', () => {
     expect(wrapper.find('.cep-action-bar').exists()).toBe(true);
     const toggleButtons = wrapper.findAll('.cep-panel-toggle');
     expect(toggleButtons).toHaveLength(2);
-    expect(toggleButtons[0].attributes('aria-label')).toBe('تبديل عرض لوحة البنية (الجانب الأيسر)');
-    expect(toggleButtons[1].attributes('aria-label')).toBe('تبديل عرض لوحة السياق (الجانب الأيمن)');
+    expect(toggleButtons[0].attributes('aria-label')).toBe('تبديل عرض لوحة البنية');
+    expect(toggleButtons[1].attributes('aria-label')).toBe('تبديل عرض لوحة السياق');
   });
 
   it('supports independent left/right panel collapsing and restores state', async () => {
@@ -225,7 +225,7 @@ describe('CEP Shared Adaptive Shell Foundation', () => {
     expect(leftHandle.attributes('aria-valuenow')).toBe('300');
 
     // Test Keyboard resize on Left Handle
-    await leftHandle.trigger('keydown', { key: 'ArrowRight' });
+    await leftHandle.trigger('keydown', { key: 'ArrowLeft' });
     expect(leftHandle.attributes('aria-valuenow')).toBe('310');
     expect(localStorage.getItem('cep-left-width')).toBe('310');
 
