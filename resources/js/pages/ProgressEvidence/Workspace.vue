@@ -191,7 +191,7 @@ const statusTones: Record<StatusGroup, Record<string, StatusTone>> = {
     PREPARED: 'info',
     SUBMITTED_FOR_INTAKE: 'info',
     RETURNED_FOR_CONTEXT: 'warning',
-    ADMITTED: 'positive',
+    ADMITTED: 'info',
     DECLINED: 'danger',
   },
   evidenceLifecycle: {
@@ -202,7 +202,7 @@ const statusTones: Record<StatusGroup, Record<string, StatusTone>> = {
   evidenceReview: {
     UNREVIEWED: 'neutral',
     IN_REVIEW: 'info',
-    REVIEWED: 'positive',
+    REVIEWED: 'info',
   },
   reviewWorkflow: {
     REQUESTED: 'info',
@@ -213,14 +213,14 @@ const statusTones: Record<StatusGroup, Record<string, StatusTone>> = {
     CANCELLED: 'neutral',
   },
   finding: {
-    SATISFIED: 'positive',
+    SATISFIED: 'info',
     PARTIALLY_SATISFIED: 'warning',
     NOT_SATISFIED: 'danger',
     NOT_ASSESSABLE: 'neutral',
   },
   decision: {
     NONE: 'neutral',
-    ACCEPT: 'positive',
+    ACCEPT: 'info',
     ACCEPT_WITH_LIMITATIONS: 'warning',
     MORE_EVIDENCE_REQUIRED: 'warning',
     REJECT: 'danger',
@@ -230,7 +230,7 @@ const statusTones: Record<StatusGroup, Record<string, StatusTone>> = {
     INSUFFICIENT_EVIDENCE: 'warning',
     INCONCLUSIVE: 'warning',
     NOT_MASTERED: 'danger',
-    MASTERED: 'positive',
+    MASTERED: 'info',
   },
   freshness: {
     CURRENT: 'info',
@@ -725,7 +725,7 @@ function removePortfolioItem(): void {
               <span>Decline</span>
             </button>
             <button
-              class="toolbar-btn primary success-btn"
+              class="toolbar-btn primary"
               type="button"
               :disabled="!candidateAction"
               @click="runCandidateAction"
@@ -3267,7 +3267,7 @@ function removePortfolioItem(): void {
   border: 1px solid transparent;
   border-radius: 0.5rem;
   cursor: pointer;
-  text-align: right;
+  text-align: start;
   transition: all 0.15s ease;
 }
 
@@ -3337,9 +3337,9 @@ function removePortfolioItem(): void {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  padding-right: 1.25rem;
+  padding-inline-start: 1.25rem;
   margin-top: 0.25rem;
-  border-right: 1px solid var(--pe-border);
+  border-inline-start: 1px solid var(--pe-border);
 }
 
 .tree-subnode {
@@ -3386,7 +3386,7 @@ function removePortfolioItem(): void {
   border: 1px solid transparent;
   border-radius: 0.4rem;
   color: var(--pe-text-muted);
-  text-align: right;
+  text-align: start;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -3439,7 +3439,7 @@ function removePortfolioItem(): void {
 /* Center Workspace Layout */
 .center-workspace {
   padding: 0.85rem;
-  text-align: left;
+  text-align: start;
 }
 
 .surface-container {
@@ -3631,7 +3631,7 @@ function removePortfolioItem(): void {
   font-size: 0.76rem;
   color: var(--pe-text);
   font-weight: 500;
-  text-align: right;
+  text-align: start;
 }
 
 /* Reference List Items */
@@ -3818,7 +3818,7 @@ function removePortfolioItem(): void {
   font-size: 0.68rem;
   font-weight: 700;
   color: var(--pe-text-dim);
-  text-align: left;
+  text-align: start;
   border-bottom: 1px solid var(--pe-border);
 }
 
@@ -4056,7 +4056,7 @@ function removePortfolioItem(): void {
   padding: 0.4rem 0.6rem;
   font-size: 0.66rem;
   color: var(--pe-text-dim);
-  text-align: left;
+  text-align: start;
   border-bottom: 1px solid var(--pe-border);
 }
 
@@ -4219,7 +4219,7 @@ function removePortfolioItem(): void {
   padding: 0.55rem 0.85rem;
   font-size: 0.68rem;
   color: var(--pe-text-dim);
-  text-align: left;
+  text-align: start;
   border-bottom: 1px solid var(--pe-border);
 }
 
@@ -4336,7 +4336,7 @@ function removePortfolioItem(): void {
 }
 
 .context-bullet-list {
-  padding-right: 1.1rem;
+  padding-inline-start: 1.1rem;
   margin: 0;
   font-size: 0.72rem;
   color: var(--pe-text-muted);
@@ -4388,7 +4388,7 @@ function removePortfolioItem(): void {
   width: 0.45rem;
   height: 0.45rem;
   border-radius: 50%;
-  margin-left: 0.35rem;
+  margin-inline-end: 0.35rem;
 }
 
 .green-dot {
