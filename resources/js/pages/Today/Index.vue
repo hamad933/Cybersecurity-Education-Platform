@@ -126,7 +126,6 @@ function refreshOrchestration() {
               />
             </svg>
             <span>{{ diagnosticsOpen ? 'إخفاء التشخيص' : 'تشخيص الربط' }}</span>
-            <span class="today-routes-badge">{{ routeRegistrationSummary }}</span>
           </button>
         </div>
       </div>
