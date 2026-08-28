@@ -34,6 +34,8 @@ class ProcessingRun extends Model
             $this->cancelled_at = null;
             $this->error_category = null;
             $this->safe_error_message = null;
+            $this->leased_until = null;
+            $this->next_attempt_at = null;
         }
         if ($next === 'running') {
             $this->started_at = now();

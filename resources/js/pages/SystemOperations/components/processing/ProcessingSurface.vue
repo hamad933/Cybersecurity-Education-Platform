@@ -4,7 +4,7 @@ import { router } from '@inertiajs/vue3';
 import type { Counts, DeepSection, ProcessingRun, WorkspaceState } from '../../types';
 import StatusPill from '../StatusPill.vue';
 
-defineProps<{
+const props = defineProps<{
   state: WorkspaceState;
 }>();
 
@@ -17,8 +17,15 @@ const count = (counts: Counts | undefined, key: string): number | string =>
 const when = (value: string | null | undefined): string =>
   value ? new Date(value).toLocaleString('ar-YE') : '—';
 
-const canCancel = (status: string): boolean => status === 'pending' || status === 'running';
-const canRetry = (status: string): boolean => status === 'failed' || status === 'running';
+const canCancel = (status: string): boolean => {
+  if (props.state.policy?.cancellation === 'DISABLED') return false;
+  return status === 'pending' || status === 'running';
+};
+
+const canRetry = (status: string): boolean => {
+  if (props.state.policy?.retry_route_available !== true) return false;
+  return status === 'failed' || status === 'running';
+};
 
 const cancelProcessing = (runId: string) => {
   router.post(`/system/processing/runs/${runId}/cancel`, {}, { preserveScroll: true });
