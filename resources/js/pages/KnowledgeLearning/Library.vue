@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import CepWorkspaceLayout from '../../layouts/CepWorkspaceLayout.vue';
 import KnowledgeTabs from './components/KnowledgeTabs.vue';
 import LibraryHierarchyTree from './components/library/LibraryHierarchyTree.vue';
 import type {
@@ -654,7 +655,15 @@ const loadComparison = async () => {
 
 <template>
   <Head title="المعرفة والتعلّم — المكتبة" />
-  <div dir="rtl" class="flex min-h-screen flex-col bg-slate-950 text-slate-100 antialiased">
+  <CepWorkspaceLayout active-destination="knowledge">
+    <template #primaryNavigation>
+      <KnowledgeTabs active="library" :object-id="active?.id" />
+    </template>
+
+    <div
+      dir="rtl"
+      class="kl-library-route flex min-h-full flex-col bg-[var(--cep-bg-canvas)] text-[var(--cep-text)] antialiased"
+    >
     <!-- TOP Tools & Actions Header Bar -->
     <header class="border-b border-slate-800/80 bg-slate-950/90 px-4 py-3 sm:px-6">
       <div class="mx-auto flex w-full flex-wrap items-center justify-between gap-4">
@@ -798,15 +807,15 @@ const loadComparison = async () => {
 
     <!-- 3-Column Desktop Workspace Surface -->
     <!-- The outer grid uses dir="ltr" so Column 1 is visual LEFT, Column 2 is CENTER, Column 3 is visual RIGHT -->
-    <div class="mx-auto w-full flex-1 px-4 py-4 sm:px-6">
+    <div class="mx-auto w-full flex-1 px-0 py-3 sm:px-4 xl:px-6">
       <div
         dir="ltr"
-        class="grid min-h-[740px] grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_300px]"
+        class="grid min-h-[740px] grid-cols-1 gap-4 md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_300px]"
       >
         <!-- Visual LEFT: Structure / Hierarchy Tree -->
         <aside
           dir="rtl"
-          class="flex min-w-0 flex-col rounded-xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-sm"
+          class="order-2 flex min-w-0 flex-col rounded-xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-sm md:order-1 md:max-h-[calc(100vh-10rem)] xl:max-h-none"
           aria-label="بنية المكتبة"
         >
           <!-- Search Filter -->
@@ -845,15 +854,10 @@ const loadComparison = async () => {
         <!-- Visual CENTER: Canonical Document Work Surface -->
         <main
           dir="rtl"
-          class="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 shadow-lg backdrop-blur sm:p-7 dark:bg-[#0b1322]/90"
+          class="order-1 flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur sm:p-5 md:order-2 xl:p-7 dark:bg-[#0b1322]/90"
           aria-label="وحدة المعرفة القانونية"
         >
           <div v-if="active" class="flex min-w-0 flex-1 flex-col">
-            <!-- Center Grouped Gateways -->
-            <div class="mb-5 border-b border-slate-800/80 pb-4">
-              <KnowledgeTabs active="library" :object-id="active?.id" />
-            </div>
-
             <!-- Document Meta Header -->
             <div class="border-b border-slate-800/80 pb-5">
               <!-- Breadcrumbs & Actions Row -->
@@ -865,7 +869,7 @@ const loadComparison = async () => {
                   <span class="font-semibold text-slate-300">{{ active.title_ar }}</span>
                   <template v-if="context.placements[0]?.capability_id">
                     <span class="text-slate-600">&gt;</span>
-                    <bdi dir="ltr" class="text-cyan-400">
+                    <bdi dir="ltr" class="hidden text-cyan-400 whitespace-nowrap sm:inline">
                       {{ context.placements[0].capability_id }}
                     </bdi>
                   </template>
@@ -938,13 +942,6 @@ const loadComparison = async () => {
 
               <!-- Governed Metadata & Citation Badges Row -->
               <div class="mt-4 flex flex-wrap items-center gap-2 text-xs">
-                <span
-                  v-if="active.revision?.authority_baseline_id"
-                  class="inline-flex items-center gap-1.5 rounded-full border border-cyan-800/60 bg-cyan-950/40 px-3 py-1 font-mono text-[11px] text-cyan-200"
-                >
-                  <span>🏛️</span>
-                  <bdi dir="ltr">{{ active.revision.authority_baseline_id }}</bdi>
-                </span>
                 <span
                   v-for="citation in active.revision?.citations ?? []"
                   :key="citation"
@@ -1259,35 +1256,13 @@ const loadComparison = async () => {
         <!-- Visual RIGHT: Context Panel ("السياق") -->
         <aside
           dir="rtl"
-          class="flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
+          class="order-3 flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur md:col-span-2 xl:col-span-1 dark:bg-[#0b1322]/90"
           aria-label="السياق"
         >
           <!-- Context Header -->
           <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h2 class="text-sm font-bold text-slate-100">السياق</h2>
             <span class="font-mono text-[10px] text-slate-500">GOVERNED CONTEXT</span>
-          </div>
-
-          <!-- Metric Cards Grid (Governed Data) -->
-          <div class="mt-3 grid grid-cols-3 gap-1.5 text-center">
-            <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
-              <span class="block font-mono text-sm font-bold text-cyan-300">{{
-                context.sources.length
-              }}</span>
-              <span class="block text-[9px] text-slate-500">المصادر</span>
-            </div>
-            <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
-              <span class="block font-mono text-sm font-bold text-indigo-300">{{
-                context.placements.length
-              }}</span>
-              <span class="block text-[9px] text-slate-500">المواضع</span>
-            </div>
-            <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
-              <span class="block font-mono text-sm font-bold text-emerald-300">{{
-                displayedBlocks.length
-              }}</span>
-              <span class="block text-[9px] text-slate-500">الكتل</span>
-            </div>
           </div>
 
           <!-- Lens Selector for Detail Views -->
@@ -1311,11 +1286,6 @@ const loadComparison = async () => {
 
             <!-- Lens: Overview -->
             <div v-if="lens === 'overview'" class="space-y-3">
-              <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-                <h3 class="font-bold text-slate-400">ملخص الوحدة المعرفية</h3>
-                <p class="mt-1.5 leading-relaxed text-slate-300">{{ unitSummary }}</p>
-              </section>
-
               <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
                 <h3 class="font-bold text-slate-400">سلطة المراجعة المرتبطة</h3>
                 <bdi
@@ -1366,8 +1336,8 @@ const loadComparison = async () => {
                     </span>
                   </div>
                   <div class="mt-2 flex items-center justify-between text-[11px]">
-                    <span class="text-slate-500">حالة المراجعة:</span>
-                    <bdi dir="ltr" class="font-mono text-emerald-400">{{
+                    <span class="text-slate-500">حالة مراجعة المصدر المسجلة:</span>
+                    <bdi dir="ltr" class="font-mono text-cyan-300">{{
                       source.review_status
                     }}</bdi>
                   </div>
@@ -1687,5 +1657,45 @@ const loadComparison = async () => {
         </div>
       </div>
     </aside>
-  </div>
+    </div>
+  </CepWorkspaceLayout>
 </template>
+
+<style>
+[data-theme='light'] .kl-library-route [class*='bg-slate-950'],
+[data-theme='light'] .kl-library-route [class*='bg-slate-900'],
+[data-theme='light'] .kl-library-route [class*='bg-slate-800'],
+[data-theme='light'] .kl-library-route [class*='bg-[#0b1322]'],
+[data-theme='light'] .kl-library-route [class*='bg-[#050911]'] {
+  background-color: var(--cep-bg-panel-strong) !important;
+}
+
+[data-theme='light'] .kl-library-route [class*='text-slate-100'],
+[data-theme='light'] .kl-library-route [class*='text-slate-200'],
+[data-theme='light'] .kl-library-route [class*='text-slate-300'] {
+  color: var(--cep-text) !important;
+}
+
+[data-theme='light'] .kl-library-route [class*='text-slate-400'],
+[data-theme='light'] .kl-library-route [class*='text-slate-500'],
+[data-theme='light'] .kl-library-route [class*='text-slate-600'] {
+  color: var(--cep-text-muted) !important;
+}
+
+[data-theme='light'] .kl-library-route [class*='border-slate-700'],
+[data-theme='light'] .kl-library-route [class*='border-slate-800'] {
+  border-color: var(--cep-border) !important;
+}
+
+[data-theme='light'] .kl-library-route [class*='text-cyan-100'],
+[data-theme='light'] .kl-library-route [class*='text-cyan-200'],
+[data-theme='light'] .kl-library-route [class*='text-cyan-300'],
+[data-theme='light'] .kl-library-route [class*='text-cyan-400'] {
+  color: var(--cep-accent) !important;
+}
+
+[data-theme='light'] .kl-library-route [class*='text-amber-300'],
+[data-theme='light'] .kl-library-route [class*='text-amber-400'] {
+  color: #b45309 !important;
+}
+</style>

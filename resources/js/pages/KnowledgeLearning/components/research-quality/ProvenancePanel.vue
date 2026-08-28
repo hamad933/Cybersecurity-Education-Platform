@@ -51,9 +51,16 @@ const row = computed(
 
       <section class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
         <p class="text-[11px] font-bold text-slate-400">بصمة السلامة الرقمية (Integrity Digest)</p>
-        <bdi dir="ltr" class="mt-1.5 block font-mono text-[10px] break-all text-emerald-400">
-          sha256:{{ source.sha256 || 'غير متوفر' }}
+        <bdi
+          v-if="source.sha256"
+          dir="ltr"
+          class="mt-1.5 block font-mono text-[10px] break-all text-emerald-400"
+        >
+          sha256:{{ source.sha256 }}
         </bdi>
+        <p v-else class="mt-1.5 text-xs text-slate-500">
+          لا توجد بصمة سلامة رقمية محفوظة لهذا المصدر.
+        </p>
       </section>
 
       <section class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">

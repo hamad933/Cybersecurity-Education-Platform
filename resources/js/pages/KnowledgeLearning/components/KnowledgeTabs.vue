@@ -12,22 +12,22 @@ const withObject = (path: string) =>
 const tabs = [
   {
     key: 'library',
-    ar: 'المعرفة / المحتوى',
-    en: 'Knowledge / Content',
+    ar: 'المكتبة',
+    en: 'Library',
     icon: '📖',
     href: '/knowledge',
   },
   {
     key: 'learn',
-    ar: 'التعلم المرتبط',
-    en: 'Related Learning',
+    ar: 'التعلّم',
+    en: 'Learn',
     icon: '🎓',
     href: '/knowledge/learn',
   },
   {
     key: 'visualize',
-    ar: 'السياق المرتبط',
-    en: 'Related Context',
+    ar: 'التصوّر',
+    en: 'Visualize',
     icon: '🕸️',
     href: '/knowledge/visualize',
   },
@@ -54,8 +54,8 @@ const tabs = [
       class="focus-ring group inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all duration-150"
       :class="
         active === tab.key
-          ? 'border-cyan-500/50 bg-cyan-500/15 text-cyan-200 shadow-sm shadow-cyan-950/50 dark:border-cyan-400/60 dark:bg-cyan-950/40 dark:text-cyan-100'
-          : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700 hover:bg-slate-800/80 hover:text-slate-200 dark:border-slate-800/90 dark:bg-slate-900/40 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:text-slate-100'
+          ? 'border-cyan-500/50 bg-[var(--cep-accent-soft)] text-[var(--cep-accent)] shadow-sm'
+          : 'border-[var(--cep-border)] bg-[var(--cep-bg-panel)] text-[var(--cep-text-muted)] hover:border-[var(--cep-border-strong)] hover:bg-[var(--cep-bg-panel-strong)] hover:text-[var(--cep-text)]'
       "
     >
       <span class="text-xs opacity-80 select-none group-hover:opacity-100">

@@ -23,10 +23,10 @@ defineProps<{ rows: ComparisonRow[] }>();
 
     <div
       v-if="rows.length"
-      class="mt-4 overflow-x-auto rounded-2xl border border-slate-800/80 bg-slate-950/60 shadow-lg"
+      class="mt-4 max-h-[600px] overflow-auto rounded-2xl border border-slate-800/80 bg-slate-950/60 shadow-lg"
     >
       <table class="min-w-full divide-y divide-slate-800/80 text-xs">
-        <thead class="bg-slate-900/80 text-[11px] font-bold text-slate-400">
+        <thead class="sticky top-0 z-10 bg-slate-900/95 text-[11px] font-bold text-slate-400">
           <tr>
             <th class="px-4 py-3.5 text-right">المصدر</th>
             <th class="px-4 py-3.5 text-right">Authority</th>

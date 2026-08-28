@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import CepWorkspaceLayout from '../../layouts/CepWorkspaceLayout.vue';
 import KnowledgeTabs from './components/KnowledgeTabs.vue';
 import ProvenancePanel from './components/research-quality/ProvenancePanel.vue';
 import ResearchQualityWorkbench from './components/research-quality/ResearchQualityWorkbench.vue';
@@ -46,11 +47,16 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
 
 <template>
   <Head title="المعرفة والتعلّم — البحث والجودة" />
-  <div
-    dir="rtl"
-    class="min-h-screen bg-slate-950 text-slate-100 dark:bg-[#070c14] dark:text-slate-100"
-  >
-    <div class="w-full px-4 py-4 sm:px-6 xl:px-8">
+  <CepWorkspaceLayout active-destination="knowledge">
+    <template #primaryNavigation>
+      <KnowledgeTabs active="research-quality" :object-id="active?.id" />
+    </template>
+
+    <div
+      dir="rtl"
+      class="kl-research-quality-route min-h-full bg-[var(--cep-bg-canvas)] text-[var(--cep-text)]"
+    >
+    <div class="w-full px-0 py-3 sm:px-4 xl:px-6">
       <!-- Top Modes Toolbar -->
       <header
         class="mb-4 rounded-2xl border border-slate-800/80 bg-slate-900/50 p-3.5 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
@@ -62,13 +68,13 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
           </div>
 
           <div
-            class="flex flex-wrap items-center gap-1 rounded-xl border border-slate-800 bg-slate-950/80 p-1"
+            class="flex max-w-full flex-nowrap items-center gap-1 overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/80 p-1"
           >
             <button
               v-for="item in modes"
               :key="item.key"
               type="button"
-              class="focus-ring flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap shadow-sm transition"
+              class="focus-ring flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap shadow-sm transition"
               :class="
                 mode === item.key
                   ? 'border border-cyan-500/40 bg-cyan-500/20 text-cyan-200 shadow-cyan-950/50'
@@ -86,11 +92,14 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
       </header>
 
       <!-- 3-Column Layout with strict physical region ownership -->
-      <div dir="ltr" class="grid min-h-[740px] gap-4 xl:grid-cols-[285px_minmax(0,1fr)_315px]">
+      <div
+        dir="ltr"
+        class="grid min-h-[740px] items-start gap-4 md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[285px_minmax(0,1fr)_315px]"
+      >
         <!-- LEFT: Source Set Sidebar (Visual LEFT) -->
         <aside
           dir="rtl"
-          class="flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
+          class="order-2 flex max-h-[740px] min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur md:order-1 dark:bg-[#0b1322]/90"
           aria-label="مصادر البحث والجودة"
         >
           <div class="border-b border-slate-800/80 pb-4">
@@ -139,13 +148,9 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
         <!-- CENTER: Research & Quality Workspace (Visual CENTER) -->
         <main
           dir="rtl"
-          class="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 shadow-lg backdrop-blur sm:p-7 dark:bg-[#0b1322]/90"
+          class="order-1 flex min-h-[740px] min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 shadow-lg backdrop-blur sm:p-7 md:order-2 dark:bg-[#0b1322]/90"
           aria-label="مساحة فحص الجودة والمقارنة"
         >
-          <div class="mb-5 border-b border-slate-800/80 pb-4">
-            <KnowledgeTabs active="research-quality" :object-id="active?.id" />
-          </div>
-
           <header
             class="flex flex-wrap items-end justify-between gap-4 border-b border-slate-800/80 pb-5"
           >
@@ -167,7 +172,7 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
               class="rounded-xl border border-slate-800 bg-slate-950/60 p-2.5 text-left font-mono text-[11px]"
             >
               <span class="block text-[9px] text-slate-500">سلطة القرار</span>
-              <bdi dir="ltr" class="font-bold text-emerald-400">
+              <bdi dir="ltr" class="font-bold text-cyan-300">
                 {{ quality.analysis.review.decision_authority }}
               </bdi>
             </div>
@@ -190,7 +195,7 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
         <!-- RIGHT: Provenance & Review Boundary (Visual RIGHT) -->
         <aside
           dir="rtl"
-          class="flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
+          class="order-3 flex min-h-[740px] min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur md:col-span-2 xl:col-span-1 dark:bg-[#0b1322]/90"
           aria-label="تتبّع المنشأ وحدود المراجعة"
         >
           <ProvenancePanel
@@ -291,5 +296,55 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
         </div>
       </details>
     </div>
-  </div>
+    </div>
+  </CepWorkspaceLayout>
 </template>
+
+<style>
+[data-theme='light'] .kl-research-quality-route [class*='bg-slate-950'],
+[data-theme='light'] .kl-research-quality-route [class*='bg-slate-900'],
+[data-theme='light'] .kl-research-quality-route [class*='bg-slate-800'],
+[data-theme='light'] .kl-research-quality-route [class*='bg-[#0b1322]'],
+[data-theme='light'] .kl-research-quality-route [class*='bg-[#070c14]'] {
+  background-color: var(--cep-bg-panel-strong) !important;
+}
+
+[data-theme='light'] .kl-research-quality-route [class*='text-slate-100'],
+[data-theme='light'] .kl-research-quality-route [class*='text-slate-200'],
+[data-theme='light'] .kl-research-quality-route [class*='text-slate-300'] {
+  color: var(--cep-text) !important;
+}
+
+[data-theme='light'] .kl-research-quality-route [class*='text-slate-400'],
+[data-theme='light'] .kl-research-quality-route [class*='text-slate-500'],
+[data-theme='light'] .kl-research-quality-route [class*='text-slate-600'] {
+  color: var(--cep-text-muted) !important;
+}
+
+[data-theme='light'] .kl-research-quality-route [class*='border-slate-700'],
+[data-theme='light'] .kl-research-quality-route [class*='border-slate-800'] {
+  border-color: var(--cep-border) !important;
+}
+
+[data-theme='light'] .kl-research-quality-route [class*='text-cyan-100'],
+[data-theme='light'] .kl-research-quality-route [class*='text-cyan-200'],
+[data-theme='light'] .kl-research-quality-route [class*='text-cyan-300'],
+[data-theme='light'] .kl-research-quality-route [class*='text-cyan-400'] {
+  color: var(--cep-accent) !important;
+}
+
+[data-theme='light'] .kl-research-quality-route [class*='text-emerald-300'],
+[data-theme='light'] .kl-research-quality-route [class*='text-emerald-400'] {
+  color: #047857 !important;
+}
+
+[data-theme='light'] .kl-research-quality-route [class*='text-amber-200'],
+[data-theme='light'] .kl-research-quality-route [class*='text-amber-300'],
+[data-theme='light'] .kl-research-quality-route [class*='text-amber-400'] {
+  color: #b45309 !important;
+}
+
+[data-theme='light'] .kl-research-quality-route [class*='text-rose-200'] {
+  color: #be123c !important;
+}
+</style>

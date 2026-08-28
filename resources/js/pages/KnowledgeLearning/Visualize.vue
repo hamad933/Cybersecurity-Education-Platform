@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import CepWorkspaceLayout from '../../layouts/CepWorkspaceLayout.vue';
 import KnowledgeTabs from './components/KnowledgeTabs.vue';
 import OverlayPanel from './components/visualize/OverlayPanel.vue';
 import VisualizationSurface from './components/visualize/VisualizationSurface.vue';
@@ -52,6 +53,21 @@ const selectOverlay = (overlay: OverlayName | null) => {
 
 const mapScope = computed(() => props.map.scope?.id ?? props.active?.id ?? null);
 const activeFilter = ref('all');
+const visibleNodes = computed(() => {
+  if (activeFilter.value === 'units') {
+    return props.graph.nodes.filter((node) => node.kind === 'knowledge_unit');
+  }
+  if (activeFilter.value === 'capabilities') {
+    return props.graph.nodes.filter((node) => node.kind === 'capability');
+  }
+  return props.graph.nodes;
+});
+const visibleNodeIds = computed(() => new Set(visibleNodes.value.map((node) => node.id)));
+const visibleEdges = computed(() =>
+  props.graph.edges.filter(
+    (edge) => visibleNodeIds.value.has(edge.from) && visibleNodeIds.value.has(edge.to),
+  ),
+);
 const zoomLevel = ref(100);
 const handleZoomIn = () => {
   zoomLevel.value = Math.min(zoomLevel.value + 10, 150);
@@ -66,11 +82,13 @@ const handleZoomReset = () => {
 
 <template>
   <Head title="المعرفة والتعلّم — التصوّر" />
-  <div
-    dir="rtl"
-    class="min-h-screen bg-slate-950 text-slate-100 dark:bg-[#070c14] dark:text-slate-100"
-  >
-    <div class="w-full px-4 py-4 sm:px-6 xl:px-8">
+  <CepWorkspaceLayout active-destination="knowledge">
+    <template #primaryNavigation>
+      <KnowledgeTabs active="visualize" :object-id="active?.id" />
+    </template>
+
+    <div dir="rtl" class="kl-visualize-route min-h-full bg-[var(--cep-bg-canvas)] text-[var(--cep-text)]">
+    <div class="w-full px-0 py-3 sm:px-4 xl:px-6">
       <!-- TOP Tools & Modes Bar -->
       <header
         class="mb-4 rounded-2xl border border-slate-800/80 bg-slate-900/50 p-3.5 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
@@ -78,13 +96,13 @@ const handleZoomReset = () => {
         <div class="flex flex-wrap items-center justify-between gap-3">
           <!-- View Switcher Tabs -->
           <div
-            class="flex flex-wrap items-center gap-1 rounded-xl border border-slate-800 bg-slate-950/80 p-1"
+            class="flex max-w-full flex-nowrap items-center gap-1 overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/80 p-1"
           >
             <button
               v-for="viewName in views"
               :key="viewName"
               type="button"
-              class="focus-ring flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap shadow-sm transition"
+              class="focus-ring flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap shadow-sm transition"
               :class="
                 activeView === viewName
                   ? 'border border-cyan-500/40 bg-cyan-500/20 text-cyan-200 shadow-cyan-950/50'
@@ -114,7 +132,7 @@ const handleZoomReset = () => {
             >
               <button
                 type="button"
-                class="rounded px-2 py-1 text-[11px] whitespace-nowrap transition"
+                class="focus-ring rounded px-2 py-1 text-[11px] whitespace-nowrap transition"
                 :class="
                   activeFilter === 'all'
                     ? 'bg-slate-800 font-semibold text-slate-100'
@@ -126,7 +144,7 @@ const handleZoomReset = () => {
               </button>
               <button
                 type="button"
-                class="rounded px-2 py-1 text-[11px] whitespace-nowrap transition"
+                class="focus-ring rounded px-2 py-1 text-[11px] whitespace-nowrap transition"
                 :class="
                   activeFilter === 'units'
                     ? 'bg-slate-800 font-semibold text-cyan-300'
@@ -138,7 +156,7 @@ const handleZoomReset = () => {
               </button>
               <button
                 type="button"
-                class="rounded px-2 py-1 text-[11px] whitespace-nowrap transition"
+                class="focus-ring rounded px-2 py-1 text-[11px] whitespace-nowrap transition"
                 :class="
                   activeFilter === 'capabilities'
                     ? 'bg-slate-800 font-semibold text-indigo-300'
@@ -186,14 +204,25 @@ const handleZoomReset = () => {
             </div>
           </div>
         </div>
+        <div class="mt-3 border-t border-slate-800/80 pt-3">
+          <OverlayPanel
+            mode="controls"
+            :overlay="overlay"
+            :selected="selectedOverlay"
+            @select="selectOverlay"
+          />
+        </div>
       </header>
 
       <!-- 3-Column Work Surface with strict physical orientation -->
-      <div dir="ltr" class="grid min-h-[740px] gap-4 xl:grid-cols-[280px_minmax(0,1fr)_320px]">
+      <div
+        dir="ltr"
+        class="grid min-h-[740px] grid-cols-1 gap-4 md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_320px]"
+      >
         <!-- LEFT: Map Scope & Catalog Structure (Visual LEFT) -->
         <aside
           dir="rtl"
-          class="flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
+          class="order-2 flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur md:order-1 md:max-h-[calc(100vh-12rem)] xl:max-h-none dark:bg-[#0b1322]/90"
           aria-label="نطاق الخريطة والوحدات"
         >
           <div class="border-b border-slate-800/80 pb-4">
@@ -259,13 +288,9 @@ const handleZoomReset = () => {
         <!-- CENTER: Visualization Canvas Workspace (Visual CENTER) -->
         <main
           dir="rtl"
-          class="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 shadow-lg backdrop-blur sm:p-7 dark:bg-[#0b1322]/90"
+          class="order-1 flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur sm:p-5 md:order-2 xl:p-7 dark:bg-[#0b1322]/90"
           aria-label="مساحة التمثيل والتصوّر"
         >
-          <div class="mb-5 border-b border-slate-800/80 pb-4">
-            <KnowledgeTabs active="visualize" :object-id="active?.id" />
-          </div>
-
           <header
             class="flex flex-wrap items-end justify-between gap-4 border-b border-slate-800/80 pb-5"
           >
@@ -279,7 +304,7 @@ const handleZoomReset = () => {
                 <span
                   class="rounded-full bg-slate-800 px-2 py-0.5 font-mono text-[10px] text-slate-400"
                 >
-                  {{ graph.nodes.length }} عقدة · {{ graph.edges.length }} رابط
+                  {{ visibleNodes.length }} عقدة · {{ visibleEdges.length }} رابط
                 </span>
               </div>
               <h1 class="mt-2 text-2xl font-black tracking-tight text-slate-100 sm:text-3xl">
@@ -289,22 +314,26 @@ const handleZoomReset = () => {
                 {{ active.id }}
               </bdi>
             </div>
-            <div class="text-left font-mono text-[11px] text-slate-400">
-              <span class="block text-[10px] text-slate-500">مصدر الإسقاط</span>
-              <bdi dir="ltr" class="text-slate-300">{{ graph.source }}</bdi>
-            </div>
           </header>
 
           <!-- Visualization Surface -->
-          <div v-if="active && graph.nodes.length" class="mt-6 flex-1">
-            <VisualizationSurface
-              :view="activeView"
-              :nodes="graph.nodes"
-              :edges="graph.edges"
-              :active-overlay="selectedOverlay"
-              :overlay-layer="selectedLayer"
-              :visual-positions="map.visual_positions"
-            />
+          <div v-if="active && visibleNodes.length" class="mt-6 flex-1 overflow-auto">
+            <div
+              class="min-w-0 transition-transform duration-150 motion-reduce:transition-none"
+              :style="{
+                transform: `scale(${zoomLevel / 100})`,
+                transformOrigin: 'top center',
+              }"
+            >
+              <VisualizationSurface
+                :view="activeView"
+                :nodes="visibleNodes"
+                :edges="visibleEdges"
+                :active-overlay="selectedOverlay"
+                :overlay-layer="selectedLayer"
+                :visual-positions="map.visual_positions"
+              />
+            </div>
           </div>
           <div v-else class="grid min-h-[480px] place-items-center text-center text-slate-500">
             <div>
@@ -319,31 +348,16 @@ const handleZoomReset = () => {
         <!-- RIGHT: Overlay Analysis & Rules (Visual RIGHT) -->
         <aside
           dir="rtl"
-          class="flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
+          class="order-3 flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur md:col-span-2 xl:col-span-1 dark:bg-[#0b1322]/90"
           aria-label="تحليل الطبقات المرصودة"
         >
-          <OverlayPanel :overlay="overlay" :selected="selectedOverlay" @select="selectOverlay" />
+          <OverlayPanel mode="context" :overlay="overlay" :selected="selectedOverlay" />
 
           <section class="mt-6 border-t border-slate-800/80 pt-4">
-            <h2 class="text-xs font-bold text-slate-300">قواعد التمثيل</h2>
-            <dl class="mt-3 space-y-2.5 text-xs leading-relaxed">
-              <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-                <dt dir="ltr" class="font-bold text-cyan-300">MAP</dt>
-                <dd class="mt-1 text-[11px] text-slate-400">النطاق المحفوظ وعالم العرض.</dd>
-              </div>
-              <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-                <dt dir="ltr" class="font-bold text-indigo-300">VIEW</dt>
-                <dd class="mt-1 text-[11px] text-slate-400">
-                  Tree, Path, Graph, Canvas — تمثيلات لنفس العلاقات القانونية.
-                </dd>
-              </div>
-              <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-                <dt dir="ltr" class="font-bold text-emerald-300">OVERLAY</dt>
-                <dd class="mt-1 text-[11px] text-slate-400">
-                  طبقة تحليلية مرصودة، وليست كيانًا قانونيًا جديدًا.
-                </dd>
-              </div>
-            </dl>
+            <h2 class="text-xs font-bold text-slate-300">مصدر الإسقاط</h2>
+            <bdi dir="ltr" class="mt-2 block break-all font-mono text-[11px] text-slate-400">
+              {{ graph.source }}
+            </bdi>
           </section>
         </aside>
       </div>
@@ -372,5 +386,45 @@ const handleZoomReset = () => {
         </div>
       </details>
     </div>
-  </div>
+    </div>
+  </CepWorkspaceLayout>
 </template>
+
+<style>
+[data-theme='light'] .kl-visualize-route [class*='bg-slate-950'],
+[data-theme='light'] .kl-visualize-route [class*='bg-slate-900'],
+[data-theme='light'] .kl-visualize-route [class*='bg-slate-800'],
+[data-theme='light'] .kl-visualize-route [class*='bg-[#0b1322]'],
+[data-theme='light'] .kl-visualize-route [class*='bg-[#070c14]'] {
+  background-color: var(--cep-bg-panel-strong) !important;
+}
+
+[data-theme='light'] .kl-visualize-route [class*='text-slate-100'],
+[data-theme='light'] .kl-visualize-route [class*='text-slate-200'],
+[data-theme='light'] .kl-visualize-route [class*='text-slate-300'] {
+  color: var(--cep-text) !important;
+}
+
+[data-theme='light'] .kl-visualize-route [class*='text-slate-400'],
+[data-theme='light'] .kl-visualize-route [class*='text-slate-500'],
+[data-theme='light'] .kl-visualize-route [class*='text-slate-600'] {
+  color: var(--cep-text-muted) !important;
+}
+
+[data-theme='light'] .kl-visualize-route [class*='border-slate-700'],
+[data-theme='light'] .kl-visualize-route [class*='border-slate-800'] {
+  border-color: var(--cep-border) !important;
+}
+
+[data-theme='light'] .kl-visualize-route [class*='text-cyan-100'],
+[data-theme='light'] .kl-visualize-route [class*='text-cyan-200'],
+[data-theme='light'] .kl-visualize-route [class*='text-cyan-300'],
+[data-theme='light'] .kl-visualize-route [class*='text-cyan-400'] {
+  color: var(--cep-accent) !important;
+}
+
+[data-theme='light'] .kl-visualize-route [class*='text-amber-300'],
+[data-theme='light'] .kl-visualize-route [class*='text-amber-400'] {
+  color: #b45309 !important;
+}
+</style>

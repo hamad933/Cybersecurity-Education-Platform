@@ -17,7 +17,7 @@ const itemHref = (item: LibraryProjectionItem) =>
     <section v-for="domain in projection.domains" :key="domain.id" class="space-y-2.5">
       <!-- Domain Header -->
       <header
-        class="flex items-center justify-between gap-2 rounded-lg border border-slate-800/80 bg-slate-900/80 px-2.5 py-1.5"
+        class="flex items-center justify-between gap-2 rounded-lg border border-[var(--cep-border)] bg-[var(--cep-bg-panel-strong)] px-2.5 py-1.5"
       >
         <div class="flex min-w-0 items-center gap-2">
           <span class="text-sm text-amber-400 select-none">📁</span>

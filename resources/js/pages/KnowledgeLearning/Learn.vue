@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import CepWorkspaceLayout from '../../layouts/CepWorkspaceLayout.vue';
 import KnowledgeTabs from './components/KnowledgeTabs.vue';
 
 type CatalogItem = {
@@ -107,33 +108,33 @@ const shelfOpen = ref(false);
 const toggleShelf = () => {
   shelfOpen.value = !shelfOpen.value;
 };
+
+const visualizeHref = computed(() =>
+  props.active ? `/knowledge/visualize?object=${encodeURIComponent(props.active.id)}` : '/knowledge/visualize',
+);
 </script>
 
 <template>
   <Head title="المعرفة والتعلّم — التعلّم والدروس" />
-  <div
-    dir="rtl"
-    class="min-h-screen bg-slate-950 text-slate-100 dark:bg-[#070c14] dark:text-slate-100"
-  >
-    <div class="w-full px-4 py-4 sm:px-6 xl:px-8">
+  <CepWorkspaceLayout active-destination="knowledge">
+    <template #primaryNavigation>
+      <KnowledgeTabs active="learn" :object-id="active?.id" />
+    </template>
+
+    <div dir="rtl" class="kl-learn-route min-h-full bg-[var(--cep-bg-canvas)] text-[var(--cep-text)]">
+    <div class="w-full px-0 py-3 sm:px-4 xl:px-6">
       <div
         dir="ltr"
-        class="grid min-h-[740px] grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_300px]"
+        class="grid min-h-[740px] grid-cols-1 gap-4 md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_300px]"
       >
         <!-- LEFT: Learning Journey (Visual LEFT) -->
         <aside
           dir="rtl"
-          class="flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
+          class="order-2 flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur md:order-1 md:max-h-[calc(100vh-10rem)] xl:max-h-none dark:bg-[#0b1322]/90"
           aria-label="رحلة التعلّم"
         >
           <div class="border-b border-slate-800/80 pb-3">
-            <div class="flex items-center justify-between">
-              <h2 class="text-xs font-bold text-slate-200">مسار التعلّم</h2>
-              <span class="font-mono text-[11px] font-bold text-slate-400">النسبة غير متوفرة</span>
-            </div>
-            <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
-              <div class="h-full rounded-full bg-slate-700" style="width: 0%"></div>
-            </div>
+            <h2 class="text-xs font-bold text-slate-200">مسار التعلّم</h2>
             <p class="mt-2.5 truncate text-xs font-semibold text-slate-300">
               {{ selectedStep?.capability_id ?? 'لا توجد قدرة محددة' }}
             </p>
@@ -141,17 +142,10 @@ const toggleShelf = () => {
 
           <div class="mt-3 flex-1 space-y-2 overflow-y-auto pr-0.5 text-xs">
             <div
-              class="rounded-xl border border-dashed border-slate-800 bg-slate-950/40 p-4 text-center text-slate-500"
-            >
-              <span class="mb-2 block text-xl">⏳</span>
-              <p>عقد الصفحة لا يوفّر نسبة تقدم أو حالة إكمال لدرس.</p>
-            </div>
-
-            <div
               v-if="journey.items.length"
-              class="mt-4 space-y-1.5 border-t border-slate-800 pt-3"
+              class="space-y-1.5"
             >
-              <p class="text-[10px] font-bold text-slate-500">الأنشطة المسجلة</p>
+              <p class="text-[10px] font-bold text-slate-500">الأنشطة المتاحة للتنقّل</p>
               <button
                 v-for="(item, index) in journey.items"
                 :key="item.id"
@@ -172,19 +166,7 @@ const toggleShelf = () => {
                         item.practice_id
                       }}</bdi>
                     </div>
-                    <bdi
-                      dir="ltr"
-                      class="mt-0.5 block truncate font-mono text-[10px] text-slate-500"
-                    >
-                      {{ item.activity_state }}
-                    </bdi>
                   </div>
-                  <span
-                    v-if="item.successful_attempt_count > 0"
-                    class="shrink-0 font-mono text-[10px] text-emerald-400"
-                  >
-                    {{ item.successful_attempt_count }} ✓
-                  </span>
                 </div>
               </button>
             </div>
@@ -199,7 +181,7 @@ const toggleShelf = () => {
 
           <div class="mt-3 border-t border-slate-800/80 pt-3">
             <Link
-              href="/knowledge/visualize"
+              :href="visualizeHref"
               class="focus-ring flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700/80 bg-slate-800/60 px-3 py-2 text-xs font-bold text-slate-200 shadow-sm transition hover:bg-slate-800 hover:text-white"
             >
               <span>🗺️</span>
@@ -211,13 +193,10 @@ const toggleShelf = () => {
         <!-- CENTER: Lesson Surface (Visual CENTER) -->
         <main
           dir="rtl"
-          class="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 shadow-lg backdrop-blur sm:p-7 dark:bg-[#0b1322]/90"
+          class="order-1 flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur sm:p-5 md:order-2 xl:p-7 dark:bg-[#0b1322]/90"
+          aria-label="سطح التعلّم"
         >
           <div v-if="active" class="flex min-w-0 flex-1 flex-col">
-            <div class="mb-5 border-b border-slate-800/80 pb-4">
-              <KnowledgeTabs active="learn" :object-id="active.id" />
-            </div>
-
             <header class="border-b border-slate-800/80 pb-5">
               <div class="flex flex-wrap items-center justify-between gap-3 text-xs">
                 <nav
@@ -225,12 +204,6 @@ const toggleShelf = () => {
                   class="flex min-w-0 items-center gap-1.5 text-slate-400"
                 >
                   <span class="font-semibold text-slate-300">{{ active.title_ar }}</span>
-                  <template v-if="selectedStep">
-                    <span class="text-slate-600">&gt;</span>
-                    <bdi dir="ltr" class="truncate font-mono text-cyan-400">
-                      {{ selectedStep.capability_id }}
-                    </bdi>
-                  </template>
                 </nav>
                 <div
                   class="rounded-lg border border-slate-800 bg-slate-950/60 px-2.5 py-1 text-xs font-medium text-slate-400"
@@ -243,7 +216,7 @@ const toggleShelf = () => {
                 <div class="min-w-0">
                   <p class="text-xs font-bold text-cyan-300">سطح الدرس والمحتوى التعليمي</p>
                   <h1 class="mt-1 text-2xl font-black tracking-tight text-slate-100 sm:text-3xl">
-                    لا يوجد درس متاح لهذه الوحدة المعرفية
+                    لا يتوفر درس مسجل لهذه الوحدة المعرفية
                   </h1>
                   <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400">
                     الوحدة النشطة هي
@@ -290,22 +263,6 @@ const toggleShelf = () => {
             </header>
 
             <div class="mt-6 flex-1 space-y-4">
-              <section
-                class="rounded-2xl border border-dashed border-slate-700/80 bg-slate-950/50 p-6 sm:p-8"
-              >
-                <div class="mx-auto max-w-2xl text-center">
-                  <span class="text-4xl">📖</span>
-                  <h2 class="mt-4 text-lg font-bold text-slate-200">
-                    لا يتوفر درس مسجل لهذه الوحدة
-                  </h2>
-                  <p class="mt-2 text-sm leading-relaxed text-slate-400">
-                    لا يمكن إسناد درس أو تصنيف أو خطوات محتوى إلى الوحدة النشطة من دون درس صريح في
-                    العقد. لذلك تبقى مساحة المحتوى غير متاحة بدل عرض محتوى ثابت أو مصطنع على أنه درس
-                    للمستخدم.
-                  </p>
-                </div>
-              </section>
-
               <section class="grid gap-4 lg:grid-cols-2">
                 <article class="rounded-xl border border-slate-800/80 bg-slate-950/50 p-4">
                   <div class="flex items-center justify-between gap-3">
@@ -375,7 +332,7 @@ const toggleShelf = () => {
                       <p class="text-[10px] font-bold tracking-wide text-slate-500">التقييم</p>
                       <h3 class="mt-1 text-sm font-bold text-slate-200">حالة التقييم الفعلية</h3>
                     </div>
-                    <bdi dir="ltr" class="font-mono text-xs font-bold text-amber-300">
+                    <bdi dir="ltr" class="max-w-full break-all font-mono text-xs font-bold text-amber-300">
                       {{ journey.assessments?.state || 'لا يوجد تقييم مسجل' }}
                     </bdi>
                   </div>
@@ -450,25 +407,6 @@ const toggleShelf = () => {
                 </p>
               </section>
 
-              <section
-                class="rounded-xl border border-slate-800 bg-slate-950/50 p-4 text-xs leading-relaxed text-slate-400"
-              >
-                <span class="mb-1 block font-bold text-slate-300">حدود المعنى</span>
-                <div class="grid gap-2 sm:grid-cols-2">
-                  <div>
-                    حد التقدم:
-                    <bdi dir="ltr" class="font-mono text-slate-300">{{
-                      semantic_boundary.progress || 'غير محدد'
-                    }}</bdi>
-                  </div>
-                  <div>
-                    حد الإتقان:
-                    <bdi dir="ltr" class="font-mono text-slate-300">{{
-                      semantic_boundary.mastery || 'غير محدد'
-                    }}</bdi>
-                  </div>
-                </div>
-              </section>
             </div>
           </div>
 
@@ -483,99 +421,15 @@ const toggleShelf = () => {
         <!-- RIGHT: Context (Visual RIGHT) -->
         <aside
           dir="rtl"
-          class="flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
+          class="order-3 flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur md:col-span-2 xl:col-span-1 dark:bg-[#0b1322]/90"
           aria-label="سياق النشاط والمختبرات"
         >
           <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <h2 class="text-sm font-bold text-slate-100">السياق</h2>
+            <h2 class="text-sm font-bold text-slate-100">سياق النشاط المحدد</h2>
             <span class="font-mono text-[10px] text-slate-500">الحالة المسجلة</span>
           </div>
 
           <div class="mt-3 flex-1 space-y-4 overflow-y-auto pr-0.5 text-xs">
-            <section
-              class="rounded-xl border border-dashed border-slate-800 bg-slate-950/40 p-3.5 text-slate-500"
-            >
-              <div class="flex items-center gap-1.5 font-bold">
-                <span>📖</span>
-                <h3>حالة الدرس</h3>
-              </div>
-              <p class="mt-1.5 text-[11px] leading-relaxed">
-                غير متاح في عقد الصفحة الحالي. لا يتم اشتقاق الدرس تلقائيًا من وحدة المعرفة أو
-                الأنشطة.
-              </p>
-            </section>
-
-            <section
-              v-if="active"
-              class="space-y-1 rounded-xl border border-slate-800 bg-slate-950/60 p-3.5"
-            >
-              <div class="flex items-center gap-1.5 font-semibold text-slate-400">
-                <span>🛡️</span>
-                <h4>الوحدة المعرفية الأساسية</h4>
-              </div>
-              <p class="font-bold text-slate-200">{{ active.title_ar }}</p>
-              <p dir="ltr" class="text-left text-[11px] text-slate-500">{{ active.title_en }}</p>
-              <bdi dir="ltr" class="block font-mono text-[10px] text-cyan-300">{{ active.id }}</bdi>
-              <div
-                v-if="active.revision"
-                class="mt-2 border-t border-slate-800/80 pt-2 font-mono text-[10px] text-slate-500"
-              >
-                مراجعة {{ active.revision.revision }} · {{ active.revision.state }}
-              </div>
-            </section>
-
-            <section
-              v-if="selectedStep"
-              class="space-y-2.5 rounded-xl border border-slate-800 bg-slate-950/60 p-3.5"
-            >
-              <div>
-                <h4 class="font-bold text-slate-400">سياق النشاط المحدد</h4>
-                <bdi dir="ltr" class="mt-1 block font-mono text-xs font-bold text-cyan-300">
-                  {{ selectedStep.practice_id }}
-                </bdi>
-              </div>
-              <div class="space-y-1.5 border-t border-slate-800/80 pt-2 text-[11px]">
-                <div class="flex justify-between gap-3">
-                  <span class="text-slate-500">القدرة:</span>
-                  <bdi dir="ltr" class="text-right font-mono text-slate-300">{{
-                    selectedStep.capability_id
-                  }}</bdi>
-                </div>
-                <div class="flex justify-between gap-3">
-                  <span class="text-slate-500">المراجعة:</span>
-                  <span class="font-mono text-slate-300">{{ selectedStep.revision }}</span>
-                </div>
-                <div class="flex justify-between gap-3">
-                  <span class="text-slate-500">حالة النشاط:</span>
-                  <bdi dir="ltr" class="font-mono text-slate-300">{{
-                    selectedStep.activity_state
-                  }}</bdi>
-                </div>
-                <div class="flex justify-between gap-3">
-                  <span class="text-slate-500">إجمالي المحاولات:</span>
-                  <span class="font-mono text-slate-300">{{ selectedStep.attempt_count }}</span>
-                </div>
-                <div class="flex justify-between gap-3">
-                  <span class="text-slate-500">المحاولات الناجحة:</span>
-                  <span class="font-mono text-slate-300">{{
-                    selectedStep.successful_attempt_count
-                  }}</span>
-                </div>
-                <div class="flex justify-between gap-3">
-                  <span class="text-slate-500">آخر نتيجة:</span>
-                  <bdi dir="ltr" class="font-mono text-slate-300">{{
-                    selectedStep.latest_outcome ?? '—'
-                  }}</bdi>
-                </div>
-                <div class="flex justify-between gap-3">
-                  <span class="text-slate-500">آخر نشاط:</span>
-                  <bdi dir="ltr" class="text-right font-mono text-slate-300">
-                    {{ selectedStep.latest_activity_at ?? '—' }}
-                  </bdi>
-                </div>
-              </div>
-            </section>
-
             <section
               v-if="selectedStep?.definition?.lab_reference"
               class="space-y-2 rounded-xl border border-indigo-900/60 bg-indigo-950/30 p-3.5"
@@ -611,47 +465,23 @@ const toggleShelf = () => {
 
             <section class="space-y-2 rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
               <div class="flex items-center gap-1.5 font-semibold text-slate-400">
-                <span>📊</span>
-                <h4>نشاط رحلة التعلّم الفعلي</h4>
+                <span>🧭</span>
+                <h4>حدود المعنى والملكية</h4>
               </div>
-              <div class="grid grid-cols-2 gap-2">
-                <div class="rounded-lg border border-slate-800 bg-slate-950/70 p-2">
-                  <div class="text-[10px] text-slate-500">المحاولات</div>
-                  <div class="mt-1 font-mono text-slate-200">
-                    {{ journey.activity.attempt_count }}
-                  </div>
-                </div>
-                <div class="rounded-lg border border-slate-800 bg-slate-950/70 p-2">
-                  <div class="text-[10px] text-slate-500">التمارين المكتملة</div>
-                  <div class="mt-1 font-mono text-slate-200">
-                    {{ journey.activity.completed_practice_count }}
-                  </div>
-                </div>
-              </div>
-              <div class="space-y-1 border-t border-slate-800/80 pt-2 text-[10px] text-slate-500">
+              <dl class="space-y-2 text-[11px]">
                 <div>
-                  النطاق الدلالي:
-                  <bdi dir="ltr" class="font-mono text-slate-400">{{
-                    journey.activity.semantic_scope || '—'
-                  }}</bdi>
+                  <dt class="text-slate-500">سياق التقدم</dt>
+                  <dd class="mt-0.5 break-all font-mono text-slate-300" dir="ltr">
+                    {{ semantic_boundary.progress || 'غير محدد' }}
+                  </dd>
                 </div>
                 <div>
-                  آخر نشاط:
-                  <bdi dir="ltr" class="font-mono text-slate-400">
-                    {{ journey.activity.latest_activity_at ?? '—' }}
-                  </bdi>
+                  <dt class="text-slate-500">ملكية الإتقان</dt>
+                  <dd class="mt-0.5 break-all font-mono text-slate-300" dir="ltr">
+                    {{ semantic_boundary.mastery || 'غير محدد' }}
+                  </dd>
                 </div>
-              </div>
-            </section>
-
-            <section class="space-y-2 rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
-              <div class="flex items-center gap-1.5 font-semibold text-slate-400">
-                <span>📝</span>
-                <h4>حالة التقييم</h4>
-              </div>
-              <bdi dir="ltr" class="block font-mono text-[11px] font-bold text-amber-300">
-                {{ journey.assessments?.state || 'لا يوجد تقييم مسجل' }}
-              </bdi>
+              </dl>
             </section>
           </div>
         </aside>
@@ -676,29 +506,7 @@ const toggleShelf = () => {
           >
             <span>{{ shelfOpen ? '▼ إخفاء المساحة السفلية' : '▲ مساحة السياق المؤقتة' }}</span>
           </button>
-          <div class="flex flex-wrap items-center gap-1.5 text-xs">
-            <span class="rounded-lg bg-cyan-500/20 px-2.5 py-1 font-bold text-cyan-300">
-              نظرة عامة
-            </span>
-            <span class="rounded-lg px-2.5 py-1 text-slate-400">
-              الأنشطة
-              <span class="ms-1 font-mono text-[10px] text-cyan-400">{{
-                journey.items.length
-              }}</span>
-            </span>
-            <span class="rounded-lg px-2.5 py-1 text-slate-400">
-              المختبرات
-              <span class="ms-1 font-mono text-[10px] text-cyan-400">{{
-                journey.labs.length
-              }}</span>
-            </span>
-            <span class="rounded-lg px-2.5 py-1 text-slate-400">
-              التقييم
-              <bdi dir="ltr" class="ms-1 font-mono text-[10px] text-amber-400">
-                {{ journey.assessments?.state || '—' }}
-              </bdi>
-            </span>
-          </div>
+          <span class="text-xs text-slate-500">تفاصيل النشاط التقنية — مغلقة افتراضيًا</span>
         </div>
       </div>
 
@@ -707,26 +515,61 @@ const toggleShelf = () => {
         id="learn-bottom-drawer"
         class="border-t border-slate-800/80 px-4 py-3 sm:px-6"
       >
-        <div class="mx-auto grid max-w-[1720px] gap-3 text-xs text-slate-400 sm:grid-cols-3">
+        <div class="mx-auto grid max-w-[1720px] gap-3 text-xs text-slate-400 sm:grid-cols-2">
           <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
-            <span class="block text-[10px] font-bold text-slate-500">الوحدة المعرفية</span>
-            <bdi v-if="active" dir="ltr" class="mt-1 block font-mono text-cyan-300">{{
-              active.id
-            }}</bdi>
-            <span v-else class="mt-1 block text-slate-500">غير متاحة</span>
-          </div>
-          <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
-            <span class="block text-[10px] font-bold text-slate-500">النشاط المحدد</span>
-            <bdi dir="ltr" class="mt-1 block font-mono text-slate-300">
-              {{ selectedStep?.practice_id ?? '—' }}
+            <span class="block text-[10px] font-bold text-slate-500">النطاق الدلالي للنشاط</span>
+            <bdi dir="ltr" class="mt-1 block break-all font-mono text-cyan-300">
+              {{ journey.activity.semantic_scope || '—' }}
             </bdi>
           </div>
           <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
-            <span class="block text-[10px] font-bold text-slate-500">حالة الدرس</span>
-            <span class="mt-1 block text-slate-300">غير متاح ضمن العقد الحالي</span>
+            <span class="block text-[10px] font-bold text-slate-500">آخر نشاط مسجل</span>
+            <bdi dir="ltr" class="mt-1 block font-mono text-slate-300">
+              {{ journey.activity.latest_activity_at ?? '—' }}
+            </bdi>
           </div>
         </div>
       </div>
     </aside>
-  </div>
+    </div>
+  </CepWorkspaceLayout>
 </template>
+
+<style>
+[data-theme='light'] .kl-learn-route [class*='bg-slate-950'],
+[data-theme='light'] .kl-learn-route [class*='bg-slate-900'],
+[data-theme='light'] .kl-learn-route [class*='bg-slate-800'],
+[data-theme='light'] .kl-learn-route [class*='bg-[#0b1322]'],
+[data-theme='light'] .kl-learn-route [class*='bg-[#070c14]'] {
+  background-color: var(--cep-bg-panel-strong) !important;
+}
+
+[data-theme='light'] .kl-learn-route [class*='text-slate-100'],
+[data-theme='light'] .kl-learn-route [class*='text-slate-200'],
+[data-theme='light'] .kl-learn-route [class*='text-slate-300'] {
+  color: var(--cep-text) !important;
+}
+
+[data-theme='light'] .kl-learn-route [class*='text-slate-400'],
+[data-theme='light'] .kl-learn-route [class*='text-slate-500'],
+[data-theme='light'] .kl-learn-route [class*='text-slate-600'] {
+  color: var(--cep-text-muted) !important;
+}
+
+[data-theme='light'] .kl-learn-route [class*='border-slate-700'],
+[data-theme='light'] .kl-learn-route [class*='border-slate-800'] {
+  border-color: var(--cep-border) !important;
+}
+
+[data-theme='light'] .kl-learn-route [class*='text-cyan-100'],
+[data-theme='light'] .kl-learn-route [class*='text-cyan-200'],
+[data-theme='light'] .kl-learn-route [class*='text-cyan-300'],
+[data-theme='light'] .kl-learn-route [class*='text-cyan-400'] {
+  color: var(--cep-accent) !important;
+}
+
+[data-theme='light'] .kl-learn-route [class*='text-amber-300'],
+[data-theme='light'] .kl-learn-route [class*='text-amber-400'] {
+  color: #b45309 !important;
+}
+</style>
