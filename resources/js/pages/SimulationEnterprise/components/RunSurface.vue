@@ -7,7 +7,14 @@ import type { EventItem, RunItem } from '../types';
 
 const props = defineProps<{ run: RunItem | null }>();
 
-const lifecycleSteps = ['PREPARED', 'READY', 'RUNNING', 'PAUSED', 'COMPLETED'];
+const lifecycleSteps = computed(() => {
+  const terminalState =
+    props.run && ['COMPLETED', 'STOPPED', 'FAILED'].includes(props.run.lifecycle)
+      ? props.run.lifecycle
+      : 'COMPLETED / STOPPED / FAILED';
+
+  return ['PREPARING', 'READY', 'RUNNING', 'PAUSED', terminalState];
+});
 const selectedSequence = ref<number | null>(null);
 
 const selectedEvent = computed<EventItem | null>(
@@ -183,8 +190,8 @@ function reached(run: RunItem, step: string): boolean {
       <section class="sim-runtime-band" data-testid="run-runtime-telemetry">
         <header class="sim-pane-heading">
           <div>
-            <p class="sim-kicker">RUNTIME STATE · TELEMETRY</p>
-            <h2>حقيقة الآلة الحالية</h2>
+            <p class="sim-kicker">RUNTIME STATE · OBSERVED TELEMETRY</p>
+            <h2>الحالة التشغيلية المرصودة</h2>
           </div>
           <span class="sim-chip">{{ run.provenance }}</span>
         </header>

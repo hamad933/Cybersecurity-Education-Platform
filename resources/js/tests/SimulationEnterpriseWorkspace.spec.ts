@@ -266,6 +266,14 @@ describe('Simulation Enterprise workspace assurance states', () => {
     expect(wrapper.get('[data-testid="scenario-boundary-note"]').text()).toContain(
       'Environment Contract',
     );
+    expect(wrapper.get('[data-testid="scenario-boundary-note"]').text()).toContain(
+      'Runtime Snapshot يبقى التقاطًا تاريخيًا داخل Run',
+    );
+    expect(wrapper.get('[data-testid="scenario-boundary-note"]').text()).not.toContain(
+      'وتُنشأ منه Runtime Snapshot',
+    );
+    expect(wrapper.find('.sim-domain-mark').exists()).toBe(true);
+    expect(wrapper.find('.sim-live-dot').exists()).toBe(false);
 
     await wrapper.get('[data-testid="scenario-prepare-controls"]').trigger('submit');
     expect(vi.mocked(router.post).mock.calls[0][0]).toBe(
@@ -374,6 +382,11 @@ describe('Simulation Enterprise workspace assurance states', () => {
 
     const center = wrapper.get('[data-cep-region="center"] [data-testid="run-center"]');
     expect(center.text()).toContain('RUN_PREPARED');
+    expect(center.get('.sim-lifecycle-track').text()).toContain('PREPARING');
+    expect(center.get('.sim-lifecycle-track').text()).not.toContain('PREPARED');
+    expect(center.get('[data-testid="run-runtime-telemetry"]').text()).toContain(
+      'الحالة التشغيلية المرصودة',
+    );
     expect(center.get('[data-testid="run-runtime-telemetry"]').text()).toContain('event_rate');
     expect(center.get('[data-testid="run-snapshots"]').text()).toContain('RUN_PREPARATION');
     expect(center.get('[data-testid="run-checkpoints"]').text()).toContain('RESTORABLE');

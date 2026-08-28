@@ -42,6 +42,15 @@
   color: var(--cep-accent);
 }
 
+.sim-workspace button:focus-visible,
+.sim-workspace input:focus-visible,
+.sim-workspace select:focus-visible,
+.sim-workspace textarea:focus-visible,
+.sim-primary-link:focus-visible {
+  outline: 2px solid var(--cep-accent);
+  outline-offset: 2px;
+}
+
 .sim-top-stack,
 .sim-toolbar,
 .sim-toolbar__controls,
@@ -92,7 +101,6 @@
   font-size: 0.82rem;
 }
 
-.sim-live-dot,
 .sim-pulse {
   width: 0.55rem;
   height: 0.55rem;
@@ -100,6 +108,15 @@
   border-radius: 999px;
   background: var(--sim-semantic-success);
   box-shadow: 0 0 0 0.22rem color-mix(in srgb, var(--sim-semantic-success) 16%, transparent);
+}
+
+.sim-domain-mark {
+  width: 0.55rem;
+  height: 0.55rem;
+  flex: 0 0 auto;
+  border-radius: 0.18rem;
+  background: var(--cep-accent);
+  box-shadow: 0 0 0 0.22rem var(--cep-accent-soft);
 }
 
 .sim-toolbar__controls {
@@ -3109,6 +3126,19 @@
 }
 
 @media (max-width: 40rem) {
+  .sim-canvas-subtoolbar {
+    align-items: stretch;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    overflow-x: visible;
+  }
+
+  .sim-canvas-subtoolbar__left,
+  .sim-canvas-subtoolbar__right {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
   .sim-surface-header {
     align-items: flex-start;
     flex-direction: column;

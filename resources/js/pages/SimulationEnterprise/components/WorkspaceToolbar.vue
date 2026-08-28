@@ -46,7 +46,7 @@ const actionLabels: Record<string, string> = {
 <template>
   <div class="sim-toolbar" data-testid="workspace-toolbar">
     <div class="sim-toolbar__identity">
-      <span class="sim-live-dot" aria-hidden="true" />
+      <span class="sim-domain-mark" aria-hidden="true" />
       <div><small>Simulation &amp; Enterprise</small><strong>تنفيذ داخلي عالي الدقة</strong></div>
     </div>
 
