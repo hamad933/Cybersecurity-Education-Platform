@@ -173,7 +173,7 @@ const inspectResult = (res: AiResult) => {
             <input
               type="file"
               class="form-file-input"
-              accept=".json"
+              accept=".json,.zip"
               aria-label="ملف حزمة نتيجة الذكاء الاصطناعي"
               @change="handlePackageSelect"
             />

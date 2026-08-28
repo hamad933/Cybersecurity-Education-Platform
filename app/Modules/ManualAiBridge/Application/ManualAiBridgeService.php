@@ -100,46 +100,110 @@ final class ManualAiBridgeService
     /** @param resource $stream */
     public function importResult($stream, string $actorId): ImportedAiResult
     {
+        if (! is_resource($stream)) {
+            throw new InvalidArgumentException('A readable result stream is required.');
+        }
+
         $content = stream_get_contents($stream);
         if ($content === false) {
             throw new InvalidArgumentException('Failed to read AI result stream.');
         }
 
-        $result = json_decode($content, true, 64, JSON_THROW_ON_ERROR);
-        $this->validateResult($result);
-
-        $promptId = $result['prompt_package_id'];
-        $revisionNumber = $result['prompt_revision'];
-        $inputDigest = $result['input_digest'];
-
-        $revision = PromptPackageRevision::query()
-            ->where('prompt_package_id', $promptId)
-            ->where('revision', $revisionNumber)
-            ->firstOrFail();
-
-        if (! hash_equals($revision->input_digest, $inputDigest)) {
-            throw new InvalidArgumentException('AI result input digest does not match the exported prompt.');
-        }
-
-        $digest = CanonicalJson::sha256($result);
-        $existing = ImportedAiResult::query()
-            ->where('prompt_package_revision_id', $revision->id)
-            ->where('result_digest', $digest)
-            ->first();
-        if ($existing !== null) {
-            if ($existing->actor_id !== $actorId) {
-                throw new InvalidArgumentException('Existing AI result is actor-bound to another owner.');
+        if (str_starts_with($content, "PK\x03\x04")) {
+            $zipStream = fopen('php://memory', 'r+');
+            if ($zipStream === false) {
+                throw new LogicException('Unable to open memory stream for package verification.');
+            }
+            fwrite($zipStream, $content);
+            rewind($zipStream);
+            try {
+                $verified = $this->packages->verifyStream($zipStream, ['manual-ai-result']);
+            } finally {
+                fclose($zipStream);
             }
 
-            return $existing;
-        }
+            $scope = $verified->manifest['scope'] ?? null;
+            if (! is_array($scope) || ($verified->manifest['actor_id'] ?? null) !== $actorId) {
+                throw new InvalidArgumentException('AI result package actor or scope is invalid.');
+            }
+            $promptId = $scope['prompt_package_id'] ?? null;
+            $revisionNumber = $scope['prompt_revision'] ?? null;
+            $inputDigest = $scope['input_digest'] ?? null;
+            if (! is_string($promptId) || ! is_int($revisionNumber) || ! is_string($inputDigest)) {
+                throw new InvalidArgumentException('AI result provenance is incomplete.');
+            }
+            $revision = PromptPackageRevision::query()
+                ->where('prompt_package_id', $promptId)
+                ->where('revision', $revisionNumber)
+                ->firstOrFail();
+            if (! hash_equals($revision->input_digest, $inputDigest)) {
+                throw new InvalidArgumentException('AI result input digest does not match the exported prompt.');
+            }
 
-        $scope = [
-            'prompt_package_id' => $promptId,
-            'prompt_revision' => $revisionNumber,
-            'input_digest' => $inputDigest,
-        ];
-        $mirror = $this->packages->create('manual-ai-result', 1, $actorId, $scope, ['result.json' => CanonicalJson::encode($result)."\n"], ownerModule: 'MOD-AIB');
+            $result = json_decode($verified->files['result.json'] ?? '', true, 64, JSON_THROW_ON_ERROR);
+            $this->validateResult($result);
+            $digest = CanonicalJson::sha256($result);
+            $existing = ImportedAiResult::query()
+                ->where('prompt_package_revision_id', $revision->id)
+                ->where('result_digest', $digest)
+                ->first();
+            if ($existing !== null) {
+                if ($existing->actor_id !== $actorId) {
+                    throw new InvalidArgumentException('Existing AI result is actor-bound to another owner.');
+                }
+
+                return $existing;
+            }
+
+            $mirror = $this->packages->create('manual-ai-result', 1, $actorId, $scope, $verified->files, ownerModule: 'MOD-AIB');
+        } else {
+            $result = json_decode($content, true, 64, JSON_THROW_ON_ERROR);
+            $this->validateResult($result);
+
+            $promptId = $result['prompt_package_id'] ?? null;
+            $revisionNumber = $result['prompt_revision'] ?? null;
+            $inputDigest = $result['input_digest'] ?? null;
+
+            if (! is_string($promptId) || ! is_int($revisionNumber) || ! is_string($inputDigest)) {
+                throw new InvalidArgumentException('AI result provenance fields are invalid.');
+            }
+
+            $revision = PromptPackageRevision::query()
+                ->where('prompt_package_id', $promptId)
+                ->where('revision', $revisionNumber)
+                ->firstOrFail();
+
+            if (! hash_equals($revision->input_digest, $inputDigest)) {
+                throw new InvalidArgumentException('AI result input digest does not match the exported prompt.');
+            }
+
+            $digest = CanonicalJson::sha256($result);
+            $existing = ImportedAiResult::query()
+                ->where('prompt_package_revision_id', $revision->id)
+                ->where('result_digest', $digest)
+                ->first();
+            if ($existing !== null) {
+                if ($existing->actor_id !== $actorId) {
+                    throw new InvalidArgumentException('Existing AI result is actor-bound to another owner.');
+                }
+
+                return $existing;
+            }
+
+            $scope = [
+                'prompt_package_id' => $promptId,
+                'prompt_revision' => $revisionNumber,
+                'input_digest' => $inputDigest,
+            ];
+            $mirror = $this->packages->create(
+                'manual-ai-result',
+                1,
+                $actorId,
+                $scope,
+                ['result.json' => CanonicalJson::encode($result)."\n"],
+                ownerModule: 'MOD-AIB'
+            );
+        }
 
         return DB::transaction(function () use ($actorId, $revision, $result, $digest, $mirror): ImportedAiResult {
             $import = ImportedAiResult::query()->firstOrCreate(
