@@ -7,7 +7,8 @@ defineProps<{
 }>();
 
 const formatBytes = (bytes: number | undefined): string => {
-  if (!bytes) return '—';
+  if (typeof bytes !== 'number' || isNaN(bytes)) return '—';
+  if (bytes === 0) return '0 B';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -44,7 +45,7 @@ const formatBytes = (bytes: number | undefined): string => {
         <article class="param-card">
           <span class="param-label">بيئة التشغيل (Profile)</span>
           <strong class="param-value"
-            ><bdi dir="ltr">{{ state.profile ?? 'local' }}</bdi></strong
+            ><bdi dir="ltr">{{ state.profile ?? '—' }}</bdi></strong
           >
           <small class="param-hint">الملف التعريفي للبيئة</small>
         </article>
@@ -53,7 +54,7 @@ const formatBytes = (bytes: number | undefined): string => {
         <article class="param-card">
           <span class="param-label">اتصال الطوابير (Queue Driver)</span>
           <strong class="param-value"
-            ><bdi dir="ltr">{{ state.queue_connection ?? 'database' }}</bdi></strong
+            ><bdi dir="ltr">{{ state.queue_connection ?? '—' }}</bdi></strong
           >
           <small class="param-hint">محرك المعالجة الخلفية</small>
         </article>
@@ -62,7 +63,7 @@ const formatBytes = (bytes: number | undefined): string => {
         <article class="param-card">
           <span class="param-label">قرص التخزين (Blob Disk)</span>
           <strong class="param-value"
-            ><bdi dir="ltr">{{ state.blob_disk ?? 'local' }}</bdi></strong
+            ><bdi dir="ltr">{{ state.blob_disk ?? '—' }}</bdi></strong
           >
           <small class="param-hint">تخزين الحزم والمصادر</small>
         </article>
@@ -72,9 +73,11 @@ const formatBytes = (bytes: number | undefined): string => {
           <span class="param-label">عزل الإطلاق المحلي (Loopback Only)</span>
           <div class="param-value-flex">
             <StatusPill
+              v-if="typeof state.release_loopback_only === 'boolean'"
               :status="state.release_loopback_only ? 'ENABLED' : 'DISABLED'"
               :variant="state.release_loopback_only ? 'ok' : 'warning'"
             />
+            <StatusPill v-else status="UNAVAILABLE" variant="neutral" />
           </div>
           <small class="param-hint">حصر التحقق في النطاق المحلي</small>
         </article>
@@ -84,10 +87,12 @@ const formatBytes = (bytes: number | undefined): string => {
           <span class="param-label">مزود شبكة الذكاء الاصطناعي</span>
           <div class="param-value-flex">
             <StatusPill
+              v-if="typeof state.ai_network_provider_enabled === 'boolean'"
               :status="state.ai_network_provider_enabled ? 'ENABLED' : 'DISABLED'"
               :variant="state.ai_network_provider_enabled ? 'danger' : 'ok'"
               :label="state.ai_network_provider_enabled ? 'مفعل (خطر)' : 'معطل (آمن)'"
             />
+            <StatusPill v-else status="UNAVAILABLE" variant="neutral" />
           </div>
           <small class="param-hint">حظر الاتصال بمزود خارجي</small>
         </article>
@@ -97,9 +102,11 @@ const formatBytes = (bytes: number | undefined): string => {
           <span class="param-label">فرض HTTPS</span>
           <div class="param-value-flex">
             <StatusPill
+              v-if="typeof state.force_https === 'boolean'"
               :status="state.force_https ? 'ENABLED' : 'DISABLED'"
               :variant="state.force_https ? 'ok' : 'neutral'"
             />
+            <StatusPill v-else status="UNAVAILABLE" variant="neutral" />
           </div>
           <small class="param-hint">تشفير القنوات</small>
         </article>
@@ -184,6 +191,16 @@ const formatBytes = (bytes: number | undefined): string => {
   gap: 1.5rem;
 }
 
+.cep-section-top {
+  padding: 1.35rem 1.6rem;
+  border-radius: var(--cep-radius-lg);
+  border: 1px solid var(--cep-border);
+  background: var(--cep-bg-panel-strong);
+  box-shadow: var(--cep-shadow);
+  position: relative;
+  overflow: hidden;
+}
+
 .header-config-flex {
   display: flex;
   align-items: center;
@@ -193,14 +210,15 @@ const formatBytes = (bytes: number | undefined): string => {
 }
 
 .cep-page-title-md {
-  margin: 0.25rem 0 0.4rem;
+  margin: 0.25rem 0 0.35rem;
   font-size: 1.35rem;
   font-weight: 800;
   color: var(--cep-text);
+  letter-spacing: -0.01em;
 }
 
 .cep-lede-sm {
-  margin: 0;
+  margin: 0 0 0.85rem;
   font-size: 0.88rem;
   color: var(--cep-text-muted);
   line-height: 1.6;
@@ -210,15 +228,14 @@ const formatBytes = (bytes: number | undefined): string => {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-top: 0.65rem;
 }
 
 .config-badge {
   font-size: 0.76rem;
-  font-weight: 700;
+  font-weight: 750;
   padding: 0.25rem 0.65rem;
   border-radius: var(--cep-radius-sm);
-  background: var(--cep-bg-panel-strong);
+  background: var(--cep-bg-panel);
   border: 1px solid var(--cep-border);
   color: var(--cep-text-muted);
 }
@@ -231,31 +248,39 @@ const formatBytes = (bytes: number | undefined): string => {
 
 .params-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   gap: 0.85rem;
   margin-top: 0.85rem;
 }
 
 .param-card {
-  padding: 1rem 1.1rem;
-  border-radius: var(--cep-radius-md);
+  padding: 1.15rem 1.25rem;
+  border-radius: var(--cep-radius-lg);
   border: 1px solid var(--cep-border);
   background: var(--cep-bg-panel-strong);
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.45rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 140ms ease;
+}
+
+.param-card:hover {
+  border-color: var(--cep-border-strong);
+  transform: translateY(-1px);
 }
 
 .param-label {
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 750;
   color: var(--cep-text-muted);
 }
 
 .param-value {
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   font-weight: 800;
   color: var(--cep-text);
+  letter-spacing: -0.01em;
 }
 
 .param-value-flex {
@@ -265,15 +290,16 @@ const formatBytes = (bytes: number | undefined): string => {
 }
 
 .param-hint {
-  font-size: 0.74rem;
+  font-size: 0.76rem;
   color: var(--cep-text-muted);
 }
 
 .limits-table-wrapper {
   overflow-x: auto;
   border: 1px solid var(--cep-border);
-  border-radius: var(--cep-radius-md);
+  border-radius: var(--cep-radius-lg);
   background: var(--cep-bg-panel-strong);
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.25);
   margin-top: 0.85rem;
 }
 
@@ -285,18 +311,20 @@ const formatBytes = (bytes: number | undefined): string => {
 }
 
 .subsystem-table th {
-  padding: 0.8rem 1rem;
+  padding: 0.9rem 1.1rem;
   background: var(--cep-bg-panel);
   color: var(--cep-text-muted);
-  font-weight: 700;
+  font-weight: 750;
   font-size: 0.8rem;
   border-bottom: 1px solid var(--cep-border);
+  letter-spacing: 0.02em;
 }
 
 .subsystem-table td {
-  padding: 0.85rem 1rem;
+  padding: 0.95rem 1.1rem;
   border-bottom: 1px solid var(--cep-border);
   color: var(--cep-text);
+  vertical-align: middle;
 }
 
 .subsystem-table tr:last-child td {

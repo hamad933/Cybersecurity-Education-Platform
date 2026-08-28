@@ -47,10 +47,18 @@ const inspectAudit = (rec: AuditRecord) => {
         <div class="chain-status-card">
           <span class="chain-status-label">سلسلة التجزئة المشفرة:</span>
           <StatusPill
-            :status="state.chain?.valid ? 'VALID_CHAIN' : 'CHAIN_INVALID'"
-            :variant="state.chain?.valid ? 'ok' : 'danger'"
+            v-if="state.chain && typeof state.chain.valid === 'boolean'"
+            :status="state.chain.valid ? 'VALID_CHAIN' : 'CHAIN_INVALID'"
+            :variant="state.chain.valid ? 'ok' : 'danger'"
           />
-          <small class="chain-count">({{ state.chain?.count ?? 0 }} سجلات موثقة)</small>
+          <StatusPill v-else status="UNAVAILABLE" variant="neutral" />
+          <small class="chain-count">
+            {{
+              state.chain && typeof state.chain.count === 'number'
+                ? `(${state.chain.count} سجلات موثقة)`
+                : '(غير متاح)'
+            }}
+          </small>
         </div>
       </div>
     </section>
@@ -62,7 +70,11 @@ const inspectAudit = (rec: AuditRecord) => {
         <span class="section-subtext">أحدث 50 حدثاً مرتبة بالتسلسل العكسي</span>
       </div>
 
-      <div v-if="!state.records || state.records.length === 0" class="cep-empty-state">
+      <div v-if="state.records === undefined" class="cep-empty-state">
+        <p class="cep-empty-state__title">غير متاح — لم تتم ملاحظة سجل الأحداث التشغيلية</p>
+      </div>
+
+      <div v-else-if="state.records.length === 0" class="cep-empty-state">
         <p class="cep-empty-state__title">لا توجد سجلات تدقيق مسجلة</p>
       </div>
 
@@ -122,6 +134,16 @@ const inspectAudit = (rec: AuditRecord) => {
   gap: 1.5rem;
 }
 
+.cep-section-top {
+  padding: 1.35rem 1.6rem;
+  border-radius: var(--cep-radius-lg);
+  border: 1px solid var(--cep-border);
+  background: var(--cep-bg-panel-strong);
+  box-shadow: var(--cep-shadow);
+  position: relative;
+  overflow: hidden;
+}
+
 .header-status-flex {
   display: flex;
   align-items: center;
@@ -131,10 +153,11 @@ const inspectAudit = (rec: AuditRecord) => {
 }
 
 .cep-page-title-md {
-  margin: 0.25rem 0 0.4rem;
+  margin: 0.25rem 0 0.35rem;
   font-size: 1.35rem;
   font-weight: 800;
   color: var(--cep-text);
+  letter-spacing: -0.01em;
 }
 
 .cep-lede-sm {
@@ -147,22 +170,24 @@ const inspectAudit = (rec: AuditRecord) => {
 .chain-status-card {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  padding: 0.65rem 1rem;
+  gap: 0.75rem;
+  padding: 0.85rem 1.25rem;
   border-radius: var(--cep-radius-md);
   border: 1px solid var(--cep-border);
-  background: var(--cep-bg-panel-strong);
+  background: var(--cep-bg-panel);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .chain-status-label {
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: 0.84rem;
+  font-weight: 750;
   color: var(--cep-text-muted);
 }
 
 .chain-count {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: var(--cep-text-muted);
+  font-weight: 600;
 }
 
 .section-header-flex {
@@ -181,8 +206,9 @@ const inspectAudit = (rec: AuditRecord) => {
 .audit-table-wrapper {
   overflow-x: auto;
   border: 1px solid var(--cep-border);
-  border-radius: var(--cep-radius-md);
+  border-radius: var(--cep-radius-lg);
   background: var(--cep-bg-panel-strong);
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.25);
 }
 
 .subsystem-table {
@@ -193,18 +219,20 @@ const inspectAudit = (rec: AuditRecord) => {
 }
 
 .subsystem-table th {
-  padding: 0.8rem 1rem;
+  padding: 0.9rem 1.1rem;
   background: var(--cep-bg-panel);
   color: var(--cep-text-muted);
-  font-weight: 700;
+  font-weight: 750;
   font-size: 0.8rem;
   border-bottom: 1px solid var(--cep-border);
+  letter-spacing: 0.02em;
 }
 
 .subsystem-table td {
-  padding: 0.85rem 1rem;
+  padding: 0.95rem 1.1rem;
   border-bottom: 1px solid var(--cep-border);
   color: var(--cep-text);
+  vertical-align: middle;
 }
 
 .subsystem-table tr:last-child td {
@@ -224,7 +252,7 @@ const inspectAudit = (rec: AuditRecord) => {
 
 .action-name {
   color: var(--cep-text);
-  font-size: 0.84rem;
+  font-size: 0.86rem;
 }
 
 .mono {
@@ -232,7 +260,20 @@ const inspectAudit = (rec: AuditRecord) => {
 }
 
 .btn-inspect {
-  font-size: 0.78rem;
-  padding: 0.35rem 0.65rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--cep-radius-sm);
+  border: 1px solid var(--cep-border-strong);
+  background: var(--cep-bg-panel);
+  color: var(--cep-accent);
+  font-size: 0.8rem;
+  font-weight: 750;
+  transition: all 140ms ease;
+  white-space: nowrap;
+}
+
+.btn-inspect:hover {
+  border-color: var(--cep-accent);
+  background: var(--cep-accent-soft);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.2);
 }
 </style>

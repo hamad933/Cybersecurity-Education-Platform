@@ -15,6 +15,12 @@ const emit = defineEmits<{
 const when = (value: string | null | undefined): string =>
   value ? new Date(value).toLocaleString('ar-YE') : '—';
 
+const packagesAvailable = computed<boolean>(() => {
+  if (props.state.packages === undefined) return false;
+  if (Array.isArray(props.state.packages)) return true;
+  return props.state.packages.records !== undefined;
+});
+
 const packageRecords = computed<PackageRecord[]>(() =>
   Array.isArray(props.state.packages)
     ? props.state.packages
@@ -95,7 +101,11 @@ const inspectPackage = (pkg: PackageRecord) => {
         <span class="section-subtext">حزم الأدلة التقنية المصدّرة</span>
       </div>
 
-      <div v-if="packageRecords.length === 0" class="cep-empty-state">
+      <div v-if="!packagesAvailable" class="cep-empty-state">
+        <p class="cep-empty-state__title">غير متاح — لم تتم ملاحظة حزم الأدلة</p>
+      </div>
+
+      <div v-else-if="packageRecords.length === 0" class="cep-empty-state">
         <p class="cep-empty-state__title">لا توجد حزم أدلة إصدار مسجلة</p>
       </div>
 
@@ -144,6 +154,16 @@ const inspectPackage = (pkg: PackageRecord) => {
   gap: 1.5rem;
 }
 
+.cep-section-top {
+  padding: 1.35rem 1.6rem;
+  border-radius: var(--cep-radius-lg);
+  border: 1px solid var(--cep-border);
+  background: var(--cep-bg-panel-strong);
+  box-shadow: var(--cep-shadow);
+  position: relative;
+  overflow: hidden;
+}
+
 .header-readiness-flex {
   display: flex;
   align-items: center;
@@ -153,14 +173,15 @@ const inspectPackage = (pkg: PackageRecord) => {
 }
 
 .cep-page-title-md {
-  margin: 0.25rem 0 0.4rem;
+  margin: 0.25rem 0 0.35rem;
   font-size: 1.35rem;
   font-weight: 800;
   color: var(--cep-text);
+  letter-spacing: -0.01em;
 }
 
 .cep-lede-sm {
-  margin: 0;
+  margin: 0 0 0.85rem;
   font-size: 0.88rem;
   color: var(--cep-text-muted);
   line-height: 1.6;
@@ -170,15 +191,14 @@ const inspectPackage = (pkg: PackageRecord) => {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-top: 0.65rem;
 }
 
 .scope-badge {
   font-size: 0.76rem;
-  font-weight: 700;
+  font-weight: 750;
   padding: 0.25rem 0.65rem;
   border-radius: var(--cep-radius-sm);
-  background: var(--cep-bg-panel-strong);
+  background: var(--cep-bg-panel);
   border: 1px solid var(--cep-border);
   color: var(--cep-text-muted);
 }
@@ -192,33 +212,40 @@ const inspectPackage = (pkg: PackageRecord) => {
 .readiness-card {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  padding: 0.75rem 1.1rem;
+  gap: 0.75rem;
+  padding: 0.85rem 1.25rem;
   border-radius: var(--cep-radius-md);
   border: 1px solid var(--cep-border);
-  background: var(--cep-bg-panel-strong);
+  background: var(--cep-bg-panel);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .readiness-card__label {
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: 0.84rem;
+  font-weight: 750;
   color: var(--cep-text-muted);
 }
 
 .checks-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.85rem;
   margin-top: 0.85rem;
 }
 
 .check-card {
-  padding: 0.85rem 1rem;
-  border-radius: var(--cep-radius-sm);
+  padding: 1rem 1.15rem;
+  border-radius: var(--cep-radius-md);
   border: 1px solid var(--cep-border);
   background: var(--cep-bg-panel-strong);
   display: grid;
-  gap: 0.4rem;
+  gap: 0.45rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 140ms ease;
+}
+
+.check-card:hover {
+  border-color: var(--cep-border-strong);
 }
 
 .check-card__top {
@@ -228,16 +255,16 @@ const inspectPackage = (pkg: PackageRecord) => {
 }
 
 .check-card__name {
-  font-size: 0.84rem;
-  font-weight: 700;
+  font-size: 0.86rem;
+  font-weight: 800;
   color: var(--cep-text);
 }
 
 .check-card__detail {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: var(--cep-text-muted);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .section-header-flex {
@@ -259,12 +286,18 @@ const inspectPackage = (pkg: PackageRecord) => {
 }
 
 .package-card {
-  padding: 1.1rem;
-  border-radius: var(--cep-radius-md);
+  padding: 1.25rem;
+  border-radius: var(--cep-radius-lg);
   border: 1px solid var(--cep-border);
   background: var(--cep-bg-panel-strong);
   display: grid;
-  gap: 0.75rem;
+  gap: 0.95rem;
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.2);
+  transition: all 140ms ease;
+}
+
+.package-card:hover {
+  border-color: var(--cep-border-strong);
 }
 
 .package-card__header {
@@ -272,13 +305,13 @@ const inspectPackage = (pkg: PackageRecord) => {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding-bottom: 0.55rem;
+  padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--cep-border);
 }
 
 .package-type {
-  font-size: 0.92rem;
-  font-weight: 750;
+  font-size: 0.96rem;
+  font-weight: 800;
   color: var(--cep-text);
 }
 
@@ -292,15 +325,17 @@ const inspectPackage = (pkg: PackageRecord) => {
 .package-facts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
-  gap: 0.75rem;
+  gap: 0.85rem;
   margin: 0;
 }
 
 .package-fact dt {
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 0.7rem;
+  font-weight: 800;
   color: var(--cep-accent);
-  margin-bottom: 0.2rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
 }
 
 .package-fact dd {
@@ -320,6 +355,26 @@ const inspectPackage = (pkg: PackageRecord) => {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 750;
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--cep-radius-sm);
+  background: var(--cep-accent);
+  color: #020617;
+  border-color: var(--cep-accent);
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.2);
+  transition: all 140ms ease;
+}
+
+.btn-download:hover {
+  background: var(--cep-accent-hover);
+  border-color: var(--cep-accent-hover);
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.35);
+}
+
+:root[data-theme='light'] .btn-download {
+  background: var(--cep-accent);
+  color: #ffffff;
 }
 
 .mono {

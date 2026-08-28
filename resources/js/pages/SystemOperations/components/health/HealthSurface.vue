@@ -50,7 +50,14 @@ const packageCounts = computed<Counts | undefined>(() => {
 const hasKeys = (obj: Record<string, unknown> | undefined | null) =>
   Boolean(obj && Object.keys(obj).length > 0);
 
-const isHealthy = computed(() => props.state.foundation?.healthy ?? false);
+const foundationChecks = computed(() => props.state.foundation?.checks);
+const hasFoundationChecks = computed(() => hasKeys(foundationChecks.value));
+const foundationAttention = computed(
+  () =>
+    hasFoundationChecks.value &&
+    (props.state.foundation?.healthy === false ||
+      (props.state.foundation?.failed_checks && props.state.foundation.failed_checks.length > 0)),
+);
 
 const processingHasCounts = computed(() => hasKeys(props.state.processing?.counts));
 const processingFailed = computed(() => count(props.state.processing?.counts, 'failed'));
@@ -472,26 +479,33 @@ const inspectorDetails = computed(() => {
         <span class="cep-kicker">الحالة التقنية</span>
         <h2 class="hero-state__headline">
           {{
-            isHealthy ? 'المكوّنات الأساسية اجتازت فحوص الصحة' : 'توجد فحوص أساسية تتطلب الانتباه'
+            !hasFoundationChecks
+              ? 'حالة المكونات الأساسية غير متوفرة'
+              : foundationAttention
+                ? 'توجد فحوص أساسية تتطلب الانتباه'
+                : 'المكوّنات الأساسية اجتازت فحوص الصحة'
           }}
         </h2>
         <p class="hero-state__desc">
-          حالة المكونات وقواعد البيانات بناءً على الفحوص المسجلة للنظام.
+          {{
+            !hasFoundationChecks
+              ? 'تعذر تحديد الحالة التشغيلية للمنصة قبل توفر نتائج الفحوص الأساسية.'
+              : 'حالة المكونات وقواعد البيانات بناءً على الفحوص المسجلة للنظام.'
+          }}
         </p>
       </div>
       <div class="hero-state__badge">
-        <StatusPill
-          :status="isHealthy ? 'HEALTHY' : 'ATTENTION'"
-          :variant="isHealthy ? 'ok' : 'danger'"
-        />
+        <StatusPill v-if="!hasFoundationChecks" status="UNAVAILABLE" variant="neutral" />
+        <StatusPill v-else-if="foundationAttention" status="ATTENTION" variant="danger" />
+        <StatusPill v-else status="HEALTHY" variant="ok" />
       </div>
     </section>
 
     <!-- Platform Checks Grid -->
-    <section v-if="state.foundation?.checks" class="cep-section">
+    <section v-if="hasFoundationChecks" class="cep-section">
       <h3 class="cep-section-title">فحوص المنصة</h3>
       <div class="status-grid">
-        <article v-for="(status, name) in state.foundation.checks" :key="name" class="status-card">
+        <article v-for="(status, name) in state.foundation!.checks" :key="name" class="status-card">
           <span class="status-card__name"
             ><bdi dir="ltr">{{ name }}</bdi></span
           >
@@ -680,17 +694,38 @@ const inspectorDetails = computed(() => {
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  padding: 1.25rem 1.5rem;
-  border-radius: var(--cep-radius-md);
+  padding: 1.35rem 1.6rem;
+  border-radius: var(--cep-radius-lg);
   border: 1px solid var(--cep-border);
   background: var(--cep-bg-panel-strong);
+  box-shadow: var(--cep-shadow);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-state::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6rem;
+  height: 100%;
+  background: linear-gradient(to left, rgba(34, 211, 238, 0.05), transparent);
+  pointer-events: none;
+}
+
+.hero-state__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .hero-state__headline {
-  margin: 0.25rem 0 0.4rem;
+  margin: 0;
   font-size: 1.35rem;
   font-weight: 800;
   color: var(--cep-text);
+  letter-spacing: -0.01em;
 }
 
 .hero-state__desc {
@@ -700,9 +735,13 @@ const inspectorDetails = computed(() => {
   line-height: 1.6;
 }
 
+.hero-state__badge {
+  flex-shrink: 0;
+}
+
 .status-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr));
   gap: 0.75rem;
   margin-top: 0.85rem;
 }
@@ -711,15 +750,21 @@ const inspectorDetails = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.85rem 1rem;
-  border-radius: var(--cep-radius-sm);
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--cep-radius-md);
   border: 1px solid var(--cep-border);
   background: var(--cep-bg-panel-strong);
+  transition: all 140ms ease;
+}
+
+.status-card:hover {
+  border-color: var(--cep-border-strong);
+  background: var(--cep-bg-panel);
 }
 
 .status-card__name {
   font-size: 0.85rem;
-  font-weight: 650;
+  font-weight: 700;
   color: var(--cep-text);
 }
 
@@ -733,11 +778,12 @@ const inspectorDetails = computed(() => {
 
 .section-badge {
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 750;
   color: var(--cep-accent);
   background: var(--cep-accent-soft);
-  padding: 0.2rem 0.5rem;
+  padding: 0.25rem 0.6rem;
   border-radius: var(--cep-radius-sm);
+  border: 1px solid rgba(34, 211, 238, 0.2);
 }
 
 .section-subtext {
@@ -748,8 +794,9 @@ const inspectorDetails = computed(() => {
 .subsystem-table-wrapper {
   overflow-x: auto;
   border: 1px solid var(--cep-border);
-  border-radius: var(--cep-radius-md);
+  border-radius: var(--cep-radius-lg);
   background: var(--cep-bg-panel-strong);
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.25);
 }
 
 .subsystem-table {
@@ -760,31 +807,47 @@ const inspectorDetails = computed(() => {
 }
 
 .subsystem-table th {
-  padding: 0.8rem 1rem;
+  padding: 0.9rem 1.1rem;
   background: var(--cep-bg-panel);
   color: var(--cep-text-muted);
-  font-weight: 700;
+  font-weight: 750;
   font-size: 0.8rem;
   border-bottom: 1px solid var(--cep-border);
+  letter-spacing: 0.02em;
 }
 
 .subsystem-table td {
-  padding: 0.85rem 1rem;
+  padding: 0.95rem 1.1rem;
   border-bottom: 1px solid var(--cep-border);
   color: var(--cep-text);
+  vertical-align: middle;
 }
 
 .subsystem-table tr:last-child td {
   border-bottom: none;
 }
 
-.subsystem-table tr:hover,
+.subsystem-table tbody tr {
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.subsystem-table tbody tr:hover {
+  background: rgba(34, 211, 238, 0.06);
+}
+
 .subsystem-table tr.row--selected {
-  background: var(--cep-accent-soft);
+  background: rgba(34, 211, 238, 0.1);
+  border-inline-start: 3px solid var(--cep-accent);
 }
 
 .cell--component {
   font-weight: 750;
+  color: var(--cep-text);
+}
+
+.component-name {
+  font-size: 0.9rem;
 }
 
 .cell--muted {
@@ -795,47 +858,54 @@ const inspectorDetails = computed(() => {
 .cell--note {
   font-size: 0.84rem;
   color: var(--cep-text-muted);
+  max-width: 22rem;
+  line-height: 1.5;
 }
 
 .table-action-btn {
-  display: inline-block;
-  padding: 0.35rem 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
   border-radius: var(--cep-radius-sm);
-  border: 1px solid var(--cep-border);
+  border: 1px solid var(--cep-border-strong);
   background: var(--cep-bg-panel);
   color: var(--cep-accent);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 750;
   text-decoration: none;
   transition: all 140ms ease;
+  white-space: nowrap;
 }
 
 .table-action-btn:hover {
   border-color: var(--cep-accent);
   background: var(--cep-accent-soft);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.2);
 }
 
 .detail-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
   gap: 1rem;
   margin-top: 0.85rem;
 }
 
 .detail-card {
-  padding: 1.1rem;
-  border-radius: var(--cep-radius-md);
+  padding: 1.25rem;
+  border-radius: var(--cep-radius-lg);
   border: 1px solid var(--cep-border);
   background: var(--cep-bg-panel-strong);
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.95rem;
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.2);
 }
 
 .detail-card__title {
   margin: 0;
   font-size: 0.95rem;
-  font-weight: 750;
+  font-weight: 800;
   color: var(--cep-text);
 }
 
@@ -846,20 +916,34 @@ const inspectorDetails = computed(() => {
 }
 
 .micro-tag {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 800;
-  padding: 0.15rem 0.45rem;
+  padding: 0.18rem 0.55rem;
   border-radius: var(--cep-radius-sm);
+  text-transform: uppercase;
 }
 
 .micro-tag--danger {
   background: rgba(239, 68, 68, 0.15);
   color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.micro-tag--ok {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.micro-tag--neutral {
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
 .detail-fact-list {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.65rem;
   margin: 0;
 }
 
@@ -869,20 +953,29 @@ const inspectorDetails = computed(() => {
   justify-content: space-between;
   gap: 0.5rem;
   font-size: 0.84rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px dashed rgba(51, 65, 85, 0.4);
+}
+
+.detail-fact-row:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .detail-fact-row dt {
   color: var(--cep-text-muted);
+  font-size: 0.82rem;
 }
 
 .detail-fact-row dd {
   margin: 0;
-  font-weight: 700;
+  font-weight: 750;
   color: var(--cep-text);
 }
 
 .pill-states {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
 }
 
@@ -892,58 +985,73 @@ const inspectorDetails = computed(() => {
   gap: 0.2rem;
   font-size: 0.72rem;
   font-weight: 750;
-  padding: 0.1rem 0.35rem;
-  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--cep-radius-sm);
 }
 
 .micro-badge--danger {
-  background: rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.18);
   color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .micro-badge--warning {
-  background: rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.18);
   color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .micro-badge--ok {
-  background: rgba(34, 197, 94, 0.2);
+  background: rgba(34, 197, 94, 0.18);
   color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.micro-badge--info {
+  background: rgba(34, 211, 238, 0.18);
+  color: #38bdf8;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+}
+
+.micro-badge--neutral {
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
 .detail-card__body-text {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.86rem;
   color: var(--cep-text-muted);
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .suggested-action-box {
   margin-top: auto;
-  padding: 0.75rem;
-  border-radius: var(--cep-radius-sm);
+  padding: 0.85rem 1rem;
+  border-radius: var(--cep-radius-md);
   background: var(--cep-accent-soft);
   border: 1px dashed var(--cep-border-strong);
 }
 
 .suggested-action-title {
-  margin: 0 0 0.25rem;
-  font-size: 0.8rem;
-  font-weight: 750;
+  margin: 0 0 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 800;
   color: var(--cep-accent);
 }
 
 .suggested-action-desc {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   color: var(--cep-text);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .metric-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 0.85rem;
   margin-top: 0.85rem;
 }
 
@@ -951,20 +1059,28 @@ const inspectorDetails = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  padding: 0.85rem 1rem;
-  border-radius: var(--cep-radius-sm);
+  padding: 0.95rem 1.1rem;
+  border-radius: var(--cep-radius-md);
   border: 1px solid var(--cep-border);
   background: var(--cep-bg-panel-strong);
+  transition: all 140ms ease;
+}
+
+.metric-card:hover {
+  border-color: var(--cep-border-strong);
+  transform: translateY(-1px);
 }
 
 .metric-label {
   font-size: 0.78rem;
+  font-weight: 700;
   color: var(--cep-text-muted);
 }
 
 .metric-value {
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   font-weight: 800;
   color: var(--cep-text);
+  letter-spacing: -0.02em;
 }
 </style>

@@ -286,6 +286,31 @@ describe('System Operations Components & Surfaces', () => {
       expect(failureContext.text()).toContain('تأثير الإخفاقات الأساسية');
       expect(failureContext.text()).toContain('توجد 1 فحوص أساسية فاشلة (database)');
     });
+
+    it('renders neutral UNAVAILABLE hero status when foundation checks are missing rather than ATTENTION danger', () => {
+      const emptyStateWrapper = mount(HealthSurface, {
+        props: { state: {}, selectedSubsystem: 'validation' },
+      });
+
+      const hero = emptyStateWrapper.find('[data-testid="health-hero"]');
+      expect(hero.text()).toContain('حالة المكونات الأساسية غير متوفرة');
+      expect(hero.text()).toContain('UNAVAILABLE');
+      expect(hero.text()).not.toContain('ATTENTION');
+
+      const unavailableStateWrapper = mount(HealthSurface, {
+        props: {
+          state: {
+            foundation: { checks: {}, healthy: false, failed_checks: [] },
+          },
+          selectedSubsystem: 'validation',
+        },
+      });
+
+      const unavailHero = unavailableStateWrapper.find('[data-testid="health-hero"]');
+      expect(unavailHero.text()).toContain('حالة المكونات الأساسية غير متوفرة');
+      expect(unavailHero.text()).toContain('UNAVAILABLE');
+      expect(unavailHero.text()).not.toContain('ATTENTION');
+    });
   });
 
   describe('ProcessingSurface & ProcessingContext', () => {
@@ -378,6 +403,25 @@ describe('System Operations Components & Surfaces', () => {
       expect(observedZero.get('[data-testid="processing-count-completed"]').text()).toBe('0');
       expect(observedZero.get('[data-testid="processing-count-failed"]').text()).toBe('0');
     });
+
+    it('distinguishes unavailable vs observed empty vs observed nonempty for runs and outbox', () => {
+      const unavailableWrapper = mount(ProcessingSurface, {
+        props: { state: {} },
+      });
+      expect(unavailableWrapper.text()).toContain('غير متاح — لم تتم ملاحظة سجل المعالجات');
+      expect(unavailableWrapper.text()).toContain('غير متاح — لم تتم ملاحظة رسائل Outbox');
+
+      const emptyWrapper = mount(ProcessingSurface, {
+        props: {
+          state: {
+            processing: { counts: {}, runs: [] },
+            outbox: { counts: {}, messages: [] },
+          },
+        },
+      });
+      expect(emptyWrapper.text()).toContain('لا توجد معالجات تشغيلية مسجلة حالياً');
+      expect(emptyWrapper.text()).toContain('طابور Outbox خالٍ من الرسائل المعلقة');
+    });
   });
 
   describe('ValidationSurface & ValidationContext', () => {
@@ -455,6 +499,28 @@ describe('System Operations Components & Surfaces', () => {
       });
       expect(observedZero.get('[data-testid="validation-count-accepted"]').text()).toBe('0');
       expect(observedZero.get('[data-testid="validation-count-rejected"]').text()).toBe('0');
+    });
+
+    it('distinguishes unavailable vs observed empty packages and source imports and verifies fixed accessible label', () => {
+      const unavailableWrapper = mount(ValidationSurface, {
+        props: { state: {} },
+      });
+      expect(unavailableWrapper.text()).toContain('غير متاح — لم تتم ملاحظة سجل الحزم المحمولة');
+      expect(unavailableWrapper.text()).toContain('غير متاح — لم تتم ملاحظة سجل استيراد المصادر');
+      expect(unavailableWrapper.find('input[type="file"]').attributes('aria-label')).toBe(
+        'اختر ملفاً مصدرياً للتحقق',
+      );
+
+      const emptyWrapper = mount(ValidationSurface, {
+        props: {
+          state: {
+            packages: { records: [] },
+            source_imports: { counts: {}, records: [] },
+          },
+        },
+      });
+      expect(emptyWrapper.text()).toContain('لا توجد حزم محمولة مسجلة للتحقق');
+      expect(emptyWrapper.text()).toContain('لا توجد ملفات مصدرية مسجلة');
     });
   });
 
@@ -554,6 +620,57 @@ describe('System Operations Components & Surfaces', () => {
       expect(enabledText).toContain('الاستطلاع التلقائي (Polling): مفعّل');
       expect(enabledText).toContain('توليد التضمينات (Embeddings): مفعّل');
     });
+
+    it('renders unobserved AI policy as unavailable without claiming verified compliance', () => {
+      const unobservedContext = mount(AiBridgeContext, {
+        props: { state: {} },
+      });
+
+      expect(unobservedContext.text()).toContain('نمط التنفيذ: غير متاح');
+      expect(unobservedContext.text()).toContain('المزود الشبكي: غير متاح');
+      expect(unobservedContext.text()).toContain('بوابة القرار البشري: غير متاح');
+      expect(unobservedContext.text()).toContain('الاستطلاع التلقائي (Polling): غير متاح');
+      expect(unobservedContext.text()).toContain('توليد التضمينات (Embeddings): غير متاح');
+      expect(unobservedContext.text()).not.toContain('automatic_provider_enabled: false');
+      expect(unobservedContext.text()).not.toContain('automatic_publish: false');
+    });
+
+    it('surfaces policy violation when runtime configuration conflicts with governing manual-only policy', () => {
+      const violationContext = mount(AiBridgeContext, {
+        props: {
+          state: {
+            policy: {
+              execution: 'HYBRID',
+              automatic_provider_enabled: true,
+              automatic_publish: true,
+            },
+          },
+        },
+      });
+
+      expect(violationContext.text()).toContain('انتهاك لسياسة الحوكمة');
+    });
+
+    it('distinguishes unavailable vs observed empty AI results and prompt revisions', () => {
+      const unavailableSurface = mount(AiBridgeSurface, {
+        props: { state: {} },
+      });
+      expect(unavailableSurface.text()).toContain(
+        'غير متاح — لم تتم ملاحظة نتائج الذكاء الاصطناعي',
+      );
+      expect(unavailableSurface.text()).toContain('غير متاح — لم تتم ملاحظة مراجعات الموجهات');
+
+      const emptySurface = mount(AiBridgeSurface, {
+        props: {
+          state: {
+            results: [],
+            prompt_revisions: [],
+          },
+        },
+      });
+      expect(emptySurface.text()).toContain('لا توجد نتائج ذكاء اصطناعي بانتظار المراجعة');
+      expect(emptySurface.text()).toContain('لا توجد مراجعات موجهات سابقة');
+    });
   });
 
   describe('BackupsSurface & BackupsContext', () => {
@@ -606,6 +723,23 @@ describe('System Operations Components & Surfaces', () => {
       expect(wrapper.text()).toContain('التحقق من البصمات');
       expect(wrapper.text()).toContain('التفعيل عبر CLI فقط');
     });
+
+    it('distinguishes unavailable backups and restores from observed empty', () => {
+      const unavailableSurface = mount(BackupsSurface, {
+        props: { state: {} },
+      });
+      expect(unavailableSurface.text()).toContain('غير متاح — لم تتم ملاحظة سجل النسخ الاحتياطية');
+
+      const emptySurface = mount(BackupsSurface, {
+        props: {
+          state: {
+            backups: [],
+            restores: [],
+          },
+        },
+      });
+      expect(emptySurface.text()).toContain('لم تسجل نسخ احتياطية في السجل المرصود');
+    });
   });
 
   describe('AuditSurface & AuditContext', () => {
@@ -652,6 +786,29 @@ describe('System Operations Components & Surfaces', () => {
       expect(wrapper.text()).toContain('سلسلة النزاهة المشفرة');
       expect(wrapper.text()).toContain('سجل إضافة فقط (Append-Only)');
       expect(wrapper.text()).toContain('ترابط التجزئة (Hash Chaining)');
+    });
+
+    it('renders unobserved audit hash-chain as UNAVAILABLE with unobserved count instead of CHAIN_INVALID or 0', () => {
+      const unavailableWrapper = mount(AuditSurface, {
+        props: { state: {} },
+      });
+      expect(unavailableWrapper.text()).toContain('UNAVAILABLE');
+      expect(unavailableWrapper.text()).toContain('(غير متاح)');
+      expect(unavailableWrapper.text()).not.toContain('CHAIN_INVALID');
+      expect(unavailableWrapper.text()).not.toContain('(0 سجلات موثقة)');
+      expect(unavailableWrapper.text()).toContain('غير متاح — لم تتم ملاحظة سجل الأحداث التشغيلية');
+
+      const emptyWrapper = mount(AuditSurface, {
+        props: {
+          state: {
+            chain: { valid: true, count: 0 },
+            records: [],
+          },
+        },
+      });
+      expect(emptyWrapper.text()).toContain('VALID_CHAIN');
+      expect(emptyWrapper.text()).toContain('(0 سجلات موثقة)');
+      expect(emptyWrapper.text()).toContain('لا توجد سجلات تدقيق مسجلة');
     });
   });
 
@@ -718,6 +875,18 @@ describe('System Operations Components & Surfaces', () => {
       expect(observedClosed.text()).toContain('NOT_READY');
       expect(observedClosed.text()).toContain('Pending migration.');
     });
+
+    it('distinguishes unavailable release packages from observed empty', () => {
+      const unavailableWrapper = mount(ReleasesSurface, {
+        props: { state: {} },
+      });
+      expect(unavailableWrapper.text()).toContain('غير متاح — لم تتم ملاحظة حزم الأدلة');
+
+      const emptyWrapper = mount(ReleasesSurface, {
+        props: { state: { packages: [] } },
+      });
+      expect(emptyWrapper.text()).toContain('لا توجد حزم أدلة إصدار مسجلة');
+    });
   });
 
   describe('ConfigurationSurface & ConfigurationContext', () => {
@@ -758,6 +927,21 @@ describe('System Operations Components & Surfaces', () => {
       expect(wrapper.text()).toContain('قائمة بيضاء معتمدة');
       expect(wrapper.text()).toContain('حماية الأسرار والمفاتيح');
       expect(wrapper.text()).toContain('انضباط السقوف التشغيلية');
+    });
+
+    it('renders unobserved profile, queue, blob disk, and booleans as UNAVAILABLE or — without defaulting', () => {
+      const wrapper = mount(ConfigurationSurface, {
+        props: { state: {} },
+      });
+
+      expect(wrapper.text()).not.toContain('local');
+      expect(wrapper.text()).not.toContain('database');
+      expect(wrapper.findAll('.param-value').some((el) => el.text().includes('—'))).toBe(true);
+      expect(wrapper.findAll('.state-pill').length).toBe(3);
+      wrapper.findAll('.state-pill').forEach((pill) => {
+        expect(pill.text()).toContain('UNAVAILABLE');
+        expect(pill.classes()).toContain('state-pill--neutral');
+      });
     });
   });
 
