@@ -6,42 +6,67 @@ defineProps<{ rows: ComparisonRow[] }>();
 
 <template>
   <section aria-labelledby="source-comparison-heading">
-    <div class="flex flex-wrap items-end justify-between gap-3">
+    <div class="flex flex-wrap items-end justify-between gap-3 border-b border-slate-800/80 pb-3">
       <div>
-        <p class="text-[10px] font-bold tracking-[0.2em] text-slate-600" dir="ltr">COMPARE</p>
-        <h2 id="source-comparison-heading" class="mt-1 text-lg font-black">مقارنة المصادر</h2>
+        <span
+          class="font-mono text-[10px] font-bold tracking-widest text-slate-500 uppercase"
+          dir="ltr"
+        >
+          COMPARE
+        </span>
+        <h2 id="source-comparison-heading" class="mt-1 text-base font-bold text-slate-100">
+          مقارنة المصادر
+        </h2>
       </div>
-      <p class="text-xs text-slate-500">مقارنة وصفية، وليست ترتيبًا للحقيقة.</p>
+      <p class="text-xs text-slate-400">مقارنة وصفية، وليست ترتيبًا للحقيقة.</p>
     </div>
 
-    <div v-if="rows.length" class="mt-4 overflow-x-auto rounded-xl border border-slate-800">
-      <table class="min-w-full divide-y divide-slate-800 text-sm">
-        <thead class="bg-slate-950/50 text-xs text-slate-500">
+    <div
+      v-if="rows.length"
+      class="mt-4 max-h-[600px] overflow-auto rounded-2xl border border-slate-800/80 bg-slate-950/60 shadow-lg"
+    >
+      <table class="min-w-full divide-y divide-slate-800/80 text-xs">
+        <thead class="sticky top-0 z-10 bg-slate-900/95 text-[11px] font-bold text-slate-400">
           <tr>
-            <th class="px-4 py-3 text-right">المصدر</th>
-            <th class="px-4 py-3 text-right">Authority</th>
-            <th class="px-4 py-3 text-right">Claims</th>
-            <th class="px-4 py-3 text-right">Active revision</th>
-            <th class="px-4 py-3 text-right">Anchors</th>
-            <th class="px-4 py-3 text-right">Digest</th>
+            <th class="px-4 py-3.5 text-right">المصدر</th>
+            <th class="px-4 py-3.5 text-right">Authority</th>
+            <th class="px-4 py-3.5 text-right">Claims</th>
+            <th class="px-4 py-3.5 text-right">Active revision</th>
+            <th class="px-4 py-3.5 text-right">Anchors</th>
+            <th class="px-4 py-3.5 text-right">Digest</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-800">
-          <tr v-for="row in rows" :key="row.source_id" class="bg-slate-900/20">
+        <tbody class="divide-y divide-slate-800/60">
+          <tr v-for="row in rows" :key="row.source_id" class="transition hover:bg-slate-900/40">
             <td class="px-4 py-3">
-              <p class="font-bold text-slate-200">{{ row.title }}</p>
-              <bdi dir="ltr" class="mt-1 block font-mono text-[10px] text-slate-600">
+              <p class="text-sm font-bold text-slate-200">{{ row.title }}</p>
+              <bdi dir="ltr" class="mt-0.5 block font-mono text-[10px] text-slate-500">
                 {{ row.source_id }}
               </bdi>
             </td>
             <td class="px-4 py-3">
-              <bdi dir="ltr" class="text-xs text-slate-400">{{ row.authority_class }}</bdi>
+              <span
+                class="rounded-full border border-slate-800 bg-slate-900 px-2 py-0.5 font-mono text-[10px] text-slate-300"
+              >
+                {{ row.authority_class }}
+              </span>
             </td>
-            <td class="px-4 py-3 font-mono text-slate-300">{{ row.claim_count }}</td>
-            <td class="px-4 py-3 font-mono text-cyan-300">{{ row.active_revision_claim_count }}</td>
+            <td class="px-4 py-3 font-mono font-semibold text-slate-300">
+              {{ row.claim_count }}
+            </td>
+            <td class="px-4 py-3 font-mono font-bold text-cyan-300">
+              {{ row.active_revision_claim_count }}
+            </td>
             <td class="px-4 py-3 font-mono text-slate-300">{{ row.anchor_count }}</td>
             <td class="px-4 py-3">
-              <span :class="row.has_integrity_digest ? 'text-emerald-300' : 'text-amber-300'">
+              <span
+                class="rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold"
+                :class="
+                  row.has_integrity_digest
+                    ? 'border border-emerald-500/40 bg-emerald-950/80 text-emerald-300'
+                    : 'border border-amber-500/40 bg-amber-950/80 text-amber-300'
+                "
+              >
                 {{ row.has_integrity_digest ? 'present' : 'missing' }}
               </span>
             </td>
@@ -51,7 +76,7 @@ defineProps<{ rows: ComparisonRow[] }>();
     </div>
     <p
       v-else
-      class="mt-5 rounded-xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-500"
+      class="mt-5 rounded-2xl border border-dashed border-slate-800 bg-slate-950/40 p-8 text-center text-xs text-slate-500"
     >
       لا توجد مصادر كافية للمقارنة.
     </p>

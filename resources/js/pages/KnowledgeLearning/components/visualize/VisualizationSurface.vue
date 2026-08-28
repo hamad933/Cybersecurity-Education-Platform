@@ -39,143 +39,264 @@ const observationLabel = (value: unknown): string | null => {
 
 <template>
   <section aria-live="polite">
-    <div v-if="view === 'Tree'" class="space-y-3" aria-label="Tree canonical relationship view">
-      <article
-        v-for="edge in edges"
-        :key="edge.id"
-        class="grid items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/35 p-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
-      >
-        <div class="rounded-lg border border-indigo-900 bg-indigo-950/25 p-3 text-center">
-          <bdi dir="ltr" class="font-mono text-sm text-indigo-200">
-            {{ nodeById.get(edge.from)?.technical_label ?? edge.from }}
-          </bdi>
-          <span
-            v-if="observationLabel(observationFor(edge.from))"
-            class="mt-2 block rounded bg-slate-900 px-2 py-1 text-xs text-emerald-300"
+    <!-- View 1: Tree View -->
+    <div v-if="view === 'Tree'" class="space-y-4" aria-label="Tree canonical relationship view">
+      <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+        <p class="mb-3 text-xs font-medium text-slate-400">
+          احتواء قانوني قابل للطي؛ كل فرع مشتق من علاقة مسجلة واحدة.
+        </p>
+        <div class="space-y-3">
+          <details
+            v-for="edge in edges"
+            :key="edge.id"
+            open
+            class="rounded-xl border border-slate-800/80 bg-slate-900/60 shadow-sm transition hover:border-slate-700"
           >
-            {{ observationLabel(observationFor(edge.from)) }}
-          </span>
+            <summary
+              class="focus-ring flex cursor-pointer items-center justify-between gap-3 rounded-xl p-3 text-xs"
+            >
+              <span class="min-w-0">
+                <span class="block truncate font-bold text-slate-200">
+                  {{ nodeById.get(edge.from)?.label ?? edge.from }}
+                </span>
+                <bdi dir="ltr" class="mt-1 block truncate font-mono text-[10px] text-indigo-300">
+                  {{ nodeById.get(edge.from)?.technical_label ?? edge.from }}
+                </bdi>
+              </span>
+              <span
+                class="shrink-0 rounded-full border border-amber-500/40 bg-amber-950/60 px-2.5 py-1 font-mono text-[10px] font-bold text-amber-300"
+              >
+                <bdi dir="ltr">{{ edge.type }}</bdi>
+              </span>
+            </summary>
+            <div class="ms-5 border-s border-cyan-500/40 px-4 pb-4">
+              <div class="rounded-xl border border-cyan-500/40 bg-cyan-950/30 p-3">
+                <p class="text-sm font-bold text-slate-100">
+                  {{ nodeById.get(edge.to)?.label ?? edge.to }}
+                </p>
+                <bdi dir="ltr" class="mt-1 block font-mono text-xs text-cyan-300">
+                  {{ nodeById.get(edge.to)?.technical_label ?? edge.to }}
+                </bdi>
+                <bdi dir="ltr" class="mt-2 block font-mono text-[10px] text-slate-500">
+                  relationship revision {{ edge.revision }}
+                </bdi>
+              </div>
+            </div>
+          </details>
         </div>
-        <div class="text-center">
-          <bdi dir="ltr" class="font-mono text-[11px] text-amber-300">{{ edge.type }}</bdi>
-          <bdi dir="ltr" class="mt-1 block font-mono text-[10px] text-slate-600">
-            revision {{ edge.revision }}
-          </bdi>
-        </div>
-        <div class="rounded-lg border border-cyan-800 bg-cyan-950/25 p-3 text-center">
-          <p class="font-bold">{{ nodeById.get(edge.to)?.label ?? edge.to }}</p>
-          <bdi dir="ltr" class="mt-1 block font-mono text-xs text-cyan-200">
-            {{ nodeById.get(edge.to)?.technical_label ?? edge.to }}
-          </bdi>
-          <span
-            v-if="observationLabel(observationFor(edge.to))"
-            class="mt-2 block rounded bg-slate-900 px-2 py-1 text-xs text-emerald-300"
-          >
-            {{ observationLabel(observationFor(edge.to)) }}
-          </span>
-        </div>
-      </article>
+      </div>
       <p v-if="!edges.length" class="py-16 text-center text-sm text-slate-500">
         لا توجد علاقات قانونية محفوظة لبناء الشجرة.
       </p>
     </div>
 
+    <!-- View 2: Path View (Staged Progressive Path View matching CEP_VISUALIZE_PATH_VIEW_COMPONENT_REFERENCE.png) -->
     <div
       v-else-if="view === 'Path'"
       class="space-y-4"
       aria-label="Path canonical relationship view"
     >
-      <article
-        v-for="(edge, index) in edges"
-        :key="edge.id"
-        class="rounded-xl border border-slate-800 bg-slate-950/35 p-4"
-      >
-        <p class="mb-3 text-xs text-slate-500">
-          مسار قانوني مستقل {{ index + 1 }} — مشتق من علاقة canonical واحدة، وليس سلسلة مخترعة.
-        </p>
-        <div class="grid items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-          <bdi
+      <!-- Progressive Path Chains -->
+      <div class="space-y-3">
+        <article
+          v-for="(edge, index) in edges"
+          :key="edge.id"
+          class="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-5 shadow-lg"
+        >
+          <div class="mb-4 flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div class="flex items-center gap-2">
+              <span
+                class="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-xs font-bold text-slate-950"
+                >{{ index + 1 }}</span
+              >
+              <p class="text-xs font-bold text-slate-300">خطوة مسار مسجلة {{ index + 1 }}</p>
+            </div>
+            <span class="font-mono text-[10px] text-slate-500">rev {{ edge.revision }}</span>
+          </div>
+
+          <div
             dir="ltr"
-            class="rounded-lg border border-indigo-900 px-3 py-3 text-center font-mono text-sm text-indigo-200"
+            class="grid items-center gap-4 xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
           >
-            {{ nodeById.get(edge.from)?.technical_label ?? edge.from }}
-          </bdi>
-          <bdi dir="ltr" class="text-center font-mono text-xs text-amber-300">
-            → {{ edge.type }} →
-          </bdi>
-          <bdi
-            dir="ltr"
-            class="rounded-lg border border-cyan-900 px-3 py-3 text-center font-mono text-sm text-cyan-200"
-          >
-            {{ nodeById.get(edge.to)?.technical_label ?? edge.to }}
-          </bdi>
-        </div>
-      </article>
+            <div
+              dir="rtl"
+              class="rounded-xl border border-indigo-500/40 bg-indigo-950/30 p-4 shadow-sm"
+            >
+              <span
+                class="mb-1 block text-[10px] font-bold tracking-wider text-indigo-400 uppercase"
+                >المنطلق</span
+              >
+              <p class="text-sm font-bold text-slate-200">
+                {{ nodeById.get(edge.from)?.label ?? edge.from }}
+              </p>
+              <bdi dir="ltr" class="mt-1 block font-mono text-xs text-indigo-300">
+                {{ nodeById.get(edge.from)?.technical_label ?? edge.from }}
+              </bdi>
+            </div>
+
+            <div class="flex flex-col items-center gap-1 py-2">
+              <span
+                class="rounded-full border border-amber-500/40 bg-amber-950/60 px-3 py-1 font-mono text-xs font-bold text-amber-300 shadow-sm"
+              >
+                → {{ edge.type }} →
+              </span>
+            </div>
+
+            <div
+              dir="rtl"
+              class="rounded-xl border border-cyan-500/40 bg-cyan-950/30 p-4 shadow-sm"
+            >
+              <span class="mb-1 block text-[10px] font-bold tracking-wider text-cyan-400 uppercase"
+                >المصب / الهدف</span
+              >
+              <p class="text-sm font-bold text-slate-200">
+                {{ nodeById.get(edge.to)?.label ?? edge.to }}
+              </p>
+              <bdi dir="ltr" class="mt-1 block font-mono text-xs text-cyan-300">
+                {{ nodeById.get(edge.to)?.technical_label ?? edge.to }}
+              </bdi>
+            </div>
+          </div>
+        </article>
+      </div>
+
       <p v-if="!edges.length" class="py-16 text-center text-sm text-slate-500">
         لا يوجد مسار canonical محفوظ؛ لن يتم تركيب مسار افتراضي.
       </p>
     </div>
 
-    <div
-      v-else-if="view === 'Graph'"
-      class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]"
-      aria-label="Graph canonical projection"
-    >
-      <div class="grid content-start gap-3 sm:grid-cols-2">
-        <article
-          v-for="node in nodes"
-          :key="node.id"
-          class="rounded-xl border p-4"
-          :class="
-            node.kind === 'knowledge_unit'
-              ? 'border-cyan-800 bg-cyan-950/20'
-              : 'border-indigo-900 bg-indigo-950/20'
-          "
-        >
-          <p class="font-bold">{{ node.label }}</p>
-          <bdi dir="ltr" class="mt-1 block font-mono text-xs text-slate-400">
-            {{ node.technical_label }}
-          </bdi>
+    <!-- View 3: Focused Graph View (matching CEP_VISUALIZE_FOCUSED_GRAPH_RELATIONSHIP_COMPONENT_REFERENCE.png) -->
+    <div v-else-if="view === 'Graph'" class="space-y-4" aria-label="Graph canonical projection">
+      <div class="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-5 shadow-lg">
+        <div class="mb-4 flex items-center justify-between border-b border-slate-800/80 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-cyan-400">🕸️</span>
+            <h3 class="text-xs font-bold text-slate-200">
+              التمثيل البصري للعقد والعلاقات (Focused Graph Canvas)
+            </h3>
+          </div>
           <span
-            v-if="observationLabel(observationFor(node.id))"
-            class="mt-3 inline-block rounded border border-emerald-900 px-2 py-1 text-xs text-emerald-300"
+            class="rounded-full border border-slate-800 bg-slate-900 px-2.5 py-0.5 font-mono text-[10px] text-slate-400"
           >
-            {{ observationLabel(observationFor(node.id)) }}
+            {{ nodes.length }} Nodes · {{ edges.length }} Edges
           </span>
-        </article>
+        </div>
+
+        <div class="space-y-6">
+          <article
+            v-for="edge in edges"
+            :key="edge.id"
+            dir="ltr"
+            class="grid items-stretch gap-3 xl:grid-cols-[minmax(0,1fr)_140px_minmax(0,1fr)]"
+          >
+            <div
+              dir="rtl"
+              class="rounded-2xl border border-indigo-500/40 bg-indigo-950/30 p-4 shadow-md"
+            >
+              <span
+                class="rounded-full bg-indigo-500/20 px-2 py-0.5 font-mono text-[9px] font-bold text-indigo-300"
+              >
+                {{ nodeById.get(edge.from)?.kind ?? 'node' }}
+              </span>
+              <p class="mt-3 text-sm font-bold text-slate-100">
+                {{ nodeById.get(edge.from)?.label ?? edge.from }}
+              </p>
+              <bdi dir="ltr" class="mt-1 block font-mono text-xs text-slate-400">
+                {{ nodeById.get(edge.from)?.technical_label ?? edge.from }}
+              </bdi>
+              <span
+                v-if="observationLabel(observationFor(edge.from))"
+                class="mt-3 inline-block rounded-full border border-emerald-500/40 bg-emerald-950/70 px-2 py-0.5 text-xs text-emerald-300"
+              >
+                {{ observationLabel(observationFor(edge.from)) }}
+              </span>
+            </div>
+
+            <div class="flex flex-col items-center justify-center gap-2 text-center">
+              <div class="h-px w-full bg-gradient-to-r from-indigo-500 via-amber-400 to-cyan-500" />
+              <bdi
+                dir="ltr"
+                class="rounded-full border border-amber-500/40 bg-amber-950/70 px-3 py-1 font-mono text-[10px] font-bold text-amber-300"
+              >
+                {{ edge.type }}
+              </bdi>
+              <bdi dir="ltr" class="font-mono text-[9px] text-slate-500"
+                >rev {{ edge.revision }}</bdi
+              >
+            </div>
+
+            <div
+              dir="rtl"
+              class="rounded-2xl border border-cyan-500/40 bg-cyan-950/30 p-4 shadow-md"
+            >
+              <span
+                class="rounded-full bg-cyan-500/20 px-2 py-0.5 font-mono text-[9px] font-bold text-cyan-300"
+              >
+                {{ nodeById.get(edge.to)?.kind ?? 'node' }}
+              </span>
+              <p class="mt-3 text-sm font-bold text-slate-100">
+                {{ nodeById.get(edge.to)?.label ?? edge.to }}
+              </p>
+              <bdi dir="ltr" class="mt-1 block font-mono text-xs text-slate-400">
+                {{ nodeById.get(edge.to)?.technical_label ?? edge.to }}
+              </bdi>
+              <span
+                v-if="observationLabel(observationFor(edge.to))"
+                class="mt-3 inline-block rounded-full border border-emerald-500/40 bg-emerald-950/70 px-2 py-0.5 text-xs text-emerald-300"
+              >
+                {{ observationLabel(observationFor(edge.to)) }}
+              </span>
+            </div>
+          </article>
+        </div>
       </div>
-      <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
-        <h3 class="text-xs font-bold text-slate-500" dir="ltr">Canonical edges</h3>
-        <ol class="mt-3 space-y-3">
-          <li v-for="edge in edges" :key="edge.id" class="rounded-lg border border-slate-800 p-3">
-            <bdi dir="ltr" class="block font-mono text-[11px] text-slate-300">
-              {{ edge.from }} → {{ edge.type }} → {{ edge.to }}
+      <div v-if="!edges.length" class="rounded-xl border border-dashed border-slate-800 p-4">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <article
+            v-for="node in nodes"
+            :key="node.id"
+            class="rounded-xl border border-slate-800 bg-slate-950/50 p-3"
+          >
+            <p class="text-sm font-bold text-slate-200">{{ node.label }}</p>
+            <bdi dir="ltr" class="mt-1 block font-mono text-xs text-slate-400">
+              {{ node.technical_label }}
             </bdi>
-          </li>
-        </ol>
-        <p v-if="!edges.length" class="mt-3 text-xs text-slate-500">لا توجد Edges محفوظة.</p>
+          </article>
+        </div>
+        <p class="mt-3 text-center text-xs text-slate-500">
+          لا توجد علاقة كاملة ضمن المرشح الحالي؛ تظهر العقد دون إنشاء وصلات افتراضية.
+        </p>
       </div>
     </div>
 
+    <!-- View 4: Canvas Representation -->
     <div
       v-else
-      class="rounded-2xl border border-dashed border-slate-700 bg-slate-950/35 p-5"
+      class="rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 p-6 shadow-inner"
       aria-label="Canvas representation of canonical nodes"
     >
+      <div class="mb-4 flex items-center justify-between border-b border-slate-800/80 pb-3">
+        <h3 class="text-xs font-bold text-slate-300">
+          مواقع العقد على لوحة العرض (Canvas Coordinates)
+        </h3>
+        <span class="font-mono text-[10px] text-indigo-400">CANVAS MODE</span>
+      </div>
       <div class="grid min-h-80 content-center gap-4 md:grid-cols-2">
         <article
           v-for="node in capabilityNodes"
           :key="node.id"
-          class="rounded-xl border border-indigo-900 bg-indigo-950/20 p-4"
+          class="rounded-xl border border-indigo-800/60 bg-indigo-950/20 p-4 shadow-sm"
         >
-          <p class="text-[10px] text-slate-600" dir="ltr">CANVAS POSITION</p>
-          <bdi dir="ltr" class="mt-1 block font-mono text-sm text-indigo-200">
+          <p class="font-mono text-[10px] font-bold text-slate-500" dir="ltr">
+            {{ visualPositions?.[node.id] ? 'CANVAS POSITION' : 'POSITION UNAVAILABLE' }}
+          </p>
+          <bdi dir="ltr" class="mt-1 block font-mono text-sm font-bold text-indigo-200">
             {{ node.technical_label }}
           </bdi>
           <bdi
             v-if="visualPositions?.[node.id]"
             dir="ltr"
-            class="mt-2 block font-mono text-[10px] text-slate-500"
+            class="mt-2 inline-block rounded border border-slate-800 bg-slate-900 px-2 py-1 font-mono text-[11px] text-cyan-300"
           >
             x={{ visualPositions[node.id].x }}, y={{ visualPositions[node.id].y }}
           </bdi>
