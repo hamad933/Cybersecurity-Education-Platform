@@ -54,32 +54,23 @@ const inspectRun = (run: ProcessingRun) => {
         للحالات القابلة للإجراء.
       </p>
 
-      <!-- Compact Metric Strip -->
-      <div class="metric-strip compact">
-        <div class="metric-card">
-          <span class="metric-label">Pending</span>
-          <strong class="metric-value" data-testid="processing-count-pending">{{
-            count(state.processing?.counts, 'pending')
-          }}</strong>
-        </div>
-        <div class="metric-card">
-          <span class="metric-label">Running</span>
-          <strong class="metric-value" data-testid="processing-count-running">{{
-            count(state.processing?.counts, 'running')
-          }}</strong>
-        </div>
-        <div class="metric-card">
-          <span class="metric-label">Completed</span>
-          <strong class="metric-value" data-testid="processing-count-completed">{{
-            count(state.processing?.counts, 'completed')
-          }}</strong>
-        </div>
-        <div class="metric-card">
-          <span class="metric-label">Failed</span>
-          <strong class="metric-value" data-testid="processing-count-failed">{{
-            count(state.processing?.counts, 'failed')
-          }}</strong>
-        </div>
+      <div class="header-counts" dir="ltr">
+        <span class="count-item">
+          <span class="count-label">Pending:</span>
+          <strong class="count-value" data-testid="processing-count-pending">{{ count(state.processing?.counts, 'pending') }}</strong>
+        </span>
+        <span class="count-item">
+          <span class="count-label">Running:</span>
+          <strong class="count-value" data-testid="processing-count-running">{{ count(state.processing?.counts, 'running') }}</strong>
+        </span>
+        <span class="count-item">
+          <span class="count-label">Completed:</span>
+          <strong class="count-value" data-testid="processing-count-completed">{{ count(state.processing?.counts, 'completed') }}</strong>
+        </span>
+        <span class="count-item">
+          <span class="count-label">Failed:</span>
+          <strong class="count-value" data-testid="processing-count-failed">{{ count(state.processing?.counts, 'failed') }}</strong>
+        </span>
       </div>
     </section>
 
@@ -253,47 +244,34 @@ const inspectRun = (run: ProcessingRun) => {
   line-height: 1.6;
 }
 
-.metric-strip.compact {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.85rem;
-}
-
-@media (max-width: 48rem) {
-  .metric-strip.compact {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.metric-card {
+.header-counts {
   display: flex;
-  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.count-item {
+  display: inline-flex;
+  align-items: baseline;
   gap: 0.35rem;
-  padding: 0.95rem 1.1rem;
+  background: var(--cep-bg-panel);
+  padding: 0.4rem 0.8rem;
   border-radius: var(--cep-radius-md);
   border: 1px solid var(--cep-border);
-  background: var(--cep-bg-panel);
-  transition: all 140ms ease;
 }
 
-.metric-card:hover {
-  border-color: var(--cep-border-strong);
-  transform: translateY(-1px);
-}
-
-.metric-label {
-  font-size: 0.78rem;
+.count-label {
+  font-size: 0.76rem;
   font-weight: 750;
   color: var(--cep-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
-.metric-value {
-  font-size: 1.5rem;
+.count-value {
+  font-size: 1.1rem;
   font-weight: 800;
   color: var(--cep-text);
-  letter-spacing: -0.02em;
 }
 
 .section-header-flex {
