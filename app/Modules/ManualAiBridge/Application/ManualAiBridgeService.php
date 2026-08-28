@@ -126,36 +126,13 @@ final class ManualAiBridgeService
             if (! is_array($scope) || ($verified->manifest['actor_id'] ?? null) !== $actorId) {
                 throw new InvalidArgumentException('AI result package actor or scope is invalid.');
             }
-            $promptId = $scope['prompt_package_id'] ?? null;
-            $revisionNumber = $scope['prompt_revision'] ?? null;
-            $inputDigest = $scope['input_digest'] ?? null;
-            if (! is_string($promptId) || ! is_int($revisionNumber) || ! is_string($inputDigest)) {
-                throw new InvalidArgumentException('AI result provenance is incomplete.');
-            }
-            $revision = PromptPackageRevision::query()
-                ->where('prompt_package_id', $promptId)
-                ->where('revision', $revisionNumber)
-                ->firstOrFail();
-            if (! hash_equals($revision->input_digest, $inputDigest)) {
-                throw new InvalidArgumentException('AI result input digest does not match the exported prompt.');
-            }
 
             $result = json_decode($verified->files['result.json'] ?? '', true, 64, JSON_THROW_ON_ERROR);
             $this->validateResult($result);
-            $digest = CanonicalJson::sha256($result);
-            $existing = ImportedAiResult::query()
-                ->where('prompt_package_revision_id', $revision->id)
-                ->where('result_digest', $digest)
-                ->first();
-            if ($existing !== null) {
-                if ($existing->actor_id !== $actorId) {
-                    throw new InvalidArgumentException('Existing AI result is actor-bound to another owner.');
-                }
 
-                return $existing;
-            }
-
-            $mirror = $this->packages->create('manual-ai-result', 1, $actorId, $scope, $verified->files, ownerModule: 'MOD-AIB');
+            $promptId = $scope['prompt_package_id'] ?? null;
+            $revisionNumber = $scope['prompt_revision'] ?? null;
+            $inputDigest = $scope['input_digest'] ?? null;
         } else {
             $result = json_decode($content, true, 64, JSON_THROW_ON_ERROR);
             $this->validateResult($result);
@@ -164,37 +141,43 @@ final class ManualAiBridgeService
             $revisionNumber = $result['prompt_revision'] ?? null;
             $inputDigest = $result['input_digest'] ?? null;
 
-            if (! is_string($promptId) || ! is_int($revisionNumber) || ! is_string($inputDigest)) {
-                throw new InvalidArgumentException('AI result provenance fields are invalid.');
-            }
-
-            $revision = PromptPackageRevision::query()
-                ->where('prompt_package_id', $promptId)
-                ->where('revision', $revisionNumber)
-                ->firstOrFail();
-
-            if (! hash_equals($revision->input_digest, $inputDigest)) {
-                throw new InvalidArgumentException('AI result input digest does not match the exported prompt.');
-            }
-
-            $digest = CanonicalJson::sha256($result);
-            $existing = ImportedAiResult::query()
-                ->where('prompt_package_revision_id', $revision->id)
-                ->where('result_digest', $digest)
-                ->first();
-            if ($existing !== null) {
-                if ($existing->actor_id !== $actorId) {
-                    throw new InvalidArgumentException('Existing AI result is actor-bound to another owner.');
-                }
-
-                return $existing;
-            }
-
             $scope = [
                 'prompt_package_id' => $promptId,
                 'prompt_revision' => $revisionNumber,
                 'input_digest' => $inputDigest,
             ];
+        }
+
+        if (! is_string($promptId) || ! is_int($revisionNumber) || ! is_string($inputDigest)) {
+            throw new InvalidArgumentException('AI result provenance fields are incomplete or invalid.');
+        }
+
+        $revision = PromptPackageRevision::query()
+            ->where('prompt_package_id', $promptId)
+            ->where('revision', $revisionNumber)
+            ->firstOrFail();
+
+        if (! hash_equals($revision->input_digest, $inputDigest)) {
+            throw new InvalidArgumentException('AI result input digest does not match the exported prompt.');
+        }
+
+        $digest = CanonicalJson::sha256($result);
+        $existing = ImportedAiResult::query()
+            ->where('prompt_package_revision_id', $revision->id)
+            ->where('result_digest', $digest)
+            ->first();
+
+        if ($existing !== null) {
+            if ($existing->actor_id !== $actorId) {
+                throw new InvalidArgumentException('Existing AI result is actor-bound to another owner.');
+            }
+
+            return $existing;
+        }
+
+        if (isset($verified)) {
+            $mirror = $this->packages->create('manual-ai-result', 1, $actorId, $scope, $verified->files, ownerModule: 'MOD-AIB');
+        } else {
             $mirror = $this->packages->create(
                 'manual-ai-result',
                 1,
