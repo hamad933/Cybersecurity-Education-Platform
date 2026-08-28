@@ -354,6 +354,7 @@ const gridStyle = computed(() => {
 
       <div
         class="cep-workspace-grid"
+        dir="ltr"
         :style="gridStyle"
         :class="{
           'cep-workspace-grid--dragging': isDraggingLeft || isDraggingRight,

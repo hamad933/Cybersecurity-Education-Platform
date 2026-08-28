@@ -3,10 +3,10 @@ import { Link } from '@inertiajs/vue3';
 
 import CepEmptyState from '../shared/CepEmptyState.vue';
 import TechnicalText from '../shared/TechnicalText.vue';
-import type { TodayNextActionItem } from './types';
+import type { TodayNextActionItem, OrchestrationNode } from './types';
 
 defineProps<{
-  action?: TodayNextActionItem | null;
+  action?: OrchestrationNode<TodayNextActionItem> | null;
 }>();
 </script>
 
@@ -22,7 +22,7 @@ defineProps<{
         <p class="cep-kicker">التوصية الموجهة</p>
         <h2 id="next-action-title" class="cep-section-title">الإجراء التالي الموصى به</h2>
       </div>
-      <span v-if="action" class="today-recommendation-rank">
+      <span v-if="action?.status === 'AVAILABLE' && action.data" class="today-recommendation-rank">
         <svg class="today-rank-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
           <path
             fill-rule="evenodd"
@@ -34,7 +34,7 @@ defineProps<{
       </span>
     </div>
 
-    <div v-if="action" class="today-action-card" data-testid="today-next-action-active">
+    <div v-if="action?.status === 'AVAILABLE' && action.data" class="today-action-card" data-testid="today-next-action-active">
       <div class="today-action-card__header">
         <div class="today-action-card__domain-group">
           <span class="today-domain-tag">
@@ -43,12 +43,12 @@ defineProps<{
                 d="M10 2a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 2zM4.75 4a.75.75 0 000 1.5h10.5a.75.75 0 000-1.5H4.75zM3 8a2 2 0 012-2h10a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm2 0v7h10V8H5z"
               />
             </svg>
-            {{ action.domainLabel }}
+            {{ action.data.domainLabel }}
           </span>
         </div>
 
         <div class="today-action-card__meta">
-          <span v-if="action.timeCommitment" class="today-meta-pill">
+          <span v-if="action.data.timeCommitment" class="today-meta-pill">
             <svg class="today-pill-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
               <path
                 fill-rule="evenodd"
@@ -56,9 +56,9 @@ defineProps<{
                 clip-rule="evenodd"
               />
             </svg>
-            المدة المقدرة: <TechnicalText :value="action.timeCommitment" />
+            المدة المقدرة: <TechnicalText :value="action.data.timeCommitment" />
           </span>
-          <span v-if="action.difficulty" class="today-meta-pill today-meta-pill--difficulty">
+          <span v-if="action.data.difficulty" class="today-meta-pill today-meta-pill--difficulty">
             <svg class="today-pill-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
               <path
                 fill-rule="evenodd"
@@ -66,26 +66,40 @@ defineProps<{
                 clip-rule="evenodd"
               />
             </svg>
-            المستوى: <TechnicalText :value="action.difficulty" />
+            المستوى: <TechnicalText :value="action.data.difficulty" />
           </span>
         </div>
       </div>
 
       <div class="today-action-card__body">
-        <h3 class="today-action-card__title">{{ action.title }}</h3>
-        <p class="today-action-card__desc">{{ action.description }}</p>
+        <h3 class="today-action-card__title">{{ action.data.title }}</h3>
+        <p class="today-action-card__desc">{{ action.data.description }}</p>
       </div>
 
       <div class="today-action-card__footer">
         <Link
-          :href="action.href"
+          :href="action.data.href"
           class="cep-text-button today-action-button focus-ring"
           data-testid="today-next-action-link"
         >
-          <span>{{ action.actionLabel || 'بدء الإجراء الموصى به' }}</span>
+          <span>{{ action.data.actionLabel || 'بدء الإجراء الموصى به' }}</span>
           <span class="today-action-btn-arrow" aria-hidden="true">◀</span>
         </Link>
       </div>
+    </div>
+
+    <div v-else-if="action?.status === 'UNAVAILABLE'" class="today-empty-wrapper">
+      <div class="today-empty-icon-box" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="today-empty-svg">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+      </div>
+      <CepEmptyState
+        class="cep-section__body today-empty-content"
+        title="التوصيات غير متوفرة"
+        description="تعذر الاتصال بالمجال لمعرفة الإجراء التالي."
+        data-testid="today-next-action-unavailable"
+      />
     </div>
 
     <div v-else class="today-empty-wrapper">

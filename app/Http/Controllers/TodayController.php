@@ -34,17 +34,34 @@ class TodayController extends Controller
             ->filter(fn (string $path): bool => $registeredGetUris->contains($path))
             ->count();
 
-        return Inertia::render('Today/Index', [
-            'orchestration' => [
+        try {
+            $provider = app(\App\Application\Today\Ports\TodayOrchestrationProviderInterface::class);
+            $orchestration = [
                 'registeredDomainEntries' => $registeredDomainEntries,
                 'expectedDomainEntries' => count(self::DOMAIN_ENTRY_PATHS),
-                'continueSession' => null,
-                'nextAction' => null,
-                'rationale' => null,
-                'attentionItems' => [],
-                'recentContext' => [],
-                'progressProjection' => null,
-            ],
+                'continueSession' => $provider->getContinueSession(),
+                'nextAction' => $provider->getNextAction(),
+                'rationale' => $provider->getRationale(),
+                'attentionItems' => $provider->getAttentionItems(),
+                'recentContext' => $provider->getRecentContext(),
+                'progressProjection' => $provider->getProgressProjection(),
+            ];
+        } catch (\Illuminate\Contracts\Container\BindingResolutionException $e) {
+            // REPORT DEPENDENCY: TodayOrchestrationProviderInterface must be bound by a cross-domain layer outside writeScope.
+            $orchestration = [
+                'registeredDomainEntries' => $registeredDomainEntries,
+                'expectedDomainEntries' => count(self::DOMAIN_ENTRY_PATHS),
+                'continueSession' => ['status' => 'UNAVAILABLE', 'data' => null],
+                'nextAction' => ['status' => 'UNAVAILABLE', 'data' => null],
+                'rationale' => ['status' => 'UNAVAILABLE', 'data' => null],
+                'attentionItems' => ['status' => 'UNAVAILABLE', 'data' => []],
+                'recentContext' => ['status' => 'UNAVAILABLE', 'data' => []],
+                'progressProjection' => ['status' => 'UNAVAILABLE', 'data' => null],
+            ];
+        }
+
+        return Inertia::render('Today/Index', [
+            'orchestration' => $orchestration,
         ]);
     }
 }

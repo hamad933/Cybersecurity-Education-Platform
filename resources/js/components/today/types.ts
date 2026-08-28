@@ -62,13 +62,21 @@ export interface TodayProgressProjection {
   evidenceRequirement?: string;
 }
 
+export type OrchestrationStatus = 'AVAILABLE' | 'EMPTY' | 'UNAVAILABLE' | 'ERROR' | 'STALE';
+
+export interface OrchestrationNode<T> {
+  status: OrchestrationStatus;
+  data: T | null;
+  message?: string;
+}
+
 export interface TodayOrchestrationPayload {
   registeredDomainEntries: number;
   expectedDomainEntries: number;
-  continueSession?: TodaySessionItem | null;
-  nextAction?: TodayNextActionItem | null;
-  rationale?: TodayRationaleItem | null;
-  attentionItems?: TodayAttentionItem[];
-  recentContext?: TodayRecentContextItem[];
-  progressProjection?: TodayProgressProjection | null;
+  continueSession?: OrchestrationNode<TodaySessionItem>;
+  nextAction?: OrchestrationNode<TodayNextActionItem>;
+  rationale?: OrchestrationNode<TodayRationaleItem>;
+  attentionItems?: OrchestrationNode<TodayAttentionItem[]>;
+  recentContext?: OrchestrationNode<TodayRecentContextItem[]>;
+  progressProjection?: OrchestrationNode<TodayProgressProjection>;
 }

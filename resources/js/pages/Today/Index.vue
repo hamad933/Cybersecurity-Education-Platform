@@ -9,7 +9,6 @@ import TodayProgressProjection from '../../components/today/TodayProgressProject
 import TodayRationale from '../../components/today/TodayRationale.vue';
 import TodayRecentContext from '../../components/today/TodayRecentContext.vue';
 import type { TodayOrchestrationPayload } from '../../components/today/types';
-import TodayWorkspaceHandoffs from '../../components/today/TodayWorkspaceHandoffs.vue';
 import TechnicalText from '../../components/shared/TechnicalText.vue';
 import CepWorkspaceLayout from '../../layouts/CepWorkspaceLayout.vue';
 
@@ -27,12 +26,12 @@ const props = withDefaults(
     orchestration: () => ({
       registeredDomainEntries: 0,
       expectedDomainEntries: 4,
-      continueSession: null,
-      nextAction: null,
-      rationale: null,
-      attentionItems: [],
-      recentContext: [],
-      progressProjection: null,
+      continueSession: { status: 'UNAVAILABLE', data: null },
+      nextAction: { status: 'UNAVAILABLE', data: null },
+      rationale: { status: 'UNAVAILABLE', data: null },
+      attentionItems: { status: 'UNAVAILABLE', data: [] },
+      recentContext: { status: 'UNAVAILABLE', data: [] },
+      progressProjection: { status: 'UNAVAILABLE', data: null },
     }),
   },
 );
@@ -158,10 +157,6 @@ function refreshOrchestration() {
           <span class="today-nav-index">06</span>
           <span class="today-nav-label">التوقعات المرحلية</span>
         </a>
-        <a class="cep-structure-nav__link focus-ring" href="#workspace-handoffs">
-          <span class="today-nav-index">07</span>
-          <span class="today-nav-label">مساحات العمل</span>
-        </a>
       </nav>
     </template>
 
@@ -197,9 +192,6 @@ function refreshOrchestration() {
 
     <!-- Level 6: Progress Projection only where truthful -->
     <TodayProgressProjection :projection="orchestration.progressProjection" />
-
-    <!-- Domain Ownership Handoffs -->
-    <TodayWorkspaceHandoffs />
 
     <template #right>
       <div class="cep-context-stack">

@@ -3,10 +3,10 @@ import { Link } from '@inertiajs/vue3';
 
 import CepEmptyState from '../shared/CepEmptyState.vue';
 import TechnicalText from '../shared/TechnicalText.vue';
-import type { TodaySessionItem } from './types';
+import type { TodaySessionItem, OrchestrationNode } from './types';
 
 defineProps<{
-  session?: TodaySessionItem | null;
+  session?: OrchestrationNode<TodaySessionItem> | null;
 }>();
 </script>
 
@@ -29,7 +29,7 @@ defineProps<{
     </div>
 
     <div
-      v-if="session"
+      v-if="session?.status === 'AVAILABLE' && session.data"
       class="today-session-card today-session-card--active"
       data-testid="today-session-active"
     >
@@ -48,15 +48,15 @@ defineProps<{
                 clip-rule="evenodd"
               />
             </svg>
-            {{ session.domainLabel }}
+            {{ session.data.domainLabel }}
           </span>
-          <span v-if="session.moduleName" class="today-code-pill">
+          <span v-if="session.data.moduleName" class="today-code-pill">
             <span class="today-code-pill__prefix">الوحدة:</span>
-            <TechnicalText :value="session.moduleName" />
+            <TechnicalText :value="session.data.moduleName" />
           </span>
         </div>
 
-        <span v-if="session.lastActivityAt" class="today-meta-time">
+        <span v-if="session.data.lastActivityAt" class="today-meta-time">
           <svg class="today-time-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path
               fill-rule="evenodd"
@@ -64,34 +64,58 @@ defineProps<{
               clip-rule="evenodd"
             />
           </svg>
-          آخر نشاط: <TechnicalText :value="session.lastActivityAt" />
+          آخر نشاط: <TechnicalText :value="session.data.lastActivityAt" />
         </span>
       </div>
 
       <div class="today-session-card__body">
-        <h3 class="today-session-card__title">{{ session.title }}</h3>
+        <h3 class="today-session-card__title">{{ session.data.title }}</h3>
 
-        <div v-if="session.currentStep" class="today-session-card__step-row">
+        <div v-if="session.data.currentStep" class="today-session-card__step-row">
           <span class="today-step-label">الخطوة الحالية في المسار:</span>
           <span class="today-step-value">
-            <TechnicalText :value="session.currentStep" />
+            <TechnicalText :value="session.data.currentStep" />
           </span>
         </div>
       </div>
 
       <div class="today-session-card__actions">
         <Link
-          :href="session.href"
+          :href="session.data.href"
           class="today-hero-button focus-ring"
           data-testid="today-session-resume"
         >
-          <span>{{ session.actionLabel || 'استئناف الجلسة الآن' }}</span>
+          <span>{{ session.data.actionLabel || 'استئناف الجلسة الآن' }}</span>
           <span class="today-hero-btn-arrow" aria-hidden="true">◀</span>
         </Link>
         <span class="today-hero-subnote"
           >الاستئناف يحفظ حالة التقدم والبيئة التشغيلية دون إعادة تعيين.</span
         >
       </div>
+    </div>
+
+    <div v-else-if="session?.status === 'UNAVAILABLE'" class="today-empty-wrapper">
+      <div class="today-empty-icon-box" aria-hidden="true">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          class="today-empty-svg"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+          />
+        </svg>
+      </div>
+      <CepEmptyState
+        class="cep-section__body today-empty-content"
+        title="حالة الجلسة غير متوفرة"
+        description="تعذر الاتصال بمجال المصدر لمعرفة الجلسة الحالية. هذا قد يحدث إذا لم يكن المجال قيد التشغيل أو هناك اعتماديات مفقودة."
+        data-testid="today-session-unavailable"
+      />
     </div>
 
     <div v-else class="today-empty-wrapper">

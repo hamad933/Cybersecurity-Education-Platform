@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import CepEmptyState from '../shared/CepEmptyState.vue';
 import TechnicalText from '../shared/TechnicalText.vue';
-import type { TodayRationaleItem } from './types';
+import type { TodayRationaleItem, OrchestrationNode } from './types';
 
 defineProps<{
-  rationale?: TodayRationaleItem | null;
+  rationale?: OrchestrationNode<TodayRationaleItem> | null;
 }>();
 </script>
 
@@ -20,7 +20,7 @@ defineProps<{
         <p class="cep-kicker">السياق والمسوّغ</p>
         <h2 id="rationale-title" class="cep-section-title">المسوّغ والهدف</h2>
       </div>
-      <span v-if="rationale" class="today-rationale-badge">
+      <span v-if="rationale?.status === 'AVAILABLE' && rationale.data" class="today-rationale-badge">
         <svg
           class="today-rationale-icon"
           viewBox="0 0 20 20"
@@ -37,15 +37,15 @@ defineProps<{
       </span>
     </div>
 
-    <div v-if="rationale" class="today-rationale-card" data-testid="today-rationale-active">
+    <div v-if="rationale?.status === 'AVAILABLE' && rationale.data" class="today-rationale-card" data-testid="today-rationale-active">
       <div class="today-rationale-card__body">
         <div class="today-rationale-statement">
           <div class="today-rationale-quote-bar" aria-hidden="true" />
-          <p class="today-rationale-text">{{ rationale.text }}</p>
+          <p class="today-rationale-text">{{ rationale.data.text }}</p>
         </div>
 
         <div
-          v-if="rationale.targetCompetency"
+          v-if="rationale.data.targetCompetency"
           class="today-rationale-row today-rationale-row--competency"
         >
           <span class="today-tag-label">
@@ -64,12 +64,12 @@ defineProps<{
             الكفاءة المستهدفة:
           </span>
           <span class="today-competency-pill">
-            <TechnicalText :value="rationale.targetCompetency" />
+            <TechnicalText :value="rationale.data.targetCompetency" />
           </span>
         </div>
 
         <div
-          v-if="rationale.unlockedCapabilities && rationale.unlockedCapabilities.length > 0"
+          v-if="rationale.data.unlockedCapabilities && rationale.data.unlockedCapabilities.length > 0"
           class="today-rationale-row"
         >
           <span class="today-tag-label">
@@ -89,7 +89,7 @@ defineProps<{
           </span>
           <ul class="today-chips-grid">
             <li
-              v-for="(cap, idx) in rationale.unlockedCapabilities"
+              v-for="(cap, idx) in rationale.data.unlockedCapabilities"
               :key="idx"
               class="today-capability-chip"
             >
@@ -111,7 +111,7 @@ defineProps<{
         </div>
 
         <div
-          v-if="rationale.prerequisiteChain && rationale.prerequisiteChain.length > 0"
+          v-if="rationale.data.prerequisiteChain && rationale.data.prerequisiteChain.length > 0"
           class="today-rationale-row"
         >
           <span class="today-tag-label">
@@ -130,12 +130,12 @@ defineProps<{
             سلسلة المتطلبات المستوفاة:
           </span>
           <div class="today-prereq-chain">
-            <template v-for="(pre, idx) in rationale.prerequisiteChain" :key="idx">
+            <template v-for="(pre, idx) in rationale.data.prerequisiteChain" :key="idx">
               <span class="today-prereq-pill">
                 <TechnicalText :value="pre" />
               </span>
               <span
-                v-if="idx < rationale.prerequisiteChain.length - 1"
+                v-if="idx < rationale.data.prerequisiteChain.length - 1"
                 class="today-chain-arrow"
                 aria-hidden="true"
               >
@@ -145,6 +145,20 @@ defineProps<{
           </div>
         </div>
       </div>
+    </div>
+
+    <div v-else-if="rationale?.status === 'UNAVAILABLE'" class="today-empty-wrapper">
+      <div class="today-empty-icon-box" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="today-empty-svg">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+      </div>
+      <CepEmptyState
+        class="cep-section__body today-empty-content"
+        title="المسوغات غير متوفرة"
+        description="تعذر الاتصال بالمجال لمعرفة مسوغات التوصية."
+        data-testid="today-rationale-unavailable"
+      />
     </div>
 
     <div v-else class="today-empty-wrapper">

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import CepEmptyState from '../shared/CepEmptyState.vue';
 import TechnicalText from '../shared/TechnicalText.vue';
-import type { TodayProgressProjection } from './types';
+import type { TodayProgressProjection, OrchestrationNode } from './types';
 
 defineProps<{
-  projection?: TodayProgressProjection | null;
+  projection?: OrchestrationNode<TodayProgressProjection> | null;
 }>();
 </script>
 
@@ -20,7 +20,7 @@ defineProps<{
         <p class="cep-kicker">المسار المرحلي الحقيقي</p>
         <h2 id="progress-projection-title" class="cep-section-title">التوقعات المرحلية</h2>
       </div>
-      <span v-if="projection" class="today-projection-badge">
+      <span v-if="projection?.status === 'AVAILABLE' && projection.data" class="today-projection-badge">
         <svg
           class="today-projection-icon"
           viewBox="0 0 20 20"
@@ -37,13 +37,13 @@ defineProps<{
       </span>
     </div>
 
-    <div v-if="projection" class="today-projection-card" data-testid="today-projection-active">
+    <div v-if="projection?.status === 'AVAILABLE' && projection.data" class="today-projection-card" data-testid="today-projection-active">
       <div class="today-projection-card__header">
         <div class="today-projection-card__title-group">
-          <h3 class="today-projection-card__title">{{ projection.milestoneTitle }}</h3>
-          <p class="today-projection-summary">{{ projection.statusSummary }}</p>
+          <h3 class="today-projection-card__title">{{ projection.data.milestoneTitle }}</h3>
+          <p class="today-projection-summary">{{ projection.data.statusSummary }}</p>
         </div>
-        <span v-if="projection.targetHorizon" class="today-horizon-pill">
+        <span v-if="projection.data.targetHorizon" class="today-horizon-pill">
           <svg
             class="today-horizon-icon"
             viewBox="0 0 20 20"
@@ -56,7 +56,7 @@ defineProps<{
               clip-rule="evenodd"
             />
           </svg>
-          الأفق: <TechnicalText :value="projection.targetHorizon" />
+          الأفق: <TechnicalText :value="projection.data.targetHorizon" />
         </span>
       </div>
 
@@ -69,16 +69,16 @@ defineProps<{
             </dt>
             <dd class="today-fact-dd">
               <span class="today-verified-badge">
-                <TechnicalText :value="`${projection.verifiedCount} / ${projection.totalCount}`" />
+                <TechnicalText :value="`${projection.data.verifiedCount} / ${projection.data.totalCount}`" />
               </span>
             </dd>
           </div>
-          <div v-if="projection.evidenceRequirement" class="cep-fact-list__row today-fact-row">
+          <div v-if="projection.data.evidenceRequirement" class="cep-fact-list__row today-fact-row">
             <dt class="today-fact-dt">
               <span class="today-fact-dot today-fact-dot--pending" aria-hidden="true" />
               متطلب الإثبات القادم
             </dt>
-            <dd class="today-fact-dd today-fact-dd--text">{{ projection.evidenceRequirement }}</dd>
+            <dd class="today-fact-dd today-fact-dd--text">{{ projection.data.evidenceRequirement }}</dd>
           </div>
         </dl>
       </div>
@@ -98,6 +98,20 @@ defineProps<{
           </p>
         </div>
       </div>
+    </div>
+
+    <div v-else-if="projection?.status === 'UNAVAILABLE'" class="today-empty-wrapper">
+      <div class="today-empty-icon-box" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="today-empty-svg">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+      </div>
+      <CepEmptyState
+        class="cep-section__body today-empty-content"
+        title="توقعات التقدم غير متوفرة"
+        description="تعذر الاتصال بالمجال لمعرفة توقعات التقدم."
+        data-testid="today-projection-unavailable"
+      />
     </div>
 
     <div v-else class="today-empty-wrapper">
