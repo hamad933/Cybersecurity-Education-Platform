@@ -30,7 +30,11 @@ const selectedLayer = computed(() =>
 <template>
   <section v-if="mode === 'controls'" aria-labelledby="overlay-controls-title">
     <div class="flex max-w-full flex-nowrap items-center gap-2 overflow-x-auto pb-1">
-      <span id="overlay-controls-title" class="font-mono text-[10px] font-bold text-slate-500" dir="ltr">
+      <span
+        id="overlay-controls-title"
+        class="font-mono text-[10px] font-bold text-slate-500"
+        dir="ltr"
+      >
         OVERLAY
       </span>
       <button
@@ -79,7 +83,7 @@ const selectedLayer = computed(() =>
       </div>
       <div v-if="selectedLayer.source" class="border-t border-slate-800 pt-2">
         <span class="block text-[10px] text-slate-500">مصدر الرصد</span>
-        <bdi dir="ltr" class="mt-1 block break-all font-mono text-slate-300">
+        <bdi dir="ltr" class="mt-1 block font-mono break-all text-slate-300">
           {{ selectedLayer.source }}
         </bdi>
       </div>
@@ -88,7 +92,10 @@ const selectedLayer = computed(() =>
       </p>
     </div>
 
-    <p v-else class="mt-4 rounded-xl border border-dashed border-slate-800 p-3 text-xs leading-6 text-slate-500">
+    <p
+      v-else
+      class="mt-4 rounded-xl border border-dashed border-slate-800 p-3 text-xs leading-6 text-slate-500"
+    >
       لم تُحدّد طبقة مرصودة. اختيار الطبقات متاح في شريط الأدوات العلوي فقط، وغياب البيانات لا يتحول
       إلى نسبة أو حالة مفترضة.
     </p>

@@ -35,7 +35,6 @@ const observationLabel = (value: unknown): string | null => {
     ? String(candidate)
     : null;
 };
-
 </script>
 
 <template>
@@ -53,7 +52,9 @@ const observationLabel = (value: unknown): string | null => {
             open
             class="rounded-xl border border-slate-800/80 bg-slate-900/60 shadow-sm transition hover:border-slate-700"
           >
-            <summary class="focus-ring flex cursor-pointer items-center justify-between gap-3 rounded-xl p-3 text-xs">
+            <summary
+              class="focus-ring flex cursor-pointer items-center justify-between gap-3 rounded-xl p-3 text-xs"
+            >
               <span class="min-w-0">
                 <span class="block truncate font-bold text-slate-200">
                   {{ nodeById.get(edge.from)?.label ?? edge.from }}
@@ -113,8 +114,14 @@ const observationLabel = (value: unknown): string | null => {
             <span class="font-mono text-[10px] text-slate-500">rev {{ edge.revision }}</span>
           </div>
 
-          <div dir="ltr" class="grid items-center gap-4 xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-            <div dir="rtl" class="rounded-xl border border-indigo-500/40 bg-indigo-950/30 p-4 shadow-sm">
+          <div
+            dir="ltr"
+            class="grid items-center gap-4 xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
+          >
+            <div
+              dir="rtl"
+              class="rounded-xl border border-indigo-500/40 bg-indigo-950/30 p-4 shadow-sm"
+            >
               <span
                 class="mb-1 block text-[10px] font-bold tracking-wider text-indigo-400 uppercase"
                 >المنطلق</span
@@ -135,7 +142,10 @@ const observationLabel = (value: unknown): string | null => {
               </span>
             </div>
 
-            <div dir="rtl" class="rounded-xl border border-cyan-500/40 bg-cyan-950/30 p-4 shadow-sm">
+            <div
+              dir="rtl"
+              class="rounded-xl border border-cyan-500/40 bg-cyan-950/30 p-4 shadow-sm"
+            >
               <span class="mb-1 block text-[10px] font-bold tracking-wider text-cyan-400 uppercase"
                 >المصب / الهدف</span
               >
@@ -156,11 +166,7 @@ const observationLabel = (value: unknown): string | null => {
     </div>
 
     <!-- View 3: Focused Graph View (matching CEP_VISUALIZE_FOCUSED_GRAPH_RELATIONSHIP_COMPONENT_REFERENCE.png) -->
-    <div
-      v-else-if="view === 'Graph'"
-      class="space-y-4"
-      aria-label="Graph canonical projection"
-    >
+    <div v-else-if="view === 'Graph'" class="space-y-4" aria-label="Graph canonical projection">
       <div class="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-5 shadow-lg">
         <div class="mb-4 flex items-center justify-between border-b border-slate-800/80 pb-3">
           <div class="flex items-center gap-2">
@@ -177,9 +183,19 @@ const observationLabel = (value: unknown): string | null => {
         </div>
 
         <div class="space-y-6">
-          <article v-for="edge in edges" :key="edge.id" dir="ltr" class="grid items-stretch gap-3 xl:grid-cols-[minmax(0,1fr)_140px_minmax(0,1fr)]">
-            <div dir="rtl" class="rounded-2xl border border-indigo-500/40 bg-indigo-950/30 p-4 shadow-md">
-              <span class="rounded-full bg-indigo-500/20 px-2 py-0.5 font-mono text-[9px] font-bold text-indigo-300">
+          <article
+            v-for="edge in edges"
+            :key="edge.id"
+            dir="ltr"
+            class="grid items-stretch gap-3 xl:grid-cols-[minmax(0,1fr)_140px_minmax(0,1fr)]"
+          >
+            <div
+              dir="rtl"
+              class="rounded-2xl border border-indigo-500/40 bg-indigo-950/30 p-4 shadow-md"
+            >
+              <span
+                class="rounded-full bg-indigo-500/20 px-2 py-0.5 font-mono text-[9px] font-bold text-indigo-300"
+              >
                 {{ nodeById.get(edge.from)?.kind ?? 'node' }}
               </span>
               <p class="mt-3 text-sm font-bold text-slate-100">
@@ -198,14 +214,24 @@ const observationLabel = (value: unknown): string | null => {
 
             <div class="flex flex-col items-center justify-center gap-2 text-center">
               <div class="h-px w-full bg-gradient-to-r from-indigo-500 via-amber-400 to-cyan-500" />
-              <bdi dir="ltr" class="rounded-full border border-amber-500/40 bg-amber-950/70 px-3 py-1 font-mono text-[10px] font-bold text-amber-300">
+              <bdi
+                dir="ltr"
+                class="rounded-full border border-amber-500/40 bg-amber-950/70 px-3 py-1 font-mono text-[10px] font-bold text-amber-300"
+              >
                 {{ edge.type }}
               </bdi>
-              <bdi dir="ltr" class="font-mono text-[9px] text-slate-500">rev {{ edge.revision }}</bdi>
+              <bdi dir="ltr" class="font-mono text-[9px] text-slate-500"
+                >rev {{ edge.revision }}</bdi
+              >
             </div>
 
-            <div dir="rtl" class="rounded-2xl border border-cyan-500/40 bg-cyan-950/30 p-4 shadow-md">
-              <span class="rounded-full bg-cyan-500/20 px-2 py-0.5 font-mono text-[9px] font-bold text-cyan-300">
+            <div
+              dir="rtl"
+              class="rounded-2xl border border-cyan-500/40 bg-cyan-950/30 p-4 shadow-md"
+            >
+              <span
+                class="rounded-full bg-cyan-500/20 px-2 py-0.5 font-mono text-[9px] font-bold text-cyan-300"
+              >
                 {{ nodeById.get(edge.to)?.kind ?? 'node' }}
               </span>
               <p class="mt-3 text-sm font-bold text-slate-100">
