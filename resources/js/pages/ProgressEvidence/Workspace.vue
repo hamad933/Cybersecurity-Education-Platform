@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
@@ -125,6 +125,8 @@ type PortfolioItem = {
   evidence_id: string;
   current_revision_id: string;
   title: string;
+  sort_order?: number;
+  annotation?: string;
 };
 
 type Portfolio = {
@@ -140,6 +142,16 @@ type Portfolio = {
 type Surface = 'evidence' | 'reviews' | 'mastery' | 'portfolio';
 type EvidenceFocus = 'candidate' | 'evidence';
 type ReviewFocus = 'request' | 'review';
+type StatusGroup =
+  | 'candidate'
+  | 'evidenceLifecycle'
+  | 'evidenceReview'
+  | 'reviewWorkflow'
+  | 'finding'
+  | 'decision'
+  | 'masteryJudgment'
+  | 'freshness';
+type StatusTone = 'positive' | 'info' | 'warning' | 'danger' | 'neutral';
 type Panel =
   | 'intake'
   | 'revision'
@@ -172,10 +184,77 @@ const nav = [
   { key: 'portfolio', href: '/progress/portfolio', ar: 'الملف المهني', en: 'Portfolio' },
 ] as const;
 
+const statusTones: Record<StatusGroup, Record<string, StatusTone>> = {
+  candidate: {
+    RECEIVED: 'neutral',
+    DRAFT: 'neutral',
+    PREPARED: 'info',
+    SUBMITTED_FOR_INTAKE: 'info',
+    RETURNED_FOR_CONTEXT: 'warning',
+    ADMITTED: 'info',
+    DECLINED: 'danger',
+  },
+  evidenceLifecycle: {
+    ACTIVE: 'info',
+    SUPERSEDED: 'neutral',
+    WITHDRAWN: 'warning',
+  },
+  evidenceReview: {
+    UNREVIEWED: 'neutral',
+    IN_REVIEW: 'info',
+    REVIEWED: 'info',
+  },
+  reviewWorkflow: {
+    REQUESTED: 'info',
+    ASSIGNED: 'info',
+    IN_REVIEW: 'info',
+    READY_FOR_DECISION: 'warning',
+    CLOSED: 'neutral',
+    CANCELLED: 'neutral',
+  },
+  finding: {
+    SATISFIED: 'info',
+    PARTIALLY_SATISFIED: 'warning',
+    NOT_SATISFIED: 'danger',
+    NOT_ASSESSABLE: 'neutral',
+  },
+  decision: {
+    NONE: 'neutral',
+    ACCEPT: 'info',
+    ACCEPT_WITH_LIMITATIONS: 'warning',
+    MORE_EVIDENCE_REQUIRED: 'warning',
+    REJECT: 'danger',
+  },
+  masteryJudgment: {
+    NOT_EVALUATED: 'neutral',
+    INSUFFICIENT_EVIDENCE: 'warning',
+    INCONCLUSIVE: 'warning',
+    NOT_MASTERED: 'danger',
+    MASTERED: 'info',
+  },
+  freshness: {
+    CURRENT: 'info',
+    REVALIDATION_REQUIRED: 'warning',
+  },
+};
+
+function statusClass(group: StatusGroup, value: string | null | undefined): string[] {
+  const tone = value ? (statusTones[group][value] ?? 'neutral') : 'neutral';
+  return ['semantic-status', `tone-${tone}`];
+}
+
+function displayValue(value: unknown): string {
+  if (typeof value === 'string' && value.trim() !== '') return value;
+  if (typeof value === 'number') return String(value);
+  return 'غير متوفر';
+}
+
 const page = usePage<{ flash?: { status?: string }; errors?: Record<string, string> }>();
 const panel = ref<Panel>(null);
 const evidenceFocus = ref<EvidenceFocus>(props.candidates.length ? 'candidate' : 'evidence');
-const reviewFocus = ref<ReviewFocus>(props.review_requests.length ? 'request' : 'review');
+const reviewFocus = ref<ReviewFocus>(
+  props.reviews.length ? 'review' : props.review_requests.length ? 'request' : 'review',
+);
 const candidateId = ref(props.candidates[0]?.id ?? '');
 const evidenceId = ref(props.evidence[0]?.id ?? '');
 const requestId = ref(
@@ -184,7 +263,9 @@ const requestId = ref(
     '',
 );
 const reviewId = ref(
-  props.reviews.find((item) => ['IN_REVIEW', 'READY_FOR_DECISION'].includes(item.status))?.id ??
+  props.reviews.find(
+    (item) => item.decision === null && ['IN_REVIEW', 'READY_FOR_DECISION'].includes(item.status),
+  )?.id ??
     props.reviews[0]?.id ??
     '',
 );
@@ -197,10 +278,18 @@ const candidate = computed(() => props.candidates.find((item) => item.id === can
 const selectedEvidence = computed(() =>
   props.evidence.find((item) => item.id === evidenceId.value),
 );
+const selectedEvidenceCurrentRevision = computed(() =>
+  selectedEvidence.value?.revisions.find(
+    (revision) => revision.id === selectedEvidence.value?.current_revision_id,
+  ),
+);
 const selectedRequest = computed(() =>
   props.review_requests.find((item) => item.id === requestId.value),
 );
 const selectedReview = computed(() => props.reviews.find((item) => item.id === reviewId.value));
+const selectedReviewEvidence = computed(() =>
+  props.evidence.find((item) => item.id === selectedReview.value?.evidence_id),
+);
 const selectedMastery = computed(() => props.mastery.find((item) => item.id === masteryId.value));
 const selectedPortfolio = computed(() =>
   props.portfolios.find((item) => item.id === portfolioId.value),
@@ -225,6 +314,146 @@ const selectedPortfolioFilters = computed(() =>
     key,
     value: Array.isArray(value) ? value.join(', ') : String(value),
   })),
+);
+const canRecordFinding = computed(
+  () =>
+    selectedReview.value?.decision === null &&
+    ['IN_REVIEW', 'READY_FOR_DECISION'].includes(selectedReview.value.status),
+);
+const canIssueDecision = computed(
+  () =>
+    selectedReview.value?.decision === null && selectedReview.value.status === 'READY_FOR_DECISION',
+);
+
+// Grouped portfolio items are reference-only projections. Group membership does not infer status.
+const portfolioGroups = computed(() => {
+  const items = selectedPortfolio.value?.items ?? [];
+  if (!items.length) return [];
+
+  const groupingStrategy = selectedPortfolio.value?.grouping;
+
+  if (groupingStrategy === 'CAPABILITY') {
+    const groupsMap = new Map<
+      string,
+      {
+        id: string;
+        title: string;
+        projection: string;
+        statusBadge: { text: string } | null;
+        items: Array<
+          PortfolioItem & {
+            typeLabel: string;
+            effectiveDecision: string | null;
+            annotationText: string;
+          }
+        >;
+      }
+    >();
+
+    items.forEach((item) => {
+      const ev = props.evidence.find((e) => e.id === item.evidence_id);
+      const capId = ev ? ev.capability_id : 'UNKNOWN_CAPABILITY';
+
+      if (!groupsMap.has(capId)) {
+        groupsMap.set(capId, {
+          id: capId,
+          title: capId,
+          projection: 'PORTFOLIO_CAPABILITY_PROJECTION',
+          statusBadge: null,
+          items: [],
+        });
+      }
+
+      const group = groupsMap.get(capId);
+      if (!group) return;
+
+      group.items.push({
+        ...item,
+        typeLabel: ev?.source_type ?? 'غير متوفر',
+        effectiveDecision: ev?.effective_review_decision ?? null,
+        annotationText: item.annotation ?? '',
+      });
+    });
+
+    return Array.from(groupsMap.values());
+  }
+
+  // Fallback single reference group without inferred mastery, freshness, verification, or acceptance.
+  return [
+    {
+      id: selectedPortfolio.value?.id || 'group-1',
+      title: selectedPortfolio.value?.name ?? 'Curated Capability References',
+      projection: 'PORTFOLIO_PROJECTION',
+      statusBadge: null,
+      items: items.map((item) => {
+        const ev = props.evidence.find((e) => e.id === item.evidence_id);
+        return {
+          ...item,
+          typeLabel: ev?.source_type ?? 'غير متوفر',
+          effectiveDecision: ev?.effective_review_decision ?? null,
+          annotationText: item.annotation ?? '',
+        };
+      }),
+    },
+  ];
+});
+
+// Computed properties for Mastery Step 2 and 4 dynamic data
+const selectedMasteryEvidenceRevisions = computed(() => {
+  if (!selectedMastery.value) return [];
+  const revIds = selectedMastery.value.supporting_evidence_revision_ids;
+  return props.evidence.flatMap((e) => e.revisions).filter((r) => revIds.includes(r.id));
+});
+
+const selectedMasteryCriteria = computed(() => {
+  const criteria = new Set<string>();
+  selectedMasteryEvidenceRevisions.value.forEach((r) => {
+    r.criterion_scope.forEach((c) => criteria.add(c));
+  });
+  return Array.from(criteria);
+});
+
+function masteryFindingLabel(findingState: string): string {
+  const labels: Record<string, string> = {
+    SATISFIED: 'مستوفى',
+    PARTIALLY_SATISFIED: 'مستوفى جزئيًا',
+    NOT_SATISFIED: 'غير مستوفى',
+    NOT_ASSESSABLE: 'غير قابل للتقييم',
+  };
+
+  return labels[findingState] ?? findingState;
+}
+
+const selectedMasteryCriterionFindings = computed(() => {
+  const decisionIds = new Set(selectedMastery.value?.review_decision_ids ?? []);
+  const findingsByCriterion = new Map<string, Set<string>>();
+
+  props.reviews
+    .filter((review) => review.decision !== null && decisionIds.has(review.decision.id))
+    .forEach((review) => {
+      review.findings.forEach((finding) => {
+        const governedStates = findingsByCriterion.get(finding.criterion_key) ?? new Set<string>();
+        governedStates.add(finding.finding);
+        findingsByCriterion.set(finding.criterion_key, governedStates);
+      });
+    });
+
+  return findingsByCriterion;
+});
+
+const selectedMasteryCriteriaRows = computed(() =>
+  selectedMasteryCriteria.value.map((criterion) => {
+    const governedStates = selectedMasteryCriterionFindings.value.get(criterion);
+    const findingState = governedStates?.size === 1 ? [...governedStates][0] : null;
+
+    return {
+      criterion,
+      findingState,
+      findingLabel: findingState
+        ? masteryFindingLabel(findingState)
+        : 'غير محسوم على مستوى المعيار',
+    };
+  }),
 );
 
 const panelTitle = computed(() => {
@@ -328,6 +557,24 @@ function runCandidateAction(): void {
   });
 }
 
+function declineCandidate(): void {
+  const item = candidate.value;
+  if (!item) return;
+  router.post(`/progress/candidates/${item.id}/state`, {
+    target_state: 'DECLINED',
+    reason: 'Candidate declined during intake review',
+  });
+}
+
+function returnCandidateForContext(): void {
+  const item = candidate.value;
+  if (!item) return;
+  router.post(`/progress/candidates/${item.id}/state`, {
+    target_state: 'RETURNED_FOR_CONTEXT',
+    reason: 'Returned for additional context before intake',
+  });
+}
+
 function openRevision(): void {
   const item = selectedEvidence.value;
   if (!item) return;
@@ -352,7 +599,7 @@ function admitRequest(): void {
 
 function openFinding(): void {
   const item = selectedReview.value;
-  if (!item || !['IN_REVIEW', 'READY_FOR_DECISION'].includes(item.status)) return;
+  if (!item || !canRecordFinding.value) return;
   finding.criterion_key = item.criterion_refs[0] ?? '';
   finding.supporting_evidence_revision_ids = [item.evidence_revision_id];
   panel.value = 'finding';
@@ -360,13 +607,18 @@ function openFinding(): void {
 
 function submitFinding(): void {
   const item = selectedReview.value;
-  if (!item) return;
+  if (!item || !canRecordFinding.value) return;
   finding.post(`/progress/reviews/${item.id}/findings`, { onSuccess: () => (panel.value = null) });
+}
+
+function openDecision(): void {
+  if (!canIssueDecision.value) return;
+  panel.value = 'decision';
 }
 
 function submitDecision(): void {
   const item = selectedReview.value;
-  if (!item) return;
+  if (!item || !canIssueDecision.value) return;
   decision.post(`/progress/reviews/${item.id}/decision`, { onSuccess: () => (panel.value = null) });
 }
 
@@ -418,142 +670,375 @@ function removePortfolioItem(): void {
         :href="item.href"
         :aria-current="surface === item.key ? 'page' : undefined"
       >
-        <span>{{ item.ar }}</span>
-        <bdi dir="ltr">{{ item.en }}</bdi>
+        <span class="tab-ar">{{ item.ar }}</span>
+        <bdi dir="ltr" class="tab-en">{{ item.en }}</bdi>
       </a>
     </template>
 
     <template #top>
-      <span class="top-mode">
-        وضع الصفحة: <strong>{{ activeNav.ar }}</strong>
-        <bdi dir="ltr">{{ activeNav.en }}</bdi>
-      </span>
+      <div class="top-brand-area">
+        <span class="top-mode">
+          وضع الصفحة: <strong>{{ activeNav.ar }}</strong>
+          <bdi dir="ltr">{{ activeNav.en }}</bdi>
+        </span>
+      </div>
+
       <div class="top-actions" aria-label="إجراءات سير العمل الحالي">
+        <!-- Surface 1: Evidence Top Actions -->
         <template v-if="surface === 'evidence'">
-          <button
-            class="button secondary"
-            type="button"
-            :disabled="!handoff_receipts.length"
-            @click="panel = 'intake'"
-          >
-            Candidate إدخال
-          </button>
           <template v-if="evidenceFocus === 'candidate'">
             <button
-              class="button primary"
+              class="toolbar-btn outline"
+              type="button"
+              :disabled="!candidate"
+              @click="returnCandidateForContext"
+            >
+              <svg
+                class="mr-1 inline h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M9 14L4 9l5-5" />
+                <path d="M20 20v-7a4 4 0 0 0-4-4H4" />
+              </svg>
+              <span>Return for Context</span>
+            </button>
+            <button
+              class="toolbar-btn danger outline"
+              type="button"
+              :disabled="!candidate"
+              @click="declineCandidate"
+            >
+              <svg
+                class="mr-1 inline h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="m15 9-6 6" />
+                <path d="m9 9 6 6" />
+              </svg>
+              <span>Decline</span>
+            </button>
+            <button
+              class="toolbar-btn primary"
               type="button"
               :disabled="!candidateAction"
               @click="runCandidateAction"
             >
-              {{ candidateAction?.label ?? 'لا يوجد انتقال متاح' }}
+              <svg
+                class="mr-1 inline h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+              <span>{{ candidateAction?.label ?? 'Admit as Evidence' }}</span>
+            </button>
+            <button
+              class="toolbar-btn outline"
+              type="button"
+              :disabled="!handoff_receipts.length"
+              @click="panel = 'intake'"
+            >
+              <svg
+                class="mr-1 inline h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+              </svg>
+              <span>Candidate إدخال</span>
             </button>
           </template>
           <template v-else>
             <button
-              class="button secondary"
+              class="toolbar-btn outline"
               type="button"
               :disabled="!selectedEvidence"
               @click="openRevision"
             >
-              Revision جديدة
+              <span>Revision جديدة</span>
             </button>
             <button
-              class="button primary"
+              class="toolbar-btn primary"
               type="button"
               :disabled="!selectedEvidence || selectedEvidence.lifecycle_state !== 'ACTIVE'"
               @click="requestReview"
             >
-              طلب مراجعة
+              <span>طلب مراجعة</span>
             </button>
           </template>
         </template>
 
+        <!-- Surface 2: Reviews Top Actions -->
         <template v-else-if="surface === 'reviews'">
           <button
             v-if="reviewFocus === 'request'"
-            class="button primary"
+            class="toolbar-btn primary"
             type="button"
             :disabled="selectedRequest?.status !== 'REQUESTED'"
             @click="admitRequest"
           >
-            بدء Review الرسمي
+            <span>بدء Review الرسمي</span>
           </button>
           <template v-else>
             <button
-              class="button secondary"
+              class="toolbar-btn outline"
               type="button"
-              :disabled="
-                !selectedReview ||
-                !['IN_REVIEW', 'READY_FOR_DECISION'].includes(selectedReview.status)
-              "
+              :disabled="!canRecordFinding"
               @click="openFinding"
             >
-              إضافة Finding
+              <svg
+                class="mr-1 inline h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M16 3h5v5" />
+                <path d="M8 21H3v-5" />
+                <path d="M21 3l-7 7" />
+                <path d="M3 21l7-7" />
+              </svg>
+              <span>Record Review Finding</span>
             </button>
             <button
-              class="button primary"
+              class="toolbar-btn primary"
               type="button"
-              :disabled="
-                selectedReview?.status !== 'READY_FOR_DECISION' || !selectedReview.findings.length
-              "
-              @click="panel = 'decision'"
+              :disabled="!canIssueDecision"
+              @click="openDecision"
             >
-              Issue Decision
+              <svg
+                class="mr-1 inline h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="m14 12-8.5 8.5a2.12 2.12 0 0 1-3-3L11 9" />
+                <path d="M15 13 9 7l4-4 6 6z" />
+              </svg>
+              <span>Issue Decision</span>
             </button>
           </template>
         </template>
 
+        <!-- Surface 3: Mastery Top Actions -->
         <template v-else-if="surface === 'mastery'">
           <button
-            class="button secondary"
+            class="toolbar-btn outline"
             type="button"
             :disabled="!selectedMastery"
             @click="panel = 'mastery-history'"
           >
-            عرض السجل التاريخي
+            <svg
+              class="mr-1 inline h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            <span>عرض السجل التاريخي</span>
           </button>
           <button
-            class="button primary"
+            class="toolbar-btn primary"
             type="button"
             :disabled="!mastery_policies.length"
             @click="openMastery"
           >
-            إلحاق Mastery State
+            <svg
+              class="mr-1 inline h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            <span>إلحاق Mastery State</span>
           </button>
         </template>
 
+        <!-- Surface 4: Portfolio Top Actions -->
         <template v-else>
-          <button class="button secondary" type="button" @click="panel = 'portfolio'">
-            إنشاء Portfolio View
+          <button class="toolbar-btn outline" type="button" @click="panel = 'portfolio'">
+            <svg
+              class="mr-1 inline h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+            <span>Create View</span>
           </button>
           <button
-            class="button primary"
+            class="toolbar-btn primary"
             type="button"
             :disabled="!selectedPortfolio || !evidence.length"
             @click="openPortfolioAdd"
           >
-            إضافة Evidence Reference
+            <svg
+              class="mr-1 inline h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span>+ Add Existing Evidence</span>
           </button>
           <button
-            class="button ghost"
+            class="toolbar-btn outline"
             type="button"
             :disabled="!selectedPortfolioItem"
             @click="removePortfolioItem"
           >
-            إزالة المرجع
+            <span>إزالة المرجع</span>
           </button>
         </template>
       </div>
     </template>
 
+    <!-- LEFT SIDEBAR -->
     <template #left>
       <nav class="left-rail" data-testid="structure-panel" aria-label="البنية والاختيار الحالي">
-        <div class="rail-heading">
-          <span>البنية والاختيار</span>
-          <bdi dir="ltr">{{ activeNav.en }}</bdi>
-        </div>
-
+        <!-- Surface 1: Evidence Left Nav -->
         <template v-if="surface === 'evidence'">
+          <div class="rail-header-styled">
+            <div class="rail-title-row">
+              <h3>الأدلة</h3>
+              <svg
+                class="h-4 w-4 text-slate-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="18 15 12 9 6 15" />
+              </svg>
+            </div>
+          </div>
+
+          <div class="rail-menu-list">
+            <button
+              class="rail-menu-item"
+              :class="{ active: evidenceFocus === 'candidate' }"
+              type="button"
+              @click="evidenceFocus = 'candidate'"
+            >
+              <svg
+                class="menu-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect width="20" height="16" x="2" y="4" rx="2" />
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+              </svg>
+              <span class="menu-label">الاستقبال</span>
+              <span v-if="candidates.length" class="menu-counter">{{ candidates.length }}</span>
+            </button>
+
+            <button
+              class="rail-menu-item"
+              :class="{
+                active: evidenceFocus === 'candidate' && candidateId === candidates[0]?.id,
+              }"
+              type="button"
+              @click="evidenceFocus = 'candidate'"
+            >
+              <svg
+                class="menu-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              <span class="menu-label">المرشحات</span>
+              <span class="menu-counter">{{ candidates.length }}</span>
+            </button>
+
+            <button
+              class="rail-menu-item"
+              :class="{ active: evidenceFocus === 'evidence' }"
+              type="button"
+              @click="evidenceFocus = 'evidence'"
+            >
+              <svg
+                class="menu-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg>
+              <span class="menu-label">الأدلة</span>
+              <span class="menu-counter">{{ evidence.length }}</span>
+            </button>
+
+            <button class="rail-menu-item" type="button" disabled title="لا توجد تصفية مرتبطة بعد">
+              <svg
+                class="menu-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"
+                />
+                <path d="m3.3 7 8.7 5 8.7-5" />
+                <path d="M12 22V12" />
+              </svg>
+              <span class="menu-label">المسحوبة</span>
+            </button>
+
+            <button class="rail-menu-item" type="button" disabled title="لا توجد تصفية مرتبطة بعد">
+              <svg
+                class="menu-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+              </svg>
+              <span class="menu-label">المنسوخة</span>
+            </button>
+          </div>
+
+          <!-- Structured candidate list for test compatibility & deep selection -->
           <div class="browser-group candidate-group">
             <div class="browser-title">
               <span>Candidate Evidence</span><bdi dir="ltr">{{ candidates.length }}</bdi>
@@ -566,14 +1051,17 @@ function removePortfolioItem(): void {
               type="button"
               @click="selectCandidate(item.id)"
             >
-              <span
-                ><strong>{{ item.proposed_title }}</strong
-                ><small>{{ item.evidence_claim }}</small></span
-              >
-              <bdi dir="ltr" class="state candidate-state">{{ item.state }}</bdi>
+              <span>
+                <strong>{{ item.proposed_title }}</strong>
+                <small>{{ item.evidence_claim }}</small>
+              </span>
+              <bdi dir="ltr" class="state" :class="statusClass('candidate', item.state)">{{
+                item.state
+              }}</bdi>
             </button>
             <p v-if="!candidates.length" class="empty-state">لا توجد Candidate Evidence.</p>
           </div>
+
           <div class="browser-group canonical-group">
             <div class="browser-title">
               <span>Canonical Evidence</span><bdi dir="ltr">{{ evidence.length }}</bdi>
@@ -586,17 +1074,114 @@ function removePortfolioItem(): void {
               type="button"
               @click="selectEvidence(item.id)"
             >
-              <span
-                ><strong>{{ item.title }}</strong
-                ><small>{{ item.evidence_claim }}</small></span
-              >
+              <span>
+                <strong>{{ item.title }}</strong>
+                <small>{{ item.evidence_claim }}</small>
+              </span>
               <bdi dir="ltr" class="state">R{{ item.current_revision_number }}</bdi>
             </button>
             <p v-if="!evidence.length" class="empty-state">لا توجد Evidence مقبولة عبر Intake.</p>
           </div>
+
+          <div class="rail-footer">
+            <button
+              class="rail-footer-btn"
+              type="button"
+              disabled
+              title="إعدادات الأدلة غير متاحة في مساحة العمل الحالية"
+            >
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="3" />
+                <path
+                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+                />
+              </svg>
+              <span>إعدادات الأدلة</span>
+            </button>
+          </div>
         </template>
 
+        <!-- Surface 2: Reviews Left Nav -->
         <template v-else-if="surface === 'reviews'">
+          <div class="rail-header-styled">
+            <div class="rail-title-row">
+              <h3>Reviews</h3>
+            </div>
+          </div>
+
+          <div class="rail-menu-list">
+            <button class="rail-menu-item" type="button" @click="reviewFocus = 'request'">
+              <svg
+                class="menu-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+              </svg>
+              <span class="menu-label">Review Queue</span>
+              <span class="menu-counter">{{ review_requests.length }}</span>
+            </button>
+
+            <button class="rail-menu-item" type="button" disabled title="لا توجد تصفية مرتبطة بعد">
+              <svg
+                class="menu-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+              </svg>
+              <span class="menu-label">Assigned</span>
+            </button>
+
+            <button
+              class="rail-menu-item"
+              :class="{ active: reviewFocus === 'review' }"
+              type="button"
+              @click="reviewFocus = 'review'"
+            >
+              <svg
+                class="menu-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+              </svg>
+              <span class="menu-label">In Review</span>
+              <span class="menu-counter">{{ reviews.length }}</span>
+            </button>
+
+            <button class="rail-menu-item" type="button" disabled title="لا توجد تصفية مرتبطة بعد">
+              <svg
+                class="menu-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+              <span class="menu-label">Closed</span>
+            </button>
+          </div>
+
+          <!-- Structured review list for test compatibility -->
           <div class="browser-group">
             <div class="browser-title">
               <span>Review Requests</span><bdi dir="ltr">{{ review_requests.length }}</bdi>
@@ -609,16 +1194,19 @@ function removePortfolioItem(): void {
               type="button"
               @click="selectRequest(item.id)"
             >
-              <span
-                ><strong>{{ evidenceTitle(item.evidence_id) }}</strong
-                ><small
+              <span>
+                <strong>{{ evidenceTitle(item.evidence_id) }}</strong>
+                <small
                   ><bdi dir="ltr">{{ item.review_scope_key }}</bdi></small
-                ></span
-              >
-              <bdi dir="ltr" class="state request-state">{{ item.status }}</bdi>
+                >
+              </span>
+              <bdi dir="ltr" class="state" :class="statusClass('reviewWorkflow', item.status)">{{
+                item.status
+              }}</bdi>
             </button>
             <p v-if="!review_requests.length" class="empty-state">لا توجد Review Requests.</p>
           </div>
+
           <div class="browser-group">
             <div class="browser-title">
               <span>Formal Reviews</span><bdi dir="ltr">{{ reviews.length }}</bdi>
@@ -631,553 +1219,1644 @@ function removePortfolioItem(): void {
               type="button"
               @click="selectReview(item.id)"
             >
-              <span
-                ><strong>{{ evidenceTitle(item.evidence_id) }}</strong
-                ><small>{{ item.findings.length }} Finding(s)</small></span
-              >
-              <bdi dir="ltr" class="state review-state">{{ item.status }}</bdi>
+              <span>
+                <strong>{{ evidenceTitle(item.evidence_id) }}</strong>
+                <small>{{ item.findings.length }} Finding(s)</small>
+              </span>
+              <bdi dir="ltr" class="state" :class="statusClass('reviewWorkflow', item.status)">{{
+                item.status
+              }}</bdi>
             </button>
             <p v-if="!reviews.length" class="empty-state">لم تبدأ Formal Review بعد.</p>
           </div>
         </template>
 
+        <!-- Surface 3: Mastery Left Nav -->
         <template v-else-if="surface === 'mastery'">
-          <div class="browser-title">
-            <span>Mastery Targets</span><bdi dir="ltr">{{ mastery.length }}</bdi>
+          <div class="rail-header-styled">
+            <div class="rail-title-row">
+              <svg
+                class="h-4 w-4 text-cyan-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+              </svg>
+              <h3>Mastery</h3>
+            </div>
           </div>
-          <button
-            v-for="item in mastery"
-            :key="item.id"
-            class="record-row"
-            :class="{ selected: item.id === masteryId }"
-            type="button"
-            @click="masteryId = item.id"
-          >
-            <span
-              ><strong
-                ><bdi dir="ltr">{{ item.target_id }}</bdi></strong
-              ><small>Policy-governed state</small></span
+
+          <div class="browser-group">
+            <div class="browser-title">
+              <span>Mastery Targets</span><bdi dir="ltr">{{ mastery.length }}</bdi>
+            </div>
+            <button
+              v-for="item in mastery"
+              :key="item.id"
+              class="record-row"
+              :class="{ selected: item.id === masteryId }"
+              type="button"
+              @click="masteryId = item.id"
             >
-            <bdi dir="ltr" class="state">{{ item.judgment }}</bdi>
-          </button>
-          <p v-if="!mastery.length" class="empty-state">لا توجد Mastery State محكومة.</p>
+              <span>
+                <strong
+                  ><bdi dir="ltr">{{ item.target_id }}</bdi></strong
+                >
+                <small>Policy-governed state</small>
+              </span>
+              <bdi dir="ltr" class="state" :class="statusClass('masteryJudgment', item.judgment)">{{
+                item.judgment
+              }}</bdi>
+            </button>
+            <p v-if="!mastery.length" class="empty-state">لا توجد Mastery State محكومة.</p>
+          </div>
+
+          <div class="rail-footer">
+            <button class="rail-footer-btn" type="button" @click="panel = 'mastery-history'">
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+              <span>عرض التاريخ</span>
+            </button>
+          </div>
         </template>
 
+        <!-- Surface 4: Portfolio Left Nav -->
         <template v-else>
-          <div class="browser-title">
-            <span>Portfolio Views</span><bdi dir="ltr">{{ portfolios.length }}</bdi>
+          <div class="rail-header-styled">
+            <div class="rail-title-row">
+              <svg
+                class="h-4 w-4 text-cyan-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect width="18" height="18" x="3" y="3" rx="2" />
+                <path d="M3 9h18" />
+                <path d="M9 21V9" />
+              </svg>
+              <h3>Portfolio</h3>
+            </div>
           </div>
-          <button
-            v-for="item in portfolios"
-            :key="item.id"
-            class="record-row"
-            :class="{ selected: item.id === portfolioId }"
-            type="button"
-            @click="
-              portfolioId = item.id;
-              portfolioItemId = item.items[0]?.id ?? '';
-            "
-          >
-            <span
-              ><strong>{{ item.name }}</strong
-              ><small>{{ item.items.length }} reference(s)</small></span
+
+          <div class="rail-section-heading">
+            <span>Saved Views</span>
+            <svg
+              class="h-3.5 w-3.5 text-slate-500"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
             >
-            <bdi dir="ltr" class="state projection-state">VIEW</bdi>
-          </button>
-          <p v-if="!portfolios.length" class="empty-state">لا توجد Portfolio Views.</p>
+              <polyline points="18 15 12 9 6 15" />
+            </svg>
+          </div>
+
+          <div class="rail-menu-list sub-dense">
+            <button
+              class="rail-menu-item"
+              type="button"
+              disabled
+              title="استخدم Portfolio View محفوظًا"
+            >
+              <svg
+                class="menu-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+              </svg>
+              <span class="menu-label">By Capability</span>
+            </button>
+            <button
+              class="rail-menu-item"
+              type="button"
+              disabled
+              title="استخدم Portfolio View محفوظًا"
+            >
+              <svg
+                class="menu-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+              </svg>
+              <span class="menu-label">By Project</span>
+            </button>
+            <button
+              class="rail-menu-item"
+              type="button"
+              disabled
+              title="استخدم Portfolio View محفوظًا"
+            >
+              <svg
+                class="menu-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+              </svg>
+              <span class="menu-label">By Learning Objective</span>
+            </button>
+            <button
+              class="rail-menu-item"
+              type="button"
+              disabled
+              title="استخدم Portfolio View محفوظًا"
+            >
+              <svg
+                class="menu-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+              </svg>
+              <span class="menu-label">By Evidence Type</span>
+            </button>
+            <button
+              class="rail-menu-item"
+              type="button"
+              disabled
+              title="استخدم Portfolio View محفوظًا"
+            >
+              <svg
+                class="menu-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+              </svg>
+              <span class="menu-label">By Time</span>
+            </button>
+            <button
+              class="rail-menu-item"
+              type="button"
+              disabled
+              title="استخدم Portfolio View محفوظًا"
+            >
+              <svg
+                class="menu-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+              </svg>
+              <span class="menu-label">By Mastery State</span>
+            </button>
+          </div>
+
+          <div class="rail-section-heading">
+            <span>Curated Views</span>
+            <svg
+              class="h-3.5 w-3.5 text-slate-500"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+
+          <div class="rail-menu-list sub-dense">
+            <button
+              v-for="item in portfolios"
+              :key="item.id"
+              class="rail-menu-item active"
+              type="button"
+              @click="
+                portfolioId = item.id;
+                portfolioItemId = item.items[0]?.id ?? '';
+              "
+            >
+              <svg class="menu-icon text-amber-400" viewBox="0 0 24 24" fill="currentColor">
+                <polygon
+                  points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+                />
+              </svg>
+              <span class="menu-label">{{ item.name }}</span>
+            </button>
+          </div>
+
+          <!-- Structured portfolio views list for test compatibility -->
+          <div class="browser-group">
+            <div class="browser-title">
+              <span>Portfolio Views</span><bdi dir="ltr">{{ portfolios.length }}</bdi>
+            </div>
+            <button
+              v-for="item in portfolios"
+              :key="item.id"
+              class="record-row"
+              :class="{ selected: item.id === portfolioId }"
+              type="button"
+              @click="
+                portfolioId = item.id;
+                portfolioItemId = item.items[0]?.id ?? '';
+              "
+            >
+              <span>
+                <strong>{{ item.name }}</strong>
+                <small>{{ item.items.length }} reference(s)</small>
+              </span>
+              <bdi dir="ltr" class="state projection-state">VIEW</bdi>
+            </button>
+            <p v-if="!portfolios.length" class="empty-state">لا توجد Portfolio Views.</p>
+          </div>
         </template>
       </nav>
     </template>
 
+    <!-- CENTER PRIMARY WORKSPACE -->
     <template #default>
       <p v-if="page.props.flash?.status" class="notice success">{{ page.props.flash.status }}</p>
       <p v-if="page.props.errors?.workflow" class="notice error">
         {{ page.props.errors.workflow }}
       </p>
 
-      <section class="center-workspace" data-testid="primary-workspace">
-        <div class="surface-heading">
-          <div>
-            <p class="eyebrow">مساحة العمل الأساسية</p>
-            <h2>{{ activeNav.ar }}</h2>
-          </div>
-          <p v-if="surface === 'evidence'">
-            Candidate ليست Evidence، وAdmission لا يعني Review أو Acceptance أو Mastery.
-          </p>
-          <p v-else-if="surface === 'reviews'">
-            CENTER هو موضع Findings والعمل الرسمي وReview Decision.
-          </p>
-          <p v-else-if="surface === 'mastery'">
-            Judgment وFreshness بعدان مستقلان، ولا توجد نقاط أو نسب إكمال بديلة عن الحكم.
-          </p>
-          <p v-else>Portfolio عرض مُنسّق فوق المراجع الكنسية، وليس مخزن Evidence ثانياً.</p>
-        </div>
-
-        <div v-if="surface === 'evidence'" class="workbench-grid">
+      <section class="center-workspace" data-testid="primary-workspace" dir="ltr">
+        <!-- Surface 1: Evidence Center -->
+        <div v-if="surface === 'evidence'" class="surface-container">
+          <!-- Candidate View -->
           <article
             v-if="evidenceFocus === 'candidate' && candidate"
-            class="object-workbench"
+            class="object-card candidate-card"
             data-testid="candidate-detail"
           >
-            <div class="object-heading">
-              <div>
-                <p class="eyebrow">Candidate Evidence · قبل Admission</p>
-                <h3>{{ candidate.proposed_title }}</h3>
-              </div>
-              <bdi dir="ltr" class="state candidate-state">{{ candidate.state }}</bdi>
-            </div>
-            <div class="truth-banner candidate-banner">
-              <strong>حقيقة الحالة</strong>
-              <span
-                >هذا سجل Candidate فقط. لم تُنشأ منه Evidence كنسية بعد، لذلك لا تُعرض عليه أبعاد
-                Evidence الكنسية.</span
-              >
-            </div>
-            <section class="detail-block">
-              <span class="label">Evidence Claim المقترحة</span>
-              <p>{{ candidate.evidence_claim }}</p>
-            </section>
-            <div class="detail-grid">
-              <section class="detail-block compact">
-                <span class="label">Source Handoff Reference</span>
-                <bdi dir="ltr" class="identifier"
-                  >{{ candidate.source_id }}@{{ candidate.source_revision }}</bdi
+            <div class="card-top-bar">
+              <div class="card-title-group">
+                <svg
+                  class="h-6 w-6 text-cyan-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
                 >
-                <p class="muted">مرجع إلى المصدر؛ لا توجد نسخة ثانية من Result هنا.</p>
-              </section>
-              <section class="detail-block compact">
-                <span class="label">Capability</span>
-                <bdi dir="ltr" class="identifier">{{ candidate.capability_id }}</bdi>
-              </section>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+                <h2 class="card-main-title">{{ candidate.proposed_title }}</h2>
+                <span class="badge-pill" :class="statusClass('candidate', candidate.state)"
+                  ><bdi dir="ltr">{{ candidate.state }}</bdi></span
+                >
+              </div>
             </div>
-            <div class="detail-grid">
-              <section class="detail-block compact">
-                <span class="label">Selected Material References</span>
-                <ul class="reference-list">
-                  <li v-for="reference in candidate.selected_material_refs" :key="reference">
-                    <bdi dir="ltr">{{ reference }}</bdi>
-                  </li>
-                </ul>
-              </section>
-              <section class="detail-block compact">
-                <span class="label">Criterion Scope</span>
-                <ul class="reference-list">
-                  <li v-for="criterion in candidate.criterion_scope" :key="criterion">
-                    <bdi dir="ltr">{{ criterion }}</bdi>
-                  </li>
-                </ul>
-              </section>
+
+            <!-- Metadata Rows -->
+            <div class="meta-field-row">
+              <div class="field-label-col">
+                <svg
+                  class="h-4 w-4 text-cyan-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <span>Evidence Claim</span>
+              </div>
+              <div class="field-value-col claim-text">
+                {{ candidate.evidence_claim }}
+              </div>
+            </div>
+
+            <div class="meta-field-row">
+              <div class="field-label-col">
+                <svg
+                  class="h-4 w-4 text-slate-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="6" />
+                  <circle cx="12" cy="12" r="2" />
+                </svg>
+                <span>Purpose</span>
+              </div>
+              <div class="field-value-col muted-text">
+                {{ displayValue(candidate.proposed_summary) }}
+              </div>
+            </div>
+
+            <div class="meta-field-row">
+              <div class="field-label-col">
+                <svg
+                  class="h-4 w-4 text-cyan-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                <span>Proposed Capability / Criterion Scope</span>
+              </div>
+              <div class="field-value-col">
+                <span class="cyan-link"
+                  ><bdi dir="ltr">{{ candidate.capability_id }}</bdi></span
+                >
+                <span class="subtext-note">Canonical Capability Reference</span>
+              </div>
+            </div>
+
+            <!-- Sub-section: Selected Supporting References -->
+            <div class="subcard-section">
+              <div class="subcard-header">
+                <svg
+                  class="h-4 w-4 text-cyan-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                </svg>
+                <h4>Selected Supporting References</h4>
+              </div>
+
+              <div class="reference-item-list">
+                <div
+                  v-for="(refItem, index) in candidate.selected_material_refs"
+                  :key="refItem"
+                  class="reference-item-row"
+                >
+                  <div class="ref-title-group">
+                    <svg
+                      v-if="index === 0"
+                      class="h-4 w-4 text-purple-400"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path
+                        d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                      />
+                      <polyline points="22,6 12,13 2,6" />
+                    </svg>
+                    <svg
+                      v-else-if="index === 1"
+                      class="h-4 w-4 text-cyan-400"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <rect width="18" height="18" x="3" y="3" rx="2" />
+                      <line x1="3" y1="9" x2="21" y2="9" />
+                      <line x1="9" y1="21" x2="9" y2="9" />
+                    </svg>
+                    <svg
+                      v-else
+                      class="h-4 w-4 text-emerald-400"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    <span class="ref-name">{{ refItem }}</span>
+                  </div>
+                  <div class="ref-actions-group">
+                    <span class="ref-badge">Reference</span>
+                    <svg
+                      class="h-4 w-4 text-slate-400"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" y1="14" x2="21" y2="3" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
             </div>
           </article>
 
+          <!-- Admitted Canonical Evidence View -->
           <article
             v-else-if="selectedEvidence"
-            class="object-workbench"
+            class="object-card evidence-card"
             data-testid="evidence-detail"
           >
-            <div class="object-heading">
-              <div>
-                <p class="eyebrow">Canonical Evidence · sealed</p>
-                <h3>{{ selectedEvidence.title }}</h3>
+            <div class="card-top-bar">
+              <div class="card-title-group">
+                <svg
+                  class="h-6 w-6 text-cyan-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                <h2 class="card-main-title">{{ selectedEvidence.title }}</h2>
+                <span class="badge-pill cyan-pill"
+                  ><bdi dir="ltr"
+                    >Revision {{ selectedEvidence.current_revision_number }}</bdi
+                  ></span
+                >
               </div>
-              <bdi dir="ltr" class="state">R{{ selectedEvidence.current_revision_number }}</bdi>
             </div>
-            <section class="detail-block">
-              <span class="label">Evidence Claim</span>
-              <p>{{ selectedEvidence.evidence_claim }}</p>
-              <p class="muted">{{ selectedEvidence.summary }}</p>
-            </section>
-            <div class="dimension-grid" aria-label="أبعاد حالة Evidence المستقلة">
-              <section class="dimension-card">
-                <span>Evidence Lifecycle</span
-                ><bdi dir="ltr">{{ selectedEvidence.lifecycle_state }}</bdi>
-              </section>
-              <section class="dimension-card">
-                <span>Review Status</span><bdi dir="ltr">{{ selectedEvidence.review_status }}</bdi>
-              </section>
-              <section class="dimension-card">
-                <span>Effective Review Decision</span
-                ><bdi dir="ltr">{{ selectedEvidence.effective_review_decision }}</bdi>
-              </section>
+
+            <!-- Dimensions Grid -->
+            <div class="dimension-bar-grid">
+              <div class="dimension-stat-cell">
+                <span class="stat-label">Evidence Lifecycle</span>
+                <span
+                  class="stat-badge"
+                  :class="statusClass('evidenceLifecycle', selectedEvidence.lifecycle_state)"
+                  ><bdi dir="ltr">{{ selectedEvidence.lifecycle_state }}</bdi></span
+                >
+              </div>
+              <div class="dimension-stat-cell">
+                <span class="stat-label">Review Status</span>
+                <span
+                  class="stat-badge"
+                  :class="statusClass('evidenceReview', selectedEvidence.review_status)"
+                  ><bdi dir="ltr">{{ selectedEvidence.review_status }}</bdi></span
+                >
+              </div>
+              <div class="dimension-stat-cell">
+                <span class="stat-label">Effective Review Decision</span>
+                <span
+                  class="stat-badge"
+                  :class="statusClass('decision', selectedEvidence.effective_review_decision)"
+                  ><bdi dir="ltr">{{ selectedEvidence.effective_review_decision }}</bdi></span
+                >
+              </div>
+            </div>
+
+            <div class="meta-field-row">
+              <div class="field-label-col">
+                <svg
+                  class="h-4 w-4 text-cyan-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <span>Evidence Claim</span>
+              </div>
+              <div class="field-value-col">
+                <p class="claim-text">{{ selectedEvidence.evidence_claim }}</p>
+                <p class="muted-text mt-1">{{ selectedEvidence.summary }}</p>
+              </div>
+            </div>
+
+            <div class="subcard-section">
+              <div class="subcard-header">
+                <svg
+                  class="h-4 w-4 text-cyan-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                </svg>
+                <h4>Selected Material References</h4>
+              </div>
+              <div class="reference-item-list">
+                <div
+                  v-for="mat in selectedEvidenceCurrentRevision?.selected_material_refs || []"
+                  :key="mat"
+                  class="reference-item-row"
+                >
+                  <span class="ref-name">{{ mat }}</span>
+                  <span class="ref-badge">Pinned Material Reference</span>
+                </div>
+              </div>
             </div>
           </article>
-
-          <div v-else class="empty-workbench">
-            اختر Candidate أو Evidence لعرض العمل الكنسي المناسب.
-          </div>
         </div>
 
+        <!-- Surface 2: Reviews Center -->
         <div
           v-else-if="surface === 'reviews'"
-          class="workbench-grid"
+          class="surface-container"
           data-testid="review-workbench"
         >
-          <article v-if="reviewFocus === 'request' && selectedRequest" class="object-workbench">
-            <div class="object-heading">
-              <div>
-                <p class="eyebrow">Review Request</p>
-                <h3>{{ evidenceTitle(selectedRequest.evidence_id) }}</h3>
+          <article v-if="reviewFocus === 'request' && selectedRequest" class="object-card">
+            <div class="card-top-bar">
+              <div class="card-title-group">
+                <svg
+                  class="h-6 w-6 text-cyan-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                <h2 class="card-main-title">
+                  Review Request · {{ evidenceTitle(selectedRequest.evidence_id) }}
+                </h2>
+                <span
+                  class="badge-pill"
+                  :class="statusClass('reviewWorkflow', selectedRequest.status)"
+                  ><bdi dir="ltr">{{ selectedRequest.status }}</bdi></span
+                >
               </div>
-              <bdi dir="ltr" class="state request-state">{{ selectedRequest.status }}</bdi>
             </div>
             <div class="truth-banner">
-              <strong>حد بدء المراجعة</strong
-              ><span
-                >الطلب يثبت Evidence Revision ونطاق العمل فقط. Findings وDecision لا توجد قبل بدء
+              <strong>حد بدء المراجعة:</strong>
+              <span
+                >الطلب يثبت Evidence Revision ونطاق العمل فقط. Findings و Decision لا توجد قبل بدء
                 Formal Review.</span
               >
             </div>
-            <div class="detail-grid">
-              <section class="detail-block compact">
-                <span class="label">Pinned Evidence Revision</span
-                ><bdi dir="ltr" class="identifier">{{ selectedRequest.evidence_revision_id }}</bdi>
-              </section>
-              <section class="detail-block compact">
-                <span class="label">Review Scope</span
-                ><bdi dir="ltr" class="identifier">{{ selectedRequest.review_scope_key }}</bdi>
-              </section>
-            </div>
-          </article>
-
-          <article v-else-if="selectedReview" class="object-workbench">
-            <div class="object-heading">
-              <div>
-                <p class="eyebrow">Formal Evidence Review</p>
-                <h3>{{ evidenceTitle(selectedReview.evidence_id) }}</h3>
-              </div>
-              <bdi dir="ltr" class="state review-state">{{ selectedReview.status }}</bdi>
-            </div>
-            <section class="detail-block">
-              <span class="label">Review Findings</span>
-              <div class="finding-stack">
-                <article
-                  v-for="item in selectedReview.findings"
-                  :key="item.id"
-                  class="finding-card"
+            <div class="handoff-grid mt-4">
+              <div class="handoff-cell">
+                <span class="cell-label">Pinned Evidence Revision</span
+                ><span class="cell-val"
+                  ><bdi dir="ltr">{{ selectedRequest.evidence_revision_id }}</bdi></span
                 >
-                  <div class="finding-heading">
-                    <bdi dir="ltr">{{ item.criterion_key }}</bdi
-                    ><bdi dir="ltr" class="finding-value">{{ item.finding }}</bdi>
-                  </div>
-                  <p>{{ item.statement }}</p>
-                </article>
-                <p v-if="!selectedReview.findings.length" class="empty-state">
-                  لا توجد Findings مسجلة بعد.
-                </p>
               </div>
-            </section>
-            <section class="decision-block">
-              <span class="label">Review Decision</span>
-              <div v-if="selectedReview.decision" class="decision-content">
-                <bdi dir="ltr" class="decision-value">{{ selectedReview.decision.decision }}</bdi>
-                <p>{{ selectedReview.decision.rationale }}</p>
-              </div>
-              <p v-else class="empty-state">لم يصدر Review Decision بعد.</p>
-            </section>
-          </article>
-
-          <div v-else class="empty-workbench">اختر Review Request أو Formal Review.</div>
-        </div>
-
-        <div v-else-if="surface === 'mastery'" class="workbench-grid mastery-grid">
-          <article v-if="selectedMastery" class="object-workbench" data-testid="mastery-detail">
-            <div class="object-heading">
-              <div>
-                <p class="eyebrow">Canonical Mastery Target</p>
-                <h3>
-                  <bdi dir="ltr">{{ selectedMastery.target_id }}</bdi>
-                </h3>
-              </div>
-              <bdi dir="ltr" class="state">{{ selectedMastery.id }}</bdi>
-            </div>
-            <div class="truth-banner mastery-banner">
-              <strong>Judgment ≠ Freshness</strong
-              ><span
-                >يمكن أن تكون الحالة <bdi dir="ltr">MASTERED + REVALIDATION_REQUIRED</bdi> بصورة
-                قانونية؛ Completion لا تساوي Mastery.</span
-              >
-            </div>
-            <div class="mastery-dimensions">
-              <section class="mastery-dimension judgment-card">
-                <span>الحكم · Judgment</span><bdi dir="ltr">{{ selectedMastery.judgment }}</bdi>
-              </section>
-              <section class="mastery-dimension freshness-card">
-                <span>الحداثة · Freshness</span
-                ><bdi dir="ltr">{{ selectedMastery.freshness_status }}</bdi>
-              </section>
-            </div>
-            <section class="detail-block">
-              <span class="label">Causal Evaluation Trace</span>
-              <ol class="causal-steps">
-                <li>
-                  <span class="step-number">01</span>
-                  <div>
-                    <strong>Mastery Policy</strong
-                    ><bdi dir="ltr">{{ selectedMastery.policy_revision_id }}</bdi>
-                  </div>
-                </li>
-                <li>
-                  <span class="step-number">02</span>
-                  <div>
-                    <strong>Effective Review Decisions</strong>
-                    <ul class="reference-list">
-                      <li v-for="id in selectedMastery.review_decision_ids" :key="id">
-                        <bdi dir="ltr">{{ id }}</bdi>
-                      </li>
-                    </ul>
-                  </div>
-                </li>
-                <li>
-                  <span class="step-number">03</span>
-                  <div>
-                    <strong>Supporting Evidence</strong>
-                    <ul class="reference-list">
-                      <li v-for="id in selectedMastery.supporting_evidence_revision_ids" :key="id">
-                        <bdi dir="ltr">{{ id }}</bdi>
-                      </li>
-                    </ul>
-                  </div>
-                </li>
-                <li>
-                  <span class="step-number">04</span>
-                  <div>
-                    <strong>Contradicting Evidence</strong>
-                    <ul class="reference-list">
-                      <li
-                        v-for="id in selectedMastery.contradicting_evidence_revision_ids"
-                        :key="id"
-                      >
-                        <bdi dir="ltr">{{ id }}</bdi>
-                      </li>
-                      <li
-                        v-if="!selectedMastery.contradicting_evidence_revision_ids.length"
-                        class="muted"
-                      >
-                        لا توجد مراجع متعارضة مسجلة.
-                      </li>
-                    </ul>
-                  </div>
-                </li>
-              </ol>
-            </section>
-          </article>
-          <div v-else class="empty-workbench">لا توجد Mastery State لعرضها.</div>
-        </div>
-
-        <div v-else class="workbench-grid portfolio-grid">
-          <article v-if="selectedPortfolio" class="object-workbench" data-testid="portfolio-detail">
-            <div class="object-heading">
-              <div>
-                <p class="eyebrow">Curated Projection</p>
-                <h3>{{ selectedPortfolio.name }}</h3>
-              </div>
-              <bdi dir="ltr" class="state projection-state">REFERENCE VIEW</bdi>
-            </div>
-            <div class="truth-banner portfolio-banner">
-              <strong>لا يوجد Evidence store ثانٍ</strong
-              ><span
-                >كل عنصر أدناه Canonical Evidence Reference. إزالة العنصر من العرض لا تمس Evidence
-                أو Review أو Mastery history.</span
-              >
-            </div>
-            <section class="detail-block">
-              <span class="label">Canonical Evidence References</span>
-              <div class="portfolio-reference-list">
-                <button
-                  v-for="entry in selectedPortfolio.items"
-                  :key="entry.id"
-                  class="portfolio-reference"
-                  :class="{ selected: entry.id === portfolioItemId }"
-                  type="button"
-                  @click="portfolioItemId = entry.id"
+              <div class="handoff-cell">
+                <span class="cell-label">Review Scope</span
+                ><span class="cell-val"
+                  ><bdi dir="ltr">{{ selectedRequest.review_scope_key }}</bdi></span
                 >
+              </div>
+            </div>
+          </article>
+
+          <article v-else-if="selectedReview" class="object-card review-card">
+            <!-- Review Header -->
+            <div class="card-top-bar">
+              <div class="card-title-group">
+                <svg
+                  class="h-6 w-6 text-purple-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+                <h2 class="card-main-title">
+                  Evidence Review <bdi dir="ltr">{{ selectedReview.id }}</bdi>
+                </h2>
+                <span
+                  class="badge-pill"
+                  :class="statusClass('reviewWorkflow', selectedReview.status)"
+                  ><bdi dir="ltr">Review Workflow: {{ selectedReview.status }}</bdi></span
+                >
+              </div>
+            </div>
+
+            <!-- Review 3-column stats bar -->
+            <div class="review-stats-grid">
+              <div class="review-stat-col">
+                <div class="stat-pair">
+                  <span class="stat-label">Evidence Lifecycle</span>
                   <span
-                    ><strong>{{ entry.title }}</strong
-                    ><small>Canonical Evidence Reference</small></span
+                    class="stat-badge"
+                    :class="
+                      statusClass('evidenceLifecycle', selectedReviewEvidence?.lifecycle_state)
+                    "
+                    ><bdi dir="ltr">{{
+                      displayValue(selectedReviewEvidence?.lifecycle_state)
+                    }}</bdi></span
                   >
-                  <bdi dir="ltr">{{ entry.current_revision_id }}</bdi>
-                </button>
-                <p v-if="!selectedPortfolio.items.length" class="empty-state">
-                  هذا العرض لا يحتوي مراجع بعد.
-                </p>
+                </div>
+                <div class="stat-pair mt-2">
+                  <span class="stat-label">Evidence Review Status</span>
+                  <span
+                    class="stat-badge"
+                    :class="statusClass('reviewWorkflow', selectedReview.status)"
+                    ><bdi dir="ltr">{{ selectedReview.status }}</bdi></span
+                  >
+                </div>
               </div>
-            </section>
+
+              <div class="review-stat-col border-x border-slate-800 px-4">
+                <div class="stat-pair">
+                  <span class="stat-label">Evidence Under Review</span>
+                  <span class="cyan-link"
+                    ><bdi dir="ltr"
+                      >{{ selectedReview.evidence_id }} /
+                      {{ selectedReview.evidence_revision_id }}</bdi
+                    ></span
+                  >
+                </div>
+              </div>
+
+              <div class="review-stat-col">
+                <div class="stat-pair">
+                  <span class="stat-label">Effective Review Decision</span>
+                  <span
+                    class="stat-badge"
+                    :class="statusClass('decision', selectedReview.decision?.decision ?? 'NONE')"
+                    ><bdi dir="ltr">{{ selectedReview.decision?.decision ?? 'NONE' }}</bdi></span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <!-- Evidence Claim -->
+            <div class="meta-field-row mt-4">
+              <div class="field-label-col">
+                <svg
+                  class="h-4 w-4 text-cyan-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                <span>Evidence Claim</span>
+              </div>
+              <div class="field-value-col claim-text">
+                {{ displayValue(selectedReviewEvidence?.evidence_claim) }}
+              </div>
+            </div>
+
+            <!-- Split Section: Criterion References & Criterion Findings -->
+            <div class="review-split-grid">
+              <!-- Left: Criterion References -->
+              <div class="split-column">
+                <div class="split-col-header">
+                  <svg
+                    class="h-4 w-4 text-cyan-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <circle cx="12" cy="12" r="6" />
+                    <circle cx="12" cy="12" r="2" />
+                  </svg>
+                  <h4>Criterion References</h4>
+                </div>
+                <div class="criterion-pills-list">
+                  <div
+                    v-for="(crit, cIdx) in selectedReview.criterion_refs"
+                    :key="crit"
+                    class="criterion-pill-row"
+                  >
+                    <span class="crit-tag">C{{ cIdx + 1 }}</span>
+                    <span class="crit-name">{{ crit }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right: Criterion Findings -->
+              <div class="split-column">
+                <div class="split-col-header">
+                  <svg
+                    class="h-4 w-4 text-emerald-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"
+                    />
+                    <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+                  </svg>
+                  <h4>Review Findings</h4>
+                </div>
+                <table class="findings-table">
+                  <thead>
+                    <tr>
+                      <th>المعيار</th>
+                      <th>Finding</th>
+                      <th>Finding Statement</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(fItem, fIdx) in selectedReview.findings" :key="fItem.id">
+                      <td>
+                        <span class="crit-tag">C{{ fIdx + 1 }}</span>
+                      </td>
+                      <td>
+                        <span
+                          class="finding-state-pill"
+                          :class="statusClass('finding', fItem.finding)"
+                        >
+                          {{ fItem.finding }}
+                          <svg
+                            v-if="fItem.finding === 'SATISFIED'"
+                            class="ml-1 inline h-3.5 w-3.5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="3"
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </span>
+                      </td>
+                      <td>
+                        <span>{{ displayValue(fItem.statement) }}</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Reviewer Rationale -->
+            <div class="subcard-section">
+              <div class="subcard-header">
+                <svg
+                  class="h-4 w-4 text-cyan-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+                <h4>Reviewer Rationale</h4>
+              </div>
+              <p class="rationale-body">
+                {{ selectedReview.decision?.rationale || 'لا يوجد مسوّغ قرار مورّد.' }}
+              </p>
+            </div>
+
+            <!-- Decision Preparation / Sealed Decision Block -->
+            <div class="subcard-section">
+              <div class="subcard-header">
+                <svg
+                  class="h-4 w-4 text-amber-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="m14 12-8.5 8.5a2.12 2.12 0 0 1-3-3L11 9" />
+                  <path d="M15 13 9 7l4-4 6 6z" />
+                </svg>
+                <h4>Review Decision</h4>
+              </div>
+              <div v-if="selectedReview.decision" class="decision-issued-box">
+                <span
+                  class="decision-pill"
+                  :class="statusClass('decision', selectedReview.decision.decision)"
+                  ><bdi dir="ltr">{{ selectedReview.decision.decision }}</bdi></span
+                >
+                <p class="decision-rationale-text">{{ selectedReview.decision.rationale }}</p>
+              </div>
+              <div v-else class="decision-pending-box">
+                <svg
+                  class="h-5 w-5 text-cyan-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                <div>
+                  <strong>Decision not yet issued</strong>
+                  <p v-if="selectedReview.status === 'READY_FOR_DECISION'">
+                    تسمح حالة سير العمل الحالية بإصدار القرار.
+                  </p>
+                  <p v-else>
+                    لا تسمح حالة <bdi dir="ltr">{{ selectedReview.status }}</bdi> بإصدار القرار.
+                  </p>
+                </div>
+              </div>
+            </div>
           </article>
-          <div v-else class="empty-workbench">أنشئ أو اختر Portfolio View.</div>
+        </div>
+
+        <!-- Surface 3: Mastery Center -->
+        <div
+          v-else-if="surface === 'mastery'"
+          class="surface-container"
+          data-testid="mastery-detail"
+        >
+          <article v-if="selectedMastery" class="object-card mastery-card">
+            <!-- Header with Title & Top-Right Status Badges -->
+            <div class="mastery-header-row">
+              <div class="mastery-title-group">
+                <svg
+                  class="h-7 w-7 text-cyan-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="22" y1="12" x2="18" y2="12" />
+                  <line x1="6" y1="12" x2="2" y2="12" />
+                  <line x1="12" y1="6" x2="12" y2="2" />
+                  <line x1="12" y1="22" x2="12" y2="18" />
+                </svg>
+                <div>
+                  <h2 class="mastery-main-title">
+                    <bdi dir="ltr">{{ selectedMastery.target_id }}</bdi>
+                  </h2>
+                </div>
+              </div>
+
+              <!-- Top-right Badges -->
+              <div class="mastery-status-badges">
+                <div
+                  class="mastery-judgment-badge"
+                  :class="statusClass('masteryJudgment', selectedMastery.judgment)"
+                >
+                  <div>
+                    <span class="badge-sub">الحكم · Judgment</span>
+                    <strong class="badge-main"
+                      ><bdi dir="ltr">{{ selectedMastery.judgment }}</bdi></strong
+                    >
+                  </div>
+                </div>
+
+                <div
+                  class="mastery-freshness-badge"
+                  :class="statusClass('freshness', selectedMastery.freshness_status)"
+                >
+                  <div>
+                    <span class="badge-sub">الحداثة · Freshness</span>
+                    <strong class="badge-main"
+                      ><bdi dir="ltr">{{ selectedMastery.freshness_status }}</bdi></strong
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Informational Alert Banner -->
+            <div class="info-alert-banner">
+              <svg
+                class="h-5 w-5 shrink-0 text-cyan-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+              <div>
+                <strong>Judgment ≠ Freshness: </strong>
+                <span>{{ selectedMastery.rationale || 'لا يوجد مسوّغ مورّد لهذه الحالة.' }}</span>
+              </div>
+            </div>
+
+            <!-- Causal Evaluation Trace: 5 numbered decomposition steps with vertical down arrows -->
+            <div class="causal-stepper-trace">
+              <!-- Step 1: Mastery Policy Revision -->
+              <div class="stepper-block">
+                <div class="stepper-num">1</div>
+                <div class="stepper-content">
+                  <div class="stepper-header-row">
+                    <span class="stepper-title">Mastery Policy Revision</span>
+                    <span class="stepper-val-middle">Policy Revision</span>
+                    <span class="cyan-link"
+                      ><bdi dir="ltr">{{
+                        selectedMasteryPolicy?.policy_key ?? selectedMastery.policy_revision_id
+                      }}</bdi></span
+                    >
+                  </div>
+                </div>
+              </div>
+              <div class="stepper-arrow">↓</div>
+
+              <!-- Step 2: Criterion scope from supporting revisions, status from governed findings only -->
+              <div class="stepper-block">
+                <div class="stepper-num">2</div>
+                <div class="stepper-content">
+                  <span class="stepper-title">Supporting Evidence Criterion Scope</span>
+                  <table class="stepper-table mt-2">
+                    <thead>
+                      <tr>
+                        <th>Criterion Reference</th>
+                        <th>Governed Review Finding</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="row in selectedMasteryCriteriaRows" :key="row.criterion">
+                        <td>{{ row.criterion }}</td>
+                        <td>
+                          <span
+                            v-if="row.findingState"
+                            :class="statusClass('finding', row.findingState)"
+                          >
+                            {{ row.findingLabel }}
+                            <bdi dir="ltr" class="ml-1 text-xs text-slate-400"
+                              >({{ row.findingState }})</bdi
+                            >
+                            <svg
+                              v-if="row.findingState === 'SATISFIED'"
+                              class="inline h-4 w-4 text-emerald-400"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="3"
+                            >
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          </span>
+                          <span v-else class="text-slate-400">غير محسوم على مستوى المعيار</span>
+                        </td>
+                      </tr>
+                      <tr v-if="selectedMasteryCriteriaRows.length === 0">
+                        <td colspan="2" class="text-slate-500 italic">
+                          غير متوفر: لا توجد معايير مرتبطة مباشرةً بإصدارات الأدلة الداعمة.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="stepper-arrow">↓</div>
+
+              <!-- Step 3: Effective Review Decisions -->
+              <div class="stepper-block">
+                <div class="stepper-num">3</div>
+                <div class="stepper-content">
+                  <span class="stepper-title">Effective Review Decisions</span>
+                  <table class="stepper-table mt-2">
+                    <thead>
+                      <tr>
+                        <th>Review Decision ID</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="revId in selectedMastery.review_decision_ids" :key="revId">
+                        <td>
+                          <span class="cyan-link"
+                            ><bdi dir="ltr">{{ revId }}</bdi></span
+                          >
+                        </td>
+                      </tr>
+                      <tr v-if="selectedMastery.review_decision_ids.length === 0">
+                        <td class="text-slate-500 italic">
+                          غير متوفر: لا توجد Review Decisions مرتبطة.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="stepper-arrow">↓</div>
+
+              <!-- Step 4: Supporting Evidence revisions retain revision semantics -->
+              <div class="stepper-block">
+                <div class="stepper-num">4</div>
+                <div class="stepper-content">
+                  <span class="stepper-title">Supporting Evidence Revisions</span>
+                  <div class="evidence-pill-stack mt-2">
+                    <div
+                      class="evidence-ref-pill"
+                      v-for="evId in selectedMastery.supporting_evidence_revision_ids"
+                      :key="evId"
+                    >
+                      <span
+                        ><bdi dir="ltr">{{ evId }}</bdi></span
+                      >
+                    </div>
+                  </div>
+                  <div
+                    v-if="selectedMastery.supporting_evidence_revision_ids.length === 0"
+                    class="mt-2 text-slate-500 italic"
+                  >
+                    غير متوفر: لا توجد Supporting Evidence Revisions مرتبطة.
+                  </div>
+                </div>
+              </div>
+              <div class="stepper-arrow">↓</div>
+
+              <!-- Step 5: Evaluation Basis -->
+              <div class="stepper-block">
+                <div class="stepper-num">5</div>
+                <div class="stepper-content">
+                  <div class="stepper-header-row">
+                    <span class="stepper-title">Evaluation Basis</span>
+                  </div>
+                  <div class="basis-note mt-2">
+                    <svg
+                      class="mt-0.5 h-5 w-5 shrink-0 text-slate-400"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    <span
+                      >تُعرض حالة كل معيار فقط عندما يمكن ربطها مباشرةً بـ Review Finding محكوم عبر
+                      Review Decision المشار إليه. لا يُستنتج استيفاء أي معيار من Mastery Judgment
+                      الإجمالي.</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <!-- Surface 4: Portfolio Center -->
+        <div v-else class="surface-container" data-testid="portfolio-detail">
+          <article v-if="selectedPortfolio" class="object-card portfolio-workbench">
+            <!-- Header: Scope & Title -->
+            <div class="portfolio-header-area">
+              <div class="portfolio-subject-line">
+                <svg
+                  class="h-4 w-4 text-slate-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle cx="12" cy="8" r="5" />
+                  <path d="M20 21a8 8 0 1 0-16 0" />
+                </svg>
+                <span>عرض مرجعي منسّق · Reference-only curated projection</span>
+              </div>
+              <h2 class="portfolio-main-title">{{ selectedPortfolio.name }}</h2>
+              <div class="portfolio-meta-bar">
+                <div class="meta-counters">
+                  <span>{{ portfolioGroups.length }} Groups</span>
+                  <span>{{ selectedPortfolio.items.length }} Evidence References</span>
+                </div>
+                <div class="meta-sorting">
+                  <span
+                    >Grouping:
+                    <strong
+                      ><bdi dir="ltr">{{ selectedPortfolio.grouping }}</bdi></strong
+                    ></span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <!-- Curated Capability Blocks -->
+            <div class="portfolio-groups-list">
+              <div
+                v-for="(grp, grpIdx) in portfolioGroups"
+                :key="grp.id"
+                class="portfolio-group-card"
+              >
+                <div class="group-card-header">
+                  <div class="group-num-title">
+                    <span class="group-num-badge">{{ grpIdx + 1 }}</span>
+                    <svg
+                      class="h-5 w-5 text-cyan-400"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                    <h3 class="group-title">{{ grp.title }}</h3>
+                  </div>
+
+                  <div class="group-badges-area">
+                    <span class="projection-tag">{{ grp.projection }}</span>
+                    <span v-if="grp.statusBadge" class="status-warning-tag">{{
+                      grp.statusBadge.text
+                    }}</span>
+                  </div>
+                </div>
+
+                <!-- Table of references -->
+                <table class="portfolio-evidence-table">
+                  <thead>
+                    <tr>
+                      <th>Evidence ID</th>
+                      <th>عنوان الدليل (مرجع)</th>
+                      <th>النوع</th>
+                      <th>قرار المراجعة</th>
+                      <th>ملاحظة مرجعية</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="item in grp.items"
+                      :key="item.id"
+                      :class="{ selected: item.id === portfolioItemId }"
+                    >
+                      <td>
+                        <button
+                          class="reference-select-button"
+                          type="button"
+                          :aria-pressed="item.id === portfolioItemId"
+                          @click="portfolioItemId = item.id"
+                        >
+                          <bdi dir="ltr">{{ item.evidence_id }}</bdi>
+                        </button>
+                      </td>
+                      <td>
+                        <span class="evidence-title-ref">
+                          {{ item.title }}
+                          <svg
+                            class="ml-1 inline h-3.5 w-3.5 text-slate-400"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                            <polyline points="15 3 21 3 21 9" />
+                            <line x1="10" y1="14" x2="21" y2="3" />
+                          </svg>
+                        </span>
+                        <small class="mt-0.5 block text-xs text-slate-400"
+                          >Canonical Evidence Reference ·
+                          <bdi dir="ltr">{{ item.current_revision_id }}</bdi></small
+                        >
+                      </td>
+                      <td>
+                        <span class="type-badge">{{ item.typeLabel }}</span>
+                      </td>
+                      <td>
+                        <span
+                          v-if="item.effectiveDecision"
+                          class="stat-badge"
+                          :class="statusClass('decision', item.effectiveDecision)"
+                          ><bdi dir="ltr">{{ item.effectiveDecision }}</bdi></span
+                        >
+                        <span v-else class="stat-badge semantic-status tone-neutral"
+                          >غير متوفر</span
+                        >
+                      </td>
+                      <td>
+                        <span class="notes-text" v-if="item.annotationText">{{
+                          item.annotationText
+                        }}</span
+                        ><span class="notes-text text-slate-500" v-else>غير متوفر</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div class="group-card-footer">
+                  <svg
+                    class="h-3.5 w-3.5 text-slate-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                  <span>عرض {{ grp.items.length }} من {{ grp.items.length }} مراجع Evidence</span>
+                </div>
+              </div>
+            </div>
+          </article>
         </div>
       </section>
     </template>
 
+    <!-- RIGHT CONTEXT PANEL -->
     <template #right>
       <div
         class="right-context"
         data-testid="context-panel"
         aria-label="السياق الفريد للاختيار الحالي"
       >
+        <!-- Surface 1: Evidence Context -->
         <template v-if="surface === 'evidence'">
-          <p class="eyebrow">السياق الفريد</p>
+          <div class="context-panel-header">
+            <h3>السياق</h3>
+          </div>
+
           <template v-if="evidenceFocus === 'candidate' && candidate">
-            <h2>حدود Intake</h2>
-            <div class="context-callout warning-context">
-              <span class="context-icon">!</span>
-              <p>
-                Candidate لم تعبر Admission بعد. لا يجوز إسناد قيم أبعاد Evidence الكنسية إليها قبل
-                Admission.
-              </p>
-            </div>
-            <div v-if="selectedCandidateReceipt" class="context-section">
-              <span class="label">Trusted Handoff Receipt</span>
-              <bdi dir="ltr" class="identifier">{{ selectedCandidateReceipt.id }}</bdi>
-              <p class="digest" dir="ltr">sha256:{{ selectedCandidateReceipt.source_digest }}</p>
-            </div>
-            <div class="context-section">
-              <span class="label">المعنى الحاكم</span>
-              <p>
-                Admission ينشئ Evidence Revision 1 مختومة، لكنه لا يبدأ Review ولا يصدر Decision ولا
-                يغيّر Mastery.
-              </p>
-            </div>
-          </template>
-          <template v-else-if="selectedEvidence">
-            <h2>الأصل والإصدار المختوم</h2>
-            <div class="context-callout">
-              <span class="context-icon">i</span>
-              <p>الحالات الثلاث المعروضة في CENTER مستقلة. لا تُختزل في Status واحد.</p>
-            </div>
-            <div class="context-section">
-              <span class="label">Current Sealed Revision</span>
-              <bdi dir="ltr" class="identifier">{{ selectedEvidence.current_revision_id }}</bdi>
-              <p class="digest" dir="ltr">sha256:{{ selectedEvidence.source_digest }}</p>
-            </div>
-            <div class="context-section">
-              <span class="label">Revision History</span>
-              <ol class="timeline-list">
-                <li v-for="item in selectedEvidence.revisions" :key="item.id">
-                  <span class="timeline-marker" aria-hidden="true"></span>
-                  <div>
-                    <bdi dir="ltr">R{{ item.revision }} · {{ item.id }}</bdi>
-                    <p>{{ item.revision_reason }}</p>
+            <h4 class="context-subheading">Candidate Evidence · بيانات مورّدة</h4>
+            <div class="context-cards-stack">
+              <div class="context-item-card">
+                <h5>Supplied Source Fields</h5>
+                <div class="provenance-details-grid mt-2">
+                  <div class="prov-row">
+                    <span class="prov-k">Type</span>
+                    <bdi dir="ltr" class="prov-v">{{ displayValue(candidate.source_type) }}</bdi>
                   </div>
-                </li>
-              </ol>
+                  <div class="prov-row">
+                    <span class="prov-k">Source ID</span>
+                    <bdi dir="ltr" class="prov-v">{{ displayValue(candidate.source_id) }}</bdi>
+                  </div>
+                  <div class="prov-row">
+                    <span class="prov-k">Revision</span>
+                    <bdi dir="ltr" class="prov-v">{{
+                      displayValue(candidate.source_revision)
+                    }}</bdi>
+                  </div>
+                  <div class="prov-row">
+                    <span class="prov-k">Digest</span>
+                    <bdi dir="ltr" class="prov-v breakable-value">{{
+                      displayValue(candidate.source_digest)
+                    }}</bdi>
+                  </div>
+                </div>
+              </div>
+
+              <div class="context-item-card">
+                <h5>Criterion Scope References</h5>
+                <ul v-if="candidate.criterion_scope.length" class="context-bullet-list mt-2">
+                  <li v-for="criterion in candidate.criterion_scope" :key="criterion">
+                    <bdi dir="ltr">{{ criterion }}</bdi>
+                  </li>
+                </ul>
+                <p v-else class="context-text-single">غير متوفر</p>
+              </div>
+
+              <div v-if="selectedCandidateReceipt" class="technical-receipt-box">
+                <span class="label">Referenced Handoff Receipt</span>
+                <bdi dir="ltr" class="identifier">{{ selectedCandidateReceipt.id }}</bdi>
+                <div class="provenance-details-grid mt-2">
+                  <div class="prov-row">
+                    <span class="prov-k">Source</span>
+                    <bdi dir="ltr" class="prov-v"
+                      >{{ displayValue(selectedCandidateReceipt.source_type) }} /
+                      {{ displayValue(selectedCandidateReceipt.source_id) }}</bdi
+                    >
+                  </div>
+                  <div class="prov-row">
+                    <span class="prov-k">Revision</span>
+                    <bdi dir="ltr" class="prov-v">{{
+                      displayValue(selectedCandidateReceipt.source_revision)
+                    }}</bdi>
+                  </div>
+                </div>
+                <p class="digest" dir="ltr">
+                  {{ displayValue(selectedCandidateReceipt.source_digest) }}
+                </p>
+              </div>
+              <div v-else class="context-item-card">
+                <h5>Handoff Receipt Binding</h5>
+                <p class="context-text-single">
+                  غير متوفر: لم يُورَّد سجل يطابق مرجع
+                  <bdi dir="ltr">{{ displayValue(candidate.handoff_receipt_id) }}</bdi
+                  >.
+                </p>
+              </div>
+
+              <div class="context-info-callout">
+                <svg
+                  class="h-5 w-5 shrink-0 text-cyan-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="16" x2="12" y2="12" />
+                  <line x1="12" y1="8" x2="12.01" y2="8" />
+                </svg>
+                <span
+                  >هذه Candidate Evidence وليست Canonical Evidence. عرض مرجع المصدر لا يثبت سلامته
+                  أو حداثته أو تفرده.</span
+                >
+              </div>
             </div>
-            <div class="context-section">
-              <span class="label">Review eligibility</span>
-              <p>طلب المراجعة عملية صريحة على Evidence النشطة؛ لا تُنشأ تلقائيًا عند Admission.</p>
+          </template>
+
+          <template v-else-if="selectedEvidence">
+            <h4 class="context-subheading">الإصدار ومراجع المصدر</h4>
+            <div class="context-cards-stack">
+              <div class="context-item-card">
+                <h5>Current Evidence Revision</h5>
+                <bdi dir="ltr" class="identifier">{{
+                  displayValue(selectedEvidence.current_revision_id)
+                }}</bdi>
+                <p class="digest" dir="ltr">
+                  Source digest: {{ displayValue(selectedEvidence.source_digest) }}
+                </p>
+              </div>
+
+              <div class="context-item-card">
+                <h5>Revision History</h5>
+                <ol class="timeline-list">
+                  <li v-for="item in selectedEvidence.revisions" :key="item.id">
+                    <span class="timeline-marker" aria-hidden="true"></span>
+                    <div>
+                      <bdi dir="ltr">R{{ item.revision }} · {{ item.id }}</bdi>
+                      <p>{{ item.revision_reason }}</p>
+                    </div>
+                  </li>
+                </ol>
+              </div>
             </div>
           </template>
         </template>
 
+        <!-- Surface 2: Reviews Context -->
         <template v-else-if="surface === 'reviews'">
-          <p class="eyebrow">Authority Context</p>
-          <template v-if="reviewFocus === 'review' && selectedReview">
-            <h2>سلطة المراجعة</h2>
-            <div class="authority-block">
-              <span>Reviewer</span
-              ><bdi dir="ltr" class="identifier">{{ selectedReview.reviewer_id }}</bdi>
-            </div>
-            <div class="context-section">
-              <span class="label">Review Scope</span
-              ><bdi dir="ltr" class="identifier">{{ selectedReview.review_scope_key }}</bdi>
-            </div>
-            <div class="context-section">
-              <span class="label">Criterion Authority</span>
-              <ul class="reference-list context-references">
-                <li v-for="criterion in selectedReview.criterion_refs" :key="criterion">
-                  <bdi dir="ltr">{{ criterion }}</bdi>
-                </li>
-              </ul>
-            </div>
-          </template>
-          <template v-else-if="selectedRequest">
-            <h2>سياق الطلب</h2>
-            <div class="context-callout">
-              <span class="context-icon">i</span>
-              <p>لا يوجد Reviewer أو Finding أو Decision كحقيقة للمراجعة قبل بدء Formal Review.</p>
-            </div>
-            <div class="context-section">
-              <span class="label">Pinned Revision</span
-              ><bdi dir="ltr" class="identifier">{{ selectedRequest.evidence_revision_id }}</bdi>
-            </div>
-          </template>
-        </template>
+          <div class="context-panel-header">
+            <h3>السياق</h3>
+          </div>
 
-        <template v-else-if="surface === 'mastery' && selectedMastery">
-          <p class="eyebrow">Policy Authority</p>
-          <h2>سياق الحكم المحكوم</h2>
-          <p class="context-intro">
-            الحكم الحالي مؤسس على Policy Revision منشورة ومراجع Decision وEvidence محددة، وليس على
-            نسبة نشاط أو إكمال.
-          </p>
-          <div class="context-section">
-            <span class="label">Published Policy Revision</span>
-            <bdi dir="ltr" class="identifier">{{ selectedMastery.policy_revision_id }}</bdi>
-          </div>
-          <div v-if="selectedMasteryPolicy" class="context-section">
-            <span class="label">Qualifying Review Decisions</span>
-            <ul class="reference-list">
-              <li
-                v-for="outcome in selectedMasteryPolicy.qualifying_review_decisions"
-                :key="outcome"
-              >
-                <bdi dir="ltr">{{ outcome }}</bdi>
-              </li>
-            </ul>
-          </div>
-          <div v-if="selectedMastery.rationale" class="context-section">
-            <span class="label">Evaluation Rationale</span>
-            <p>{{ selectedMastery.rationale }}</p>
+          <div class="context-cards-stack">
+            <template v-if="reviewFocus === 'request' && selectedRequest">
+              <div class="context-item-card">
+                <h5>Review Request Binding</h5>
+                <div class="provenance-details-grid mt-2">
+                  <div class="prov-row">
+                    <span class="prov-k">Request</span>
+                    <bdi dir="ltr" class="prov-v">{{ selectedRequest.id }}</bdi>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <template v-else-if="selectedReview">
+              <div class="context-item-card">
+                <h5>Review Binding</h5>
+                <div class="provenance-details-grid mt-2">
+                  <div class="prov-row">
+                    <span class="prov-k">Reviewer Reference</span>
+                    <bdi dir="ltr" class="prov-v">{{
+                      displayValue(selectedReview.reviewer_id)
+                    }}</bdi>
+                  </div>
+                  <div class="prov-row">
+                    <span class="prov-k">Review Scope</span>
+                    <bdi dir="ltr" class="prov-v">{{
+                      displayValue(selectedReview.review_scope_key)
+                    }}</bdi>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <p v-else class="empty-state">لا يوجد Review أو Review Request محدد.</p>
           </div>
         </template>
 
-        <template v-else-if="surface === 'portfolio' && selectedPortfolio">
-          <p class="eyebrow">View Configuration</p>
-          <h2>سياق الإسقاط</h2>
-          <div class="context-section no-border">
-            <span class="label">View Scope</span
-            ><bdi dir="ltr" class="identifier">{{
-              selectedPortfolio.view_scope || 'UNSCOPED'
-            }}</bdi>
+        <!-- Surface 3: Mastery Context -->
+        <template v-else-if="surface === 'mastery'">
+          <div class="context-panel-header">
+            <h3>السياق</h3>
           </div>
-          <div class="context-section">
-            <span class="label">Grouping</span
-            ><bdi dir="ltr" class="identifier">{{ selectedPortfolio.grouping }}</bdi>
-          </div>
-          <div v-if="selectedPortfolioFilters.length" class="context-section">
-            <span class="label">Governed Filters</span>
-            <ul class="reference-list">
-              <li v-for="filter in selectedPortfolioFilters" :key="filter.key">
-                <bdi dir="ltr">{{ filter.key }}: {{ filter.value }}</bdi>
-              </li>
-            </ul>
-          </div>
-          <div class="context-callout">
-            <span class="context-icon">i</span>
-            <p>
-              Portfolio يحتفظ بالتنظيم والـcuration فقط. الحقيقة القانونية تبقى في Evidence
-              وMastery.
-            </p>
+
+          <div class="context-cards-stack">
+            <template v-if="selectedMastery">
+              <div class="context-item-card">
+                <h5>State Lineage</h5>
+                <div class="provenance-details-grid mt-2">
+                  <div class="prov-row">
+                    <span class="prov-k">Previous State</span>
+                    <bdi dir="ltr" class="prov-v">{{
+                      displayValue(selectedMastery.previous_state_id)
+                    }}</bdi>
+                  </div>
+                </div>
+              </div>
+
+              <div class="context-item-card">
+                <h5>Contradicting Evidence Revisions</h5>
+                <ul
+                  v-if="selectedMastery.contradicting_evidence_revision_ids.length"
+                  class="context-bullet-list mt-2"
+                >
+                  <li
+                    v-for="revisionId in selectedMastery.contradicting_evidence_revision_ids"
+                    :key="revisionId"
+                  >
+                    <bdi dir="ltr">{{ revisionId }}</bdi>
+                  </li>
+                </ul>
+                <p v-else class="context-text-single">لا توجد مراجع مورّدة.</p>
+              </div>
+            </template>
+            <p v-else class="empty-state">لا توجد Mastery State محددة.</p>
           </div>
         </template>
 
-        <p v-else class="empty-state">لا يوجد سياق فريد للاختيار الحالي.</p>
+        <!-- Surface 4: Portfolio Context -->
+        <template v-else>
+          <div class="context-panel-header">
+            <h3>السياق</h3>
+          </div>
+
+          <div class="context-cards-stack">
+            <!-- Display Scope -->
+            <div class="context-item-card">
+              <div class="item-card-header">
+                <div class="card-icon-title">
+                  <svg
+                    class="h-4 w-4 text-cyan-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                    <path
+                      d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+                    />
+                  </svg>
+                  <h5>نطاق العرض</h5>
+                </div>
+              </div>
+              <div class="prov-row">
+                <span class="prov-k">المجال:</span
+                ><span class="prov-v"
+                  ><bdi dir="ltr">{{ selectedPortfolio?.view_scope || 'غير متوفر' }}</bdi></span
+                >
+              </div>
+              <div class="prov-row">
+                <span class="prov-k">العرض:</span
+                ><span class="prov-v">Reference-only curated projection</span>
+              </div>
+            </div>
+
+            <!-- Display Organization -->
+            <div class="context-item-card">
+              <div class="item-card-header">
+                <div class="card-icon-title">
+                  <svg
+                    class="h-4 w-4 text-slate-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                    <polyline points="2 17 12 22 22 17" />
+                    <polyline points="2 12 12 17 22 12" />
+                  </svg>
+                  <h5>تنظيم العرض</h5>
+                </div>
+              </div>
+              <div class="prov-row">
+                <span class="prov-k">التجميع:</span
+                ><span class="prov-v"
+                  ><bdi dir="ltr">{{ selectedPortfolio?.grouping || 'غير متوفر' }}</bdi></span
+                >
+              </div>
+              <div class="prov-row">
+                <span class="prov-k">الترتيب:</span><span class="prov-v">غير متوفر</span>
+              </div>
+            </div>
+
+            <!-- Active Filters -->
+            <div class="context-item-card">
+              <div class="item-card-header">
+                <div class="card-icon-title">
+                  <svg
+                    class="h-4 w-4 text-emerald-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                  </svg>
+                  <h5>الفلاتر النشطة</h5>
+                </div>
+              </div>
+              <div v-if="selectedPortfolioFilters.length" class="provenance-details-grid">
+                <div v-for="filter in selectedPortfolioFilters" :key="filter.key" class="prov-row">
+                  <span class="prov-k"
+                    ><bdi dir="ltr">{{ filter.key }}</bdi
+                    >:</span
+                  >
+                  <span class="prov-v"
+                    ><bdi dir="ltr">{{ filter.value }}</bdi></span
+                  >
+                </div>
+              </div>
+              <p v-else class="context-text-single">غير متوفر</p>
+            </div>
+
+            <!-- Customization Data -->
+            <div class="context-item-card">
+              <div class="item-card-header">
+                <div class="card-icon-title">
+                  <svg
+                    class="h-4 w-4 text-slate-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                  <h5>بيانات التخصيص</h5>
+                </div>
+              </div>
+              <div class="prov-row">
+                <span class="prov-k">المالك:</span><span class="prov-v">غير متوفر</span>
+              </div>
+              <div class="prov-row">
+                <span class="prov-k">إنشاء العرض:</span><span class="prov-v">غير متوفر</span>
+              </div>
+              <div class="prov-row">
+                <span class="prov-k">آخر تحديث:</span><span class="prov-v">غير متوفر</span>
+              </div>
+              <div class="prov-row">
+                <span class="prov-k">وضع التخصيص:</span><span class="prov-v">غير متوفر</span>
+              </div>
+            </div>
+
+            <!-- Display Context & Export -->
+            <div class="context-item-card">
+              <div class="item-card-header">
+                <div class="card-icon-title">
+                  <svg
+                    class="h-4 w-4 text-cyan-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  <h5>سياق العرض والتصدير</h5>
+                </div>
+              </div>
+              <div class="prov-row">
+                <span class="prov-k">السياق:</span
+                ><span class="prov-v">Reference-only projection</span>
+              </div>
+              <div class="prov-row">
+                <span class="prov-k">اللغة:</span><span class="prov-v">غير متوفر</span>
+              </div>
+              <div class="prov-row">
+                <span class="prov-k">تضمين الكائنات:</span><span class="prov-v">غير متوفر</span>
+              </div>
+              <div class="prov-row">
+                <span class="prov-k">تضمين المقاييس:</span><span class="prov-v">غير متوفر</span>
+              </div>
+            </div>
+
+            <button class="context-action-btn" type="button" @click="panel = 'portfolio'">
+              <span>إنشاء إعدادات عرض جديدة</span>
+            </button>
+          </div>
+        </template>
       </div>
     </template>
 
+    <!-- BOTTOM TEMPORARY WORKSPACE (Closed by default) -->
     <template #bottom>
       <div class="bottom-workspace" data-testid="temporary-workspace-content">
         <section v-if="panel === 'mastery-history' && selectedMastery" class="history-workspace">
           <p class="form-note">
             سجل append-only للهدف <bdi dir="ltr">{{ selectedMastery.target_id }}</bdi
-            >. لا يغيّر العرض أي حكم أو حالة حداثة.
+            >>. لا يغيّر العرض أي حكم أو حالة حداثة.
           </p>
           <ol class="history-table" aria-label="سجل Mastery التاريخي">
             <li v-for="state in selectedMasteryHistory" :key="state.id">
               <bdi dir="ltr">{{ state.id }}</bdi>
-              <span
+              <span :class="statusClass('masteryJudgment', state.judgment)"
                 ><bdi dir="ltr">{{ state.judgment }}</bdi></span
               >
-              <span
+              <span :class="statusClass('freshness', state.freshness_status)"
                 ><bdi dir="ltr">{{ state.freshness_status }}</bdi></span
               >
               <small v-if="state.previous_state_id">
@@ -1194,11 +2873,11 @@ function removePortfolioItem(): void {
           @submit.prevent="intake.post('/progress/intake', { onSuccess: () => (panel = null) })"
         >
           <p v-if="!handoff_receipts.length" class="empty-state">
-            لا يوجد Handoff/Submission موثوق متاح للاستلام؛ لا يمكن إنشاء Candidate من بيانات مصدر
+            لا يوجد Handoff/Submission مورّد متاح للاستلام؛ لا يمكن إنشاء Candidate من بيانات مصدر
             يكتبها المتصفح.
           </p>
           <label>
-            Verified Handoff Receipt
+            Handoff Receipt Reference
             <select v-model="intake.handoff_receipt_id" dir="ltr" required>
               <option v-for="receipt in handoff_receipts" :key="receipt.id" :value="receipt.id">
                 {{ receipt.source_type }}/{{ receipt.source_id }}@{{ receipt.source_revision }} ·
@@ -1206,8 +2885,8 @@ function removePortfolioItem(): void {
               </option>
             </select>
           </label>
-          <label class="wide"
-            >Evidence Claim<textarea v-model="intake.evidence_claim" required />
+          <label class="wide">
+            Evidence Claim<textarea v-model="intake.evidence_claim" required />
           </label>
           <label
             >Criterion Reference<input v-model="intake.criterion_scope[0]" dir="ltr" required
@@ -1253,36 +2932,38 @@ function removePortfolioItem(): void {
         </form>
 
         <form
-          v-else-if="panel === 'finding' && selectedReview"
+          v-else-if="panel === 'finding' && selectedReview && canRecordFinding"
           class="form-grid"
           @submit.prevent="submitFinding"
         >
           <label>Criterion Key<input v-model="finding.criterion_key" dir="ltr" required /></label>
-          <label
-            >Finding<select v-model="finding.finding" dir="ltr">
+          <label>
+            Finding
+            <select v-model="finding.finding" dir="ltr">
               <option>SATISFIED</option>
               <option>PARTIALLY_SATISFIED</option>
               <option>NOT_SATISFIED</option>
               <option>NOT_ASSESSABLE</option>
-            </select></label
-          >
+            </select>
+          </label>
           <label class="wide">البيان<textarea v-model="finding.statement" required /></label>
           <button class="button primary form-submit" type="submit">تسجيل Finding</button>
         </form>
 
         <form
-          v-else-if="panel === 'decision' && selectedReview"
+          v-else-if="panel === 'decision' && selectedReview && canIssueDecision"
           class="form-grid"
           @submit.prevent="submitDecision"
         >
-          <label
-            >Review Decision<select v-model="decision.decision" dir="ltr">
+          <label>
+            Review Decision
+            <select v-model="decision.decision" dir="ltr">
               <option>ACCEPT</option>
               <option>ACCEPT_WITH_LIMITATIONS</option>
               <option>MORE_EVIDENCE_REQUIRED</option>
               <option>REJECT</option>
-            </select></label
-          >
+            </select>
+          </label>
           <label class="wide">المسوّغ<textarea v-model="decision.rationale" required /></label>
           <button class="button primary form-submit" type="submit">Seal Decision</button>
         </form>
@@ -1316,16 +2997,14 @@ function removePortfolioItem(): void {
               <option>MASTERED</option>
             </select>
           </label>
-          <label
-            >Freshness<select v-model="masteryForm.freshness_status" dir="ltr">
+          <label>
+            Freshness
+            <select v-model="masteryForm.freshness_status" dir="ltr">
               <option>CURRENT</option>
               <option>REVALIDATION_REQUIRED</option>
-            </select></label
-          >
+            </select>
+          </label>
           <label class="wide">المسوّغ<textarea v-model="masteryForm.rationale" required /></label>
-          <p class="wide form-note">
-            <bdi dir="ltr">MASTERED + REVALIDATION_REQUIRED</bdi> حالة قانونية؛ البعدان مستقلان.
-          </p>
           <button class="button primary form-submit" type="submit">Append Mastery State</button>
         </form>
 
@@ -1364,13 +3043,14 @@ function removePortfolioItem(): void {
             })
           "
         >
-          <label
-            >Evidence<select v-model="portfolioAdd.evidence_id">
+          <label>
+            Evidence
+            <select v-model="portfolioAdd.evidence_id">
               <option v-for="item in evidence" :key="item.id" :value="item.id">
                 {{ item.title }}
               </option>
-            </select></label
-          >
+            </select>
+          </label>
           <label class="wide">ملاحظة<textarea v-model="portfolioAdd.annotation" /></label>
           <button class="button primary form-submit" type="submit">
             إضافة Canonical Reference
@@ -1385,884 +3065,1468 @@ function removePortfolioItem(): void {
 .progress-evidence-shell {
   max-width: 100vw;
   overflow-x: hidden;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    'Open Sans',
+    'Helvetica Neue',
+    sans-serif;
 }
 
-:global([data-theme='dark']) {
-  --pe-code: #a8c5d7;
-  --pe-positive: #a7e5cc;
-  --pe-positive-border: #2d6754;
-  --pe-positive-bg: rgb(35 105 76 / 0.12);
-  --pe-danger: #f1b4bc;
-  --pe-danger-border: #7c3b47;
-  --pe-danger-bg: rgb(118 48 61 / 0.12);
-  --pe-warning: #e2c580;
-  --pe-warning-border: #66532e;
-  --pe-warning-bg: rgb(106 77 29 / 0.14);
-  --pe-info: #9edfe1;
-  --pe-info-border: #315c66;
-  --pe-info-bg: rgb(43 107 112 / 0.13);
+/* Theme variables */
+:global([data-theme='dark']),
+:global(:root:not([data-theme='light'])) {
+  --pe-bg-canvas: #050d15;
+  --pe-bg-panel: #0a1622;
+  --pe-bg-card: #0d1e2e;
+  --pe-bg-card-hover: #11263a;
+  --pe-border: #152d42;
+  --pe-border-subtle: #1b3a54;
+  --pe-text: #f1f5f9;
+  --pe-text-muted: #94a3b8;
+  --pe-text-dim: #64748b;
+  --pe-cyan: #06b6d4;
+  --pe-cyan-soft: rgba(6, 182, 212, 0.12);
+  --pe-emerald: #10b981;
+  --pe-emerald-soft: rgba(16, 185, 129, 0.12);
+  --pe-amber: #f59e0b;
+  --pe-amber-soft: rgba(245, 158, 11, 0.12);
+  --pe-purple: #a855f7;
+  --pe-purple-soft: rgba(168, 85, 247, 0.12);
+  --pe-rose: #f43f5e;
+  --pe-rose-soft: rgba(244, 63, 94, 0.12);
 }
 
-:global([data-theme='light']) .progress-evidence-shell {
-  --pe-code: #355269;
-  --pe-positive: #166534;
-  --pe-positive-border: #86b998;
-  --pe-positive-bg: rgb(22 101 52 / 0.08);
-  --pe-danger: #9f1239;
-  --pe-danger-border: #d7a0ad;
-  --pe-danger-bg: rgb(159 18 57 / 0.07);
-  --pe-warning: #854d0e;
-  --pe-warning-border: #d1b176;
-  --pe-warning-bg: rgb(133 77 14 / 0.08);
-  --pe-info: #0e7490;
-  --pe-info-border: #77afbb;
-  --pe-info-bg: rgb(14 116 144 / 0.08);
+:global([data-theme='light']) {
+  --pe-bg-canvas: #f1f5f9;
+  --pe-bg-panel: #ffffff;
+  --pe-bg-card: #f8fafc;
+  --pe-bg-card-hover: #f1f5f9;
+  --pe-border: #cbd5e1;
+  --pe-border-subtle: #e2e8f0;
+  --pe-text: #0f172a;
+  --pe-text-muted: #475569;
+  --pe-text-dim: #94a3b8;
+  --pe-cyan: #0891b2;
+  --pe-cyan-soft: rgba(8, 145, 178, 0.1);
+  --pe-emerald: #059669;
+  --pe-emerald-soft: rgba(5, 150, 105, 0.1);
+  --pe-amber: #d97706;
+  --pe-amber-soft: rgba(217, 119, 6, 0.1);
+  --pe-purple: #9333ea;
+  --pe-purple-soft: rgba(147, 51, 234, 0.1);
+  --pe-rose: #e11d48;
+  --pe-rose-soft: rgba(225, 29, 72, 0.1);
 }
 
-:global(body) {
-  margin: 0;
-  background: var(--cep-bg-canvas);
-}
-
-* {
-  box-sizing: border-box;
-}
-
-.workspace {
-  min-height: 100vh;
-  padding: 1rem;
-  color: var(--cep-text);
-  background: var(--cep-bg-canvas);
-}
-
-.panel,
-.top-bar {
-  border: 1px solid #1b3042;
-  background: linear-gradient(180deg, rgba(11, 24, 36, 0.98), rgba(7, 17, 27, 0.98));
-  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.2);
-}
-
-.top-bar {
-  display: flex;
-  gap: 1rem;
+/* Primary Top Navigation Tabs */
+.surface-tab {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  min-height: 4.5rem;
-  padding: 0.85rem 1rem;
-  border-radius: 0.8rem;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  color: var(--pe-text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
 }
 
-.workspace-identity,
-.object-heading,
-.surface-heading,
-.bottom-header,
-.finding-heading {
-  display: flex;
-  gap: 0.9rem;
-  align-items: center;
-  justify-content: space-between;
+.surface-tab:hover {
+  color: var(--pe-text);
+  border-bottom-color: var(--pe-border);
 }
 
-.workspace-identity > div {
-  border-right: 1px solid #20384b;
-  padding-right: 0.9rem;
+.surface-tab.active {
+  color: var(--pe-cyan);
+  border-bottom-color: var(--pe-cyan);
 }
 
-h1,
-h2,
-h3,
-p {
-  margin-top: 0;
-}
-
-h1 {
-  margin-bottom: 0.2rem;
-  font-size: 1.2rem;
-}
-
-h2 {
-  margin-bottom: 0;
-  font-size: 1.05rem;
-}
-
-h3 {
-  margin-bottom: 0;
-  font-size: 1rem;
-}
-
-.workspace-identity p,
-.surface-heading > p,
-.context-intro {
-  margin: 0;
-  color: var(--cep-text-muted);
+.tab-en {
   font-size: 0.72rem;
-  line-height: 1.6;
+  opacity: 0.8;
 }
 
-.eyebrow,
-.label {
-  margin: 0;
-  color: var(--cep-accent);
-  font-size: 0.66rem;
-  font-weight: 800;
-  letter-spacing: 0.03em;
+/* Top Toolbar & Action Area */
+.top-brand-area {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.label {
-  display: block;
-  margin-bottom: 0.35rem;
-  color: var(--cep-text-muted);
+.top-mode {
+  font-size: 0.76rem;
+  color: var(--pe-text-muted);
+}
+
+.top-mode strong {
+  color: var(--pe-text);
 }
 
 .top-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.45rem;
-  justify-content: flex-end;
 }
 
-.top-mode {
+.toolbar-btn {
   display: inline-flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 0.35rem;
-  align-items: center;
-  color: var(--cep-text-muted);
-  font-size: 0.72rem;
-}
-
-.top-mode strong {
-  color: var(--cep-text);
-}
-
-.surface-tab {
-  display: inline-flex;
-  flex: 0 0 auto;
-  gap: 0.45rem;
-  align-items: center;
-  min-height: 2.35rem;
-  padding: 0.45rem 0.7rem;
-  color: var(--cep-text-muted);
-  font-size: 0.78rem;
-  font-weight: 750;
-  text-decoration: none;
-  border-bottom: 2px solid transparent;
-}
-
-.surface-tab:hover,
-.surface-tab.active {
-  color: var(--cep-accent);
-  background: var(--cep-accent-soft);
-  border-bottom-color: var(--cep-accent);
-}
-
-.surface-tab bdi {
-  font-size: 0.64rem;
-}
-
-.button {
-  min-height: 2.25rem;
-  padding: 0.48rem 0.72rem;
-  color: var(--cep-text);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 700;
-  border: 1px solid var(--cep-border-strong);
+  padding: 0.42rem 0.75rem;
+  font-size: 0.74rem;
+  font-weight: 600;
   border-radius: 0.45rem;
-  background: var(--cep-bg-panel-strong);
+  border: 1px solid var(--pe-border);
+  background: var(--pe-bg-card);
+  color: var(--pe-text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toolbar-btn.outline:hover {
+  border-color: var(--pe-cyan);
+  background: var(--pe-bg-card-hover);
+}
+
+.toolbar-btn.primary {
+  background: var(--pe-cyan);
+  color: #020617;
+  border-color: var(--pe-cyan);
+  font-weight: 700;
+}
+
+.toolbar-btn.primary:hover {
+  filter: brightness(1.1);
+}
+
+.toolbar-btn.success-btn {
+  background: var(--pe-emerald);
+  border-color: var(--pe-emerald);
+  color: #020617;
+}
+
+.toolbar-btn.danger:hover {
+  border-color: var(--pe-rose);
+  color: var(--pe-rose);
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Left Sidebar Navigation */
+.left-rail {
+  padding: 0.5rem;
+  color: var(--pe-text);
+}
+
+.rail-header-styled {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--pe-border);
+}
+
+.rail-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rail-title-row h3 {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.rail-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.5rem 0;
+}
+
+.rail-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--pe-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  text-align: start;
+  transition: all 0.15s ease;
+}
+
+.rail-menu-item:hover {
+  color: var(--pe-text);
+  background: var(--pe-bg-card);
+}
+
+.rail-menu-item.active {
+  color: #ffffff;
+  background: #0284c7;
+  font-weight: 700;
+}
+
+.menu-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.menu-label {
+  flex: 1;
+}
+
+.menu-counter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.68rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.rail-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--pe-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sub-dense .rail-menu-item {
+  padding: 0.38rem 0.75rem;
+  font-size: 0.74rem;
+}
+
+/* Mastery Tree Nav */
+.mastery-tree-nav {
+  padding: 0.5rem 0.25rem;
+}
+
+.tree-node-header {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.tree-children {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-inline-start: 1.25rem;
+  margin-top: 0.25rem;
+  border-inline-start: 1px solid var(--pe-border);
+}
+
+.tree-subnode {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.74rem;
+  color: var(--pe-text-muted);
+  border-radius: 0.35rem;
   cursor: pointer;
 }
 
-.button.primary {
-  color: var(--cep-bg-canvas);
-  border-color: var(--cep-accent);
-  background: var(--cep-accent);
+.tree-subnode.active {
+  color: var(--pe-cyan);
+  background: var(--pe-cyan-soft);
+  font-weight: 700;
 }
 
-.button.secondary:hover,
-.button.ghost:hover {
-  border-color: var(--cep-accent);
-  background: var(--cep-accent-soft);
-}
-
-.button.ghost {
-  background: transparent;
-}
-
-.button:disabled {
-  cursor: not-allowed;
-  opacity: 0.38;
-}
-
-.notice {
-  padding: 0.7rem 0.85rem;
-  margin: 0.7rem 0 0;
-  font-size: 0.74rem;
-  border: 1px solid;
-  border-radius: 0.5rem;
-}
-
-.notice.success {
-  color: var(--pe-positive);
-  border-color: var(--pe-positive-border);
-  background: var(--pe-positive-bg);
-}
-
-.notice.error {
-  color: var(--pe-danger);
-  border-color: var(--pe-danger-border);
-  background: var(--pe-danger-bg);
-}
-
-.workspace-grid {
-  direction: ltr;
-  display: grid;
-  grid-template-areas: 'left center right';
-  grid-template-columns: 12rem minmax(0, 1fr) 17.5rem;
-  gap: 0.75rem;
-  align-items: start;
-  margin-top: 0.75rem;
-}
-
-.left-rail,
-.center-workspace,
-.right-context {
-  direction: rtl;
-  min-width: 0;
-  border-radius: 0.8rem;
-}
-
-:deep(.cep-primary-surface) {
-  padding: 0;
-}
-
-.left-rail {
-  overflow: hidden;
-}
-
-.rail-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.72rem;
-  color: var(--cep-text-muted);
-  font-size: 0.64rem;
-  border-bottom: 1px solid var(--cep-border);
-}
-
-.area-link {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 3.2rem;
-  padding: 0.72rem;
-  color: var(--cep-text-muted);
-  font-size: 0.76rem;
-  text-decoration: none;
-  border-bottom: 1px solid #172a3a;
-}
-
-.area-link:last-child {
-  border-bottom: 0;
-}
-
-.area-link.active {
-  color: var(--cep-text);
-  background: var(--cep-accent-soft);
-  box-shadow: inset 3px 0 var(--cep-accent);
-}
-
-.area-link bdi {
-  color: var(--cep-text-muted);
-  font-size: 0.62rem;
-}
-
-.center-workspace {
-  overflow: hidden;
-}
-
-.surface-heading {
-  min-height: 4.2rem;
-  padding: 0.85rem 1rem;
-  border-bottom: 1px solid var(--cep-border);
-}
-
-.surface-heading > p {
-  max-width: 34rem;
-  text-align: left;
-}
-
-.workbench-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  min-height: 35rem;
-}
-
-.record-browser {
-  min-width: 0;
-  border-left: 1px solid #1d3143;
-  background: rgba(5, 14, 23, 0.52);
-}
-
-.browser-group + .browser-group {
-  border-top: 1px solid #1d3143;
+/* Browser Group & Record Rows */
+.browser-group {
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--pe-border);
+  padding-top: 0.4rem;
 }
 
 .browser-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.65rem 0.75rem;
-  color: var(--cep-text-muted);
-  font-size: 0.66rem;
-  background: var(--cep-bg-panel-strong);
+  padding: 0.35rem 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--pe-text-dim);
 }
 
 .record-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.55rem;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   width: 100%;
-  padding: 0.68rem 0.75rem;
-  color: var(--cep-text-muted);
-  text-align: right;
-  border: 0;
-  border-top: 1px solid #172a3a;
+  padding: 0.48rem 0.65rem;
   background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.4rem;
+  color: var(--pe-text-muted);
+  text-align: start;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.record-row:hover,
+.record-row:hover {
+  background: var(--pe-bg-card);
+  color: var(--pe-text);
+}
+
 .record-row.selected {
-  background: var(--cep-accent-soft);
-}
-
-.record-row.selected {
-  box-shadow: inset -2px 0 var(--cep-accent);
-}
-
-.record-row span,
-.portfolio-reference span {
-  min-width: 0;
-}
-
-.record-row strong,
-.record-row small {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  background: var(--pe-bg-card-hover);
+  border-color: var(--pe-cyan);
+  color: var(--pe-text);
 }
 
 .record-row strong {
-  color: var(--cep-text);
-  font-size: 0.73rem;
+  display: block;
+  font-size: 0.74rem;
 }
 
 .record-row small {
-  margin-top: 0.2rem;
-  color: var(--cep-text-muted);
-  font-size: 0.65rem;
+  display: block;
+  font-size: 0.66rem;
+  color: var(--pe-text-dim);
+}
+
+.rail-footer {
+  margin-top: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--pe-border);
+}
+
+.rail-footer-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: 0;
+  color: var(--pe-text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.rail-footer-btn:hover {
+  color: var(--pe-text);
+}
+
+/* Center Workspace Layout */
+.center-workspace {
+  padding: 0.85rem;
+  text-align: start;
+}
+
+.surface-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+/* Object Cards */
+.object-card {
+  padding: 1.15rem;
+  background: var(--pe-bg-panel);
+  border: 1px solid var(--pe-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.card-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--pe-border);
+}
+
+.card-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.card-main-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--pe-text);
+}
+
+/* Badges and Pills */
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 999px;
+  letter-spacing: 0.03em;
+}
+
+.purple-pill {
+  background: var(--pe-purple-soft);
+  border: 1px solid var(--pe-purple);
+  color: #c084fc;
+}
+
+.cyan-pill {
+  background: var(--pe-cyan-soft);
+  border: 1px solid var(--pe-cyan);
+  color: var(--pe-cyan);
 }
 
 .state {
   display: inline-flex;
-  max-width: 10rem;
-  padding: 0.25rem 0.42rem;
-  color: var(--pe-info);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.61rem;
-  border: 1px solid var(--pe-info-border);
+  align-items: center;
+  padding: 0.18rem 0.45rem;
+  font-size: 0.64rem;
+  font-weight: 700;
   border-radius: 999px;
-  background: var(--pe-info-bg);
-  overflow-wrap: anywhere;
+  border: 1px solid var(--pe-border);
+  background: var(--pe-bg-card);
+  color: var(--pe-text-muted);
 }
 
 .candidate-state {
-  color: var(--pe-warning);
-  border-color: var(--pe-warning-border);
-  background: var(--pe-warning-bg);
+  color: var(--pe-amber);
+  border-color: var(--pe-amber);
+  background: var(--pe-amber-soft);
 }
 
 .request-state {
-  color: var(--pe-info);
-  border-color: var(--pe-info-border);
+  color: var(--pe-cyan);
+  border-color: var(--pe-cyan);
+  background: var(--pe-cyan-soft);
 }
 
 .review-state {
-  color: var(--pe-positive);
-  border-color: var(--pe-positive-border);
+  color: var(--pe-emerald);
+  border-color: var(--pe-emerald);
+  background: var(--pe-emerald-soft);
 }
 
 .projection-state {
-  color: var(--pe-code);
-  border-color: var(--cep-border-strong);
+  color: var(--pe-text-muted);
 }
 
-.object-workbench {
-  min-width: 0;
-  padding: 1rem;
-}
-
-.object-heading {
-  padding-bottom: 0.85rem;
-  border-bottom: 1px solid var(--cep-border);
-}
-
-.truth-banner,
-.context-callout {
-  padding: 0.72rem;
-  border: 1px solid var(--cep-border-strong);
-  border-radius: 0.55rem;
-  background: var(--cep-accent-soft);
-}
-
-.truth-banner {
+/* Metadata Field Rows */
+.meta-field-row {
   display: grid;
-  gap: 0.2rem;
-  margin-top: 0.8rem;
+  grid-template-columns: 18rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: baseline;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.truth-banner strong {
-  color: var(--cep-text);
-  font-size: 0.72rem;
+.field-label-col {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--pe-text-muted);
 }
 
-.truth-banner span,
-.context-callout p {
+.field-value-col {
+  font-size: 0.8rem;
+  color: var(--pe-text);
+}
+
+.claim-text {
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.muted-text {
+  color: var(--pe-text-muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.cyan-link {
+  color: var(--pe-cyan);
+  font-weight: 700;
+}
+
+.subtext-note {
+  display: block;
+  color: var(--pe-text-dim);
+  font-size: 0.68rem;
+  margin-top: 0.15rem;
+}
+
+/* Subcard Sections */
+.subcard-section {
+  margin-top: 1rem;
+  padding: 0.85rem;
+  background: var(--pe-bg-card);
+  border: 1px solid var(--pe-border);
+  border-radius: 0.65rem;
+}
+
+.subcard-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.subcard-header h4 {
   margin: 0;
-  color: var(--cep-text-muted);
-  font-size: 0.72rem;
-  line-height: 1.65;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--pe-text);
 }
 
-.candidate-banner {
-  border-color: var(--pe-warning-border);
-  background: var(--pe-warning-bg);
-}
-
-.detail-block,
-.decision-block {
-  padding: 0.8rem;
-  margin-top: 0.75rem;
-  border: 1px solid var(--cep-border);
-  border-radius: 0.55rem;
-  background: var(--cep-bg-panel-strong);
-}
-
-.detail-block.compact {
-  margin-top: 0;
-}
-
-.detail-block p,
-.decision-block p,
-.context-section p {
-  margin-bottom: 0;
-  color: var(--cep-text-muted);
-  font-size: 0.75rem;
-  line-height: 1.65;
-}
-
-.detail-grid,
-.dimension-grid,
-.mastery-dimensions {
+/* Handoff Grid */
+.handoff-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1.5rem;
+}
+
+.handoff-cell {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.cell-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--pe-text-dim);
+}
+
+.cell-val {
+  font-size: 0.76rem;
+  color: var(--pe-text);
+  font-weight: 500;
+  text-align: start;
+}
+
+/* Reference List Items */
+.reference-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.reference-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0.85rem;
+  background: var(--pe-bg-panel);
+  border: 1px solid var(--pe-border-subtle);
+  border-radius: 0.45rem;
+}
+
+.ref-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.ref-name {
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--pe-text);
+}
+
+.ref-actions-group {
+  display: flex;
+  align-items: center;
   gap: 0.65rem;
-  margin-top: 0.65rem;
 }
 
-.dimension-grid {
+.ref-badge {
+  padding: 0.15rem 0.45rem;
+  font-size: 0.64rem;
+  font-weight: 700;
+  border-radius: 999px;
+  background: var(--pe-cyan-soft);
+  color: var(--pe-cyan);
+  border: 1px solid rgba(6, 182, 212, 0.25);
+}
+
+/* Dimension Stat Bars */
+.dimension-bar-grid {
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0.85rem 0;
 }
 
-.identifier,
-.reference-list bdi,
-.timeline-list bdi,
-.portfolio-reference bdi,
-.history-chain bdi,
-.causal-steps bdi {
-  color: var(--pe-code);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.68rem;
-  overflow-wrap: anywhere;
-}
-
-.muted {
-  color: var(--cep-text-muted) !important;
-  font-size: 0.68rem !important;
-}
-
-.reference-list {
-  display: grid;
-  gap: 0.3rem;
-  padding: 0;
-  margin: 0.45rem 0 0;
-  list-style: none;
-}
-
-.reference-list li {
-  padding: 0.35rem 0.42rem;
-  border: 1px solid var(--cep-border);
-  border-radius: 0.35rem;
-  background: var(--cep-bg-panel-strong);
-}
-
-.dimension-card,
-.mastery-dimension {
-  display: grid;
-  gap: 0.4rem;
-  align-content: center;
-  min-height: 4.2rem;
+.dimension-stat-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
   padding: 0.65rem;
-  border: 1px solid var(--cep-border);
+  background: var(--pe-bg-card);
+  border: 1px solid var(--pe-border);
   border-radius: 0.5rem;
-  background: var(--cep-bg-panel-strong);
 }
 
-.dimension-card span,
-.mastery-dimension span {
-  color: var(--cep-text-muted);
-  font-size: 0.63rem;
-}
-
-.dimension-card bdi,
-.mastery-dimension bdi {
-  color: var(--cep-text);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.71rem;
-  font-weight: 800;
-  overflow-wrap: anywhere;
-}
-
-.timeline-list,
-.causal-steps,
-.history-chain {
-  padding: 0;
-  margin: 0.55rem 0 0;
-  list-style: none;
-}
-
-.timeline-list {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.timeline-list li {
-  display: grid;
-  grid-template-columns: 0.5rem minmax(0, 1fr);
-  gap: 0.55rem;
-}
-
-.timeline-marker {
-  width: 0.4rem;
-  height: 0.4rem;
-  margin-top: 0.25rem;
-  border: 2px solid var(--cep-accent);
-  border-radius: 50%;
-}
-
-.timeline-list p {
-  margin: 0.15rem 0 0;
-  color: var(--cep-text-muted);
+.stat-label {
   font-size: 0.68rem;
+  color: var(--pe-text-dim);
+  font-weight: 600;
 }
 
-.finding-stack {
-  display: grid;
-  gap: 0.5rem;
-  margin-top: 0.55rem;
-}
-
-.finding-card {
-  padding: 0.6rem;
-  border: 1px solid var(--cep-border);
-  border-radius: 0.45rem;
-  background: var(--cep-bg-panel-strong);
-}
-
-.finding-value,
-.decision-value {
-  color: var(--pe-positive);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.68rem;
-}
-
-.decision-block {
-  border-color: var(--cep-border-strong);
-  background: var(--cep-bg-panel-strong);
-}
-
-.decision-content {
-  margin-top: 0.55rem;
-}
-
-.decision-value {
+.stat-badge {
   display: inline-flex;
-  padding: 0.25rem 0.4rem;
-  border: 1px solid var(--pe-positive-border);
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 800;
   border-radius: 0.35rem;
+  width: fit-content;
 }
 
-.mastery-dimension {
-  min-height: 5rem;
+.green-badge {
+  background: var(--pe-emerald-soft);
+  color: var(--pe-emerald);
+  border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
-.judgment-card {
-  border-color: var(--pe-info-border);
-  background: var(--pe-info-bg);
+.purple-badge {
+  background: var(--pe-purple-soft);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
 }
 
-.freshness-card {
-  border-color: var(--pe-warning-border);
-  background: var(--pe-warning-bg);
+.amber-badge {
+  background: var(--pe-amber-soft);
+  color: var(--pe-amber);
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
-.causal-steps {
+/* Review Specific Styling */
+.review-stats-grid {
   display: grid;
-  gap: 0.45rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--pe-border);
 }
 
-.causal-steps > li {
+.stat-pair {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.review-split-grid {
   display: grid;
-  grid-template-columns: 1.7rem minmax(0, 1fr);
-  gap: 0.55rem;
-  padding: 0.55rem;
-  border: 1px solid var(--cep-border);
+  grid-template-columns: 18rem minmax(0, 1fr);
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.split-column {
+  padding: 0.85rem;
+  background: var(--pe-bg-card);
+  border: 1px solid var(--pe-border);
+  border-radius: 0.65rem;
+}
+
+.split-col-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.split-col-header h4 {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.criterion-pills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.criterion-pill-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  background: var(--pe-bg-panel);
+  border: 1px solid var(--pe-border-subtle);
   border-radius: 0.45rem;
-  background: var(--cep-bg-panel-strong);
 }
 
-.step-number {
+.crit-tag {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.55rem;
-  height: 1.55rem;
-  color: var(--cep-accent);
-  font-size: 0.62rem;
-  border: 1px solid var(--pe-info-border);
-  border-radius: 50%;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  border-radius: 0.35rem;
+  background: var(--pe-cyan-soft);
+  color: var(--pe-cyan);
+  border: 1px solid rgba(6, 182, 212, 0.3);
 }
 
-.causal-steps strong {
-  display: block;
-  margin-bottom: 0.25rem;
-  color: var(--cep-text);
-  font-size: 0.69rem;
+.crit-name {
+  font-size: 0.74rem;
+  color: var(--pe-text);
+  font-weight: 500;
 }
 
-.portfolio-reference-list {
-  display: grid;
-  gap: 0.45rem;
-  margin-top: 0.55rem;
+.findings-table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
-.portfolio-reference {
+.findings-table th {
+  padding: 0.45rem 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--pe-text-dim);
+  text-align: start;
+  border-bottom: 1px solid var(--pe-border);
+}
+
+.findings-table td {
+  padding: 0.55rem 0.65rem;
+  font-size: 0.74rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.finding-state-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  border-radius: 999px;
+}
+
+.finding-state-pill.satisfied {
+  background: var(--pe-emerald-soft);
+  color: var(--pe-emerald);
+}
+
+.finding-state-pill.partial {
+  background: var(--pe-amber-soft);
+  color: var(--pe-amber);
+}
+
+.doc-link {
+  color: var(--pe-text-muted);
+  font-size: 0.72rem;
+}
+
+.rationale-body {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.65;
+  color: var(--pe-text-muted);
+}
+
+.decision-pending-box {
   display: flex;
-  gap: 0.7rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--pe-bg-panel);
+  border: 1px dashed var(--pe-border);
+  border-radius: 0.5rem;
+}
+
+.decision-pending-box strong {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--pe-text);
+}
+
+.decision-pending-box p {
+  margin: 0.15rem 0 0;
+  font-size: 0.7rem;
+  color: var(--pe-text-dim);
+}
+
+.decision-issued-box {
+  padding: 0.75rem;
+  background: var(--pe-bg-panel);
+  border: 1px solid var(--pe-emerald);
+  border-radius: 0.5rem;
+}
+
+.decision-pill {
+  display: inline-flex;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  background: var(--pe-emerald-soft);
+  color: var(--pe-emerald);
+  border-radius: 0.35rem;
+}
+
+.decision-rationale-text {
+  margin: 0.4rem 0 0;
+  font-size: 0.76rem;
+  color: var(--pe-text-muted);
+}
+
+/* Mastery Specific Styling */
+.mastery-header-row {
+  display: flex;
   align-items: center;
   justify-content: space-between;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--pe-border);
+}
+
+.mastery-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.mastery-main-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.mastery-subject-line {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.76rem;
+  color: var(--pe-text-muted);
+  margin-top: 0.25rem;
+}
+
+.mastery-status-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mastery-judgment-badge,
+.mastery-freshness-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.65rem;
+  border: 1px solid;
+}
+
+.mastery-judgment-badge {
+  background: var(--pe-emerald-soft);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.mastery-freshness-badge {
+  background: var(--pe-amber-soft);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.badge-sub {
+  display: block;
+  font-size: 0.62rem;
+  color: var(--pe-text-dim);
+  font-weight: 600;
+}
+
+.badge-main {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.info-alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  margin-top: 1rem;
+  background: var(--pe-cyan-soft);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  border-radius: 0.55rem;
+  font-size: 0.76rem;
+  color: var(--pe-text);
+}
+
+.causal-stepper-trace {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+  margin-top: 1.15rem;
+}
+
+.stepper-block {
+  display: grid;
+  grid-template-columns: 2.2rem minmax(0, 1fr);
+  gap: 0.85rem;
+  padding: 0.85rem;
+  background: var(--pe-bg-card);
+  border: 1px solid var(--pe-border);
+  border-radius: 0.65rem;
+}
+
+.stepper-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #020617;
+  background: var(--pe-cyan);
+  border-radius: 0.45rem;
+}
+
+.stepper-content {
+  min-width: 0;
+}
+
+.stepper-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stepper-val-middle {
+  font-size: 0.74rem;
+  color: var(--pe-text-dim);
+}
+
+.stepper-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--pe-text);
+}
+
+.stepper-arrow {
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--pe-cyan);
+  line-height: 1;
+}
+
+.stepper-table {
   width: 100%;
-  padding: 0.65rem;
-  color: var(--cep-text);
-  text-align: right;
-  border: 1px solid var(--cep-border);
-  border-radius: 0.48rem;
-  background: var(--cep-bg-panel-strong);
+  border-collapse: collapse;
+}
+
+.stepper-table th {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.66rem;
+  color: var(--pe-text-dim);
+  text-align: start;
+  border-bottom: 1px solid var(--pe-border);
+}
+
+.stepper-table td {
+  padding: 0.48rem 0.6rem;
+  font-size: 0.74rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.satisfied-text {
+  color: var(--pe-emerald);
+  font-weight: 700;
+}
+
+.evidence-pill-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.evidence-ref-pill {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  background: var(--pe-bg-panel);
+  border: 1px solid var(--pe-border-subtle);
+  border-radius: 0.4rem;
+  color: var(--pe-cyan);
+}
+
+.basis-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-size: 0.78rem;
+  color: var(--pe-text-muted);
+  line-height: 1.6;
+}
+
+/* Portfolio Specific Styling */
+.portfolio-header-area {
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--pe-border);
+}
+
+.portfolio-subject-line {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.76rem;
+  color: var(--pe-text-muted);
+}
+
+.portfolio-main-title {
+  margin: 0.25rem 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.portfolio-meta-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.74rem;
+  color: var(--pe-text-dim);
+  margin-top: 0.35rem;
+}
+
+.meta-counters {
+  display: flex;
+  gap: 1rem;
+}
+
+.portfolio-groups-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.portfolio-group-card {
+  background: var(--pe-bg-card);
+  border: 1px solid var(--pe-border);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.group-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--pe-bg-panel);
+  border-bottom: 1px solid var(--pe-border);
+}
+
+.group-num-title {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.group-num-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.74rem;
+  font-weight: 800;
+  background: var(--pe-bg-card);
+  border: 1px solid var(--pe-border-subtle);
+  border-radius: 0.35rem;
+  color: var(--pe-cyan);
+}
+
+.group-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.group-badges-area {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.projection-tag {
+  padding: 0.18rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border-radius: 0.35rem;
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--pe-emerald);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-warning-tag {
+  padding: 0.18rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border-radius: 0.35rem;
+  background: var(--pe-amber-soft);
+  color: var(--pe-amber);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.verification-date-tag {
+  font-size: 0.7rem;
+  color: var(--pe-text-dim);
+}
+
+.portfolio-evidence-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.portfolio-evidence-table th {
+  padding: 0.55rem 0.85rem;
+  font-size: 0.68rem;
+  color: var(--pe-text-dim);
+  text-align: start;
+  border-bottom: 1px solid var(--pe-border);
+}
+
+.portfolio-evidence-table td {
+  padding: 0.65rem 0.85rem;
+  font-size: 0.74rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.portfolio-evidence-table tr:hover {
+  background: var(--pe-bg-card-hover);
   cursor: pointer;
 }
 
-.portfolio-reference.selected,
-.portfolio-reference:hover {
-  border-color: var(--cep-accent);
-  background: var(--cep-accent-soft);
+.portfolio-evidence-table tr.selected {
+  background: var(--pe-cyan-soft);
 }
 
-.portfolio-reference strong,
-.portfolio-reference small {
-  display: block;
+.evidence-title-ref {
+  font-weight: 600;
+  color: var(--pe-text);
 }
 
-.portfolio-reference small {
-  margin-top: 0.15rem;
-  color: var(--cep-text-muted);
-  font-size: 0.62rem;
+.type-badge {
+  padding: 0.12rem 0.4rem;
+  font-size: 0.66rem;
+  border-radius: 0.3rem;
+  background: var(--pe-bg-panel);
+  border: 1px solid var(--pe-border-subtle);
+  color: var(--pe-text-muted);
 }
 
-.empty-state,
-.empty-workbench {
-  color: var(--cep-text-muted);
+.date-text,
+.notes-text {
+  font-size: 0.72rem;
+  color: var(--pe-text-muted);
+}
+
+.group-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
   font-size: 0.7rem;
-  text-align: center;
-  border: 1px dashed var(--cep-border-strong);
-  border-radius: 0.45rem;
+  color: var(--pe-text-dim);
+  background: var(--pe-bg-panel);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.empty-state {
-  padding: 0.65rem;
-  margin: 0.5rem;
-}
-
-.empty-workbench {
-  display: grid;
-  place-items: center;
-  margin: 1rem;
-  padding: 2rem;
-}
-
+/* Right Context Panel Styling */
 .right-context {
-  min-width: 0;
-  padding: 0;
+  padding: 0.75rem;
+  color: var(--pe-text);
 }
 
-.right-context h2 {
-  margin: 0.28rem 0 0;
+.context-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--pe-border);
+}
+
+.context-panel-header h3 {
+  margin: 0;
   font-size: 0.95rem;
+  font-weight: 800;
 }
 
-.context-section {
-  padding-top: 0.7rem;
-  margin-top: 0.7rem;
-  border-top: 1px solid var(--cep-border);
+.close-icon {
+  font-size: 1.1rem;
+  color: var(--pe-text-dim);
+  cursor: pointer;
 }
 
-.context-section.no-border {
-  border-top: 0;
+.context-subheading {
+  margin: 0.65rem 0 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
-.context-callout {
-  display: grid;
-  grid-template-columns: 1.55rem minmax(0, 1fr);
+.context-cards-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.55rem;
+}
+
+.context-item-card {
+  padding: 0.75rem;
+  background: var(--pe-bg-card);
+  border: 1px solid var(--pe-border);
+  border-radius: 0.65rem;
+}
+
+.item-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.45rem;
+}
+
+.card-icon-title {
+  display: flex;
+  align-items: center;
   gap: 0.5rem;
-  align-items: start;
-  margin-top: 0.75rem;
 }
 
-.warning-context {
-  border-color: var(--pe-warning-border);
-  background: var(--pe-warning-bg);
+.context-item-card h5 {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--pe-text);
 }
 
-.context-icon {
-  display: inline-flex;
+.context-bullet-list {
+  padding-inline-start: 1.1rem;
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--pe-text-muted);
+  line-height: 1.6;
+}
+
+.context-text-single {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--pe-text-muted);
+  line-height: 1.5;
+}
+
+.reviewer-info-box {
+  font-size: 0.72rem;
+  color: var(--pe-text-muted);
+  line-height: 1.5;
+}
+
+.reviewer-info-box p {
+  margin: 0.2rem 0 0;
+  color: var(--pe-text-dim);
+}
+
+.provenance-details-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.prov-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 0.7rem;
+}
+
+.prov-k {
+  color: var(--pe-text-dim);
+}
+
+.prov-v {
+  color: var(--pe-text);
+  font-weight: 600;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  margin-inline-end: 0.35rem;
+}
+
+.green-dot {
+  background: var(--pe-emerald);
+}
+
+.date-tag-sub {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.68rem;
+  color: var(--pe-text-dim);
+}
+
+.technical-receipt-box {
+  padding: 0.55rem 0.75rem;
+  background: var(--pe-bg-panel);
+  border: 1px solid var(--pe-border);
+  border-radius: 0.45rem;
+  font-size: 0.68rem;
+}
+
+.technical-receipt-box .identifier {
+  color: var(--pe-cyan);
+  font-family: monospace;
+}
+
+.technical-receipt-box .digest {
+  color: var(--pe-text-dim);
+  font-family: monospace;
+  font-size: 0.62rem;
+  word-break: break-all;
+}
+
+.context-info-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.65rem 0.75rem;
+  background: var(--pe-bg-panel);
+  border: 1px solid var(--pe-border);
+  border-radius: 0.55rem;
+  font-size: 0.72rem;
+  color: var(--pe-text-muted);
+  line-height: 1.5;
+}
+
+.context-action-btn {
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.4rem;
-  height: 1.4rem;
-  color: var(--cep-accent);
-  font-size: 0.68rem;
-  font-weight: 900;
-  border: 1px solid var(--pe-info-border);
-  border-radius: 50%;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  margin-top: 0.5rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--pe-cyan);
+  background: var(--pe-cyan-soft);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.authority-block {
-  display: grid;
-  gap: 0.3rem;
-  margin-top: 0.75rem;
+.context-action-btn:hover {
+  background: rgba(6, 182, 212, 0.2);
 }
 
-.authority-block > span {
-  color: var(--cep-text-muted);
-  font-size: 0.64rem;
-}
-
-.history-chain {
-  display: grid;
-  gap: 0.38rem;
-}
-
-.history-chain li {
-  display: grid;
-  gap: 0.18rem;
-  padding: 0.5rem;
-  border: 1px solid var(--cep-border);
-  border-radius: 0.4rem;
-  background: var(--cep-bg-panel-strong);
-}
-
-.history-chain small {
-  color: var(--cep-text-muted);
-  font-size: 0.6rem;
-}
-
-.digest {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.62rem !important;
-  overflow-wrap: anywhere;
+/* Bottom Temporary Workspace Forms */
+.bottom-workspace {
+  padding: 1rem;
 }
 
 .history-workspace {
-  max-width: 72rem;
+  max-width: 60rem;
   margin: 0 auto;
 }
 
+.form-note {
+  font-size: 0.74rem;
+  color: var(--pe-text-muted);
+  margin-bottom: 0.75rem;
+}
+
 .history-table {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.45rem;
-  padding: 0;
-  margin: 0.75rem 0 0;
   list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .history-table li {
   display: grid;
-  grid-template-columns: minmax(12rem, 1.5fr) repeat(2, minmax(9rem, 0.75fr)) minmax(12rem, 1fr);
-  gap: 0.6rem;
+  grid-template-columns: 14rem 8rem 12rem minmax(0, 1fr);
+  gap: 0.75rem;
   align-items: center;
-  padding: 0.65rem;
-  color: var(--cep-text-muted);
-  font-size: 0.7rem;
-  border: 1px solid var(--cep-border);
-  border-radius: var(--cep-radius-sm);
-  background: var(--cep-bg-panel);
-}
-
-.history-table bdi {
-  color: var(--cep-text);
-}
-
-.bottom-workspace {
-  min-width: 0;
-}
-
-.bottom-header {
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--cep-border);
+  padding: 0.55rem 0.85rem;
+  background: var(--pe-bg-panel);
+  border: 1px solid var(--pe-border);
+  border-radius: 0.45rem;
+  font-size: 0.72rem;
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem;
-  max-width: 68rem;
-  padding-top: 0.8rem;
+  gap: 0.75rem;
+  max-width: 54rem;
   margin: 0 auto;
 }
 
 .form-grid label {
-  display: grid;
-  gap: 0.28rem;
-  color: var(--cep-text-muted);
-  font-size: 0.68rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--pe-text-muted);
 }
 
 .form-grid input,
 .form-grid textarea,
 .form-grid select {
-  width: 100%;
-  padding: 0.58rem 0.62rem;
-  color: var(--cep-text);
-  font: inherit;
-  border: 1px solid var(--cep-border-strong);
-  border-radius: 0.42rem;
-  background: var(--cep-bg-panel);
+  padding: 0.48rem 0.65rem;
+  font-size: 0.78rem;
+  border-radius: 0.45rem;
+  border: 1px solid var(--pe-border);
+  background: var(--pe-bg-panel);
+  color: var(--pe-text);
 }
 
-.form-grid textarea {
-  min-height: 5rem;
-  resize: vertical;
+.form-grid input:focus,
+.form-grid textarea:focus,
+.form-grid select:focus {
+  outline: none;
+  border-color: var(--pe-cyan);
 }
 
 .wide {
@@ -2270,92 +4534,188 @@ h3 {
 }
 
 .form-submit {
+  grid-column: 1 / -1;
+  padding: 0.55rem 1.25rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 0.45rem;
+  background: var(--pe-cyan);
+  color: #020617;
+  border: 0;
+  cursor: pointer;
   width: fit-content;
-  min-width: 12rem;
 }
 
-.form-note {
-  margin: 0;
-  color: var(--cep-text-muted);
-  font-size: 0.68rem;
+.notice {
+  padding: 0.65rem 0.85rem;
+  margin: 0.5rem 0.85rem;
+  font-size: 0.74rem;
+  border-radius: 0.5rem;
 }
 
+.notice.success {
+  background: var(--pe-emerald-soft);
+  color: var(--pe-emerald);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.notice.error {
+  background: var(--pe-rose-soft);
+  color: var(--pe-rose);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+}
+
+.empty-state {
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.74rem;
+  color: var(--pe-text-dim);
+  border: 1px dashed var(--pe-border);
+  border-radius: 0.5rem;
+}
+
+.semantic-status {
+  border: 1px solid var(--pe-border);
+  background: var(--pe-bg-card);
+  color: var(--pe-text-muted);
+}
+
+.tone-positive {
+  border-color: var(--pe-emerald);
+  background: var(--pe-emerald-soft);
+  color: var(--pe-emerald);
+}
+
+.tone-info {
+  border-color: var(--pe-cyan);
+  background: var(--pe-cyan-soft);
+  color: var(--pe-cyan);
+}
+
+.tone-warning {
+  border-color: var(--pe-amber);
+  background: var(--pe-amber-soft);
+  color: var(--pe-amber);
+}
+
+.tone-danger {
+  border-color: var(--pe-rose);
+  background: var(--pe-rose-soft);
+  color: var(--pe-rose);
+}
+
+.tone-neutral {
+  border-color: var(--pe-border);
+  background: var(--pe-bg-card);
+  color: var(--pe-text-muted);
+}
+
+.breakable-value {
+  overflow-wrap: anywhere;
+}
+
+.reference-select-button {
+  border: 0;
+  background: transparent;
+  color: var(--pe-cyan);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.surface-tab:focus-visible,
+.toolbar-btn:focus-visible,
+.record-row:focus-visible,
+.rail-menu-item:focus-visible,
+.rail-footer-btn:focus-visible,
+.context-action-btn:focus-visible,
+.reference-select-button:focus-visible {
+  outline: 2px solid var(--pe-cyan);
+  outline-offset: 2px;
+}
+
+.rail-menu-item:disabled,
+.rail-footer-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* RTL and text helpers */
 bdi {
   unicode-bidi: isolate;
 }
 
-@media (max-width: 1240px) {
-  .workspace-grid {
-    grid-template-areas: 'left center' 'left right';
-    grid-template-columns: 11.5rem minmax(0, 1fr);
-  }
-
-  .right-context {
-    position: static;
-  }
-}
-
+/* Narrow & Mobile Safety */
 @media (max-width: 900px) {
-  .workspace {
-    padding: 0.7rem;
-  }
-
-  .top-bar,
-  .surface-heading,
-  .object-heading {
-    display: grid;
-    align-items: stretch;
-  }
-
-  .top-actions {
-    justify-content: flex-start;
-  }
-
-  .workspace-grid {
-    grid-template-areas: 'left' 'center' 'right';
+  .meta-field-row {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .left-rail {
-    position: static;
-    display: block;
-  }
-
-  .rail-heading {
-    display: none;
-  }
-
-  .area-link {
-    border-left: 1px solid #1d3143;
-    border-bottom: 0;
-  }
-
-  .workbench-grid {
+  .review-split-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .record-browser {
-    border-left: 0;
-    border-bottom: 1px solid #1d3143;
+  .review-stats-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
-}
 
-@media (max-width: 620px) {
-  .left-rail,
-  .detail-grid,
-  .dimension-grid,
-  .mastery-dimensions,
-  .form-grid,
+  .dimension-bar-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .handoff-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mastery-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.85rem;
+  }
+
+  .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .history-table li {
     grid-template-columns: minmax(0, 1fr);
   }
+}
 
-  .wide {
-    grid-column: auto;
+@media (max-width: 30rem) {
+  :global(.progress-evidence-shell .cep-primary-navigation) {
+    justify-content: flex-start;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    padding-inline: 0.65rem;
+    scroll-padding-inline: 0.65rem;
+    scroll-snap-type: inline mandatory;
+    scrollbar-gutter: stable;
   }
 
-  .portfolio-reference {
-    display: grid;
+  .surface-tab {
+    flex: 0 0 auto;
+    min-width: 8.5rem;
+    flex-direction: column;
+    gap: 0.1rem;
+    scroll-snap-align: start;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .tab-ar,
+  .tab-en {
+    overflow-wrap: normal;
+    white-space: nowrap;
+    word-break: keep-all;
+  }
+
+  .top-actions {
+    width: 100%;
+  }
+
+  .toolbar-btn {
+    min-height: 2.75rem;
   }
 }
 </style>
