@@ -311,20 +311,20 @@ const linkValidationError = ref('');
 const insertLink = (index: number) => {
   if (typeof window === 'undefined') return;
   linkValidationError.value = '';
-  const href = window.prompt('Ø£Ø¯Ø®Ù„ Ø±Ø§Ø¨Ø· HTTPS Ø§Ù„Ù…Ø±Ø¬Ø¹ÙŠ:', 'https://');
+  const href = window.prompt('أدخل رابط HTTPS المرجعي:', 'https://');
   if (!href) return;
 
   const safeHref = safeHttpsUrl(href.trim());
   if (!safeHref) {
-    linkValidationError.value = 'ÙŠÙØ³Ù…Ø­ ÙÙ‚Ø· Ø¨Ø±ÙˆØ§Ø¨Ø· HTTPS ØµØ­ÙŠØ­Ø©.';
+    linkValidationError.value = 'يُسمح فقط بروابط HTTPS صحيحة.';
     return;
   }
 
-  replaceSelection(index, '[', `](${safeHref})`, 'Ù†Øµ Ø§Ù„Ø±Ø§Ø¨Ø·');
+  replaceSelection(index, '[', `](${safeHref})`, 'نص الرابط');
 };
 const insertReference = (index: number) => {
   if (typeof window === 'undefined') return;
-  const reference = window.prompt('Ø£Ø¯Ø®Ù„ Ù…Ø¹Ø±Ù‘Ù Ø§Ù„Ù…Ø±Ø¬Ø¹ Ø£Ùˆ Ø§Ù„Ø§Ø³ØªØ´Ù‡Ø§Ø¯:');
+  const reference = window.prompt('أدخل معرّف المرجع أو الاستشهاد:');
   const normalized = reference?.trim();
   if (!normalized) return;
   if (!form.citations.includes(normalized)) form.citations.push(normalized);
@@ -635,8 +635,7 @@ const loadComparison = async () => {
   } catch {
     compareRevision.value = null;
     compareOpen.value = false;
-    compareError.value =
-      'ØªØ¹Ø°Ù‘Ø± ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø© Ù„Ù„Ù…Ù‚Ø§Ø±Ù†Ø© Ø¯ÙˆÙ† ØªØºÙŠÙŠØ± Ø§Ù„Ø³Ø¬Ù„ Ø§Ù„Ù‚Ø§Ù†ÙˆÙ†ÙŠ.';
+    compareError.value = 'تعذّر تحميل المراجعة للمقارنة دون تغيير السجل القانوني.';
   } finally {
     compareLoading.value = false;
   }
@@ -644,7 +643,7 @@ const loadComparison = async () => {
 </script>
 
 <template>
-  <Head title="Ø§Ù„Ù…Ø¹Ø±ÙØ© ÙˆØ§Ù„ØªØ¹Ù„Ù‘Ù… â€” Ø§Ù„Ù…ÙƒØªØ¨Ø©" />
+  <Head title="المعرفة والتعلّم — المكتبة" />
   <CepWorkspaceLayout active-destination="knowledge">
     <template #primaryNavigation>
       <KnowledgeTabs active="library" :object-id="active?.id" />
@@ -658,11 +657,8 @@ const loadComparison = async () => {
       <header class="border-b border-slate-800/80 bg-slate-950/90 px-4 py-3 sm:px-6">
         <div class="mx-auto flex w-full flex-wrap items-center justify-between gap-4">
           <div class="flex items-center gap-2 text-xs font-semibold text-slate-400">
-            <span>ðŸ“š</span>
-            <span
-              >Ù…ÙƒØªØ¨Ø© Ø§Ù„Ù…Ø¹Ø±ÙØ© Ø§Ù„Ù‚Ø§Ù†ÙˆÙ†ÙŠØ© â€” Ø³Ø·Ø­ Ø§Ù„ÙˆØ«Ø§Ø¦Ù‚
-              ÙˆØ§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø§Øª</span
-            >
+            <span>📚</span>
+            <span>مكتبة المعرفة القانونية — سطح الوثائق والمراجعات</span>
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
@@ -671,21 +667,21 @@ const loadComparison = async () => {
                 type="button"
                 class="focus-ring rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-800 disabled:opacity-40"
                 :disabled="!undoStack.length || form.processing"
-                title="ØªØ±Ø§Ø¬Ø¹ Ø¹Ù† Ø¢Ø®Ø± ØªØ¹Ø¯ÙŠÙ„"
-                aria-label="ØªØ±Ø§Ø¬Ø¹ Ø¹Ù† Ø¢Ø®Ø± ØªØ¹Ø¯ÙŠÙ„"
+                title="تراجع عن آخر تعديل"
+                aria-label="تراجع عن آخر تعديل"
                 @click="undo"
               >
-                ØªØ±Ø§Ø¬Ø¹
+                تراجع
               </button>
               <button
                 type="button"
                 class="focus-ring rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-800 disabled:opacity-40"
                 :disabled="!redoStack.length || form.processing"
-                title="Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ù…ØªØ±Ø§Ø¬Ø¹ Ø¹Ù†Ù‡"
-                aria-label="Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ù…ØªØ±Ø§Ø¬Ø¹ Ø¹Ù†Ù‡"
+                title="إعادة التعديل المتراجع عنه"
+                aria-label="إعادة التعديل المتراجع عنه"
                 @click="redo"
               >
-                Ø¥Ø¹Ø§Ø¯Ø©
+                إعادة
               </button>
               <span
                 class="flex items-center gap-1.5 px-2 text-xs"
@@ -718,14 +714,14 @@ const loadComparison = async () => {
                 />
                 {{
                   autosaveState === 'saving'
-                    ? 'Ø¬Ø§Ø±ÙŠ Ø§Ù„Ø­ÙØ¸ Ø§Ù„ØªÙ„Ù‚Ø§Ø¦ÙŠâ€¦'
+                    ? 'جاري الحفظ التلقائي…'
                     : autosaveState === 'saved'
-                      ? 'Ù…Ø³ÙˆØ¯Ø© Ù…Ø­ÙÙˆØ¸Ø© ØªÙ„Ù‚Ø§Ø¦ÙŠÙ‹Ø§'
+                      ? 'مسودة محفوظة تلقائيًا'
                       : autosaveState === 'error'
-                        ? 'ØªØ¹Ø°Ù‘Ø± Ø§Ù„Ø­ÙØ¸ Ø§Ù„ØªÙ„Ù‚Ø§Ø¦ÙŠ'
+                        ? 'تعذّر الحفظ التلقائي'
                         : autosaveState === 'pending'
-                          ? 'ØªØ¹Ø¯ÙŠÙ„Ø§Øª ØºÙŠØ± Ù…Ø­ÙÙˆØ¸Ø©â€¦'
-                          : 'Ø§Ù„Ù…Ø³ÙˆØ¯Ø© Ù…ØªØ²Ø§Ù…Ù†Ø©'
+                          ? 'تعديلات غير محفوظة…'
+                          : 'المسودة متزامنة'
                 }}
               </span>
               <button
@@ -733,19 +729,19 @@ const loadComparison = async () => {
                 form="knowledge-editor"
                 class="focus-ring rounded-lg bg-cyan-400 px-4 py-1.5 text-xs font-bold text-slate-950 shadow-sm transition hover:bg-cyan-300 disabled:opacity-50"
                 :disabled="form.processing"
-                aria-label="Ø­ÙØ¸ ÙˆØªØ·Ø¨ÙŠÙ‚ Ø§Ù„ØªØ¹Ø¯ÙŠÙ„Ø§Øª Ø¹Ù„Ù‰ Ø§Ù„Ù…Ø³ÙˆØ¯Ø©"
+                aria-label="حفظ وتطبيق التعديلات على المسودة"
               >
-                Ø­ÙØ¸ / ØªØ·Ø¨ÙŠÙ‚
+                حفظ / تطبيق
               </button>
             </template>
             <button
               v-else-if="active?.revision?.state === 'published'"
               type="button"
               class="focus-ring rounded-lg border border-cyan-500/80 bg-cyan-950/40 px-4 py-1.5 text-xs font-bold text-cyan-200 transition hover:bg-cyan-900/50"
-              aria-label="Ø¥Ù†Ø´Ø§Ø¡ Ù…Ø³ÙˆØ¯Ø© Ø¬Ø¯ÙŠØ¯Ø© Ù…Ù† Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø© Ø§Ù„Ù…Ù†Ø´ÙˆØ±Ø©"
+              aria-label="إنشاء مسودة جديدة من هذه المراجعة المنشورة"
               @click="restore"
             >
-              Ø¥Ù†Ø´Ø§Ø¡ Ù…Ø³ÙˆØ¯Ø© Ø¬Ø¯ÙŠØ¯Ø©
+              إنشاء مسودة جديدة
             </button>
           </div>
         </div>
@@ -767,10 +763,10 @@ const loadComparison = async () => {
           role="status"
         >
           <div class="flex items-center gap-2">
-            <span class="text-amber-400">âš ï¸</span>
+            <span class="text-amber-400">⚠️</span>
             <div>
               <p class="text-xs font-bold text-amber-200">
-                ØªÙˆØ¬Ø¯ Ù†Ø³Ø®Ø© Ø§Ø³ØªØ±Ø¯Ø§Ø¯ Ù…Ø­Ù„ÙŠØ© Ø£Ø­Ø¯Ø« Ù„Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø³ÙˆØ¯Ø©.
+                توجد نسخة استرداد محلية أحدث لهذه المسودة.
               </p>
               <bdi dir="ltr" class="font-mono text-[10px] text-amber-300/80">
                 {{ recoveryCandidate.saved_at }}
@@ -781,18 +777,18 @@ const loadComparison = async () => {
             <button
               type="button"
               class="focus-ring rounded-lg bg-amber-300 px-3 py-1 text-xs font-bold text-slate-950 hover:bg-amber-200"
-              aria-label="Ø§Ø³ØªØ±Ø¯Ø§Ø¯ Ø§Ù„Ù…Ø³ÙˆØ¯Ø© Ø§Ù„Ù…Ø­Ù„ÙŠØ© Ø§Ù„Ù…Ø­ÙÙˆØ¸Ø©"
+              aria-label="استرداد المسودة المحلية المحفوظة"
               @click="recoverDraft"
             >
-              Ø§Ø³ØªØ±Ø¯Ø§Ø¯
+              استرداد
             </button>
             <button
               type="button"
               class="focus-ring rounded-lg border border-amber-700/80 px-3 py-1 text-xs text-amber-200 hover:bg-amber-900/40"
-              aria-label="ØªØ¬Ø§Ù‡Ù„ Ø§Ù„Ù…Ø³ÙˆØ¯Ø© Ø§Ù„Ù…Ø­Ù„ÙŠØ© Ø§Ù„Ù…Ø­ÙÙˆØ¸Ø©"
+              aria-label="تجاهل المسودة المحلية المحفوظة"
               @click="discardRecovery"
             >
-              ØªØ¬Ø§Ù‡Ù„
+              تجاهل
             </button>
           </div>
         </section>
@@ -809,21 +805,21 @@ const loadComparison = async () => {
           <aside
             dir="rtl"
             class="order-2 flex min-w-0 flex-col rounded-xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-sm md:order-1 md:max-h-[calc(100vh-10rem)] xl:max-h-none"
-            aria-label="Ø¨Ù†ÙŠØ© Ø§Ù„Ù…ÙƒØªØ¨Ø©"
+            aria-label="بنية المكتبة"
           >
             <!-- Search Filter -->
             <div class="relative">
               <input
                 v-model="searchQuery"
                 type="search"
-                placeholder="Ø§Ù„Ø¨Ø­Ø« ÙÙŠ Ø§Ù„Ù…ÙƒØªØ¨Ø©â€¦"
+                placeholder="البحث في المكتبة…"
                 class="form-input focus-ring w-full rounded-lg border-slate-700/80 bg-slate-950/80 py-2 pr-3 pl-8 text-xs text-slate-200 placeholder:text-slate-500"
-                aria-label="Ø§Ù„Ø¨Ø­Ø« ÙÙŠ ÙˆØ­Ø¯Ø§Øª Ø§Ù„Ù…Ø¹Ø±ÙØ©"
+                aria-label="البحث في وحدات المعرفة"
               />
               <span
                 class="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-slate-500"
               >
-                ðŸ”
+                🔍
               </span>
             </div>
 
@@ -837,12 +833,10 @@ const loadComparison = async () => {
               class="mt-4 flex items-center justify-between border-t border-slate-800/80 pt-3 text-xs text-slate-400"
             >
               <span class="flex items-center gap-1.5">
-                <span>âš™ï¸</span>
-                <span>Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù…ÙƒØªØ¨Ø©</span>
+                <span>⚙️</span>
+                <span>إدارة المكتبة</span>
               </span>
-              <span class="font-mono text-[10px] text-slate-500"
-                >{{ catalog.length }} ÙƒØ§Ø¦Ù†</span
-              >
+              <span class="font-mono text-[10px] text-slate-500">{{ catalog.length }} كائن</span>
             </div>
           </aside>
 
@@ -850,7 +844,7 @@ const loadComparison = async () => {
           <main
             dir="rtl"
             class="order-1 flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur sm:p-5 md:order-2 xl:p-7 dark:bg-[#0b1322]/90"
-            aria-label="ÙˆØ­Ø¯Ø© Ø§Ù„Ù…Ø¹Ø±ÙØ© Ø§Ù„Ù‚Ø§Ù†ÙˆÙ†ÙŠØ©"
+            aria-label="وحدة المعرفة القانونية"
           >
             <div v-if="active" class="flex min-w-0 flex-1 flex-col">
               <!-- Document Meta Header -->
@@ -858,7 +852,7 @@ const loadComparison = async () => {
                 <!-- Breadcrumbs & Actions Row -->
                 <div class="flex flex-wrap items-center justify-between gap-3 text-xs">
                   <nav
-                    aria-label="Ù…Ø³Ø§Ø± Ø§Ù„ÙˆØ­Ø¯Ø©"
+                    aria-label="مسار الوحدة"
                     class="flex items-center gap-1.5 font-mono text-slate-400"
                   >
                     <span class="font-semibold text-slate-300">{{ active.title_ar }}</span>
@@ -873,11 +867,11 @@ const loadComparison = async () => {
                     <button
                       type="button"
                       class="focus-ring rounded-lg p-1.5 transition hover:bg-slate-800 hover:text-cyan-300"
-                      title="Ù†Ø³Ø® Ø§Ù„Ù…Ø¹Ø±Ù"
-                      aria-label="Ù†Ø³Ø® Ù…Ø¹Ø±Ù‘Ù Ø§Ù„ÙˆØ­Ø¯Ø©"
+                      title="نسخ المعرف"
+                      aria-label="نسخ معرّف الوحدة"
                       @click="copyBlockText(active.id, -1)"
                     >
-                      ðŸ“‹
+                      📋
                     </button>
                   </div>
                 </div>
@@ -906,31 +900,31 @@ const loadComparison = async () => {
                               : 'bg-amber-400'
                           "
                         />
-                        {{ active.revision.state === 'published' ? 'Ù…Ù†Ø´ÙˆØ±' : 'Ù…Ø³ÙˆØ¯Ø©' }}
+                        {{ active.revision.state === 'published' ? 'منشور' : 'مسودة' }}
                       </span>
                     </div>
                     <div
                       class="mt-2 flex flex-wrap items-center gap-3 font-mono text-xs text-slate-400"
                     >
                       <bdi dir="ltr" class="font-bold text-cyan-300">{{ active.id }}</bdi>
-                      <span class="text-slate-600">Â·</span>
+                      <span class="text-slate-600">·</span>
                       <span class="text-slate-400"
                         >lock v{{ active.revision?.lock_version ?? 1 }}</span
                       >
-                      <span class="text-slate-600">Â·</span>
+                      <span class="text-slate-600">·</span>
                       <span class="text-slate-400"
-                        >Ù…Ø±Ø§Ø¬Ø¹Ø© {{ active.revision?.revision ?? 1 }}</span
+                        >مراجعة {{ active.revision?.revision ?? 1 }}</span
                       >
                       <span
                         v-if="active.revision?.updated_at || active.revision?.published_at"
                         class="text-slate-600"
-                        >Â·</span
+                        >·</span
                       >
                       <span
                         v-if="active.revision?.updated_at || active.revision?.published_at"
                         class="text-slate-500"
                       >
-                        Ø¢Ø®Ø± ØªØ­Ø¯ÙŠØ«:
+                        آخر تحديث:
                         {{
                           (active.revision.updated_at ?? active.revision.published_at)?.slice(0, 10)
                         }}
@@ -982,28 +976,28 @@ const loadComparison = async () => {
                     <div
                       class="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-2 text-xs"
                       role="toolbar"
-                      :aria-label="`Ø£Ø¯ÙˆØ§Øª Ø§Ù„ÙƒØªÙ„Ø© ${index + 1}`"
+                      :aria-label="`أدوات الكتلة ${index + 1}`"
                     >
                       <div class="flex flex-wrap items-center gap-2">
                         <select
                           v-model="block.type"
                           class="form-input focus-ring rounded-md border-slate-700 bg-slate-900 py-1 pr-2 pl-6 font-mono text-xs text-slate-200"
-                          :aria-label="`Ù†ÙˆØ¹ Ø§Ù„ÙƒØªÙ„Ø© ${index + 1}`"
+                          :aria-label="`نوع الكتلة ${index + 1}`"
                         >
-                          <option value="paragraph">ÙÙ‚Ø±Ø© (Paragraph)</option>
-                          <option value="callout">Ù…Ù„Ø§Ø­Ø¸Ø© Ø¨Ø§Ø±Ø²Ø© (Callout)</option>
-                          <option value="rules">Ù‚ÙˆØ§Ø¹Ø¯ ÙˆØ¶ÙˆØ§Ø¨Ø· (Rules)</option>
-                          <option value="boundaries">Ø­Ø¯ÙˆØ¯ ÙˆØ³ÙŠØ§Ù‚ (Boundaries)</option>
-                          <option value="heading">Ø¹Ù†ÙˆØ§Ù† ÙØ±Ø¹ÙŠ (Heading)</option>
-                          <option value="list">Ù‚Ø§Ø¦Ù…Ø© (List)</option>
-                          <option value="code">Ø´ÙØ±Ø© Ø¨Ø±Ù…Ø¬ÙŠØ© (Code)</option>
-                          <option value="sql">Ø§Ø³ØªØ¹Ù„Ø§Ù… SQL (SQL)</option>
-                          <option value="bash">Ø£ÙˆØ§Ù…Ø± Ø·Ø±ÙÙŠØ© (Bash)</option>
-                          <option value="json">Ø¨ÙŠØ§Ù†Ø§Øª (JSON)</option>
+                          <option value="paragraph">فقرة (Paragraph)</option>
+                          <option value="callout">ملاحظة بارزة (Callout)</option>
+                          <option value="rules">قواعد وضوابط (Rules)</option>
+                          <option value="boundaries">حدود وسياق (Boundaries)</option>
+                          <option value="heading">عنوان فرعي (Heading)</option>
+                          <option value="list">قائمة (List)</option>
+                          <option value="code">شفرة برمجية (Code)</option>
+                          <option value="sql">استعلام SQL (SQL)</option>
+                          <option value="bash">أوامر طرفية (Bash)</option>
+                          <option value="json">بيانات (JSON)</option>
                         </select>
 
                         <span class="font-mono text-[10px] text-slate-500"
-                          >Ø¹Ù…Ù‚ {{ block.depth }}</span
+                          >عمق {{ block.depth }}</span
                         >
                       </div>
 
@@ -1012,47 +1006,47 @@ const loadComparison = async () => {
                           type="button"
                           class="focus-ring rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-30"
                           :disabled="!canMoveBlock(index, -1)"
-                          title="ØªØ­Ø±ÙŠÙƒ Ù„Ø£Ø¹Ù„Ù‰"
-                          :aria-label="`ØªØ­Ø±ÙŠÙƒ Ø§Ù„ÙƒØªÙ„Ø© ${index + 1} Ù„Ø£Ø¹Ù„Ù‰`"
+                          title="تحريك لأعلى"
+                          :aria-label="`تحريك الكتلة ${index + 1} لأعلى`"
                           @click="moveBlock(index, -1)"
                         >
-                          â–²
+                          ▲
                         </button>
                         <button
                           type="button"
                           class="focus-ring rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-30"
                           :disabled="!canMoveBlock(index, 1)"
-                          title="ØªØ­Ø±ÙŠÙƒ Ù„Ø£Ø³ÙÙ„"
-                          :aria-label="`ØªØ­Ø±ÙŠÙƒ Ø§Ù„ÙƒØªÙ„Ø© ${index + 1} Ù„Ø£Ø³ÙÙ„`"
+                          title="تحريك لأسفل"
+                          :aria-label="`تحريك الكتلة ${index + 1} لأسفل`"
                           @click="moveBlock(index, 1)"
                         >
-                          â–¼
+                          ▼
                         </button>
                         <button
                           type="button"
                           class="focus-ring rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-30"
                           :disabled="!canIndentBlock(index)"
-                          title="Ø¥Ø²Ø§Ø­Ø© Ù„Ù„Ø¯Ø§Ø®Ù„ (Ø²ÙŠØ§Ø¯Ø© Ø§Ù„Ø¹Ù…Ù‚)"
-                          :aria-label="`Ø²ÙŠØ§Ø¯Ø© Ø¹Ù…Ù‚ Ø§Ù„ÙƒØªÙ„Ø© ${index + 1}`"
+                          title="إزاحة للداخل (زيادة العمق)"
+                          :aria-label="`زيادة عمق الكتلة ${index + 1}`"
                           @click="indentBlock(index)"
                         >
-                          â†’
+                          →
                         </button>
                         <button
                           type="button"
                           class="focus-ring rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-30"
                           :disabled="!canOutdentBlock(index)"
-                          title="Ø¥Ø²Ø§Ø­Ø© Ù„Ù„Ø®Ø§Ø±Ø¬ (ØªÙ‚Ù„ÙŠÙ„ Ø§Ù„Ø¹Ù…Ù‚)"
-                          :aria-label="`ØªÙ‚Ù„ÙŠÙ„ Ø¹Ù…Ù‚ Ø§Ù„ÙƒØªÙ„Ø© ${index + 1}`"
+                          title="إزاحة للخارج (تقليل العمق)"
+                          :aria-label="`تقليل عمق الكتلة ${index + 1}`"
                           @click="outdentBlock(index)"
                         >
-                          â†
+                          ←
                         </button>
                         <span class="text-slate-700">|</span>
                         <button
                           type="button"
                           class="focus-ring rounded p-1 text-xs font-bold text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                          title="Ø®Ø· Ø¹Ø±ÙŠØ¶"
+                          title="خط عريض"
                           @click="replaceSelection(index, '**')"
                         >
                           B
@@ -1060,7 +1054,7 @@ const loadComparison = async () => {
                         <button
                           type="button"
                           class="focus-ring rounded p-1 text-xs text-slate-400 italic hover:bg-slate-800 hover:text-slate-200"
-                          title="Ø®Ø· Ù…Ø§Ø¦Ù„"
+                          title="خط مائل"
                           @click="replaceSelection(index, '_')"
                         >
                           I
@@ -1068,7 +1062,7 @@ const loadComparison = async () => {
                         <button
                           type="button"
                           class="focus-ring rounded p-1 font-mono text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                          title="Ø±Ù…Ø² ÙƒÙˆØ¯"
+                          title="رمز كود"
                           @click="replaceSelection(index, '`')"
                         >
                           &lt;/&gt;
@@ -1076,29 +1070,29 @@ const loadComparison = async () => {
                         <button
                           type="button"
                           class="focus-ring rounded p-1 text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                          title="Ø¥Ø¯Ø±Ø§Ø¬ Ø±Ø§Ø¨Ø· Ù…Ø±Ø¬Ø¹ÙŠ"
+                          title="إدراج رابط مرجعي"
                           @click="insertLink(index)"
                         >
-                          ðŸ”—
+                          🔗
                         </button>
                         <button
                           type="button"
                           class="focus-ring rounded p-1 text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                          title="Ø¥Ø¯Ø±Ø§Ø¬ Ø§Ø³ØªØ´Ù‡Ø§Ø¯"
+                          title="إدراج استشهاد"
                           @click="insertReference(index)"
                         >
-                          ðŸ·ï¸
+                          🏷️
                         </button>
                         <span class="text-slate-700">|</span>
                         <button
                           type="button"
                           class="focus-ring rounded p-1 text-rose-400 hover:bg-rose-950/40 disabled:opacity-30"
                           :disabled="form.blocks.length <= 1"
-                          title="Ø­Ø°Ù Ø§Ù„ÙƒØªÙ„Ø©"
-                          :aria-label="`Ø­Ø°Ù Ø§Ù„ÙƒØªÙ„Ø© ${index + 1}`"
+                          title="حذف الكتلة"
+                          :aria-label="`حذف الكتلة ${index + 1}`"
                           @click="removeBlock(index)"
                         >
-                          ðŸ—‘ï¸
+                          🗑️
                         </button>
                       </div>
                     </div>
@@ -1115,8 +1109,8 @@ const loadComparison = async () => {
                           ? 'font-mono text-emerald-300'
                           : 'leading-relaxed'
                       "
-                      placeholder="Ø§ÙƒØªØ¨ Ù…Ø­ØªÙˆÙ‰ Ù‡Ø°Ù‡ Ø§Ù„ÙƒØªÙ„Ø©â€¦"
-                      :aria-label="`Ù…Ø­ØªÙˆÙ‰ Ø§Ù„ÙƒØªÙ„Ø© ${index + 1}`"
+                      placeholder="اكتب محتوى هذه الكتلة…"
+                      :aria-label="`محتوى الكتلة ${index + 1}`"
                     />
                   </article>
 
@@ -1124,11 +1118,11 @@ const loadComparison = async () => {
                     <button
                       type="button"
                       class="focus-ring flex items-center gap-1.5 rounded-lg border border-dashed border-slate-700 bg-slate-900/40 px-3.5 py-2 text-xs font-semibold text-slate-300 transition hover:border-cyan-500/60 hover:bg-cyan-950/20 hover:text-cyan-200"
-                      aria-label="Ø¥Ø¶Ø§ÙØ© ÙƒØªÙ„Ø© Ù…Ø­ØªÙˆÙ‰ Ø¬Ø¯ÙŠØ¯Ø©"
+                      aria-label="إضافة كتلة محتوى جديدة"
                       @click="addBlock"
                     >
-                      <span>ï¼‹</span>
-                      <span>Ø¥Ø¶Ø§ÙØ© ÙƒØªÙ„Ø© Ø¬Ø¯ÙŠØ¯Ø©</span>
+                      <span>＋</span>
+                      <span>إضافة كتلة جديدة</span>
                     </button>
 
                     <p v-if="linkValidationError" class="text-xs text-rose-400">
@@ -1164,10 +1158,10 @@ const loadComparison = async () => {
                         <button
                           type="button"
                           class="focus-ring rounded px-1.5 py-0.5 text-[10px] text-slate-500 hover:text-slate-300"
-                          title="Ù†Ø³Ø® Ù…Ø­ØªÙˆÙ‰ Ø§Ù„ÙƒØªÙ„Ø©"
+                          title="نسخ محتوى الكتلة"
                           @click="copyBlockText(block.body, index)"
                         >
-                          {{ copiedBlockIndex === index ? 'ØªÙ… Ø§Ù„Ù†Ø³Ø® âœ“' : 'Ù†Ø³Ø®' }}
+                          {{ copiedBlockIndex === index ? 'تم النسخ ✓' : 'نسخ' }}
                         </button>
                       </div>
 
@@ -1210,7 +1204,7 @@ const loadComparison = async () => {
                     v-else
                     class="rounded-2xl border border-dashed border-slate-800 bg-slate-950/40 p-8 text-center text-xs text-slate-500"
                   >
-                    Ù„Ø§ ØªÙˆØ¬Ø¯ ÙƒØªÙ„ Ù…Ø­ØªÙˆÙ‰ Ù…Ø¶Ø§ÙØ© Ù„Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø© Ø¨Ø¹Ø¯.
+                    لا توجد كتل محتوى مضافة لهذه المراجعة بعد.
                   </div>
                 </div>
               </div>
@@ -1221,21 +1215,21 @@ const loadComparison = async () => {
               >
                 <div class="flex items-center gap-3">
                   <span
-                    >ØªÙ‚Ø¯ÙŠØ± Ø§Ù„Ù‚Ø±Ø§Ø¡Ø©:
+                    >تقدير القراءة:
                     <strong class="font-mono text-slate-400"
-                      >{{ readingTimeMinutes }} Ø¯Ù‚ÙŠÙ‚Ø©</strong
+                      >{{ readingTimeMinutes }} دقيقة</strong
                     ></span
                   >
-                  <span>Â·</span>
+                  <span>·</span>
                   <span
-                    >Ø¹Ø¯Ø¯ Ø§Ù„ÙƒØªÙ„:
+                    >عدد الكتل:
                     <strong class="font-mono text-slate-400">{{
                       displayedBlocks.length
                     }}</strong></span
                   >
-                  <span>Â·</span>
+                  <span>·</span>
                   <span
-                    >Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„ÙƒÙ„Ù…Ø§Øª:
+                    >إجمالي الكلمات:
                     <strong class="font-mono text-slate-400">{{ totalWordCount }}</strong></span
                   >
                 </div>
@@ -1248,23 +1242,21 @@ const loadComparison = async () => {
             <!-- Empty Library Placeholder -->
             <div v-else class="grid flex-1 place-items-center text-center text-slate-500">
               <div>
-                <h1 class="text-xl font-bold text-slate-300">Ø§Ù„Ù…ÙƒØªØ¨Ø© ÙØ§Ø±ØºØ©</h1>
-                <p class="mt-2 text-xs">
-                  Ù„Ø§ ØªÙˆØ¬Ø¯ ÙˆØ­Ø¯Ø§Øª Ù…Ø¹Ø±ÙÙŠØ© Ù…Ø¤Ù‡Ù„Ø© Ù„Ù„Ø¹Ø±Ø¶.
-                </p>
+                <h1 class="text-xl font-bold text-slate-300">المكتبة فارغة</h1>
+                <p class="mt-2 text-xs">لا توجد وحدات معرفية مؤهلة للعرض.</p>
               </div>
             </div>
           </main>
 
-          <!-- Visual RIGHT: Context Panel ("Ø§Ù„Ø³ÙŠØ§Ù‚") -->
+          <!-- Visual RIGHT: Context Panel ("السياق") -->
           <aside
             dir="rtl"
             class="order-3 flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur md:col-span-2 xl:col-span-1 dark:bg-[#0b1322]/90"
-            aria-label="Ø§Ù„Ø³ÙŠØ§Ù‚"
+            aria-label="السياق"
           >
             <!-- Context Header -->
             <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
-              <h2 class="text-sm font-bold text-slate-100">Ø§Ù„Ø³ÙŠØ§Ù‚</h2>
+              <h2 class="text-sm font-bold text-slate-100">السياق</h2>
               <span class="font-mono text-[10px] text-slate-500">GOVERNED CONTEXT</span>
             </div>
 
@@ -1283,16 +1275,14 @@ const loadComparison = async () => {
                   "
                   @click="setLens(item)"
                 >
-                  {{ item === 'overview' ? 'Ù†Ø¸Ø±Ø© Ø¹Ø§Ù…Ø©' : 'Ø§Ù„Ù…ØµØ§Ø¯Ø±' }}
+                  {{ item === 'overview' ? 'نظرة عامة' : 'المصادر' }}
                 </button>
               </div>
 
               <!-- Lens: Overview -->
               <div v-if="lens === 'overview'" class="space-y-3">
                 <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-                  <h3 class="font-bold text-slate-400">
-                    Ø³Ù„Ø·Ø© Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø© Ø§Ù„Ù…Ø±ØªØ¨Ø·Ø©
-                  </h3>
+                  <h3 class="font-bold text-slate-400">سلطة المراجعة المرتبطة</h3>
                   <bdi
                     v-if="active?.revision?.authority_baseline_id"
                     dir="ltr"
@@ -1300,17 +1290,13 @@ const loadComparison = async () => {
                   >
                     {{ active.revision.authority_baseline_id }}
                   </bdi>
-                  <p v-else class="mt-1 text-slate-500">
-                    Ù„Ø§ ØªÙˆØ¬Ø¯ Ø³Ù„Ø·Ø© Ù…Ø±Ø§Ø¬Ø¹Ø© Ù…Ø³Ø¬Ù„Ø©.
-                  </p>
+                  <p v-else class="mt-1 text-slate-500">لا توجد سلطة مراجعة مسجلة.</p>
                 </section>
 
                 <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-                  <h3 class="font-bold text-slate-400">
-                    Ø³Ù„Ø§Ù…Ø© Ø§Ù„Ø§Ø³ØªØ´Ù‡Ø§Ø¯Ø§Øª ÙˆØ§Ù„Ù…Ù†Ø´Ø£
-                  </h3>
+                  <h3 class="font-bold text-slate-400">سلامة الاستشهادات والمنشأ</h3>
                   <p class="mt-1 text-slate-300">
-                    Ù…Ø±Ø§Ø¬Ø¹ ØºÙŠØ± Ù…Ø­Ù„ÙˆÙ„Ø©:
+                    مراجع غير محلولة:
                     <bdi dir="ltr" class="font-mono font-bold text-emerald-400">
                       {{ context.unresolved_citation_count }}
                     </bdi>
@@ -1318,15 +1304,13 @@ const loadComparison = async () => {
                 </section>
 
                 <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-                  <h3 class="font-bold text-slate-400">Ù…ÙˆØ¶Ø¹ Ø§Ù„Ù…Ù†Ù‡Ø¬</h3>
+                  <h3 class="font-bold text-slate-400">موضع المنهج</h3>
                   <div v-if="context.placements.length" class="mt-1.5 font-mono text-[11px]">
                     <bdi dir="ltr" class="text-cyan-200">
                       {{ context.placements[0]?.capability_id }}
                     </bdi>
                   </div>
-                  <p v-else class="mt-1 text-slate-500">
-                    Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ù…ÙˆØ¶Ø¹ Ù…Ù†Ù‡Ø¬ÙŠ Ù…Ø³Ø¬Ù„ Ù„Ù‡Ø°Ù‡ Ø§Ù„ÙˆØ­Ø¯Ø©.
-                  </p>
+                  <p v-else class="mt-1 text-slate-500">لا يوجد موضع منهجي مسجل لهذه الوحدة.</p>
                 </section>
               </div>
 
@@ -1347,9 +1331,7 @@ const loadComparison = async () => {
                       </span>
                     </div>
                     <div class="mt-2 flex items-center justify-between text-[11px]">
-                      <span class="text-slate-500"
-                        >Ø­Ø§Ù„Ø© Ù…Ø±Ø§Ø¬Ø¹Ø© Ø§Ù„Ù…ØµØ¯Ø± Ø§Ù„Ù…Ø³Ø¬Ù„Ø©:</span
-                      >
+                      <span class="text-slate-500">حالة مراجعة المصدر المسجلة:</span>
                       <bdi dir="ltr" class="font-mono text-cyan-300">{{
                         source.review_status
                       }}</bdi>
@@ -1360,7 +1342,7 @@ const loadComparison = async () => {
                   v-else
                   class="rounded-lg border border-dashed border-slate-800 bg-slate-950/40 p-4 text-center text-slate-500"
                 >
-                  Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…ØµØ§Ø¯Ø± Ù…Ø³Ù†Ø¯Ø© Ù„Ù‡Ø°Ù‡ Ø§Ù„ÙˆØ­Ø¯Ø© Ø§Ù„Ù…Ø¹Ø±ÙÙŠØ©.
+                  لا توجد مصادر مسندة لهذه الوحدة المعرفية.
                 </p>
               </div>
 
@@ -1369,7 +1351,7 @@ const loadComparison = async () => {
                 v-if="active?.revision?.editable && form.citations.length"
                 class="rounded-lg border border-slate-800 bg-slate-950/60 p-3"
               >
-                <h3 class="font-bold text-slate-400">Ø§Ù„Ø§Ø³ØªØ´Ù‡Ø§Ø¯Ø§Øª Ø§Ù„Ù…Ø¶Ø§ÙØ©</h3>
+                <h3 class="font-bold text-slate-400">الاستشهادات المضافة</h3>
                 <div class="mt-2 flex flex-wrap gap-1.5">
                   <span
                     v-for="citation in form.citations"
@@ -1380,10 +1362,10 @@ const loadComparison = async () => {
                     <button
                       type="button"
                       class="hover:text-rose-400"
-                      :aria-label="`Ø­Ø°Ù Ø§Ø³ØªØ´Ù‡Ø§Ø¯ ${citation}`"
+                      :aria-label="`حذف استشهاد ${citation}`"
                       @click="removeCitation(citation)"
                     >
-                      âœ•
+                      ✕
                     </button>
                   </span>
                 </div>
@@ -1397,7 +1379,7 @@ const loadComparison = async () => {
       <aside
         dir="rtl"
         class="mt-auto border-t border-slate-800/90 bg-slate-950/95 transition-all"
-        aria-label="Ø§Ù„Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø³ÙÙ„ÙŠØ© Ù„Ù„Ø³ÙŠØ§Ù‚ ÙˆØ§Ù„ØªØ´Ø®ÙŠØµ"
+        aria-label="المساحة السفلية للسياق والتشخيص"
       >
         <!-- Collapsed Header Bar with Accessible Toggle -->
         <div class="mx-auto flex max-w-[1720px] items-center justify-between px-4 py-2 sm:px-6">
@@ -1407,14 +1389,10 @@ const loadComparison = async () => {
               class="focus-ring flex items-center gap-1.5 rounded-lg border border-slate-700/80 bg-slate-900/80 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:bg-slate-800"
               :aria-expanded="shelfOpen"
               aria-controls="bottom-shelf-drawer"
-              aria-label="Ø·ÙŠ Ø£Ùˆ ØªÙˆØ³ÙŠØ¹ Ø§Ù„Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø³ÙÙ„ÙŠØ©"
+              aria-label="طي أو توسيع المساحة السفلية"
               @click="toggleShelf"
             >
-              <span>{{
-                shelfOpen
-                  ? 'â–¼ Ø¥Ø®ÙØ§Ø¡ Ø§Ù„Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø³ÙÙ„ÙŠØ©'
-                  : 'â–² Ù…Ø³Ø§Ø­Ø© Ø§Ù„ØªØ´Ø®ÙŠØµ ÙˆØ§Ù„Ù…Ù‚Ø§Ø±Ù†Ø©'
-              }}</span>
+              <span>{{ shelfOpen ? '▼ إخفاء المساحة السفلية' : '▲ مساحة التشخيص والمقارنة' }}</span>
             </button>
 
             <div class="flex items-center gap-1.5 text-xs">
@@ -1426,13 +1404,13 @@ const loadComparison = async () => {
                     ? 'bg-slate-800 font-bold text-cyan-200'
                     : 'text-slate-400 hover:text-slate-200'
                 "
-                aria-label="Ù…Ù‚Ø§Ø±Ù†Ø© Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø§Øª Ø§Ù„Ø¨Ù†ÙŠÙˆÙŠØ©"
+                aria-label="مقارنة المراجعات البنيوية"
                 @click="
                   shelfOpen = true;
                   shelfTab = 'compare';
                 "
               >
-                Ù…Ù‚Ø§Ø±Ù†Ø© Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø§Øª ({{ historicalRevisions.length }})
+                مقارنة المراجعات ({{ historicalRevisions.length }})
               </button>
               <button
                 type="button"
@@ -1442,33 +1420,27 @@ const loadComparison = async () => {
                     ? 'bg-slate-800 font-bold text-cyan-200'
                     : 'text-slate-400 hover:text-slate-200'
                 "
-                aria-label="ØªØ´Ø®ÙŠØµ Ø§Ù„ØªØ²Ø§Ù…Ù† ÙˆØ§Ù„ØªØ¶Ø§Ø±Ø¨"
+                aria-label="تشخيص التزامن والتضارب"
                 @click="
                   shelfOpen = true;
                   shelfTab = 'diagnostics';
                 "
               >
-                ØªØ´Ø®ÙŠØµ Ø§Ù„ØªØ²Ø§Ù…Ù†
+                تشخيص التزامن
               </button>
             </div>
           </div>
 
           <div class="flex items-center gap-2 text-xs text-slate-500">
-            <span class="hidden md:inline"
-              >Ù…Ø³Ø§Ø­Ø© Ù…Ù‚Ø§Ø±Ù†Ø© Ù…Ø¤Ù‚ØªØ© â€” Ù…ØºÙ„Ù‚Ø© Ø§ÙØªØ±Ø§Ø¶ÙŠÙ‹Ø§</span
-            >
+            <span class="hidden md:inline">مساحة مقارنة مؤقتة — مغلقة افتراضيًا</span>
             <button
               type="button"
               class="focus-ring text-xs text-slate-500 hover:text-slate-300"
-              :title="shelfOpen ? 'Ø·ÙŠ' : 'ØªÙˆØ³ÙŠØ¹'"
-              :aria-label="
-                shelfOpen
-                  ? 'Ø·ÙŠ Ø§Ù„Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø³ÙÙ„ÙŠØ©'
-                  : 'ØªÙˆØ³ÙŠØ¹ Ø§Ù„Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø³ÙÙ„ÙŠØ©'
-              "
+              :title="shelfOpen ? 'طي' : 'توسيع'"
+              :aria-label="shelfOpen ? 'طي المساحة السفلية' : 'توسيع المساحة السفلية'"
               @click="toggleShelf"
             >
-              {{ shelfOpen ? 'Ø¥ØºÙ„Ø§Ù‚ âœ•' : 'ØªÙˆØ³ÙŠØ¹ â†—' }}
+              {{ shelfOpen ? 'إغلاق ✕' : 'توسيع ↗' }}
             </button>
           </div>
         </div>
@@ -1485,36 +1457,35 @@ const loadComparison = async () => {
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 class="text-sm font-bold text-slate-200">
-                    Ù…Ù‚Ø§Ø±Ù†Ø© Ù…Ø±Ø§Ø¬Ø¹ØªÙŠÙ† Ø¯ÙˆÙ† ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ø³Ø¬Ù„ Ø§Ù„Ù…Ù†Ø´ÙˆØ±
+                    مقارنة مراجعتين دون تعديل السجل المنشور
                   </h3>
                   <p class="text-xs text-slate-400">
-                    Ø§Ù„Ù…Ù‚Ø§Ø±Ù†Ø© Ù„Ù„Ù‚Ø±Ø§Ø¡Ø© ÙÙ‚Ø·Ø› Ø£ÙŠ Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ù„Ù…Ø±Ø§Ø¬Ø¹Ø©
-                    Ù…Ù†Ø´ÙˆØ±Ø© ØªØ³ØªÙ…Ø± Ø¹Ø¨Ø± Ø¥Ù†Ø´Ø§Ø¡ Ù…Ø³ÙˆØ¯Ø© Ø¬Ø¯ÙŠØ¯Ø©.
+                    المقارنة للقراءة فقط؛ أي استعادة لمراجعة منشورة تستمر عبر إنشاء مسودة جديدة.
                   </p>
                 </div>
                 <div class="flex items-center gap-2">
                   <select
                     v-model="compareRevisionId"
                     class="form-input focus-ring rounded-md border-slate-700 bg-slate-900 text-xs text-slate-200"
-                    aria-label="Ø§Ø®ØªØ± Ù…Ø±Ø§Ø¬Ø¹Ø© Ù„Ù„Ù…Ù‚Ø§Ø±Ù†Ø©"
+                    aria-label="اختر مراجعة للمقارنة"
                   >
-                    <option value="">Ø§Ø®ØªØ± Ù…Ø±Ø§Ø¬Ø¹Ø© ØªØ§Ø±ÙŠØ®ÙŠØ©â€¦</option>
+                    <option value="">اختر مراجعة تاريخية…</option>
                     <option
                       v-for="revision in historicalRevisions"
                       :key="revision.id"
                       :value="revision.id"
                     >
-                      Ù…Ø±Ø§Ø¬Ø¹Ø© {{ revision.revision }} â€” {{ revision.state }}
+                      مراجعة {{ revision.revision }} — {{ revision.state }}
                     </option>
                   </select>
                   <button
                     type="button"
                     class="focus-ring rounded-lg border border-cyan-700 bg-cyan-950/60 px-3 py-1.5 text-xs font-bold text-cyan-200 transition hover:bg-cyan-900/50 disabled:opacity-40"
                     :disabled="!compareRevisionId || compareLoading"
-                    aria-label="ØªÙ†ÙÙŠØ° Ù…Ù‚Ø§Ø±Ù†Ø© Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø©"
+                    aria-label="تنفيذ مقارنة المراجعة"
                     @click="loadComparison"
                   >
-                    {{ compareLoading ? 'ØªØ­Ù…ÙŠÙ„â€¦' : 'Ù…Ù‚Ø§Ø±Ù†Ø©' }}
+                    {{ compareLoading ? 'تحميل…' : 'مقارنة' }}
                   </button>
                 </div>
               </div>
@@ -1524,10 +1495,7 @@ const loadComparison = async () => {
                 <div class="grid gap-4 md:grid-cols-2">
                   <div class="rounded-lg border border-cyan-800/80 bg-cyan-950/30 p-2.5">
                     <div class="flex items-center justify-between font-mono text-xs text-cyan-300">
-                      <span
-                        >Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ©: Ù…Ø±Ø§Ø¬Ø¹Ø©
-                        {{ active.revision.revision }}</span
-                      >
+                      <span>المراجعة الحالية: مراجعة {{ active.revision.revision }}</span>
                       <span class="rounded bg-cyan-900/60 px-1.5 py-0.5 text-[10px]">{{
                         active.revision.state
                       }}</span>
@@ -1537,10 +1505,7 @@ const loadComparison = async () => {
                     <div
                       class="flex items-center justify-between font-mono text-xs text-indigo-300"
                     >
-                      <span
-                        >Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø© Ø§Ù„Ù…Ù‚Ø§Ø±Ù†Ø©: Ù…Ø±Ø§Ø¬Ø¹Ø©
-                        {{ compareRevision.revision }}</span
-                      >
+                      <span>المراجعة المقارنة: مراجعة {{ compareRevision.revision }}</span>
                       <span class="rounded bg-indigo-900/60 px-1.5 py-0.5 text-[10px]">{{
                         compareRevision.state
                       }}</span>
@@ -1598,9 +1563,7 @@ const loadComparison = async () => {
                           <span v-else>{{ token.text }}</span>
                         </template>
                       </p>
-                      <p v-else class="text-xs text-slate-600">
-                        Ù„Ø§ ØªÙˆØ¬Ø¯ ÙƒØªÙ„Ø© Ù…Ù‚Ø§Ø¨Ù„Ø©.
-                      </p>
+                      <p v-else class="text-xs text-slate-600">لا توجد كتلة مقابلة.</p>
                     </article>
 
                     <!-- Compared Block Column -->
@@ -1647,9 +1610,7 @@ const loadComparison = async () => {
                           <span v-else>{{ token.text }}</span>
                         </template>
                       </p>
-                      <p v-else class="text-xs text-slate-600">
-                        Ù„Ø§ ØªÙˆØ¬Ø¯ ÙƒØªÙ„Ø© Ù…Ù‚Ø§Ø¨Ù„Ø©.
-                      </p>
+                      <p v-else class="text-xs text-slate-600">لا توجد كتلة مقابلة.</p>
                     </article>
                   </div>
                 </div>
@@ -1658,40 +1619,35 @@ const loadComparison = async () => {
                 v-else-if="!historicalRevisions.length"
                 class="py-4 text-center text-xs text-slate-500"
               >
-                Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ø±Ø§Ø¬Ø¹Ø§Øª ØªØ§Ø±ÙŠØ®ÙŠØ© Ø³Ø§Ø¨Ù‚Ø© Ù…ØªØ§Ø­Ø© Ù„Ù„Ù…Ù‚Ø§Ø±Ù†Ø©.
+                لا توجد مراجعات تاريخية سابقة متاحة للمقارنة.
               </p>
               <p v-else class="py-4 text-center text-xs text-slate-500">
-                Ø§Ø®ØªØ± Ù…Ø±Ø§Ø¬Ø¹Ø© Ù…Ù† Ø§Ù„Ù‚Ø§Ø¦Ù…Ø© Ø£Ø¹Ù„Ø§Ù‡ ÙˆØ§Ø¶ØºØ· Ø¹Ù„Ù‰ Ø²Ø±
-                &quot;Ù…Ù‚Ø§Ø±Ù†Ø©&quot; Ù„Ø¹Ø±Ø¶ Ø§Ù„ÙØ±ÙˆÙ‚Ø§Øª Ø§Ù„Ø¨Ù†ÙŠÙˆÙŠØ©.
+                اختر مراجعة من القائمة أعلاه واضغط على زر &quot;مقارنة&quot; لعرض الفروقات البنيوية.
               </p>
             </div>
 
             <!-- Tab 2: Concurrency & Sync Diagnostics -->
             <div v-else-if="shelfTab === 'diagnostics'" class="space-y-3 text-xs">
-              <h3 class="font-bold text-slate-200">
-                ØªØ´Ø®ÙŠØµ Ø§Ù„ØªØ²Ø§Ù…Ù† ÙˆØ­Ø§Ù„Ø© Ø§Ù„Ø§Ø³ØªØ±Ø¯Ø§Ø¯ Ø§Ù„Ù…Ø­Ù„ÙŠ
-              </h3>
+              <h3 class="font-bold text-slate-200">تشخيص التزامن وحالة الاسترداد المحلي</h3>
               <div class="grid gap-3 sm:grid-cols-2">
                 <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-3 font-mono">
                   <span class="block text-[10px] text-slate-500"
-                    >Ø§Ù„Ø¨ØµÙ…Ø© Ø§Ù„Ø±Ù‚Ù…ÙŠØ© Ù„Ù„Ù…Ø­ØªÙˆÙ‰ (Content Digest)</span
+                    >البصمة الرقمية للمحتوى (Content Digest)</span
                   >
                   <span
                     class="block truncate text-[11px] text-slate-300"
-                    :title="active?.revision?.content_digest || 'ØºÙŠØ± Ù…ØªØ§Ø­'"
+                    :title="active?.revision?.content_digest || 'غير متاح'"
                   >
-                    {{ active?.revision?.content_digest || 'ØºÙŠØ± Ù…ØªØ§Ø­' }}
+                    {{ active?.revision?.content_digest || 'غير متاح' }}
                   </span>
                 </div>
                 <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
-                  <span class="block text-[10px] text-slate-500"
-                    >Ø­Ø§Ù„Ø© Ø§Ù„Ù…Ø³ÙˆØ¯Ø© Ø§Ù„Ù…Ø­Ù„ÙŠØ©</span
-                  >
+                  <span class="block text-[10px] text-slate-500">حالة المسودة المحلية</span>
                   <span class="text-xs text-slate-300">
                     {{
                       recoverySavedAt
-                        ? `Ù…Ø®Ø²Ù†Ø© (${recoverySavedAt.slice(11, 19)})`
-                        : 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ø³ÙˆØ¯Ø© Ù…Ø­Ù„ÙŠØ© Ù…Ø®Ø²Ù†Ø©'
+                        ? `مخزنة (${recoverySavedAt.slice(11, 19)})`
+                        : 'لا توجد مسودة محلية مخزنة'
                     }}
                   </span>
                 </div>
