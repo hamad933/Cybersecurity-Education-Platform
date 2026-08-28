@@ -184,7 +184,7 @@ function startDragLeft(e: PointerEvent) {
 function onDragLeft(e: PointerEvent) {
   if (!isDraggingLeft.value) return;
   const deltaX = e.clientX - dragStartX;
-  const newWidth = clampLeftWidth(dragStartWidth + deltaX);
+  const newWidth = clampLeftWidth(dragStartWidth - deltaX);
   leftWidth.value = newWidth;
 }
 
@@ -223,8 +223,7 @@ function startDragRight(e: PointerEvent) {
 function onDragRight(e: PointerEvent) {
   if (!isDraggingRight.value) return;
   const deltaX = e.clientX - dragStartX;
-  // Physical LTR grid: Right handle moving right (positive delta) decreases right panel width
-  const newWidth = clampRightWidth(dragStartWidth - deltaX);
+  const newWidth = clampRightWidth(dragStartWidth + deltaX);
   rightWidth.value = newWidth;
 }
 
@@ -251,10 +250,10 @@ onUnmounted(() => {
 function handleLeftKeydown(e: KeyboardEvent) {
   if (e.key === 'ArrowRight') {
     e.preventDefault();
-    leftWidth.value = clampLeftWidth(leftWidth.value + 10);
+    leftWidth.value = clampLeftWidth(leftWidth.value - 10);
   } else if (e.key === 'ArrowLeft') {
     e.preventDefault();
-    leftWidth.value = clampLeftWidth(leftWidth.value - 10);
+    leftWidth.value = clampLeftWidth(leftWidth.value + 10);
   } else if (e.key === 'Home') {
     e.preventDefault();
     leftWidth.value = MIN_LEFT_WIDTH;
@@ -270,10 +269,10 @@ function handleLeftKeydown(e: KeyboardEvent) {
 function handleRightKeydown(e: KeyboardEvent) {
   if (e.key === 'ArrowLeft') {
     e.preventDefault();
-    rightWidth.value = clampRightWidth(rightWidth.value + 10);
+    rightWidth.value = clampRightWidth(rightWidth.value - 10);
   } else if (e.key === 'ArrowRight') {
     e.preventDefault();
-    rightWidth.value = clampRightWidth(rightWidth.value - 10);
+    rightWidth.value = clampRightWidth(rightWidth.value + 10);
   } else if (e.key === 'Home') {
     e.preventDefault();
     rightWidth.value = MIN_RIGHT_WIDTH;
@@ -335,7 +334,7 @@ const gridStyle = computed(() => {
             type="button"
             class="cep-text-button cep-panel-toggle"
             :aria-expanded="!leftCollapsed"
-            aria-label="تبديل عرض لوحة البنية (الجانب الأيسر)"
+            aria-label="تبديل عرض لوحة البنية"
             @click="toggleLeftPanel"
           >
             {{ leftCollapsed ? 'إظهار البنية ◀' : 'إخفاء البنية ▶' }}
@@ -345,7 +344,7 @@ const gridStyle = computed(() => {
             type="button"
             class="cep-text-button cep-panel-toggle"
             :aria-expanded="!rightCollapsed"
-            aria-label="تبديل عرض لوحة السياق (الجانب الأيمن)"
+            aria-label="تبديل عرض لوحة السياق"
             @click="toggleRightPanel"
           >
             {{ rightCollapsed ? 'إظهار السياق ▶' : 'إخفاء السياق ◀' }}
@@ -355,10 +354,11 @@ const gridStyle = computed(() => {
 
       <div
         class="cep-workspace-grid"
-        dir="ltr"
         :style="gridStyle"
         :class="{
           'cep-workspace-grid--dragging': isDraggingLeft || isDraggingRight,
+          'cep-workspace-grid--has-left': isLeftVisible,
+          'cep-workspace-grid--has-right': isRightVisible,
         }"
       >
         <!-- LEFT PANEL (Structure/Navigation, physical LEFT) -->
@@ -367,7 +367,7 @@ const gridStyle = computed(() => {
           class="cep-structure-panel"
           data-cep-region="left"
           dir="rtl"
-          aria-label="البنية (الجانب الأيسر)"
+          aria-label="البنية"
         >
           <slot name="left" />
         </aside>
@@ -383,7 +383,7 @@ const gridStyle = computed(() => {
           :aria-valuenow="leftWidth"
           :aria-valuemin="MIN_LEFT_WIDTH"
           :aria-valuemax="MAX_LEFT_WIDTH"
-          aria-label="تغيير عرض لوحة البنية (الجانب الأيسر)"
+          aria-label="تغيير عرض لوحة البنية"
           @pointerdown="startDragLeft"
           @dblclick="resetLeftWidth"
           @keydown="handleLeftKeydown"
@@ -413,7 +413,7 @@ const gridStyle = computed(() => {
           :aria-valuenow="rightWidth"
           :aria-valuemin="MIN_RIGHT_WIDTH"
           :aria-valuemax="MAX_RIGHT_WIDTH"
-          aria-label="تغيير عرض لوحة السياق (الجانب الأيمن)"
+          aria-label="تغيير عرض لوحة السياق"
           @pointerdown="startDragRight"
           @dblclick="resetRightWidth"
           @keydown="handleRightKeydown"
