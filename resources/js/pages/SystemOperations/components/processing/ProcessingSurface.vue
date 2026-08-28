@@ -18,9 +18,14 @@ const when = (value: string | null | undefined): string =>
   value ? new Date(value).toLocaleString('ar-YE') : '—';
 
 const canCancel = (status: string): boolean => status === 'pending' || status === 'running';
+const canRetry = (status: string): boolean => status === 'failed' || status === 'running';
 
 const cancelProcessing = (runId: string) => {
   router.post(`/system/processing/runs/${runId}/cancel`, {}, { preserveScroll: true });
+};
+
+const retryProcessing = (runId: string) => {
+  router.post(`/system/processing/runs/${runId}/retry`, {}, { preserveScroll: true });
 };
 
 const inspectRun = (run: ProcessingRun) => {
@@ -31,6 +36,8 @@ const inspectRun = (run: ProcessingRun) => {
     { label: 'بصمة المدخلات (Input Digest)', value: run.input_digest },
     { label: 'معرّف العامل (Worker Identifier)', value: run.worker_identifier ?? '—' },
     { label: 'المحاولات (Attempts)', value: `${run.attempt_count} / ${run.max_attempts}` },
+    { label: 'تاريخ المحاولة التالية (Next Attempt)', value: when(run.next_attempt_at) },
+    { label: 'حجز العامل (Leased Until)', value: when(run.leased_until) },
     { label: 'فئة الخطأ (Error Category)', value: run.error_category ?? 'لا يوجد' },
     {
       label: 'رسالة الخطأ الآمنة (Safe Error Message)',
@@ -135,6 +142,15 @@ const inspectRun = (run: ProcessingRun) => {
           <div class="trace-actions">
             <button type="button" class="cep-text-button btn-inspect" @click="inspectRun(run)">
               فتح التشخيص
+            </button>
+
+            <button
+              v-if="canRetry(run.status)"
+              type="button"
+              class="cep-text-button btn-inspect"
+              @click="retryProcessing(run.id)"
+            >
+              إعادة التشغيل
             </button>
 
             <button

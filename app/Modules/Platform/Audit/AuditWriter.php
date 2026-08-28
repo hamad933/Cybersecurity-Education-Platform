@@ -59,8 +59,11 @@ class AuditWriter
         }
         $walk = function (array $value) use (&$walk): void {
             foreach ($value as $key => $item) {
-                if (in_array(mb_strtolower((string) $key), self::SENSITIVE_KEYS, true)) {
-                    throw new InvalidArgumentException('Sensitive audit metadata key rejected.');
+                $normalizedKey = mb_strtolower((string) $key);
+                foreach (self::SENSITIVE_KEYS as $sensitive) {
+                    if (str_contains($normalizedKey, $sensitive)) {
+                        throw new InvalidArgumentException('Sensitive audit metadata key rejected.');
+                    }
                 }
                 if (is_array($item)) {
                     $walk($item);

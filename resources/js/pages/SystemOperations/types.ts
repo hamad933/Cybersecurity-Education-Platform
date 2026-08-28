@@ -34,6 +34,8 @@ export interface ProcessingRun {
   cancelled_at: string | null;
   error_category: string | null;
   safe_error_message: string | null;
+  leased_until: string | null;
+  next_attempt_at: string | null;
   created_at: string;
   updated_at?: string;
 }

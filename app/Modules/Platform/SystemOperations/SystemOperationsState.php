@@ -68,7 +68,7 @@ final class SystemOperationsState
                 'runs' => $this->rows('processing_runs', [
                     'id', 'type', 'input_digest', 'status', 'attempt_count', 'max_attempts', 'worker_identifier',
                     'started_at', 'completed_at', 'cancelled_at', 'error_category',
-                    'safe_error_message', 'created_at', 'updated_at',
+                    'safe_error_message', 'leased_until', 'next_attempt_at', 'created_at', 'updated_at',
                 ], 'created_at', 30),
             ],
             'outbox' => [
@@ -80,7 +80,7 @@ final class SystemOperationsState
             ],
             'policy' => [
                 'cancellation' => 'PENDING_OR_RUNNING_ONLY',
-                'retry_route_available' => false,
+                'retry_route_available' => true,
                 'knowledge_decisions' => false,
             ],
         ];

@@ -85,6 +85,43 @@ final class SystemOperationsController extends Controller
         return back()->with('success', 'Processing run cancellation recorded.');
     }
 
+    public function retryProcessingRun(Request $request, string $run, AuditWriter $audit): RedirectResponse
+    {
+        $processingRun = ProcessingRun::query()->findOrFail($run);
+        $previousStatus = (string) $processingRun->status;
+
+        if (! in_array($previousStatus, ['failed', 'running'], true)) {
+            return back()->withErrors([
+                'processing' => "Processing run cannot be retried from state {$previousStatus}.",
+            ]);
+        }
+        
+        if ($processingRun->attempt_count >= $processingRun->max_attempts) {
+            return back()->withErrors([
+                'processing' => "Processing run has exhausted max attempts.",
+            ]);
+        }
+
+        $processingRun->transitionTo('pending');
+        $actorId = (string) $request->user()->getAuthIdentifier();
+
+        $audit->append([
+            'actor_identifier' => $actorId,
+            'action' => 'processing.run.retried',
+            'target_type' => 'processing_run',
+            'target_identifier' => (string) $processingRun->id,
+            'correlation_id' => (string) $processingRun->id,
+            'outcome' => 'success',
+            'safe_metadata' => [
+                'previous_status' => $previousStatus,
+                'processing_type' => (string) $processingRun->type,
+                'input_digest' => (string) $processingRun->input_digest,
+            ],
+        ]);
+
+        return back()->with('success', 'Processing run retry scheduled.');
+    }
+
     private function render(Request $request, string $surface): Response
     {
         $actorId = (string) $request->user()->getAuthIdentifier();

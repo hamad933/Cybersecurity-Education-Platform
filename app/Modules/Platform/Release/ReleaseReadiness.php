@@ -63,6 +63,14 @@ final class ReleaseReadiness
             'Rejected package records require review.',
             'WARN',
         );
+        if (Schema::hasTable('imported_evidence_records')) {
+            $checks['evidence_acceptance'] = $this->check(
+                ! DB::table('imported_evidence_records')->where('status', 'pending_review')->exists(),
+                'All imported evidence records have owner acceptance or rejection.',
+                'Pending evidence records require Owner acceptance.',
+                'WARN'
+            );
+        }
         $ready = collect($checks)->every(fn (array $check): bool => $check['status'] !== 'FAIL');
 
         return ['ready' => $ready, 'checks' => $checks];

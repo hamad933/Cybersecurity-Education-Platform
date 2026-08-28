@@ -6,8 +6,14 @@ use Illuminate\Http\JsonResponse;
 
 class LivenessController
 {
-    public function __invoke(): JsonResponse
+    public function __invoke(FoundationHealth $health): JsonResponse
     {
-        return response()->json(['status' => 'ok']);
+        $checks = $health->summaryChecks();
+        $isOk = collect($checks)->every(fn ($status) => $status === 'ok');
+
+        return response()->json(
+            ['status' => $isOk ? 'ok' : 'degraded', 'checks' => $checks],
+            $isOk ? 200 : 503
+        );
     }
 }
