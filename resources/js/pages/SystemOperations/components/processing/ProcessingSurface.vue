@@ -57,19 +57,27 @@ const inspectRun = (run: ProcessingRun) => {
       <div class="header-counts" dir="ltr">
         <span class="count-item">
           <span class="count-label">Pending:</span>
-          <strong class="count-value" data-testid="processing-count-pending">{{ count(state.processing?.counts, 'pending') }}</strong>
+          <strong class="count-value" data-testid="processing-count-pending">{{
+            count(state.processing?.counts, 'pending')
+          }}</strong>
         </span>
         <span class="count-item">
           <span class="count-label">Running:</span>
-          <strong class="count-value" data-testid="processing-count-running">{{ count(state.processing?.counts, 'running') }}</strong>
+          <strong class="count-value" data-testid="processing-count-running">{{
+            count(state.processing?.counts, 'running')
+          }}</strong>
         </span>
         <span class="count-item">
           <span class="count-label">Completed:</span>
-          <strong class="count-value" data-testid="processing-count-completed">{{ count(state.processing?.counts, 'completed') }}</strong>
+          <strong class="count-value" data-testid="processing-count-completed">{{
+            count(state.processing?.counts, 'completed')
+          }}</strong>
         </span>
         <span class="count-item">
           <span class="count-label">Failed:</span>
-          <strong class="count-value" data-testid="processing-count-failed">{{ count(state.processing?.counts, 'failed') }}</strong>
+          <strong class="count-value" data-testid="processing-count-failed">{{
+            count(state.processing?.counts, 'failed')
+          }}</strong>
         </span>
       </div>
     </section>
