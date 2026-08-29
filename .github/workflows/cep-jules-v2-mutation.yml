@@ -59,4 +59,5 @@ jobs:
       session_binding_specific_marker: ${{ needs.route.outputs.session_binding_specific_marker }}
       is_create: ${{ needs.route.outputs.is_create }}
       is_session_mutation: ${{ needs.route.outputs.is_session_mutation }}
-    secrets: inherit
+    secrets:
+      JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
