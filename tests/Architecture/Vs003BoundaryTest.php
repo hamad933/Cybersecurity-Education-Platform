@@ -64,15 +64,18 @@ final class Vs003BoundaryTest extends TestCase
         foreach ([
             "Route::post('/lab/run', [Vs003Controller::class, 'run'])->middleware('throttle:30,1')",
             "Route::post('/triage', [Vs003Controller::class, 'triage'])->middleware('throttle:20,1')",
-            "Route::post('/evidence/preserve', [Vs003Controller::class, 'preserve'])->middleware('throttle:20,1')",
+            "Route::post('/evidence/preserve', [ProgressEvidenceController::class, 'legacyMutationBlocked'])->middleware('throttle:20,1')",
             "Route::post('/containment/propose', [Vs003Controller::class, 'proposeContainment'])->middleware('throttle:10,1')",
             "Route::post('/containment/{proposal}/approve', [Vs003Controller::class, 'approveContainment'])->middleware('throttle:10,1')->whereUuid('proposal')",
             "Route::post('/containment/{proposal}/verify', [Vs003Controller::class, 'verifyContainment'])->middleware('throttle:10,1')->whereUuid('proposal')",
             "Route::post('/practice', [Vs003Controller::class, 'practice'])->middleware('throttle:20,1')",
-            "Route::post('/mastery/evaluate', [Vs003Controller::class, 'mastery'])->middleware('throttle:10,1')",
+            "Route::post('/mastery/evaluate', [ProgressEvidenceController::class, 'legacyMutationBlocked'])->middleware('throttle:10,1')",
         ] as $boundedRoute) {
             $this->assertStringContainsString($boundedRoute, $routes);
         }
+
+        $this->assertStringNotContainsString("[Vs003Controller::class, 'preserve']", $routes);
+        $this->assertStringNotContainsString("[Vs003Controller::class, 'mastery']", $routes);
     }
 
     #[Test]

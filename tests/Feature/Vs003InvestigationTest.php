@@ -486,17 +486,29 @@ final class Vs003InvestigationTest extends TestCase
                 'seed' => 9003,
             ])
             ->assertSessionHasErrors('idempotency_key');
+        $legacyTruthBefore = [
+            'evidence_records' => DB::table('evidence_records')->count(),
+            'evidence_decisions' => DB::table('evidence_decisions')->count(),
+            'mastery_states' => DB::table('mastery_states')->count(),
+            'review_triggers' => DB::table('review_triggers')->count(),
+        ];
+
         $this->actingAs($this->actor)
             ->post('/vs003/mastery/evaluate', [
                 'passed' => true,
                 'actor_id' => (string) Str::uuid7(),
                 'verification_replay' => ['passed' => true],
             ])
-            ->assertRedirect();
-        $this->assertDatabaseHas('mastery_states', [
+            ->assertStatus(410);
+        $this->assertSame($legacyTruthBefore, [
+            'evidence_records' => DB::table('evidence_records')->count(),
+            'evidence_decisions' => DB::table('evidence_decisions')->count(),
+            'mastery_states' => DB::table('mastery_states')->count(),
+            'review_triggers' => DB::table('review_triggers')->count(),
+        ]);
+        $this->assertDatabaseMissing('mastery_states', [
             'actor_id' => $this->actor->id,
             'knowledge_unit_id' => config('vs003.knowledge_unit_id'),
-            'status' => 'NOT_MASTERED',
         ]);
 
         $source = file_get_contents(resource_path('js/pages/Vs003/AuthenticationInvestigation.vue'));

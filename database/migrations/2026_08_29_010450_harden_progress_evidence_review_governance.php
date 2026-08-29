@@ -25,7 +25,9 @@ return new class extends Migration
         });
 
         DB::statement("ALTER TABLE evidence_effective_review_decisions ADD CONSTRAINT evidence_effective_decision_outcome_check CHECK (decision IN ('ACCEPT','ACCEPT_WITH_LIMITATIONS','MORE_EVIDENCE_REQUIRED','REJECT'))");
-        DB::statement("ALTER TABLE evidence_portfolios ADD CONSTRAINT evidence_portfolio_grouping_check CHECK (grouping IN ('CAPABILITY','EVIDENCE_TYPE','TIME','MASTERY_JUDGMENT','FRESHNESS_STATUS'))");
+        DB::statement("UPDATE evidence_portfolios SET grouping = 'MASTERY_JUDGMENT' WHERE grouping = 'MASTERY'");
+        DB::statement("ALTER TABLE evidence_portfolios ADD CONSTRAINT evidence_portfolio_grouping_check CHECK (grouping IN ('CAPABILITY','REVIEW_DECISION','EVIDENCE_TYPE','TIME','MASTERY_JUDGMENT','FRESHNESS_STATUS')) NOT VALID");
+        DB::statement('ALTER TABLE evidence_portfolios VALIDATE CONSTRAINT evidence_portfolio_grouping_check');
 
         DB::unprepared(<<<'SQL'
 CREATE OR REPLACE FUNCTION cep_validate_evidence_review_assignment()
@@ -388,5 +390,6 @@ SQL);
 
         Schema::dropIfExists('evidence_effective_review_decisions');
         DB::statement('ALTER TABLE evidence_portfolios DROP CONSTRAINT IF EXISTS evidence_portfolio_grouping_check');
+        DB::statement("UPDATE evidence_portfolios SET grouping = 'MASTERY' WHERE grouping = 'MASTERY_JUDGMENT'");
     }
 };

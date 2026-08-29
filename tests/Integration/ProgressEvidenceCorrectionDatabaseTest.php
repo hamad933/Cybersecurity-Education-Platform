@@ -5,10 +5,12 @@ namespace Tests\Integration;
 use App\Modules\Evidence\Application\ProgressEvidenceService;
 use App\Modules\Evidence\IntakeReview\Application\EvidenceIntakeService;
 use App\Modules\Evidence\IntakeReview\Application\EvidenceReviewService;
+use App\Modules\Evidence\IntakeReview\Application\ReviewDecisionService;
 use App\Modules\IdentityAccess\Actions\CreateOwner;
 use App\Modules\IdentityAccess\Models\OwnerAccount;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
@@ -54,6 +56,139 @@ SQL);
         $this->assertNotNull($constraint);
         $this->assertTrue((bool) $constraint->convalidated);
         $this->assertStringContainsString('CAPABILITY', (string) $constraint->definition);
+        $this->assertStringContainsString('REVIEW_DECISION', (string) $constraint->definition);
+        $this->assertStringNotContainsString('PROJECT', (string) $constraint->definition);
+        $this->assertStringNotContainsString('OBJECTIVE', (string) $constraint->definition);
+    }
+
+    #[Test]
+    public function postgresql_upgrade_preserves_legacy_portfolios_items_and_semantic_groupings(): void
+    {
+        $owner = $this->owner('portfolio-upgrade');
+        $admitted = $this->admit($owner, 'portfolio-upgrade');
+        $reviews = app(EvidenceReviewService::class);
+        $request = $reviews->requestReview([[
+            'evidence_id' => $admitted['evidence']['id'],
+            'evidence_revision_id' => $admitted['revision']['id'],
+        ]], $owner->id, 'SCOPE:PORTFOLIO-UPGRADE', ['CRIT-DB'], 'Legacy Portfolio upgrade Review.', $owner->id);
+        $review = $reviews->startReview($request['id'], $owner->id);
+        $reviews->recordFinding(
+            $review['id'],
+            $owner->id,
+            'CRIT-DB',
+            'SATISFIED',
+            'The accepted Decision supplies a real Review Decision grouping value.',
+            [$admitted['revision']['id']],
+        );
+        app(ReviewDecisionService::class)->recordDecision(
+            $review['id'],
+            $owner->id,
+            'ACCEPT',
+            'The exact Review scope is accepted for the migration upgrade fixture.',
+        );
+
+        $this->assertSame(0, Artisan::call('migrate:rollback', [
+            '--step' => 1,
+            '--force' => true,
+            '--no-interaction' => true,
+        ]));
+
+        $masteryPortfolioId = (string) Str::uuid7();
+        $reviewPortfolioId = (string) Str::uuid7();
+        $now = now();
+        DB::table('evidence_portfolios')->insert([[
+            'id' => $masteryPortfolioId,
+            'owner_actor_id' => $owner->id,
+            'name' => 'Legacy Mastery Portfolio',
+            'view_scope' => null,
+            'grouping' => 'MASTERY',
+            'filters' => json_encode([], JSON_THROW_ON_ERROR),
+            'annotations' => json_encode([], JSON_THROW_ON_ERROR),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], [
+            'id' => $reviewPortfolioId,
+            'owner_actor_id' => $owner->id,
+            'name' => 'Legacy Review Decision Portfolio',
+            'view_scope' => null,
+            'grouping' => 'REVIEW_DECISION',
+            'filters' => json_encode([], JSON_THROW_ON_ERROR),
+            'annotations' => json_encode([], JSON_THROW_ON_ERROR),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]]);
+        DB::table('evidence_portfolio_items')->insert([[
+            'id' => (string) Str::uuid7(),
+            'portfolio_id' => $masteryPortfolioId,
+            'evidence_id' => $admitted['evidence']['id'],
+            'mastery_state_id' => null,
+            'sort_order' => 0,
+            'annotation' => 'Legacy Mastery item.',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], [
+            'id' => (string) Str::uuid7(),
+            'portfolio_id' => $reviewPortfolioId,
+            'evidence_id' => $admitted['evidence']['id'],
+            'mastery_state_id' => null,
+            'sort_order' => 0,
+            'annotation' => 'Legacy Review Decision item.',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]]);
+
+        $portfolioCount = DB::table('evidence_portfolios')
+            ->whereIn('id', [$masteryPortfolioId, $reviewPortfolioId])
+            ->count();
+        $itemCount = DB::table('evidence_portfolio_items')
+            ->whereIn('portfolio_id', [$masteryPortfolioId, $reviewPortfolioId])
+            ->count();
+
+        $this->assertSame(0, Artisan::call('migrate', [
+            '--force' => true,
+            '--no-interaction' => true,
+        ]));
+
+        $this->assertSame($portfolioCount, DB::table('evidence_portfolios')
+            ->whereIn('id', [$masteryPortfolioId, $reviewPortfolioId])
+            ->count());
+        $this->assertSame($itemCount, DB::table('evidence_portfolio_items')
+            ->whereIn('portfolio_id', [$masteryPortfolioId, $reviewPortfolioId])
+            ->count());
+        $this->assertDatabaseHas('evidence_portfolios', [
+            'id' => $masteryPortfolioId,
+            'grouping' => 'MASTERY_JUDGMENT',
+        ]);
+        $this->assertDatabaseHas('evidence_portfolios', [
+            'id' => $reviewPortfolioId,
+            'grouping' => 'REVIEW_DECISION',
+        ]);
+
+        $projection = app(ProgressEvidenceService::class)
+            ->portfolioProjection($reviewPortfolioId, $owner->id);
+        $this->assertSame('REVIEW_DECISION', $projection['grouping']);
+        $this->assertCount(1, $projection['items']);
+        $this->assertCount(1, $projection['groups']);
+        $this->assertSame('ACCEPT', $projection['groups'][0]['key']);
+
+        $constraint = DB::selectOne(<<<'SQL'
+SELECT pg_get_constraintdef(oid) AS definition, convalidated
+  FROM pg_constraint
+ WHERE conname = 'evidence_portfolio_grouping_check'
+SQL);
+        $this->assertNotNull($constraint);
+        $this->assertTrue((bool) $constraint->convalidated);
+        foreach ([
+            'CAPABILITY',
+            'REVIEW_DECISION',
+            'EVIDENCE_TYPE',
+            'TIME',
+            'MASTERY_JUDGMENT',
+            'FRESHNESS_STATUS',
+        ] as $grouping) {
+            $this->assertStringContainsString("'{$grouping}'", (string) $constraint->definition);
+        }
+        $this->assertStringNotContainsString("'MASTERY'", (string) $constraint->definition);
         $this->assertStringNotContainsString('PROJECT', (string) $constraint->definition);
         $this->assertStringNotContainsString('OBJECTIVE', (string) $constraint->definition);
     }

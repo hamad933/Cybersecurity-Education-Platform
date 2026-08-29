@@ -311,6 +311,7 @@ final class ProgressEvidenceCorrectionGovernanceTest extends TestCase
         $registry = app(PortfolioGroupingRegistry::class);
         $this->assertSame([
             'CAPABILITY',
+            'REVIEW_DECISION',
             'EVIDENCE_TYPE',
             'TIME',
             'MASTERY_JUDGMENT',
@@ -319,12 +320,14 @@ final class ProgressEvidenceCorrectionGovernanceTest extends TestCase
 
         $items = [[
             'capability_id' => 'CAP-A',
+            'effective_review_decision' => 'ACCEPT',
             'source_type' => 'SIMULATION_RUN_RESULT',
             'sealed_at' => '2026-08-28T10:00:00+00:00',
             'mastery_judgment' => 'MASTERED',
             'freshness_status' => 'CURRENT',
         ], [
             'capability_id' => 'CAP-B',
+            'effective_review_decision' => 'REJECT',
             'source_type' => 'ASSESSMENT_RESULT',
             'sealed_at' => '2026-08-29T10:00:00+00:00',
             'mastery_judgment' => 'INCONCLUSIVE',

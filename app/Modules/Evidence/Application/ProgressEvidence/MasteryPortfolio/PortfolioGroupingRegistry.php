@@ -15,6 +15,7 @@ final class PortfolioGroupingRegistry
      */
     private const DEFINITIONS = [
         'CAPABILITY' => ['field' => 'capability_id', 'label' => 'Capability'],
+        'REVIEW_DECISION' => ['field' => 'effective_review_decision', 'label' => 'Review decision'],
         'EVIDENCE_TYPE' => ['field' => 'source_type', 'label' => 'Evidence type'],
         'TIME' => ['field' => 'sealed_at', 'label' => 'Sealed time'],
         'MASTERY_JUDGMENT' => ['field' => 'mastery_judgment', 'label' => 'Mastery judgment'],
