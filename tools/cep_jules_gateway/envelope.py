@@ -9,6 +9,7 @@ from .models import ErrorClassification, GatewayError
 
 MAX_REQUEST_BYTES = 16_384
 SCHEMA_VERSION = "2.0"
+MUTATION_SCHEMA_VERSION = "2.1"
 
 _CONTROLLER_LANES = {
     "PARENT": {"PARENT", "W01_W02", "W03_W04", "W05"},
@@ -16,8 +17,9 @@ _CONTROLLER_LANES = {
     "B": {"W01_W02"},
     "C": {"W05"},
 }
-_ALLOWED_ACTIONS = {"inspect_bundle", "get_session", "list_sessions", "list_activities"}
-_SESSION_ACTIONS = {"inspect_bundle", "get_session", "list_activities"}
+_READ_ACTIONS = {"inspect_bundle", "get_session", "list_sessions", "list_activities"}
+_MUTATION_ACTIONS = {"create_session", "send_message", "approve_plan"}
+_SESSION_ACTIONS = {"inspect_bundle", "get_session", "list_activities", "send_message", "approve_plan"}
 _ALLOWED_FIELDS = {
     "schema_version",
     "request_id",
@@ -30,9 +32,15 @@ _ALLOWED_FIELDS = {
     "expected_sha",
     "expected_state",
     "expected_plan_digest",
+    "expected_plan_activity_name",
+    "expected_plan_create_time",
+    "expected_session_update_time",
     "write_domain",
     "authority_event",
     "authority_ref",
+    "execution_mode",
+    "title",
+    "prompt",
     "options",
 }
 _ALLOWED_OPTION_FIELDS = {
@@ -42,6 +50,10 @@ _ALLOWED_OPTION_FIELDS = {
     "recent_bash_outputs",
     "max_hydration_reads",
     "max_exact_text_chars",
+    "max_provider_reads",
+    "max_total_items",
+    "max_total_exact_text_bytes",
+    "max_serialized_result_bytes",
     "include_patch",
     "include_bash_output_text",
 }
@@ -70,7 +82,8 @@ _LOGICAL_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,159}\Z")
 _SESSION_RE = re.compile(r"[0-9]{1,32}\Z")
 _SHA_RE = re.compile(r"[0-9a-f]{40}\Z")
 _DIGEST_RE = re.compile(r"[0-9a-f]{64}\Z")
-_SAFE_REF_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,255}\Z")
+_SAFE_REF_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@+\-=]{0,255}\Z")
+_ACTIVITY_RE = re.compile(r"sessions/[0-9]{1,32}/activities/[A-Za-z0-9._:-]{1,160}\Z")
 
 
 @dataclass(frozen=True)
@@ -81,6 +94,10 @@ class InspectOptions:
     recent_bash_outputs: int = 5
     max_hydration_reads: int = 20
     max_exact_text_chars: int = 120_000
+    max_provider_reads: int = 64
+    max_total_items: int = 2_000
+    max_total_exact_text_bytes: int = 256_000
+    max_serialized_result_bytes: int = 1_500_000
     include_patch: bool = True
     include_bash_output_text: bool = True
 
@@ -98,10 +115,20 @@ class RequestEnvelope:
     expected_sha: str | None = None
     expected_state: str | None = None
     expected_plan_digest: str | None = None
+    expected_plan_activity_name: str | None = None
+    expected_plan_create_time: str | None = None
+    expected_session_update_time: str | None = None
     write_domain: str | None = None
     authority_event: str | None = None
     authority_ref: str | None = None
+    execution_mode: str | None = None
+    title: str | None = None
+    prompt: str | None = None
     options: InspectOptions = field(default_factory=InspectOptions)
+
+    @property
+    def is_mutation(self) -> bool:
+        return self.action in _MUTATION_ACTIONS
 
     def public_dict(self) -> dict[str, Any]:
         data = {
@@ -116,9 +143,13 @@ class RequestEnvelope:
             "expected_sha": self.expected_sha,
             "expected_state": self.expected_state,
             "expected_plan_digest": self.expected_plan_digest,
+            "expected_plan_activity_name": self.expected_plan_activity_name,
+            "expected_plan_create_time": self.expected_plan_create_time,
+            "expected_session_update_time": self.expected_session_update_time,
             "write_domain": self.write_domain,
             "authority_event": self.authority_event,
             "authority_ref": self.authority_ref,
+            "execution_mode": self.execution_mode,
         }
         return {k: v for k, v in data.items() if v is not None}
 
@@ -197,8 +228,8 @@ def parse_envelope(raw: str | bytes) -> RequestEnvelope:
     _validate_public_safe(payload)
 
     schema_version = _bounded_str(payload, "schema_version", 16)
-    if schema_version != SCHEMA_VERSION:
-        raise _invalid("unsupported schema_version", supported=[SCHEMA_VERSION])
+    if schema_version not in {SCHEMA_VERSION, MUTATION_SCHEMA_VERSION}:
+        raise _invalid("unsupported schema_version", supported=[SCHEMA_VERSION, MUTATION_SCHEMA_VERSION])
 
     request_id = _bounded_str(payload, "request_id", 120)
     if request_id is None or not _ID_RE.fullmatch(request_id):
@@ -212,8 +243,9 @@ def parse_envelope(raw: str | bytes) -> RequestEnvelope:
         raise _invalid("controller_id/lane pairing is not authorized by the public envelope contract")
 
     action = _bounded_str(payload, "action", 64)
-    if action not in _ALLOWED_ACTIONS:
-        raise _invalid("action is unsupported by the v2 foundation", supported=sorted(_ALLOWED_ACTIONS))
+    allowed_actions = _READ_ACTIONS if schema_version == SCHEMA_VERSION else (_READ_ACTIONS | _MUTATION_ACTIONS)
+    if action not in allowed_actions:
+        raise _invalid("action is unsupported by the selected v2 schema", supported=sorted(allowed_actions))
 
     logical_task_id = _bounded_str(payload, "logical_task_id", 160)
     if logical_task_id is not None and not _LOGICAL_RE.fullmatch(logical_task_id):
@@ -233,9 +265,10 @@ def parse_envelope(raw: str | bytes) -> RequestEnvelope:
     if expected_sha is not None:
         expected_sha = expected_sha.lower()
         if not _SHA_RE.fullmatch(expected_sha):
-            raise _invalid("expected_sha must be a 40-character lowercase/uppercase hex SHA")
+            raise _invalid("expected_sha must be a 40-character hex SHA")
     if (starting_branch is None) != (expected_sha is None):
         raise _invalid("starting_branch and expected_sha must be supplied together as an exact GitHub precondition")
+
     expected_plan_digest = _bounded_str(payload, "expected_plan_digest", 64)
     if expected_plan_digest is not None:
         expected_plan_digest = expected_plan_digest.lower()
@@ -246,14 +279,53 @@ def parse_envelope(raw: str | bytes) -> RequestEnvelope:
     write_domain = _bounded_str(payload, "write_domain", 256)
     authority_event = _bounded_str(payload, "authority_event", 256)
     authority_ref = _bounded_str(payload, "authority_ref", 256)
+    execution_mode = _bounded_str(payload, "execution_mode", 32)
+    expected_plan_activity_name = _bounded_str(payload, "expected_plan_activity_name", 256)
+    expected_plan_create_time = _bounded_str(payload, "expected_plan_create_time", 256)
+    expected_session_update_time = _bounded_str(payload, "expected_session_update_time", 256)
+
     for name, value in (
         ("expected_state", expected_state),
         ("write_domain", write_domain),
         ("authority_event", authority_event),
         ("authority_ref", authority_ref),
+        ("execution_mode", execution_mode),
+        ("expected_plan_create_time", expected_plan_create_time),
+        ("expected_session_update_time", expected_session_update_time),
     ):
         if value is not None and not _SAFE_REF_RE.fullmatch(value):
             raise _invalid(f"{name} must be a bounded identifier/reference, not free-form content")
+    if expected_plan_activity_name is not None and not _ACTIVITY_RE.fullmatch(expected_plan_activity_name):
+        raise _invalid("expected_plan_activity_name must be an exact Jules activity identity")
+
+    title = _bounded_str(payload, "title", 240)
+    prompt = _bounded_str(payload, "prompt", 4_096)
+
+    if action in _MUTATION_ACTIONS:
+        if execution_mode != "MUTATION_CANARY":
+            raise _invalid("mutating v2 actions require explicit execution_mode=MUTATION_CANARY")
+        if logical_task_id is None or write_domain is None:
+            raise _invalid("mutating v2 actions require logical_task_id and write_domain")
+        if action == "create_session":
+            if starting_branch is None or expected_sha is None or title is None or prompt is None:
+                raise _invalid("create_session requires starting_branch, expected_sha, title, and prompt")
+        if action == "send_message":
+            if expected_state is None or prompt is None:
+                raise _invalid("send_message requires expected_state and prompt")
+        if action == "approve_plan":
+            missing = [
+                name
+                for name, value in (
+                    ("expected_state", expected_state),
+                    ("expected_plan_digest", expected_plan_digest),
+                    ("expected_plan_activity_name", expected_plan_activity_name),
+                    ("expected_plan_create_time", expected_plan_create_time),
+                    ("expected_session_update_time", expected_session_update_time),
+                )
+                if value is None
+            ]
+            if missing:
+                raise _invalid("approve_plan requires exact reviewed plan/provider identity fields", fields=missing)
 
     options_raw = payload.get("options") or {}
     if not isinstance(options_raw, dict):
@@ -268,6 +340,10 @@ def parse_envelope(raw: str | bytes) -> RequestEnvelope:
         recent_bash_outputs=_int_option(options_raw, "recent_bash_outputs", 5, 0, 20),
         max_hydration_reads=_int_option(options_raw, "max_hydration_reads", 20, 0, 100),
         max_exact_text_chars=_int_option(options_raw, "max_exact_text_chars", 120_000, 1_000, 500_000),
+        max_provider_reads=_int_option(options_raw, "max_provider_reads", 64, 1, 200),
+        max_total_items=_int_option(options_raw, "max_total_items", 2_000, 1, 10_000),
+        max_total_exact_text_bytes=_int_option(options_raw, "max_total_exact_text_bytes", 256_000, 1_000, 2_000_000),
+        max_serialized_result_bytes=_int_option(options_raw, "max_serialized_result_bytes", 1_500_000, 10_000, 8_000_000),
         include_patch=_bool_option(options_raw, "include_patch", True),
         include_bash_output_text=_bool_option(options_raw, "include_bash_output_text", True),
     )
@@ -284,8 +360,14 @@ def parse_envelope(raw: str | bytes) -> RequestEnvelope:
         expected_sha=expected_sha,
         expected_state=expected_state,
         expected_plan_digest=expected_plan_digest,
+        expected_plan_activity_name=expected_plan_activity_name,
+        expected_plan_create_time=expected_plan_create_time,
+        expected_session_update_time=expected_session_update_time,
         write_domain=write_domain,
         authority_event=authority_event,
         authority_ref=authority_ref,
+        execution_mode=execution_mode,
+        title=title,
+        prompt=prompt,
         options=options,
     )
