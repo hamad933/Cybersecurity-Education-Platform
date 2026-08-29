@@ -21,7 +21,16 @@ on:
       create_effect_marker:
         required: true
         type: string
+      session_binding_marker:
+        required: true
+        type: string
+      session_binding_specific_marker:
+        required: true
+        type: string
       is_create:
+        required: true
+        type: string
+      is_session_mutation:
         required: true
         type: string
     secrets:
@@ -107,7 +116,7 @@ jobs:
           name: ${{ inputs.intent_marker }}
           path: ${{ runner.temp }}/cep-jules-v2-intent
       - id: effect_guard
-        name: Guard pre-session logical write effect
+        name: Guard logical write effect and session binding
         shell: bash
         run: |
           set -euo pipefail
@@ -119,6 +128,22 @@ jobs:
         with:
           name: ${{ inputs.create_effect_marker }}
           path: ${{ runner.temp }}/cep-jules-v2-effect/effect_guard.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Persist generic session binding before provider write
+        if: inputs.is_session_mutation == 'true' && steps.effect_guard.outputs.bind_session == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.session_binding_marker }}
+          path: ${{ runner.temp }}/cep-jules-v2-effect/session_binding.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Persist exact session task/domain binding before provider write
+        if: inputs.is_session_mutation == 'true' && steps.effect_guard.outputs.bind_session == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.session_binding_specific_marker }}
+          path: ${{ runner.temp }}/cep-jules-v2-effect/session_binding.json
           if-no-files-found: error
           retention-days: 90
       - id: execute
@@ -151,5 +176,21 @@ jobs:
         with:
           name: ${{ inputs.unknown_marker }}
           path: ${{ runner.temp }}/cep-jules-v2-final/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Persist binding for newly created verified session
+        if: inputs.is_create == 'true' && steps.execute.outputs.verification == 'VERIFIED'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.execute.outputs.created_session_binding_marker }}
+          path: ${{ runner.temp }}/cep-jules-v2-final/final_state.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Persist exact task/domain binding for newly created verified session
+        if: inputs.is_create == 'true' && steps.execute.outputs.verification == 'VERIFIED'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.execute.outputs.created_session_binding_specific_marker }}
+          path: ${{ runner.temp }}/cep-jules-v2-final/final_state.json
           if-no-files-found: error
           retention-days: 90
