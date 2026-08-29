@@ -1,0 +1,283 @@
+name: CEP Jules Control Gateway
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: cep-jules-control-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  control:
+    if: >-
+      startsWith(github.event.issue.title, '[JULES-CONTROL]') &&
+      (github.event.issue.author_association == 'OWNER' ||
+       github.event.issue.author_association == 'COLLABORATOR' ||
+       github.event.issue.author_association == 'MEMBER')
+    runs-on: ubuntu-latest
+    env:
+      JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      JULES_API_BASE: https://jules.googleapis.com/v1alpha
+      CEP_REPOSITORY: hamad933/Cybersecurity-Education-Platform
+      CEP_JULES_SOURCE: sources/github/hamad933/Cybersecurity-Education-Platform
+
+    steps:
+      - name: Validate gateway secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${JULES_API_KEY:-}" ]; then
+            echo "JULES_API_KEY repository secret is unavailable to this workflow." >&2
+            exit 20
+          fi
+
+      - name: Execute bounded Jules control request
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          API = os.environ['JULES_API_BASE'].rstrip('/')
+          JULES_KEY = os.environ['JULES_API_KEY']
+          GH_TOKEN = os.environ['GH_TOKEN']
+          REPO = os.environ['CEP_REPOSITORY']
+          SOURCE = os.environ['CEP_JULES_SOURCE']
+          ISSUE = os.environ['ISSUE_NUMBER']
+          BODY = os.environ.get('ISSUE_BODY') or ''
+
+          def gh_request(method, path, body=None):
+              url = f"https://api.github.com/repos/{REPO}{path}"
+              data = None if body is None else json.dumps(body).encode()
+              req = urllib.request.Request(url, data=data, method=method)
+              req.add_header('Authorization', f'Bearer {GH_TOKEN}')
+              req.add_header('Accept', 'application/vnd.github+json')
+              req.add_header('X-GitHub-Api-Version', '2022-11-28')
+              if data is not None:
+                  req.add_header('Content-Type', 'application/json')
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  raw = r.read()
+                  return json.loads(raw.decode()) if raw else {}
+
+          def comment(text):
+              gh_request('POST', f'/issues/{ISSUE}/comments', {'body': text})
+
+          def jules_request(method, path, body=None):
+              url = API + path
+              data = None if body is None else json.dumps(body).encode()
+              req = urllib.request.Request(url, data=data, method=method)
+              req.add_header('x-goog-api-key', JULES_KEY)
+              if data is not None:
+                  req.add_header('Content-Type', 'application/json')
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as r:
+                      raw = r.read()
+                      return r.status, (json.loads(raw.decode()) if raw else {})
+              except urllib.error.HTTPError as e:
+                  raw = e.read().decode(errors='replace')
+                  try:
+                      parsed = json.loads(raw) if raw else {}
+                  except json.JSONDecodeError:
+                      parsed = {'error_text': raw[:2000]}
+                  return e.code, parsed
+
+          def existing_markers():
+              items = gh_request('GET', f'/issues/{ISSUE}/comments?per_page=100')
+              return '\n'.join(str(x.get('body') or '') for x in items)
+
+          try:
+              payload = json.loads(BODY)
+          except json.JSONDecodeError as e:
+              comment(f"JULES_CONTROL_REJECTED\nreason=INVALID_JSON\ndetail={e}")
+              raise SystemExit(2)
+
+          if not isinstance(payload, dict):
+              comment('JULES_CONTROL_REJECTED\nreason=BODY_MUST_BE_JSON_OBJECT')
+              raise SystemExit(2)
+
+          action = str(payload.get('action') or '').strip()
+          request_id = str(payload.get('request_id') or '').strip()
+          if not request_id or len(request_id) > 120:
+              comment('JULES_CONTROL_REJECTED\nreason=INVALID_REQUEST_ID')
+              raise SystemExit(2)
+
+          allowed = {
+              'create_session', 'get_session', 'list_sessions',
+              'list_activities', 'send_message', 'approve_plan'
+          }
+          if action not in allowed:
+              comment(f"JULES_CONTROL_REJECTED\nrequest_id={request_id}\nreason=ACTION_NOT_ALLOWED\naction={action}")
+              raise SystemExit(2)
+
+          comments = existing_markers()
+          receipt_marker = f'JULES_CONTROL_RECEIPT request_id={request_id}'
+          intent_marker = f'JULES_CONTROL_WRITE_INTENT request_id={request_id}'
+          if receipt_marker in comments:
+              print('Existing exact receipt found; no replay.')
+              raise SystemExit(0)
+
+          write_actions = {'create_session', 'send_message', 'approve_plan'}
+          if action in write_actions and intent_marker in comments:
+              comment(
+                  f"JULES_CONTROL_BLOCKED\nrequest_id={request_id}\n"
+                  "reason=UNKNOWN_PRIOR_WRITE_OUTCOME__AUTHORITATIVE_PROVIDER_READ_REQUIRED\n"
+                  "blind_retry=false"
+              )
+              raise SystemExit(3)
+
+          if action == 'create_session':
+              required = ['task_id', 'starting_branch', 'expected_sha', 'title', 'prompt']
+              missing = [k for k in required if not str(payload.get(k) or '').strip()]
+              if missing:
+                  comment(f"JULES_CONTROL_REJECTED\nrequest_id={request_id}\nreason=MISSING_FIELDS\nfields={','.join(missing)}")
+                  raise SystemExit(2)
+
+              branch = str(payload['starting_branch']).strip()
+              expected = str(payload['expected_sha']).strip().lower()
+              if len(expected) != 40 or any(c not in '0123456789abcdef' for c in expected):
+                  comment(f"JULES_CONTROL_REJECTED\nrequest_id={request_id}\nreason=EXPECTED_SHA_INVALID")
+                  raise SystemExit(2)
+
+              encoded = urllib.parse.quote(branch, safe='')
+              branch_data = gh_request('GET', f'/branches/{encoded}')
+              actual = str(branch_data.get('commit', {}).get('sha') or '').lower()
+              if actual != expected:
+                  comment(
+                      f"JULES_CONTROL_REJECTED\nrequest_id={request_id}\nreason=BRANCH_HEAD_DRIFT\n"
+                      f"branch={branch}\nexpected_sha={expected}\nactual_sha={actual or 'MISSING'}"
+                  )
+                  raise SystemExit(4)
+
+              status, sources = jules_request('GET', '/sources')
+              if status != 200:
+                  comment(f"JULES_CONTROL_BLOCKED\nrequest_id={request_id}\nreason=JULES_SOURCE_READ_FAILED\nhttp_status={status}")
+                  raise SystemExit(5)
+              names = {str(x.get('name')) for x in sources.get('sources', [])}
+              if SOURCE not in names:
+                  comment(f"JULES_CONTROL_BLOCKED\nrequest_id={request_id}\nreason=CEP_JULES_SOURCE_NOT_AVAILABLE")
+                  raise SystemExit(5)
+
+              comment(
+                  f"{intent_marker}\naction=create_session\nbranch={branch}\nexpected_sha={expected}\n"
+                  "require_plan_approval=true\nauto_create_pr=false\nblind_retry=false"
+              )
+
+              request_body = {
+                  'prompt': str(payload['prompt']),
+                  'title': str(payload['title']),
+                  'sourceContext': {
+                      'source': SOURCE,
+                      'githubRepoContext': {'startingBranch': branch},
+                  },
+                  'requirePlanApproval': True,
+              }
+              status, result = jules_request('POST', '/sessions', request_body)
+              if status not in (200, 201):
+                  comment(
+                      f"JULES_CONTROL_UNKNOWN_WRITE_OUTCOME\nrequest_id={request_id}\naction=create_session\n"
+                      f"http_status={status}\nblind_retry=false\n"
+                      "next=LIST_SESSIONS_AND_RECONCILE_BEFORE_ANY_REPLAY"
+                  )
+                  raise SystemExit(6)
+
+              sid = str(result.get('id') or '')
+              state = str(result.get('state') or '')
+              url = str(result.get('url') or '')
+              comment(
+                  f"{receipt_marker}\naction=create_session\noutcome=CREATED\n"
+                  f"task_id={payload['task_id']}\nsession_id={sid}\nstate={state}\nurl={url}\n"
+                  f"starting_branch={branch}\nexpected_sha={expected}\n"
+                  "require_plan_approval=true\nauto_create_pr=false"
+              )
+              raise SystemExit(0)
+
+          if action == 'get_session':
+              sid = str(payload.get('session_id') or '').strip()
+              if not sid:
+                  comment(f"JULES_CONTROL_REJECTED\nrequest_id={request_id}\nreason=SESSION_ID_REQUIRED")
+                  raise SystemExit(2)
+              status, result = jules_request('GET', f'/sessions/{urllib.parse.quote(sid, safe="")}')
+              comment(
+                  f"{receipt_marker}\naction=get_session\nhttp_status={status}\n"
+                  f"session_id={sid}\nstate={result.get('state','')}\n"
+                  f"update_time={result.get('updateTime','')}\nurl={result.get('url','')}"
+              )
+              raise SystemExit(0 if status == 200 else 7)
+
+          if action == 'list_sessions':
+              status, result = jules_request('GET', '/sessions?pageSize=100')
+              sessions = result.get('sessions', []) if status == 200 else []
+              compact = [
+                  {'id': x.get('id'), 'title': x.get('title'), 'state': x.get('state'), 'updateTime': x.get('updateTime')}
+                  for x in sessions[:100]
+              ]
+              text = json.dumps(compact, ensure_ascii=False, separators=(',', ':'))
+              if len(text) > 50000:
+                  text = text[:50000] + '...TRUNCATED'
+              comment(f"{receipt_marker}\naction=list_sessions\nhttp_status={status}\n```json\n{text}\n```")
+              raise SystemExit(0 if status == 200 else 7)
+
+          if action == 'list_activities':
+              sid = str(payload.get('session_id') or '').strip()
+              if not sid:
+                  comment(f"JULES_CONTROL_REJECTED\nrequest_id={request_id}\nreason=SESSION_ID_REQUIRED")
+                  raise SystemExit(2)
+              status, result = jules_request('GET', f'/sessions/{urllib.parse.quote(sid, safe="")}/activities?pageSize=100')
+              acts = result.get('activities', []) if status == 200 else []
+              compact = []
+              for a in acts[-40:]:
+                  compact.append({
+                      'createTime': a.get('createTime'),
+                      'originator': a.get('originator'),
+                      'description': a.get('description'),
+                      'hasPlan': bool(a.get('planGenerated')),
+                      'hasAgentMessage': bool(a.get('agentMessaged')),
+                      'hasChangeSet': any(bool(z.get('changeSet')) for z in (a.get('artifacts') or []) if isinstance(z, dict)),
+                  })
+              text = json.dumps(compact, ensure_ascii=False, separators=(',', ':'))
+              if len(text) > 50000:
+                  text = text[:50000] + '...TRUNCATED'
+              comment(f"{receipt_marker}\naction=list_activities\nhttp_status={status}\nsession_id={sid}\n```json\n{text}\n```")
+              raise SystemExit(0 if status == 200 else 7)
+
+          if action == 'send_message':
+              sid = str(payload.get('session_id') or '').strip()
+              prompt = str(payload.get('prompt') or '')
+              if not sid or not prompt:
+                  comment(f"JULES_CONTROL_REJECTED\nrequest_id={request_id}\nreason=SESSION_ID_AND_PROMPT_REQUIRED")
+                  raise SystemExit(2)
+              comment(f"{intent_marker}\naction=send_message\nsession_id={sid}\nblind_retry=false")
+              status, _ = jules_request('POST', f'/sessions/{urllib.parse.quote(sid, safe="")}:sendMessage', {'prompt': prompt})
+              if status not in (200, 201, 204):
+                  comment(f"JULES_CONTROL_UNKNOWN_WRITE_OUTCOME\nrequest_id={request_id}\naction=send_message\nsession_id={sid}\nhttp_status={status}\nblind_retry=false")
+                  raise SystemExit(6)
+              comment(f"{receipt_marker}\naction=send_message\noutcome=SENT\nsession_id={sid}")
+              raise SystemExit(0)
+
+          if action == 'approve_plan':
+              sid = str(payload.get('session_id') or '').strip()
+              if not sid:
+                  comment(f"JULES_CONTROL_REJECTED\nrequest_id={request_id}\nreason=SESSION_ID_REQUIRED")
+                  raise SystemExit(2)
+              comment(f"{intent_marker}\naction=approve_plan\nsession_id={sid}\nblind_retry=false")
+              status, _ = jules_request('POST', f'/sessions/{urllib.parse.quote(sid, safe="")}:approvePlan', {})
+              if status not in (200, 201, 204):
+                  comment(f"JULES_CONTROL_UNKNOWN_WRITE_OUTCOME\nrequest_id={request_id}\naction=approve_plan\nsession_id={sid}\nhttp_status={status}\nblind_retry=false")
+                  raise SystemExit(6)
+              comment(f"{receipt_marker}\naction=approve_plan\noutcome=APPROVED\nsession_id={sid}")
+              raise SystemExit(0)
+          PY
