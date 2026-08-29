@@ -1,0 +1,53 @@
+name: CEP Jules Gateway v2 Foundation (Shadow)
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_json:
+        description: Public-safe CEP Jules Gateway v2 request envelope JSON
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cep-jules-v2-shadow-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  gateway-read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+      GITHUB_TOKEN: ${{ github.token }}
+      CEP_REPOSITORY: ${{ github.repository }}
+      JULES_API_BASE: https://jules.googleapis.com/v1alpha
+      CEP_JULES_REQUEST_JSON: ${{ inputs.request_json }}
+
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Execute shadow-safe v2 read request
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m tools.cep_jules_gateway.cli \
+            --request-env CEP_JULES_REQUEST_JSON \
+            --output-dir "$RUNNER_TEMP/cep-jules-v2"
+
+      - name: Publish machine-readable gateway evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cep-jules-v2-${{ github.run_id }}
+          path: ${{ runner.temp }}/cep-jules-v2/
+          if-no-files-found: error
+          retention-days: 14
