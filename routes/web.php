@@ -3,6 +3,7 @@
 use App\Http\Controllers\Vs001Controller;
 use App\Http\Controllers\Vs002Controller;
 use App\Http\Controllers\Vs003Controller;
+use App\Modules\Evidence\Http\Controllers\ProgressEvidenceController;
 use App\Modules\IdentityAccess\Http\Controllers\AuthenticatedSessionController;
 use App\Modules\Platform\Health\LivenessController;
 use Illuminate\Support\Facades\Route;
@@ -39,8 +40,8 @@ Route::middleware('auth')->group(function (): void {
         Route::post('/lab/run', [Vs001Controller::class, 'runCase'])->middleware('throttle:30,1')->name('lab.run');
         Route::post('/lab/{run}/replay', [Vs001Controller::class, 'replay'])->middleware('throttle:10,1')->name('lab.replay');
         Route::get('/evidence', [Vs001Controller::class, 'evidenceMastery'])->name('evidence');
-        Route::post('/evidence/{evidence}/decision', [Vs001Controller::class, 'decideEvidence'])->middleware('throttle:30,1')->name('evidence.decision');
-        Route::post('/mastery/evaluate', [Vs001Controller::class, 'evaluateMastery'])->middleware('throttle:20,1')->name('mastery.evaluate');
+        Route::post('/evidence/{evidence}/decision', [ProgressEvidenceController::class, 'legacyMutationBlocked'])->middleware('throttle:30,1')->name('evidence.decision');
+        Route::post('/mastery/evaluate', [ProgressEvidenceController::class, 'legacyMutationBlocked'])->middleware('throttle:20,1')->name('mastery.evaluate');
     });
     Route::prefix('vs002')->name('vs002.')->group(function (): void {
         Route::get('/sources', [Vs002Controller::class, 'sources'])->name('sources');
@@ -60,19 +61,19 @@ Route::middleware('auth')->group(function (): void {
         Route::post('/remediation', [Vs002Controller::class, 'remediate'])->middleware('throttle:10,1')->name('remediation');
         Route::post('/findings/{finding}/verify', [Vs002Controller::class, 'verify'])->middleware('throttle:10,1')->name('findings.verify');
         Route::get('/evidence', [Vs002Controller::class, 'evidence'])->name('evidence');
-        Route::post('/evidence/{evidence}/decision', [Vs002Controller::class, 'decideEvidence'])->middleware('throttle:30,1')->name('evidence.decision');
-        Route::post('/mastery/evaluate', [Vs002Controller::class, 'evaluateMastery'])->middleware('throttle:20,1')->name('mastery.evaluate');
+        Route::post('/evidence/{evidence}/decision', [ProgressEvidenceController::class, 'legacyMutationBlocked'])->middleware('throttle:30,1')->name('evidence.decision');
+        Route::post('/mastery/evaluate', [ProgressEvidenceController::class, 'legacyMutationBlocked'])->middleware('throttle:20,1')->name('mastery.evaluate');
     });
     Route::prefix('vs003')->name('vs003.')->group(function (): void {
         Route::get('/lab', [Vs003Controller::class, 'lab'])->name('lab');
         Route::post('/lab/run', [Vs003Controller::class, 'run'])->middleware('throttle:30,1')->name('lab.run');
         Route::post('/triage', [Vs003Controller::class, 'triage'])->middleware('throttle:20,1')->name('triage');
-        Route::post('/evidence/preserve', [Vs003Controller::class, 'preserve'])->middleware('throttle:20,1')->name('evidence.preserve');
+        Route::post('/evidence/preserve', [ProgressEvidenceController::class, 'legacyMutationBlocked'])->middleware('throttle:20,1')->name('evidence.preserve');
         Route::post('/containment/propose', [Vs003Controller::class, 'proposeContainment'])->middleware('throttle:10,1')->name('containment.propose');
         Route::post('/containment/{proposal}/approve', [Vs003Controller::class, 'approveContainment'])->middleware('throttle:10,1')->whereUuid('proposal')->name('containment.approve');
         Route::post('/containment/{proposal}/verify', [Vs003Controller::class, 'verifyContainment'])->middleware('throttle:10,1')->whereUuid('proposal')->name('containment.verify');
         Route::post('/practice', [Vs003Controller::class, 'practice'])->middleware('throttle:20,1')->name('practice');
-        Route::post('/mastery/evaluate', [Vs003Controller::class, 'mastery'])->middleware('throttle:10,1')->name('mastery.evaluate');
+        Route::post('/mastery/evaluate', [ProgressEvidenceController::class, 'legacyMutationBlocked'])->middleware('throttle:10,1')->name('mastery.evaluate');
     });
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 });

@@ -43,21 +43,38 @@ final readonly class IntakeCandidateData
             }
         }
 
+        $criterionScope = self::stringList($payload['criterion_scope'] ?? [], 50, 120);
+        $governedPurpose = self::text($payload['governed_purpose'], 180);
+        if (! in_array($governedPurpose, [
+            'FORMAL_CAPABILITY_EVIDENCE',
+            'GOVERNED_PROVENANCE_ATTESTATION',
+        ], true)) {
+            throw new IntakeReviewException('Unsupported governed Evidence purpose.');
+        }
+        if ($governedPurpose === 'FORMAL_CAPABILITY_EVIDENCE' && $criterionScope === []) {
+            throw new IntakeReviewException('Formal capability Evidence requires a governed criterion scope.');
+        }
+
+        $sourceDigest = strtolower(trim((string) $receipt->source_digest));
+        if (preg_match('/^[a-f0-9]{64}$/', $sourceDigest) !== 1) {
+            throw new IntakeReviewException('Source digest must be SHA-256 hex.');
+        }
+
         return new self(
             $receipt->id,
             self::text($receipt->source_type, 64),
             self::text($receipt->source_id, 160),
             self::text($receipt->source_revision, 80),
-            $receipt->source_digest,
-            is_string($receipt->selected_material_refs) ? json_decode($receipt->selected_material_refs, true) : (is_array($receipt->selected_material_refs) ? $receipt->selected_material_refs : []),
+            $sourceDigest,
+            self::stringList(self::decode($receipt->selected_material_refs), 50, 240),
             self::text($receipt->capability_id, 100),
             self::text($payload['evidence_claim'], 4000),
-            self::stringList($payload['criterion_scope'] ?? []),
-            self::text($payload['governed_purpose'], 180),
+            $criterionScope,
+            $governedPurpose,
             self::text($payload['title'], 180),
             self::text($payload['summary'], 4000),
-            is_string($receipt->facts) ? json_decode($receipt->facts, true) : (is_array($receipt->facts) ? $receipt->facts : []),
-            is_string($receipt->metadata) ? json_decode($receipt->metadata, true) : (is_array($receipt->metadata) ? $receipt->metadata : []),
+            self::decode($receipt->facts),
+            self::decode($receipt->metadata),
         );
     }
 
@@ -65,29 +82,33 @@ final readonly class IntakeCandidateData
     {
         return $digest->digest([
             'subject_actor_id' => $subjectActorId,
-            'source_type' => $this->sourceType,
-            'source_id' => $this->sourceId,
-            'source_revision' => $this->sourceRevision,
+            'source_type' => self::identityText($this->sourceType),
+            'source_id' => self::identityText($this->sourceId),
+            'source_revision' => self::identityText($this->sourceRevision),
             'selected_material_refs' => $this->selectedMaterialRefs,
-            'evidence_claim' => $this->evidenceClaim,
+            'capability_id' => self::identityText($this->capabilityId),
+            'evidence_claim' => self::identityText($this->evidenceClaim),
             'criterion_scope' => $this->criterionScope,
-            'governed_purpose' => $this->governedPurpose,
+            'governed_purpose' => self::identityText($this->governedPurpose),
         ]);
     }
 
     /** @return list<string> */
-    private static function stringList(mixed $value): array
+    private static function stringList(mixed $value, int $maxItems, int $maxLength): array
     {
-        if (! is_array($value)) {
-            throw new IntakeReviewException('Expected a list of string references.');
+        if (! is_array($value) || ! array_is_list($value) || count($value) > $maxItems) {
+            throw new IntakeReviewException('Expected a bounded list of string references.');
         }
 
         $items = [];
 
         foreach ($value as $item) {
-            $text = trim((string) $item);
+            if (! is_string($item)) {
+                throw new IntakeReviewException('Reference lists must contain strings.');
+            }
+            $text = trim($item);
 
-            if ($text === '') {
+            if ($text === '' || mb_strlen($text) > $maxLength) {
                 throw new IntakeReviewException('Reference lists cannot contain empty values.');
             }
 
@@ -98,6 +119,23 @@ final readonly class IntakeCandidateData
         sort($items);
 
         return $items;
+    }
+
+    /** @return array<mixed> */
+    private static function decode(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        $decoded = json_decode((string) $value, true, 512, JSON_THROW_ON_ERROR);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private static function identityText(string $value): string
+    {
+        return mb_strtolower((string) preg_replace('/\s+/u', ' ', trim($value)));
     }
 
     private static function text(mixed $value, int $maxLength): string

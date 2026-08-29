@@ -51,7 +51,7 @@ final class EvidenceIntakeService
                 throw new IntakeReviewException('Candidate Evidence semantic identity conflicts with source integrity.');
             }
 
-            return (array) $existing;
+            return $this->candidate((string) $existing->id);
         }
 
         $id = (string) Str::uuid7();
@@ -109,6 +109,11 @@ final class EvidenceIntakeService
             }
 
             $this->authorizer->assertSubjectActor((string) $candidate->subject_actor_id, $actorId);
+
+            if ((string) $candidate->state === $targetState) {
+                return;
+            }
+
             $this->lifecycle->assertCanTransition((string) $candidate->state, $targetState);
 
             DB::table('evidence_candidates')->where('id', $candidateId)->update([
@@ -139,6 +144,32 @@ final class EvidenceIntakeService
             }
 
             $this->authorizer->assertSubjectActor((string) $candidate->subject_actor_id, $actorId);
+
+            if ((string) $candidate->state === CandidateEvidenceState::ADMITTED->value
+                && $candidate->admitted_evidence_id !== null) {
+                $evidence = DB::table('governed_evidence')
+                    ->where('id', $candidate->admitted_evidence_id)
+                    ->firstOrFail();
+                $revision = DB::table('governed_evidence_revisions')
+                    ->where('evidence_id', $evidence->id)
+                    ->where('revision', $evidence->current_revision_number)
+                    ->firstOrFail();
+                $admission = EvidenceAdmissionRecord::query()
+                    ->where('candidate_id', $candidateId)
+                    ->firstOrFail();
+
+                return [
+                    'candidate' => $this->candidate($candidateId),
+                    'evidence' => (array) $evidence,
+                    'revision' => (array) $revision,
+                    'admission' => $admission->attributesToArray(),
+                ];
+            }
+
+            if ((string) $candidate->state !== CandidateEvidenceState::SUBMITTED_FOR_INTAKE->value) {
+                throw new IntakeReviewException('Candidate Evidence must be SUBMITTED_FOR_INTAKE before Admission.');
+            }
+
             $this->lifecycle->assertCanTransition(
                 (string) $candidate->state,
                 CandidateEvidenceState::ADMITTED->value,
@@ -276,7 +307,12 @@ final class EvidenceIntakeService
             throw new IntakeReviewException('Candidate Evidence was not found.');
         }
 
-        return (array) $candidate;
+        $result = (array) $candidate;
+        foreach (['selected_material_refs', 'criterion_scope', 'proposed_facts', 'metadata'] as $field) {
+            $result[$field] = $this->decodeJson($result[$field] ?? null);
+        }
+
+        return $result;
     }
 
     private function appendCandidateEvent(

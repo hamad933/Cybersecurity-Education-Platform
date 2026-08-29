@@ -4,12 +4,15 @@ namespace App\Modules\Evidence\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Evidence\Application\ProgressEvidence\MasteryPortfolio\MasteryPortfolioService;
+use App\Modules\Evidence\Application\ProgressEvidence\MasteryPortfolio\PortfolioGroupingRegistry;
 use App\Modules\Evidence\Application\ProgressEvidenceService;
 use App\Modules\Evidence\IntakeReview\Application\EvidenceIntakeService;
 use App\Modules\Evidence\IntakeReview\Application\EvidenceReviewService;
 use App\Modules\Evidence\IntakeReview\Application\ReviewDecisionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use InvalidArgumentException;
@@ -24,6 +27,7 @@ final class ProgressEvidenceController extends Controller
         private readonly EvidenceReviewService $reviewService,
         private readonly ReviewDecisionService $decisionService,
         private readonly MasteryPortfolioService $masteryService,
+        private readonly PortfolioGroupingRegistry $portfolioGroupings,
     ) {}
 
     public function index(Request $request): Response
@@ -136,6 +140,7 @@ final class ProgressEvidenceController extends Controller
             'criterion_refs' => ['sometimes', 'array', 'min:1'],
             'criterion_refs.*' => ['required', 'string', 'max:120'],
             'purpose' => ['sometimes', 'required', 'string', 'max:180'],
+            'assigned_reviewer_id' => ['sometimes', 'required', 'uuid'],
         ]);
 
         return $this->workflow(
@@ -229,7 +234,7 @@ final class ProgressEvidenceController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:180'],
             'view_scope' => ['nullable', 'string', 'max:120'],
-            'grouping' => ['required', 'in:CAPABILITY,PROJECT,OBJECTIVE,EVIDENCE_TYPE,TIME,MASTERY_JUDGMENT,FRESHNESS_STATUS'],
+            'grouping' => ['required', Rule::in($this->portfolioGroupings->keys())],
             'filters' => ['sometimes', 'array:lifecycle_states,review_decisions,capability_ids'],
             'filters.lifecycle_states' => ['sometimes', 'array', 'max:3'],
             'filters.lifecycle_states.*' => ['in:ACTIVE,WITHDRAWN,SUPERSEDED'],
@@ -283,6 +288,14 @@ final class ProgressEvidenceController extends Controller
                 $this->actorId($request)
             ),
             'تمت إزالة Evidence من Portfolio View بمرجعية قوية لحفظ السجل.',
+        );
+    }
+
+    public function legacyMutationBlocked(): HttpResponse
+    {
+        return response(
+            'This legacy mutation endpoint is retired. Use the governed Progress & Evidence workflow.',
+            410,
         );
     }
 

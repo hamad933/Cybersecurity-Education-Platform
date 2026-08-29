@@ -3,7 +3,10 @@
 namespace App\Modules\Evidence\Application\ProgressEvidence\MasteryPortfolio;
 
 use App\Modules\Evidence\Application\ProgressEvidenceService;
+use App\Modules\Evidence\Models\EvidenceMasteryPolicy;
+use App\Modules\Evidence\Models\EvidenceMasteryPolicyRevision;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -33,16 +36,6 @@ final class MasteryPortfolioService
         'REQUIRE_MANUAL_REVIEW',
     ];
 
-    private const PORTFOLIO_GROUPINGS = [
-        'CAPABILITY',
-        'PROJECT',
-        'OBJECTIVE',
-        'EVIDENCE_TYPE',
-        'TIME',
-        'MASTERY_JUDGMENT',
-        'FRESHNESS_STATUS',
-    ];
-
     public function __construct(private readonly ProgressEvidenceService $progressEvidence) {}
 
     /**
@@ -65,7 +58,7 @@ final class MasteryPortfolioService
             $policyId = (string) Str::uuid7();
             $now = now();
 
-            DB::table('evidence_mastery_policies')->insert([
+            EvidenceMasteryPolicy::query()->create([
                 'id' => $policyId,
                 'owner_actor_id' => $actorId,
                 'target_type' => 'CAPABILITY',
@@ -95,10 +88,10 @@ final class MasteryPortfolioService
         $rationale = $this->text($rationale, 4000, 'Mastery Policy rationale');
 
         return DB::transaction(function () use ($policyId, $actorId, $normalised, $rationale): array {
-            $policy = DB::table('evidence_mastery_policies')->where('id', $policyId)->lockForUpdate()->first();
+            $policy = EvidenceMasteryPolicy::query()->whereKey($policyId)->lockForUpdate()->first();
             $this->ownPolicy($policy, $actorId);
 
-            $current = DB::table('evidence_mastery_policy_revisions')
+            $current = EvidenceMasteryPolicyRevision::query()
                 ->where('policy_id', $policyId)
                 ->where('revision', $policy->current_revision_number)
                 ->first();
@@ -122,7 +115,7 @@ final class MasteryPortfolioService
     public function publishPolicyRevision(string $revisionId, string $actorId): array
     {
         return DB::transaction(function () use ($revisionId, $actorId): array {
-            $revision = DB::table('evidence_mastery_policy_revisions')
+            $revision = EvidenceMasteryPolicyRevision::query()
                 ->where('id', $revisionId)
                 ->lockForUpdate()
                 ->first();
@@ -131,8 +124,8 @@ final class MasteryPortfolioService
                 throw new LogicException('Unknown Mastery Policy Revision.');
             }
 
-            $policy = DB::table('evidence_mastery_policies')
-                ->where('id', $revision->policy_id)
+            $policy = EvidenceMasteryPolicy::query()
+                ->whereKey($revision->policy_id)
                 ->lockForUpdate()
                 ->first();
             $this->ownPolicy($policy, $actorId);
@@ -146,12 +139,12 @@ final class MasteryPortfolioService
             }
 
             $now = now();
-            DB::table('evidence_mastery_policy_revisions')->where('id', $revisionId)->update([
+            EvidenceMasteryPolicyRevision::query()->whereKey($revisionId)->update([
                 'published_by' => $actorId,
                 'published_at' => $now,
                 'updated_at' => $now,
             ]);
-            DB::table('evidence_mastery_policies')->where('id', $policy->id)->update([
+            EvidenceMasteryPolicy::query()->whereKey($policy->id)->update([
                 'published_revision_id' => $revisionId,
                 'updated_at' => $now,
             ]);
@@ -293,10 +286,6 @@ final class MasteryPortfolioService
         array $filters = [],
         array $annotations = [],
     ): array {
-        if (! in_array($grouping, self::PORTFOLIO_GROUPINGS, true)) {
-            throw new InvalidArgumentException('Invalid governed Portfolio grouping.');
-        }
-
         return $this->progressEvidence->createPortfolio(
             $actorId,
             $name,
@@ -314,18 +303,6 @@ final class MasteryPortfolioService
         ?string $annotation = null,
         int $sort = 0,
     ): void {
-        $evidence = DB::table('governed_evidence')->where('id', $evidenceId)->first();
-
-        if (! $evidence || $evidence->subject_actor_id !== $actorId) {
-            throw new LogicException('Portfolio Evidence reference is outside the authenticated actor boundary.');
-        }
-        if ($evidence->lifecycle_state !== 'ACTIVE') {
-            throw new LogicException('Portfolio can reference only ACTIVE canonical Evidence.');
-        }
-        if (! in_array($evidence->effective_review_decision, ['ACCEPT', 'ACCEPT_WITH_LIMITATIONS'], true)) {
-            throw new LogicException('Portfolio can curate only Evidence with an effective accepted Review Decision.');
-        }
-
         $this->progressEvidence->addEvidenceToPortfolio(
             $portfolioId,
             $evidenceId,
@@ -343,43 +320,7 @@ final class MasteryPortfolioService
     /** @return array<string, mixed> */
     public function portfolioProjection(string $portfolioId, string $actorId): array
     {
-        $portfolio = DB::table('evidence_portfolios')->where('id', $portfolioId)->first();
-        if (! $portfolio || $portfolio->owner_actor_id !== $actorId) {
-            throw new LogicException('Portfolio boundary mismatch.');
-        }
-
-        $projection = $this->array($portfolio, ['filters', 'annotations']);
-        $projection['items'] = DB::table('evidence_portfolio_items as i')
-            ->join('governed_evidence as e', 'e.id', '=', 'i.evidence_id')
-            ->join('governed_evidence_revisions as r', function ($join): void {
-                $join->on('r.evidence_id', '=', 'e.id')
-                    ->on('r.revision', '=', 'e.current_revision_number');
-            })
-            ->leftJoin('evidence_mastery_states as m', 'm.id', '=', 'i.mastery_state_id')
-            ->where('i.portfolio_id', $portfolioId)
-            ->orderBy('i.sort_order')
-            ->select(
-                'i.id as portfolio_item_id',
-                'i.evidence_id',
-                'i.mastery_state_id',
-                'i.sort_order',
-                'i.annotation',
-                'e.capability_id',
-                'e.lifecycle_state',
-                'e.review_status',
-                'e.effective_review_decision',
-                'r.id as evidence_revision_id',
-                'r.title',
-                'r.summary',
-                'm.judgment as mastery_judgment',
-                'm.freshness_status',
-                'm.policy_revision_id',
-            )
-            ->get()
-            ->map(fn ($row): array => (array) $row)
-            ->all();
-
-        return $projection;
+        return $this->progressEvidence->portfolioProjection($portfolioId, $actorId);
     }
 
     /**
@@ -448,7 +389,7 @@ final class MasteryPortfolioService
             'rationale' => $rationale,
         ];
 
-        DB::table('evidence_mastery_policy_revisions')->insert([
+        EvidenceMasteryPolicyRevision::query()->insert([
             'id' => $revisionId,
             'policy_id' => $policyId,
             'previous_revision_id' => $previousRevisionId,
@@ -470,7 +411,7 @@ final class MasteryPortfolioService
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-        DB::table('evidence_mastery_policies')->where('id', $policyId)->update([
+        EvidenceMasteryPolicy::query()->whereKey($policyId)->update([
             'current_revision_number' => $revision,
             'updated_at' => $now,
         ]);
@@ -495,7 +436,8 @@ final class MasteryPortfolioService
     /** @return array<string, mixed> */
     private function policyRevision(string $revisionId): array
     {
-        $row = DB::table('evidence_mastery_policy_revisions as r')
+        $row = EvidenceMasteryPolicyRevision::query()
+            ->from('evidence_mastery_policy_revisions as r')
             ->join('evidence_mastery_policies as p', 'p.id', '=', 'r.policy_id')
             ->where('r.id', $revisionId)
             ->select(
@@ -660,7 +602,7 @@ final class MasteryPortfolioService
      */
     private function array(object $row, array $jsonFields = []): array
     {
-        $result = (array) $row;
+        $result = $row instanceof Model ? $row->attributesToArray() : (array) $row;
         foreach ($jsonFields as $field) {
             $result[$field] = $this->decode($result[$field] ?? null);
         }

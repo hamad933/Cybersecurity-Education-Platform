@@ -7,7 +7,7 @@ final class IntakeReviewAuthorizer
     public function assertSubjectActor(string $subjectActorId, string $actorId): void
     {
         if ($subjectActorId === '' || $actorId === '' || ! hash_equals($subjectActorId, $actorId)) {
-            throw new IntakeReviewException('Actor is outside the governed Evidence subject boundary.');
+            throw new IntakeReviewException('Actor is outside the governed Evidence subject boundary; record is outside actor boundary.');
         }
     }
 
