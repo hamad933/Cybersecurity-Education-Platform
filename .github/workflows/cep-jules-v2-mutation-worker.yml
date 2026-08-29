@@ -1,0 +1,230 @@
+name: CEP Jules Gateway v2.2 Effect Worker
+
+on:
+  workflow_call:
+    inputs:
+      request_json:
+        required: true
+        type: string
+      effect_key:
+        required: true
+        type: string
+      operation_kind:
+        required: true
+        type: string
+    secrets:
+      JULES_API_KEY:
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  transport-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Re-assert owner and governed-ref gate
+        shell: bash
+        env:
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          test "$ACTOR" = "$OWNER"
+          test "$REF" = "refs/heads/main"
+
+  preflight:
+    needs: transport-gate
+    if: inputs.operation_kind == 'MUTATION'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    outputs:
+      intent_marker: ${{ steps.preflight.outputs.intent_marker }}
+      completed_marker: ${{ steps.preflight.outputs.completed_marker }}
+      unknown_marker: ${{ steps.preflight.outputs.unknown_marker }}
+      create_effect_intent_marker: ${{ steps.preflight.outputs.create_effect_intent_marker }}
+    env:
+      JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+      GITHUB_TOKEN: ${{ github.token }}
+      CEP_REPOSITORY: ${{ github.repository }}
+      CEP_JULES_SOURCE: sources/github/hamad933/Cybersecurity-Education-Platform
+      JULES_API_BASE: https://jules.googleapis.com/v1alpha
+      CEP_JULES_REQUEST_JSON: ${{ inputs.request_json }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - id: preflight
+        name: Repository-wide idempotency and authoritative pre-read
+        continue-on-error: true
+        run: python -m tools.cep_jules_gateway.v22_cli preflight --output-dir "$RUNNER_TEMP/cep-v22-preflight"
+      - name: Publish bounded preflight evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cep-jules-v22-preflight-${{ github.run_id }}
+          path: ${{ runner.temp }}/cep-v22-preflight/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Persist durable request intent
+        if: steps.preflight.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.preflight.outputs.intent_marker }}
+          path: ${{ runner.temp }}/cep-v22-preflight/intent.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Fail closed when preflight rejected
+        if: steps.preflight.outcome != 'success'
+        run: exit 1
+
+  mutation:
+    needs: [transport-gate, preflight]
+    if: inputs.operation_kind == 'MUTATION' && needs.preflight.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: cep-jules-v22-${{ inputs.effect_key }}
+      cancel-in-progress: false
+    env:
+      JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+      GITHUB_TOKEN: ${{ github.token }}
+      CEP_REPOSITORY: ${{ github.repository }}
+      CEP_JULES_SOURCE: sources/github/hamad933/Cybersecurity-Education-Platform
+      JULES_API_BASE: https://jules.googleapis.com/v1alpha
+      CEP_JULES_REQUEST_JSON: ${{ inputs.request_json }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Read back exact durable request intent
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.preflight.outputs.intent_marker }}
+          path: ${{ runner.temp }}/cep-v22-intent
+      - id: effect_guard
+        name: Guard create effect or atomically adopt existing session binding
+        run: python -m tools.cep_jules_gateway.v22_cli effect-guard --output-dir "$RUNNER_TEMP/cep-v22-effect"
+      - name: Persist create-effect attempt before provider write
+        if: needs.preflight.outputs.create_effect_intent_marker != 'NONE'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.preflight.outputs.create_effect_intent_marker }}
+          path: ${{ runner.temp }}/cep-v22-effect/effect.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Persist single atomic legacy/session binding before mutation
+        if: steps.effect_guard.outputs.bind_session == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.effect_guard.outputs.session_binding_marker }}
+          path: ${{ runner.temp }}/cep-v22-effect/session_binding.json
+          if-no-files-found: error
+          retention-days: 90
+      - id: execute
+        name: Final pre-read, one provider write, exact activity post-proof
+        run: |
+          python -m tools.cep_jules_gateway.v22_cli execute \
+            --intent-file "$RUNNER_TEMP/cep-v22-intent/intent.json" \
+            --output-dir "$RUNNER_TEMP/cep-v22-final"
+      - name: Publish mutation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cep-jules-v22-mutation-${{ github.run_id }}
+          path: ${{ runner.temp }}/cep-v22-final/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Persist create-effect terminal resolution before request terminal state
+        if: steps.execute.outputs.create_effect_resolution_marker != 'NONE'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.execute.outputs.create_effect_resolution_marker }}
+          path: ${{ runner.temp }}/cep-v22-final/final_state.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Persist binding for newly created exactly verified session
+        if: steps.execute.outputs.created_session_binding_marker != 'NONE'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.execute.outputs.created_session_binding_marker }}
+          path: ${{ runner.temp }}/cep-v22-final/final_state.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Persist completed request state last
+        if: steps.execute.outputs.final_state == 'COMPLETED'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.preflight.outputs.completed_marker }}
+          path: ${{ runner.temp }}/cep-v22-final/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Persist unknown write outcome last
+        if: steps.execute.outputs.final_state == 'UNKNOWN_WRITE_OUTCOME'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.preflight.outputs.unknown_marker }}
+          path: ${{ runner.temp }}/cep-v22-final/
+          if-no-files-found: error
+          retention-days: 90
+
+  reconcile:
+    needs: transport-gate
+    if: inputs.operation_kind == 'RECONCILIATION'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    concurrency:
+      group: cep-jules-v22-${{ inputs.effect_key }}
+      cancel-in-progress: false
+    env:
+      JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+      GITHUB_TOKEN: ${{ github.token }}
+      CEP_REPOSITORY: ${{ github.repository }}
+      CEP_JULES_SOURCE: sources/github/hamad933/Cybersecurity-Education-Platform
+      JULES_API_BASE: https://jules.googleapis.com/v1alpha
+      CEP_JULES_REQUEST_JSON: ${{ inputs.request_json }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - id: reconcile
+        name: Reconcile authoritative Jules state without provider mutation
+        run: python -m tools.cep_jules_gateway.v22_cli reconcile --output-dir "$RUNNER_TEMP/cep-v22-reconcile"
+      - name: Publish reconciliation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cep-jules-v22-reconcile-${{ github.run_id }}
+          path: ${{ runner.temp }}/cep-v22-reconcile/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Persist create-effect reconciliation before request resolution
+        if: steps.reconcile.outputs.persist_resolution == 'true' && steps.reconcile.outputs.create_effect_resolution_marker != 'NONE'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.reconcile.outputs.create_effect_resolution_marker }}
+          path: ${{ runner.temp }}/cep-v22-reconcile/reconciliation.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Atomically bind reconciled created session
+        if: steps.reconcile.outputs.bind_session == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.reconcile.outputs.session_binding_marker }}
+          path: ${{ runner.temp }}/cep-v22-reconcile/reconciliation.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Persist request reconciliation terminal state last
+        if: steps.reconcile.outputs.persist_resolution == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.reconcile.outputs.resolution_marker }}
+          path: ${{ runner.temp }}/cep-v22-reconcile/reconciliation.json
+          if-no-files-found: error
+          retention-days: 90

@@ -1,0 +1,249 @@
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from pathlib import Path
+from typing import Any
+
+from .effect import effect_concurrency_key, request_concurrency_key
+from .envelope import parse_envelope
+from .github import GitHubClient
+from .idempotency import (
+    IdempotencyState,
+    create_effect_guard_name,
+    inspect_idempotency,
+    marker_name,
+    require_new_intent,
+    require_session_binding,
+    require_unused_create_effect,
+    session_binding_names,
+)
+from .jules import JulesClient
+from .models import ErrorClassification, GatewayError
+from .mutation import execute_mutation, preflight_mutation
+from .receipt import error_receipt
+from .sanitize import sanitize_obj
+
+
+def _write_json(path: Path, value: Any) -> None:
+    rendered = json.dumps(sanitize_obj(value), ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+    path.write_text(rendered, encoding="utf-8")
+
+
+def _append_output(name: str, value: str) -> None:
+    target = os.environ.get("GITHUB_OUTPUT")
+    if not target:
+        return
+    if not name.replace("_", "").isalnum() or any(ch not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-" for ch in value):
+        raise GatewayError(ErrorClassification.INVALID_STATE, "unsafe workflow output value")
+    with open(target, "a", encoding="utf-8") as handle:
+        handle.write(f"{name}={value}\n")
+
+
+def _request() -> Any:
+    return parse_envelope(os.environ.get("CEP_JULES_REQUEST_JSON", ""))
+
+
+def _github() -> GitHubClient:
+    return GitHubClient(
+        os.environ.get("GITHUB_TOKEN", ""),
+        os.environ.get("CEP_REPOSITORY", "hamad933/Cybersecurity-Education-Platform"),
+    )
+
+
+def _jules(envelope: Any) -> JulesClient:
+    return JulesClient(
+        os.environ.get("JULES_API_KEY", ""),
+        api_base=os.environ.get("JULES_API_BASE", "https://jules.googleapis.com/v1alpha"),
+        max_provider_reads=envelope.options.max_provider_reads,
+    )
+
+
+def _source_name() -> str:
+    value = os.environ.get("CEP_JULES_SOURCE", "sources/github/hamad933/Cybersecurity-Education-Platform")
+    if not value.startswith("sources/github/") or len(value) > 300:
+        raise GatewayError(ErrorClassification.INVALID_REQUEST, "CEP_JULES_SOURCE is invalid")
+    return value
+
+
+def route(out_dir: Path) -> int:
+    envelope = _request()
+    if not envelope.is_mutation:
+        raise GatewayError(ErrorClassification.INVALID_REQUEST, "mutation route requires a v2.1 mutating action")
+    effect_key = effect_concurrency_key(envelope)
+    if envelope.session_id:
+        binding_marker, binding_specific = session_binding_names(
+            envelope.session_id,
+            envelope.logical_task_id or "",
+            envelope.write_domain or "",
+        )
+    else:
+        binding_marker, binding_specific = "NONE", "NONE"
+    data = {
+        "request_key": request_concurrency_key(envelope),
+        "effect_key": effect_key,
+        "intent_marker": marker_name(envelope.request_id, IdempotencyState.INTENT_RECORDED),
+        "completed_marker": marker_name(envelope.request_id, IdempotencyState.COMPLETED),
+        "unknown_marker": marker_name(envelope.request_id, IdempotencyState.UNKNOWN_WRITE_OUTCOME),
+        "create_effect_marker": create_effect_guard_name(effect_key),
+        "session_binding_marker": binding_marker,
+        "session_binding_specific_marker": binding_specific,
+        "is_create": "true" if envelope.action == "create_session" else "false",
+        "is_session_mutation": "true" if envelope.session_id else "false",
+    }
+    _write_json(out_dir / "routing.json", data)
+    for key, value in data.items():
+        _append_output(key, value)
+    return 0
+
+
+def preflight(out_dir: Path) -> int:
+    envelope = _request()
+    github = _github()
+    snapshot = inspect_idempotency(github, envelope.request_id)
+    _write_json(out_dir / "idempotency.json", snapshot.to_dict())
+    try:
+        require_new_intent(snapshot)
+    except GatewayError as exc:
+        receipt = error_receipt(envelope, exc)
+        receipt["idempotency"] = snapshot.to_dict()
+        receipt["blind_retry"] = False
+        if snapshot.decision_state == IdempotencyState.RECONCILIATION_REQUIRED:
+            receipt["next_safe_read"] = {
+                "action": "list_sessions" if envelope.action == "create_session" else "inspect_bundle",
+                "session_id": envelope.session_id,
+            }
+        _write_json(out_dir / "receipt.json", receipt)
+        _append_output("proceed", "false")
+        _append_output("preflight_state", snapshot.decision_state.value)
+        return 11 if snapshot.decision_state == IdempotencyState.RECONCILIATION_REQUIRED else 10
+
+    intent = preflight_mutation(envelope, _jules(envelope), github, source_name=_source_name())
+    _write_json(out_dir / "intent.json", intent)
+    receipt = {
+        "schema_version": "cep.jules.gateway.preflight_receipt/v2",
+        **envelope.public_dict(),
+        "intent_identity": intent["intent_identity"],
+        "pre_state": (intent.get("preconditions") or {}).get("pre_state"),
+        "idempotency_state": IdempotencyState.INTENT_RECORDED.value,
+        "provider_mutation_performed": False,
+        "blind_retry": False,
+        "public_safe": True,
+    }
+    _write_json(out_dir / "receipt.json", receipt)
+    _append_output("proceed", "true")
+    _append_output("preflight_state", IdempotencyState.INTENT_RECORDED.value)
+    return 0
+
+
+def effect_guard(out_dir: Path) -> int:
+    envelope = _request()
+    effect_key = effect_concurrency_key(envelope)
+    github = _github()
+    if envelope.action == "create_session":
+        require_unused_create_effect(github, effect_key)
+        marker = create_effect_guard_name(effect_key)
+        data = {
+            "guard_type": "CREATE_EFFECT",
+            "effect_key": effect_key,
+            "marker": marker,
+            "state": IdempotencyState.INTENT_RECORDED.value,
+            "blind_retry": False,
+        }
+        _write_json(out_dir / "effect_guard.json", data)
+        _append_output("bind_session", "false")
+        return 0
+
+    decision = require_session_binding(
+        github,
+        envelope.session_id or "",
+        envelope.logical_task_id or "",
+        envelope.write_domain or "",
+    )
+    data = {
+        "guard_type": "SESSION_BINDING",
+        "session_id": envelope.session_id,
+        "logical_task_id": envelope.logical_task_id,
+        "write_domain": envelope.write_domain,
+        **decision.to_dict(),
+        "blind_retry": False,
+    }
+    _write_json(out_dir / "effect_guard.json", data)
+    _write_json(out_dir / "session_binding.json", data)
+    _append_output("bind_session", "true" if decision.needs_persist else "false")
+    _append_output("session_binding_marker", decision.generic_marker)
+    _append_output("session_binding_specific_marker", decision.specific_marker)
+    return 0
+
+
+def execute(out_dir: Path, intent_path: Path) -> int:
+    envelope = _request()
+    try:
+        intent = json.loads(intent_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise GatewayError(ErrorClassification.INVALID_STATE, "durable intent artifact is unreadable", details={"error": type(exc).__name__}) from exc
+    if not isinstance(intent, dict):
+        raise GatewayError(ErrorClassification.INVALID_STATE, "durable intent artifact must be an object")
+
+    receipt = execute_mutation(envelope, intent, _jules(envelope), _github(), source_name=_source_name())
+    _write_json(out_dir / "receipt.json", receipt)
+    final_state = str(receipt.get("idempotency_final_state") or "")
+    verification = str(receipt.get("verification") or "")
+    if final_state not in {IdempotencyState.COMPLETED.value, IdempotencyState.UNKNOWN_WRITE_OUTCOME.value}:
+        raise GatewayError(ErrorClassification.INVALID_STATE, "mutation engine returned an invalid final idempotency state")
+
+    final_summary: dict[str, Any] = {
+        "request_id": envelope.request_id,
+        "intent_identity": receipt.get("intent_identity"),
+        "idempotency_final_state": final_state,
+        "verification": verification,
+        "blind_retry": False,
+    }
+    if envelope.action == "create_session" and verification == "VERIFIED" and str(receipt.get("session_id") or "").isdigit():
+        generic, specific = session_binding_names(
+            str(receipt["session_id"]),
+            envelope.logical_task_id or "",
+            envelope.write_domain or "",
+        )
+        final_summary["created_session_binding_marker"] = generic
+        final_summary["created_session_binding_specific_marker"] = specific
+        _append_output("created_session_binding_marker", generic)
+        _append_output("created_session_binding_specific_marker", specific)
+
+    _write_json(out_dir / "final_state.json", final_summary)
+    _append_output("final_state", final_state)
+    _append_output("verification", verification)
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="CEP Jules Gateway v2 mutation-canary helper")
+    parser.add_argument("phase", choices=("route", "preflight", "effect-guard", "execute"))
+    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--intent-file")
+    args = parser.parse_args(argv)
+    out_dir = Path(args.output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        if args.phase == "route":
+            return route(out_dir)
+        if args.phase == "preflight":
+            return preflight(out_dir)
+        if args.phase == "effect-guard":
+            return effect_guard(out_dir)
+        if not args.intent_file:
+            raise GatewayError(ErrorClassification.INVALID_REQUEST, "execute phase requires --intent-file")
+        return execute(out_dir, Path(args.intent_file))
+    except GatewayError as exc:
+        try:
+            envelope = _request()
+        except GatewayError:
+            envelope = None
+        _write_json(out_dir / "receipt.json", error_receipt(envelope, exc))
+        print(json.dumps({"status": "FAILED", "classification": exc.classification.value}, separators=(",", ":")))
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
