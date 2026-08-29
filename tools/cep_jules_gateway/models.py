@@ -11,6 +11,9 @@ class ProviderOutcome(StrEnum):
     NOT_AVAILABLE_FROM_PROVIDER = "NOT_AVAILABLE_FROM_PROVIDER"
     READ_FAILED = "READ_FAILED"
     RATE_LIMITED = "RATE_LIMITED"
+    VERIFIED = "VERIFIED"
+    UNKNOWN = "UNKNOWN"
+    REJECTED = "REJECTED"
 
 
 class Completeness(StrEnum):
@@ -25,8 +28,14 @@ class ErrorClassification(StrEnum):
     NOT_FOUND = "NOT_FOUND"
     INVALID_STATE = "INVALID_STATE"
     PROVIDER_READ_FAILED = "PROVIDER_READ_FAILED"
+    PROVIDER_PROTOCOL_FAILED = "PROVIDER_PROTOCOL_FAILED"
     PROVIDER_WRITE_OUTCOME_UNKNOWN = "PROVIDER_WRITE_OUTCOME_UNKNOWN"
     PAGINATION_LIMIT_EXCEEDED = "PAGINATION_LIMIT_EXCEEDED"
+    READ_BUDGET_EXCEEDED = "READ_BUDGET_EXCEEDED"
+    OUTPUT_BUDGET_EXCEEDED = "OUTPUT_BUDGET_EXCEEDED"
+    PLAN_CHANGED_SINCE_REVIEW = "PLAN_CHANGED_SINCE_REVIEW__REAPPROVAL_REQUIRED"
+    IDEMPOTENCY_CONFLICT = "IDEMPOTENCY_CONFLICT"
+    RECONCILIATION_REQUIRED = "RECONCILIATION_REQUIRED"
     INVALID_REQUEST = "INVALID_REQUEST"
 
 
@@ -58,9 +67,12 @@ class PaginationInfo:
     items_scanned: int
     complete: bool
     limit_pages: int
+    limit_items: int | None = None
+    next_page_token: str | None = None
+    stop_reason: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return {key: value for key, value in asdict(self).items() if value is not None}
 
 
 @dataclass
