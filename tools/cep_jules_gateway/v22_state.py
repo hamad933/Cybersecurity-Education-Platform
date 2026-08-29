@@ -36,8 +36,14 @@ def request_key(env: EnvelopeV22) -> str:
     return "req-" + sha256_text(identity or env.request_id)[:32]
 
 
+def _identity_public(data: dict[str, Any]) -> dict[str, Any]:
+    canonical = dict(data)
+    canonical.pop("min_reconcile_age_seconds", None)
+    return canonical
+
+
 def intent_identity_from_public(data: dict[str, Any], key: str) -> str:
-    return sha256_json({"request": data, "effect_key": key})
+    return sha256_json({"request": _identity_public(data), "effect_key": key})
 
 
 def intent_identity(env: EnvelopeV22) -> str:
