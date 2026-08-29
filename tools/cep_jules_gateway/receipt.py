@@ -30,7 +30,8 @@ def receipt_from_bundle(envelope: RequestEnvelope, bundle: dict[str, Any]) -> di
         "provider_outcome": provider.get("outcome", ProviderOutcome.READ_FAILED.value),
         "completeness": provider.get("completeness", Completeness.READ_FAILED.value),
         "digests": {
-            "plan": plan.get("plan_digest"),
+            "plan_display": plan.get("plan_digest"),
+            "plan_provider_identity": plan.get("provider_identity_digest"),
             "patch": latest_patch.get("patch_digest"),
             "bash_evidence": [row.get("output_digest") for row in exact_bash if row.get("output_digest")],
         },
@@ -39,6 +40,7 @@ def receipt_from_bundle(envelope: RequestEnvelope, bundle: dict[str, Any]) -> di
             "provider_update_time": session.get("update_time"),
             "activity_count_scanned": provider.get("activity_count_scanned"),
             "activity_pagination": provider.get("activity_pagination"),
+            "budgets": bundle.get("budgets") or {},
             "errors": provider.get("errors") or [],
         },
         "generated_at": _now(),
@@ -54,6 +56,14 @@ def error_receipt(envelope: RequestEnvelope | None, error: GatewayError) -> dict
         provider_outcome = ProviderOutcome.RATE_LIMITED.value
     elif error.classification == ErrorClassification.NOT_FOUND:
         provider_outcome = ProviderOutcome.NOT_FOUND.value
+    elif error.classification in {
+        ErrorClassification.INVALID_REQUEST,
+        ErrorClassification.INVALID_STATE,
+        ErrorClassification.PLAN_CHANGED_SINCE_REVIEW,
+        ErrorClassification.IDEMPOTENCY_CONFLICT,
+        ErrorClassification.RECONCILIATION_REQUIRED,
+    }:
+        provider_outcome = ProviderOutcome.REJECTED.value
     else:
         provider_outcome = ProviderOutcome.READ_FAILED.value
     receipt: dict[str, Any] = {
