@@ -15,7 +15,9 @@ from .idempotency import (
     inspect_idempotency,
     marker_name,
     require_new_intent,
+    require_session_binding,
     require_unused_create_effect,
+    session_binding_names,
 )
 from .jules import JulesClient
 from .models import ErrorClassification, GatewayError
@@ -70,6 +72,14 @@ def route(out_dir: Path) -> int:
     if not envelope.is_mutation:
         raise GatewayError(ErrorClassification.INVALID_REQUEST, "mutation route requires a v2.1 mutating action")
     effect_key = effect_concurrency_key(envelope)
+    if envelope.session_id:
+        binding_marker, binding_specific = session_binding_names(
+            envelope.session_id,
+            envelope.logical_task_id or "",
+            envelope.write_domain or "",
+        )
+    else:
+        binding_marker, binding_specific = "NONE", "NONE"
     data = {
         "request_key": request_concurrency_key(envelope),
         "effect_key": effect_key,
@@ -77,7 +87,10 @@ def route(out_dir: Path) -> int:
         "completed_marker": marker_name(envelope.request_id, IdempotencyState.COMPLETED),
         "unknown_marker": marker_name(envelope.request_id, IdempotencyState.UNKNOWN_WRITE_OUTCOME),
         "create_effect_marker": create_effect_guard_name(effect_key),
+        "session_binding_marker": binding_marker,
+        "session_binding_specific_marker": binding_specific,
         "is_create": "true" if envelope.action == "create_session" else "false",
+        "is_session_mutation": "true" if envelope.session_id else "false",
     }
     _write_json(out_dir / "routing.json", data)
     for key, value in data.items():
@@ -127,24 +140,38 @@ def preflight(out_dir: Path) -> int:
 def effect_guard(out_dir: Path) -> int:
     envelope = _request()
     effect_key = effect_concurrency_key(envelope)
-    if envelope.action != "create_session":
-        _write_json(out_dir / "effect_guard.json", {"required": False, "effect_key": effect_key})
-        _append_output("effect_guard_proceed", "true")
-        return 0
     github = _github()
-    require_unused_create_effect(github, effect_key)
-    marker = create_effect_guard_name(effect_key)
-    _write_json(
-        out_dir / "effect_guard.json",
-        {
-            "required": True,
+    if envelope.action == "create_session":
+        require_unused_create_effect(github, effect_key)
+        marker = create_effect_guard_name(effect_key)
+        data = {
+            "guard_type": "CREATE_EFFECT",
             "effect_key": effect_key,
             "marker": marker,
             "state": IdempotencyState.INTENT_RECORDED.value,
             "blind_retry": False,
-        },
+        }
+        _write_json(out_dir / "effect_guard.json", data)
+        _append_output("bind_session", "false")
+        return 0
+
+    decision = require_session_binding(
+        github,
+        envelope.session_id or "",
+        envelope.logical_task_id or "",
+        envelope.write_domain or "",
     )
-    _append_output("effect_guard_proceed", "true")
+    data = {
+        "guard_type": "SESSION_BINDING",
+        "session_id": envelope.session_id,
+        "logical_task_id": envelope.logical_task_id,
+        "write_domain": envelope.write_domain,
+        **decision.to_dict(),
+        "blind_retry": False,
+    }
+    _write_json(out_dir / "effect_guard.json", data)
+    _write_json(out_dir / "session_binding.json", data)
+    _append_output("bind_session", "true" if decision.needs_persist else "false")
     return 0
 
 
@@ -163,16 +190,26 @@ def execute(out_dir: Path, intent_path: Path) -> int:
     verification = str(receipt.get("verification") or "")
     if final_state not in {IdempotencyState.COMPLETED.value, IdempotencyState.UNKNOWN_WRITE_OUTCOME.value}:
         raise GatewayError(ErrorClassification.INVALID_STATE, "mutation engine returned an invalid final idempotency state")
-    _write_json(
-        out_dir / "final_state.json",
-        {
-            "request_id": envelope.request_id,
-            "intent_identity": receipt.get("intent_identity"),
-            "idempotency_final_state": final_state,
-            "verification": verification,
-            "blind_retry": False,
-        },
-    )
+
+    final_summary: dict[str, Any] = {
+        "request_id": envelope.request_id,
+        "intent_identity": receipt.get("intent_identity"),
+        "idempotency_final_state": final_state,
+        "verification": verification,
+        "blind_retry": False,
+    }
+    if envelope.action == "create_session" and verification == "VERIFIED" and str(receipt.get("session_id") or "").isdigit():
+        generic, specific = session_binding_names(
+            str(receipt["session_id"]),
+            envelope.logical_task_id or "",
+            envelope.write_domain or "",
+        )
+        final_summary["created_session_binding_marker"] = generic
+        final_summary["created_session_binding_specific_marker"] = specific
+        _append_output("created_session_binding_marker", generic)
+        _append_output("created_session_binding_specific_marker", specific)
+
+    _write_json(out_dir / "final_state.json", final_summary)
     _append_output("final_state", final_state)
     _append_output("verification", verification)
     return 0
