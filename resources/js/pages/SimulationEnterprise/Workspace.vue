@@ -24,8 +24,11 @@ import WorkspaceStatus from './components/WorkspaceStatus.vue';
 import WorkspaceToolbar from './components/WorkspaceToolbar.vue';
 import { orderedItems } from './projections';
 import type {
+  DigitalTwinRevisionItem,
   EnterpriseItem,
+  JsonMap,
   LabItem,
+  LabTaskItem,
   ResultItem,
   RunItem,
   ScenarioItem,
@@ -40,6 +43,8 @@ const props = defineProps<WorkspaceProps>();
 const page = usePage<{ errors?: Record<string, string> }>();
 
 const selectedId = ref<string | null>(null);
+const selectedContextId = ref<string | null>(null);
+const selectedContextKind = ref<string | null>(null);
 const pendingAction = ref<string | null>(null);
 const localError = ref<string | null>(null);
 const bottomOpen = ref(false);
@@ -66,6 +71,8 @@ watch(
 
 watch(selectedId, () => {
   bottomOpen.value = false;
+  selectedContextId.value = null;
+  selectedContextKind.value = null;
 });
 
 const selectedEnterprise = computed(() =>
@@ -93,6 +100,77 @@ const selectedResult = computed(() =>
     ? (props.results.find((item) => item.id === selectedId.value) ?? null)
     : null,
 );
+
+const selectedTwinRevision = computed<DigitalTwinRevisionItem | null>(() => {
+  if (!selectedEnterprise.value || selectedContextKind.value !== 'digital-twin') return null;
+  return (
+    selectedEnterprise.value.digital_twins
+      .flatMap((twin) => twin.revisions)
+      .find((revision) => revision.id === selectedContextId.value) ?? null
+  );
+});
+
+const selectedEnterpriseContext = computed<JsonMap | null>(() => {
+  const enterprise = selectedEnterprise.value;
+  const contextId = selectedContextId.value;
+  if (!enterprise || !contextId) return null;
+
+  const entity = enterprise.entities?.find(
+    (item) => item.id === contextId || item.entity_key === contextId,
+  );
+  if (entity) return { context_type: 'ENTERPRISE_ENTITY', ...entity };
+  const enterpriseRelationship = enterprise.relationships?.find((item) => item.id === contextId);
+  if (enterpriseRelationship) {
+    return {
+      context_type: 'ENTERPRISE_RELATIONSHIP',
+      label: enterpriseRelationship.relationship_type,
+      ...enterpriseRelationship,
+      raw: enterpriseRelationship.properties,
+    };
+  }
+
+  for (const twin of enterprise.digital_twins) {
+    for (const revision of twin.revisions) {
+      if (revision.id === contextId) {
+        return {
+          context_type: 'DIGITAL_TWIN_REVISION',
+          twin_name_ar: twin.name_ar,
+          ...revision,
+        };
+      }
+      const component = revision.components?.find(
+        (item) => item.id === contextId || item.component_key === contextId,
+      );
+      if (component) return { context_type: 'DIGITAL_TWIN_COMPONENT', ...component };
+      const relationship = revision.relationships?.find((item) => item.id === contextId);
+      if (relationship) {
+        return {
+          context_type: 'DIGITAL_TWIN_RELATIONSHIP',
+          label: relationship.relationship_type,
+          ...relationship,
+          raw: relationship.properties,
+        };
+      }
+      const node = orderedItems(revision.topology.nodes, 'Node').find(
+        (item) => item.id === contextId,
+      );
+      if (node) {
+        return {
+          context_type: 'DIGITAL_TWIN_TOPOLOGY_NODE',
+          id: node.id,
+          label: node.label,
+          raw: node.raw,
+        };
+      }
+    }
+  }
+  return null;
+});
+
+const selectedLabTask = computed<LabTaskItem | null>(() => {
+  if (!selectedLab.value || !selectedContextId.value) return null;
+  return selectedLab.value.tasks?.find((task) => task.id === selectedContextId.value) ?? null;
+});
 
 const pageTitle = computed(
   () =>
@@ -164,17 +242,69 @@ const structureItems = computed(() =>
 
 const structureGroups = computed(() => {
   if (selectedEnterprise.value) {
-    return selectedEnterprise.value.digital_twins.flatMap((twin) => [
+    const enterpriseGroups = [
       {
-        label: twin.name_ar,
-        kind: 'digital-twin',
-        items: twin.revisions.map((revision) => ({
-          id: revision.id,
-          label: `Revision ${revision.revision}`,
-          meta: `${revision.baselines.length} BASELINES`,
+        label: 'Canonical Enterprise Entities',
+        kind: 'enterprise-entity',
+        items: (selectedEnterprise.value.entities ?? []).map((entity) => ({
+          id: entity.id,
+          label: entity.name_ar,
+          meta: entity.entity_type,
         })),
       },
-    ]);
+    ];
+    if (selectedEnterprise.value.relationships?.length) {
+      enterpriseGroups.push({
+        label: 'Typed Enterprise Relationships',
+        kind: 'enterprise-relationship',
+        items: selectedEnterprise.value.relationships.map((relationship) => ({
+          id: relationship.id,
+          label: relationship.relationship_type,
+          meta: 'TYPED',
+        })),
+      });
+    }
+    return enterpriseGroups.concat(
+      selectedEnterprise.value.digital_twins.flatMap((twin) => [
+        {
+          label: twin.name_ar,
+          kind: 'digital-twin',
+          items: twin.revisions.map((revision) => ({
+            id: revision.id,
+            label: `Revision ${revision.revision}`,
+            meta: `${revision.status ?? 'PUBLISHED'} - ${revision.baselines.length} BASELINES`,
+          })),
+        },
+        ...twin.revisions.flatMap((revision) => [
+          ...(revision.components?.length
+            ? [
+                {
+                  label: `Revision ${revision.revision} components`,
+                  kind: 'digital-twin-component',
+                  items: revision.components.map((component) => ({
+                    id: component.id,
+                    label: component.name_ar,
+                    meta: component.ownership_scope,
+                  })),
+                },
+              ]
+            : []),
+          ...(revision.relationships?.length
+            ? [
+                {
+                  label: `Revision ${revision.revision} relationships`,
+                  kind: 'digital-twin-relationship',
+                  items: revision.relationships.map((relationship) => ({
+                    id: relationship.id,
+                    label: relationship.relationship_type,
+                    meta: 'TYPED',
+                  })),
+                },
+              ]
+            : []),
+        ]),
+      ]),
+    );
   }
   if (selectedScenario.value) {
     const phases = orderedItems(selectedScenario.value.orchestration.phases, 'Phase');
@@ -200,15 +330,23 @@ const structureGroups = computed(() => {
     ];
   }
   if (selectedLab.value) {
+    const persistedTasks = selectedLab.value.tasks ?? [];
+    const taskItems = persistedTasks.length
+      ? persistedTasks.map((task, index) => ({
+          id: task.id,
+          label: task.title_ar,
+          meta: `${task.task_key} - ${index + 1}`,
+        }))
+      : orderedItems(selectedLab.value.configuration.steps, 'Task').map((step) => ({
+          id: step.id,
+          label: `Task ${String(step.ordinal).padStart(2, '0')}`,
+          meta: step.ordinal === 1 ? 'ENTRY' : undefined,
+        }));
     return [
       {
         label: 'Task Graph',
         kind: 'lab-step',
-        items: orderedItems(selectedLab.value.configuration.steps, 'Task').map((step) => ({
-          id: step.id,
-          label: `Task ${String(step.ordinal).padStart(2, '0')}`,
-          meta: step.ordinal === 1 ? 'ENTRY' : undefined,
-        })),
+        items: taskItems,
       },
       {
         label: 'Definition anchors',
@@ -313,6 +451,24 @@ function prepareLab(payload: { seed: number; mode: string }): void {
   post(`/simulation/labs/${selectedLab.value.id}/runs`, payload, 'prepare-lab');
 }
 
+function definitionAction(target: 'lab' | 'digital-twin', action: string): void {
+  if (target === 'lab' && selectedLab.value) {
+    post(`/simulation/labs/${selectedLab.value.id}/${action}`, undefined, `${target}-${action}`);
+  }
+  if (target === 'digital-twin' && selectedTwinRevision.value) {
+    post(
+      `/simulation/digital-twin-revisions/${selectedTwinRevision.value.id}/${action}`,
+      undefined,
+      `${target}-${action}`,
+    );
+  }
+}
+
+function selectContext(id: string, kind: string): void {
+  selectedContextId.value = id;
+  selectedContextKind.value = kind;
+}
+
 function runAction(action: string): void {
   if (!selectedRun.value) return;
   post(`/simulation/runs/${selectedRun.value.id}/${action}`, undefined, action);
@@ -371,12 +527,14 @@ function createHandoff(claim: string): void {
             :section="section"
             :scenario="selectedScenario"
             :lab="selectedLab"
+            :twin-revision="selectedTwinRevision"
             :run="selectedRun"
             :result="selectedResult"
             :pending="pendingAction !== null"
             @prepare-scenario="prepareScenario"
             @prepare-lab="prepareLab"
             @run-action="runAction"
+            @definition-action="definitionAction"
             @replay="replayCompare"
             @open-bottom="bottomOpen = true"
           />
@@ -390,21 +548,41 @@ function createHandoff(claim: string): void {
           :description="structureDescription"
           :items="structureItems"
           :selected-id="selectedId"
+          :selected-context-id="selectedContextId"
           :groups="structureGroups"
           @select="selectedId = $event"
+          @select-context="selectContext"
         />
       </template>
 
-      <EnterpriseSurface v-if="section === 'enterprise'" :enterprise="selectedEnterprise" />
+      <EnterpriseSurface
+        v-if="section === 'enterprise'"
+        :enterprise="selectedEnterprise"
+        :selected-context-id="selectedContextId"
+        @select-context="selectContext($event, 'enterprise-object')"
+      />
       <ScenarioSurface v-else-if="section === 'scenarios'" :scenario="selectedScenario" />
-      <LabSurface v-else-if="section === 'labs'" :lab="selectedLab" />
+      <LabSurface
+        v-else-if="section === 'labs'"
+        :lab="selectedLab"
+        :selected-task-id="selectedContextKind === 'lab-step' ? selectedContextId : null"
+        @select-task="selectContext($event, 'lab-step')"
+      />
       <RunSurface v-else-if="section === 'runs'" :run="selectedRun" />
       <ResultSurface v-else :result="selectedResult" />
 
       <template #right>
-        <EnterpriseContext v-if="section === 'enterprise'" :enterprise="selectedEnterprise" />
+        <EnterpriseContext
+          v-if="section === 'enterprise'"
+          :enterprise="selectedEnterprise"
+          :selected-context="selectedEnterpriseContext"
+        />
         <ScenarioContext v-else-if="section === 'scenarios'" :scenario="selectedScenario" />
-        <LabContext v-else-if="section === 'labs'" :lab="selectedLab" />
+        <LabContext
+          v-else-if="section === 'labs'"
+          :lab="selectedLab"
+          :selected-task="selectedLabTask"
+        />
         <RunContext
           v-else-if="section === 'runs'"
           :run="selectedRun"

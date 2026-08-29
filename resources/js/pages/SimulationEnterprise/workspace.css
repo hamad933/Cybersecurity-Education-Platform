@@ -373,11 +373,34 @@
 
 .sim-structure-group li {
   position: relative;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.2rem 0.55rem;
   min-height: 2.65rem;
   color: var(--cep-text);
   font-size: 0.75rem;
+}
+
+.sim-structure-context-item {
+  display: grid;
+  width: 100%;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.2rem 0.55rem;
+  align-items: center;
+  border: 0;
+  border-radius: var(--cep-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.sim-structure-context-item:hover,
+.sim-structure-context-item.is-selected {
+  background: color-mix(in srgb, var(--cep-accent) 10%, transparent);
+}
+
+.sim-structure-context-item:focus-visible {
+  outline: 2px solid var(--cep-accent);
+  outline-offset: 2px;
 }
 
 .sim-structure-group li:not(:last-child)::after {
@@ -390,7 +413,7 @@
   content: '';
 }
 
-.sim-structure-group li small {
+.sim-structure-context-item small {
   grid-column: 2;
   color: var(--cep-text-muted);
   font-size: 0.59rem;
@@ -2255,6 +2278,20 @@
   border-inline-start: 3px solid #14b8a6;
 }
 
+.sim-task-node[role='button'] {
+  cursor: pointer;
+}
+
+.sim-task-node.is-selected {
+  outline: 2px solid var(--cep-accent);
+  outline-offset: 3px;
+}
+
+.sim-task-node:focus-visible {
+  outline: 2px solid var(--cep-accent);
+  outline-offset: 3px;
+}
+
 .sim-task-node__inner {
   display: flex;
   align-items: flex-start;
@@ -2283,6 +2320,31 @@
   color: var(--cep-text-muted);
   font-size: 0.65rem;
   line-height: 1.4;
+}
+
+.sim-task-dependencies {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.8rem 1rem;
+  border-top: 1px solid var(--cep-border);
+  list-style: none;
+}
+
+.sim-task-dependencies li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+  border: 1px solid var(--cep-border);
+  border-radius: var(--cep-radius-sm);
+  background: color-mix(in srgb, var(--cep-bg-panel) 86%, transparent);
+  padding: 0.55rem 0.7rem;
+  font-size: 0.72rem;
+}
+
+.sim-task-dependencies b {
+  color: var(--cep-accent);
 }
 
 /* Operations Workspace */

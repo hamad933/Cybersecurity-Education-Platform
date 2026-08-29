@@ -87,6 +87,11 @@ final class SimulationEnterpriseFixtureWriter
         $revision = (int) DB::table('simulation_digital_twin_revisions')
             ->where('digital_twin_id', $digitalTwinId)
             ->max('revision') + 1;
+        $basedOnRevisionId = DB::table('simulation_digital_twin_revisions')
+            ->where('digital_twin_id', $digitalTwinId)
+            ->where('status', 'PUBLISHED')
+            ->orderByDesc('revision')
+            ->value('id');
         $id = (string) Str::uuid7();
         $now = now();
         $digest = $this->digest([
@@ -99,11 +104,21 @@ final class SimulationEnterpriseFixtureWriter
             'id' => $id,
             'enterprise_id' => $enterpriseId,
             'digital_twin_id' => $digitalTwinId,
+            'based_on_revision_id' => $basedOnRevisionId,
             'revision' => $revision,
             'status' => 'PUBLISHED',
             'topology' => $this->json($topology),
             'behavior_model' => $this->json($behaviorModel),
+            'validation_report' => $this->json([
+                'valid' => true,
+                'errors' => [],
+                'warnings' => ['Published through the bounded synthetic fixture adapter.'],
+                'validated_digest' => $digest,
+                'validated_by' => $actorId,
+                'checked_at' => $now->toISOString(),
+            ]),
             'digest' => $digest,
+            'validated_at' => $now,
             'published_at' => $now,
             'created_by' => $actorId,
             'created_at' => $now,

@@ -17,10 +17,14 @@ defineProps<{
   description: string;
   items: StructureItem[];
   selectedId: string | null;
+  selectedContextId: string | null;
   groups: StructureGroup[];
 }>();
 
-const emit = defineEmits<{ select: [id: string] }>();
+const emit = defineEmits<{
+  select: [id: string];
+  selectContext: [id: string, kind: string];
+}>();
 </script>
 
 <template>
@@ -50,7 +54,7 @@ const emit = defineEmits<{ select: [id: string] }>();
 
     <section
       v-for="group in groups"
-      :key="group.kind"
+      :key="`${group.kind}:${group.label}`"
       class="sim-structure-group"
       :data-structure-kind="group.kind"
     >
@@ -60,9 +64,17 @@ const emit = defineEmits<{ select: [id: string] }>();
       </header>
       <ol v-if="group.items.length">
         <li v-for="(item, index) in group.items" :key="item.id">
-          <span class="sim-structure-rail" aria-hidden="true">{{ index + 1 }}</span>
-          <span>{{ item.label }}</span>
-          <small v-if="item.meta" class="sim-technical">{{ item.meta }}</small>
+          <button
+            type="button"
+            class="sim-structure-context-item"
+            :class="{ 'is-selected': item.id === selectedContextId }"
+            :aria-pressed="item.id === selectedContextId"
+            @click="emit('selectContext', item.id, group.kind)"
+          >
+            <span class="sim-structure-rail" aria-hidden="true">{{ index + 1 }}</span>
+            <span>{{ item.label }}</span>
+            <small v-if="item.meta" class="sim-technical">{{ item.meta }}</small>
+          </button>
         </li>
       </ol>
       <p v-else class="sim-muted">لا توجد عناصر ضمن هذا الفرع.</p>

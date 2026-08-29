@@ -13,6 +13,26 @@ Route::middleware('auth')
         Route::get('/runs', [SimulationEnterpriseController::class, 'runs'])->name('runs');
         Route::get('/results', [SimulationEnterpriseController::class, 'results'])->name('results');
 
+        Route::post('/enterprise/{enterprise}/entities', [SimulationEnterpriseController::class, 'createEnterpriseEntity'])->whereUuid('enterprise')->name('enterprise.entities.create');
+        Route::post('/enterprise/{enterprise}/relationships', [SimulationEnterpriseController::class, 'createEnterpriseRelationship'])->whereUuid('enterprise')->name('enterprise.relationships.create');
+        Route::post('/enterprise/{enterprise}/device-templates', [SimulationEnterpriseController::class, 'createDeviceTemplateDraft'])->whereUuid('enterprise')->name('enterprise.device-templates.create');
+        Route::post('/device-template-revisions/{revision}/validate', [SimulationEnterpriseController::class, 'validateDeviceTemplateRevision'])->whereUuid('revision')->name('device-template-revisions.validate');
+        Route::post('/device-template-revisions/{revision}/publish', [SimulationEnterpriseController::class, 'publishDeviceTemplateRevision'])->whereUuid('revision')->name('device-template-revisions.publish');
+        Route::post('/enterprise/{enterprise}/digital-twins', [SimulationEnterpriseController::class, 'createDigitalTwinDraft'])->whereUuid('enterprise')->name('enterprise.digital-twins.create');
+        Route::post('/digital-twin-revisions/{revision}/components', [SimulationEnterpriseController::class, 'addDigitalTwinComponent'])->whereUuid('revision')->name('digital-twin-revisions.components.create');
+        Route::post('/digital-twin-revisions/{revision}/relationships', [SimulationEnterpriseController::class, 'addDigitalTwinRelationship'])->whereUuid('revision')->name('digital-twin-revisions.relationships.create');
+        Route::post('/digital-twin-revisions/{revision}/validate', [SimulationEnterpriseController::class, 'validateDigitalTwinRevision'])->whereUuid('revision')->name('digital-twin-revisions.validate');
+        Route::post('/digital-twin-revisions/{revision}/publish', [SimulationEnterpriseController::class, 'publishDigitalTwinRevision'])->whereUuid('revision')->name('digital-twin-revisions.publish');
+        Route::post('/digital-twin-revisions/{revision}/clone', [SimulationEnterpriseController::class, 'cloneDigitalTwinRevision'])->whereUuid('revision')->name('digital-twin-revisions.clone');
+
+        Route::post('/labs/drafts', [SimulationEnterpriseController::class, 'createLabDraft'])->name('labs.drafts.create');
+        Route::post('/labs/{lab}/tasks', [SimulationEnterpriseController::class, 'addLabTask'])->whereUuid('lab')->name('labs.tasks.create');
+        Route::post('/labs/{lab}/task-dependencies', [SimulationEnterpriseController::class, 'addLabTaskDependency'])->whereUuid('lab')->name('labs.task-dependencies.create');
+        Route::post('/labs/{lab}/device-template-references', [SimulationEnterpriseController::class, 'addLabDeviceTemplateReference'])->whereUuid('lab')->name('labs.device-template-references.create');
+        Route::post('/labs/{lab}/validate', [SimulationEnterpriseController::class, 'validateLabDefinition'])->whereUuid('lab')->name('labs.validate');
+        Route::post('/labs/{lab}/publish', [SimulationEnterpriseController::class, 'publishLabDefinition'])->whereUuid('lab')->name('labs.publish');
+        Route::post('/labs/{lab}/clone', [SimulationEnterpriseController::class, 'cloneLabDefinition'])->whereUuid('lab')->name('labs.clone');
+
         Route::post('/scenarios/{scenario}/runs', [SimulationEnterpriseController::class, 'prepareScenario'])->whereUuid('scenario')->name('scenarios.runs.prepare');
         Route::post('/labs/{lab}/runs', [SimulationEnterpriseController::class, 'prepareLab'])->whereUuid('lab')->name('labs.runs.prepare');
         Route::post('/runs/{run}/ready', [SimulationEnterpriseController::class, 'ready'])->whereUuid('run')->name('runs.ready');
