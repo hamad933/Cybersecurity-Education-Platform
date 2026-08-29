@@ -57,9 +57,16 @@ export type DigitalTwinRevisionItem = {
   id: string;
   digital_twin_id: string;
   revision: number;
+  status?: 'DRAFT' | 'VALIDATED' | 'PUBLISHED';
+  based_on_revision_id?: string | null;
   digest: string;
   topology: JsonMap;
   behavior_model: JsonMap;
+  validation_report?: JsonMap;
+  validated_at?: string | null;
+  published_at?: string | null;
+  components?: DigitalTwinComponentItem[];
+  relationships?: DigitalTwinRelationshipItem[];
   baselines: Array<{
     id: string;
     digital_twin_id: string;
@@ -68,6 +75,64 @@ export type DigitalTwinRevisionItem = {
     digest: string;
     state: JsonMap;
   }>;
+};
+
+export type EnterpriseEntityItem = {
+  id: string;
+  enterprise_id: string;
+  entity_key: string;
+  entity_type: string;
+  name_ar: string;
+  name_en?: string | null;
+  lifecycle_state: string;
+  properties: JsonMap;
+};
+
+export type EnterpriseRelationshipItem = {
+  id: string;
+  enterprise_id: string;
+  source_entity_id: string;
+  target_entity_id: string;
+  relationship_type: string;
+  properties: JsonMap;
+};
+
+export type DeviceTemplateRevisionItem = {
+  id: string;
+  device_template_id: string;
+  revision: number;
+  status: 'DRAFT' | 'VALIDATED' | 'PUBLISHED';
+  capabilities: string[];
+  state_model: JsonMap;
+  behavior_rules: JsonMap;
+  validation_report: JsonMap;
+  digest: string;
+};
+
+export type DeviceTemplateItem = {
+  id: string;
+  template_key: string;
+  device_type: string;
+  name_ar: string;
+  revisions: DeviceTemplateRevisionItem[];
+};
+
+export type DigitalTwinComponentItem = {
+  id: string;
+  component_key: string;
+  ownership_scope: 'ENTERPRISE_ENTITY' | 'SIMULATION_LOCAL';
+  enterprise_entity_id?: string | null;
+  device_template_revision_id?: string | null;
+  name_ar: string;
+  simulation_definition: JsonMap;
+};
+
+export type DigitalTwinRelationshipItem = {
+  id: string;
+  source_component_id: string;
+  target_component_id: string;
+  relationship_type: string;
+  properties: JsonMap;
 };
 
 export type DigitalTwinItem = {
@@ -87,6 +152,9 @@ export type EnterpriseItem = {
   definition: JsonMap;
   provenance: string;
   is_fixture: boolean;
+  entities?: EnterpriseEntityItem[];
+  relationships?: EnterpriseRelationshipItem[];
+  device_templates?: DeviceTemplateItem[];
   digital_twins: DigitalTwinItem[];
 };
 
@@ -131,14 +199,59 @@ export type ScenarioItem = {
 
 export type LabItem = {
   id: string;
+  lab_id?: string;
+  based_on_revision_id?: string | null;
   slug: string;
   title_ar: string;
   revision: number;
-  baseline_id: string;
+  status?: 'DRAFT' | 'VALIDATED' | 'PUBLISHED';
+  environment_binding_mode?: 'LAB_LOCAL' | 'ENTERPRISE_BASELINE';
+  enterprise_id?: string | null;
+  baseline_id: string | null;
+  environment_contract?: JsonMap & {
+    schema?: string;
+    execution_model?: string;
+    required_capabilities?: string[];
+  };
   digest: string;
   configuration: JsonMap;
   validation: JsonMap;
+  validation_report?: JsonMap;
+  validated_at?: string | null;
+  published_at?: string | null;
+  tasks?: LabTaskItem[];
+  task_dependencies?: LabTaskDependencyItem[];
+  device_template_references?: Array<{
+    id: string;
+    reference_key: string;
+    device_template_revision_id: string;
+    required_capabilities: string[];
+    parameters: JsonMap;
+  }>;
+  can_prepare?: boolean;
   provenance: string;
+};
+
+export type LabTaskItem = {
+  id: string;
+  task_key: string;
+  title_ar: string;
+  objective: string;
+  permitted_tools: string[];
+  required_capabilities: string[];
+  required_role?: string | null;
+  expected_signals: unknown[];
+  validation_rule: JsonMap;
+  completion_weight: number;
+  is_optional: boolean;
+};
+
+export type LabTaskDependencyItem = {
+  id: string;
+  predecessor_task_id: string;
+  successor_task_id: string;
+  dependency_type: 'REQUIRED' | 'CONDITIONAL';
+  condition?: JsonMap | null;
 };
 
 export type RuntimeState = JsonMap & {

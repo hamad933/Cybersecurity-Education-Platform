@@ -1,12 +1,20 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 
-import type { LabItem, ResultItem, RunItem, ScenarioItem, SimulationSection } from '../types';
+import type {
+  DigitalTwinRevisionItem,
+  LabItem,
+  ResultItem,
+  RunItem,
+  ScenarioItem,
+  SimulationSection,
+} from '../types';
 
 const props = defineProps<{
   section: SimulationSection;
   scenario: ScenarioItem | null;
   lab: LabItem | null;
+  twinRevision: DigitalTwinRevisionItem | null;
   run: RunItem | null;
   result: ResultItem | null;
   pending: boolean;
@@ -16,6 +24,7 @@ const emit = defineEmits<{
   prepareScenario: [payload: { baseline_id: string; seed: number; mode: string }];
   prepareLab: [payload: { seed: number; mode: string }];
   runAction: [action: string];
+  definitionAction: [target: 'lab' | 'digital-twin', action: string];
   replay: [];
   openBottom: [];
 }>();
@@ -105,11 +114,43 @@ const actionLabels: Record<string, string> = {
       v-else-if="section === 'labs' && lab"
       class="sim-toolbar__controls"
       data-testid="lab-prepare-controls"
-      @submit.prevent="emit('prepareLab', { seed, mode })"
+      @submit.prevent="
+        lab.can_prepare !== false &&
+        (lab.status === undefined || lab.status === 'PUBLISHED') &&
+        emit('prepareLab', { seed, mode })
+      "
     >
-      <span class="sim-target-lock"
-        ><small>Baseline</small><code>{{ lab.baseline_id }}</code></span
+      <span class="sim-target-lock">
+        <small>{{ lab.environment_binding_mode ?? 'Baseline' }}</small>
+        <code>{{ lab.baseline_id ?? 'LAB-LOCAL PROFILE' }}</code>
+      </span>
+      <button
+        v-if="lab.status === 'DRAFT'"
+        type="button"
+        class="sim-button"
+        :disabled="pending"
+        @click="emit('definitionAction', 'lab', 'validate')"
       >
+        Validate definition
+      </button>
+      <button
+        v-if="lab.status === 'VALIDATED'"
+        type="button"
+        class="sim-button"
+        :disabled="pending"
+        @click="emit('definitionAction', 'lab', 'publish')"
+      >
+        Publish immutable revision
+      </button>
+      <button
+        v-if="lab.status === 'PUBLISHED'"
+        type="button"
+        class="sim-button sim-button--quiet"
+        :disabled="pending"
+        @click="emit('definitionAction', 'lab', 'clone')"
+      >
+        Clone as new revision
+      </button>
       <label
         ><span>Seed</span
         ><input
@@ -129,7 +170,17 @@ const actionLabels: Record<string, string> = {
           <option>ROLE_BASED</option>
         </select></label
       >
-      <button class="sim-button" type="submit" :disabled="pending">تهيئة مختبر مستقل</button>
+      <button
+        class="sim-button"
+        type="submit"
+        :disabled="
+          pending ||
+          lab.can_prepare === false ||
+          (lab.status !== undefined && lab.status !== 'PUBLISHED')
+        "
+      >
+        تهيئة مختبر مستقل
+      </button>
       <button type="button" class="sim-button sim-button--quiet" @click="emit('openBottom')">
         الإعداد والتحقق الخام
       </button>
@@ -175,14 +226,42 @@ const actionLabels: Record<string, string> = {
       </button>
     </div>
 
-    <button
-      v-else-if="section === 'enterprise'"
-      type="button"
-      class="sim-button sim-button--quiet"
-      @click="emit('openBottom')"
-    >
-      فحص البنية الخام
-    </button>
+    <div v-else-if="section === 'enterprise'" class="sim-toolbar__controls">
+      <span v-if="twinRevision" class="sim-target-lock">
+        <small>Digital Twin Revision</small>
+        <code>REV {{ twinRevision.revision }} - {{ twinRevision.status ?? 'PUBLISHED' }}</code>
+      </span>
+      <button
+        v-if="twinRevision?.status === 'DRAFT'"
+        type="button"
+        class="sim-button"
+        :disabled="pending"
+        @click="emit('definitionAction', 'digital-twin', 'validate')"
+      >
+        Validate definition
+      </button>
+      <button
+        v-if="twinRevision?.status === 'VALIDATED'"
+        type="button"
+        class="sim-button"
+        :disabled="pending"
+        @click="emit('definitionAction', 'digital-twin', 'publish')"
+      >
+        Publish immutable revision
+      </button>
+      <button
+        v-if="twinRevision?.status === 'PUBLISHED'"
+        type="button"
+        class="sim-button sim-button--quiet"
+        :disabled="pending"
+        @click="emit('definitionAction', 'digital-twin', 'clone')"
+      >
+        Clone as new revision
+      </button>
+      <button type="button" class="sim-button sim-button--quiet" @click="emit('openBottom')">
+        فحص البنية الخام
+      </button>
+    </div>
     <span v-else class="sim-toolbar__idle">اختر سجلًا من لوحة البنية لتفعيل أدواته.</span>
   </div>
 </template>

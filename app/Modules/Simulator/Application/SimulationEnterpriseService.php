@@ -51,7 +51,10 @@ final class SimulationEnterpriseService
         'FAILED' => [],
     ];
 
-    public function __construct(private readonly SimulationEnterpriseStateReader $enterpriseState) {}
+    public function __construct(
+        private readonly SimulationEnterpriseStateReader $enterpriseState,
+        private readonly SimulationDefinitionService $definitions,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $environmentContract
@@ -156,32 +159,19 @@ final class SimulationEnterpriseService
         array $validation = [],
         ?string $actorId = null,
     ): array {
-        $enterpriseState = $this->requirePublishedBaseline($enterpriseId, $baselineId);
-        $revision = (int) DB::table('simulation_lab_definitions')->where('slug', $slug)->max('revision') + 1;
-        $id = (string) Str::uuid7();
-        $now = now();
-        DB::table('simulation_lab_definitions')->insert([
-            'id' => $id,
-            'enterprise_id' => $enterpriseId,
-            'baseline_id' => $baselineId,
-            'slug' => $slug,
-            'title_ar' => $titleAr,
-            'title_en' => null,
-            'revision' => $revision,
-            'status' => 'PUBLISHED',
-            'configuration' => $this->json($configuration),
-            'validation' => $this->json($validation),
-            'digest' => $this->digest([
-                'baseline' => $enterpriseState->baseline['digest'],
-                'configuration' => $configuration,
-                'validation' => $validation,
-            ]),
-            'created_by' => $actorId,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        if ($actorId === null || trim($actorId) === '') {
+            throw new InvalidArgumentException('Lab publication requires an attributed actor.');
+        }
 
-        return $this->row('simulation_lab_definitions', $id);
+        return $this->definitions->publishEnterpriseBoundLab(
+            $enterpriseId,
+            $baselineId,
+            $slug,
+            $titleAr,
+            $configuration,
+            $validation,
+            $actorId,
+        );
     }
 
     /**
@@ -258,7 +248,17 @@ final class SimulationEnterpriseService
             if ((string) $lab->status !== 'PUBLISHED') {
                 throw new LogicException('Standalone Lab Run requires a published Lab Definition.');
             }
+            if ((string) $lab->environment_binding_mode !== SimulationDefinitionService::ENTERPRISE_BASELINE) {
+                throw new LogicException('Lab-local definitions are valid, but this bounded runtime path currently requires an Enterprise Baseline binding.');
+            }
             $lineage = $this->lineage((string) $lab->enterprise_id, (string) $lab->baseline_id);
+            $missingCapabilities = $this->missingEnvironmentCapabilities(
+                $this->decodeJson($lab->environment_contract),
+                $lineage['baseline_state'],
+            );
+            if ($missingCapabilities !== []) {
+                throw new LogicException('Pinned Baseline does not satisfy Lab Environment Contract capabilities: '.implode(', ', $missingCapabilities));
+            }
             $run = $this->insertRun(self::RUN_STANDALONE_LAB, $lineage, $seed, $executionPolicies, $actorId, null, $labDefinitionId, (string) $lab->digest);
             $this->appendEvent((string) $run['id'], 'RUN_PREPARED', [
                 'run_type' => self::RUN_STANDALONE_LAB,
@@ -945,7 +945,7 @@ final class SimulationEnterpriseService
         return $this->row('simulation_runs', $id);
     }
 
-    /** @return array{enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, baseline_state: string, provenance: string, source_fixture: bool} */
+    /** @return array{enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, baseline_state: array<string, mixed>, provenance: string, source_fixture: bool} */
     private function lineage(string $enterpriseId, string $baselineId): array
     {
         $state = $this->requirePublishedBaseline($enterpriseId, $baselineId);
@@ -953,7 +953,7 @@ final class SimulationEnterpriseService
         return $this->lineageFromState($state);
     }
 
-    /** @return array{enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, baseline_state: string, provenance: string, source_fixture: bool} */
+    /** @return array{enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, baseline_state: array<string, mixed>, provenance: string, source_fixture: bool} */
     private function targetLineage(string $baselineId): array
     {
         $state = $this->enterpriseState->findPublishedBaselineTargetForSimulation($baselineId);
@@ -964,7 +964,7 @@ final class SimulationEnterpriseService
         return $this->lineageFromState($state);
     }
 
-    /** @return array{enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, baseline_state: string, provenance: string, source_fixture: bool} */
+    /** @return array{enterprise_id: string, digital_twin_id: string, digital_twin_revision_id: string, baseline_id: string, baseline_state: array<string, mixed>, provenance: string, source_fixture: bool} */
     private function lineageFromState(SimulationEnterpriseState $state): array
     {
         if ((string) ($state->digitalTwinRevision['status'] ?? '') !== 'PUBLISHED') {

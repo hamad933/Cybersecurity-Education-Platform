@@ -3,7 +3,9 @@
 namespace App\Modules\Simulator\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Enterprise\Application\EnterpriseDefinitionAuthoring;
 use App\Modules\Enterprise\Application\SimulationEnterpriseStateReader;
+use App\Modules\Simulator\Application\SimulationDefinitionService;
 use App\Modules\Simulator\Application\SimulationEnterpriseService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,8 +21,16 @@ final class SimulationEnterpriseController extends Controller
 
     private const RESULT_REPLAY_COMPARES_TABLE = 'simulation_result_replay_compares';
 
+    private const LAB_TASKS_TABLE = 'simulation_lab_task_nodes';
+
+    private const LAB_DEPENDENCIES_TABLE = 'simulation_lab_task_dependencies';
+
+    private const LAB_TEMPLATE_REFERENCES_TABLE = 'simulation_lab_device_template_references';
+
     public function __construct(
         private readonly SimulationEnterpriseService $simulation,
+        private readonly SimulationDefinitionService $definitions,
+        private readonly EnterpriseDefinitionAuthoring $enterpriseDefinitions,
         private readonly SimulationEnterpriseStateReader $enterpriseState,
     ) {}
 
@@ -47,6 +57,263 @@ final class SimulationEnterpriseController extends Controller
     public function results(): Response
     {
         return $this->render('results');
+    }
+
+    public function createEnterpriseEntity(Request $request, string $enterprise): RedirectResponse
+    {
+        $validated = $request->validate([
+            'entity_key' => ['required', 'string', 'max:160', 'regex:/^[A-Za-z0-9._:-]+$/'],
+            'entity_type' => ['required', 'string', 'in:SYSTEM,APPLICATION,SERVICE,NETWORK,DEVICE,IDENTITY,DATA,SECURITY_CONTROL,ROLE,TEAM'],
+            'name_ar' => ['required', 'string', 'max:240'],
+            'name_en' => ['nullable', 'string', 'max:240'],
+            'lifecycle_state' => ['nullable', 'string', 'in:ACTIVE,INACTIVE,RETIRED'],
+            'properties' => ['nullable', 'array'],
+        ]);
+
+        return $this->mutate(
+            fn () => $this->enterpriseDefinitions->createEntity($enterprise, $validated, $this->actorId()),
+            'cep.simulation.index',
+        );
+    }
+
+    public function createEnterpriseRelationship(Request $request, string $enterprise): RedirectResponse
+    {
+        $validated = $request->validate([
+            'source_entity_id' => ['required', 'uuid'],
+            'target_entity_id' => ['required', 'uuid', 'different:source_entity_id'],
+            'relationship_type' => ['required', 'string', 'in:HOSTS,DEPENDS_ON,AUTHENTICATES_WITH,CONNECTS_TO,MANAGED_BY,PROTECTED_BY,STORES,ROUTES_TO,MEMBER_OF'],
+            'properties' => ['nullable', 'array'],
+        ]);
+
+        return $this->mutate(
+            fn () => $this->enterpriseDefinitions->createRelationship($enterprise, $validated, $this->actorId()),
+            'cep.simulation.index',
+        );
+    }
+
+    public function createDeviceTemplateDraft(Request $request, string $enterprise): RedirectResponse
+    {
+        $validated = $request->validate([
+            'template_key' => ['required', 'string', 'max:160', 'regex:/^[A-Za-z0-9._:-]+$/'],
+            'device_type' => ['required', 'string', 'max:80'],
+            'name_ar' => ['required', 'string', 'max:240'],
+            'capabilities' => ['required', 'array', 'min:1', 'max:64'],
+            'capabilities.*' => ['string', 'max:120'],
+            'state_model' => ['required', 'array', 'min:1'],
+            'actions' => ['nullable', 'array'],
+            'events' => ['nullable', 'array'],
+            'telemetry' => ['nullable', 'array'],
+            'behavior_rules' => ['required', 'array', 'min:1'],
+            'validation_hooks' => ['nullable', 'array'],
+        ]);
+        $definition = [
+            'capabilities' => $validated['capabilities'],
+            'state_model' => $validated['state_model'],
+            'actions' => $validated['actions'] ?? [],
+            'events' => $validated['events'] ?? [],
+            'telemetry' => $validated['telemetry'] ?? [],
+            'behavior_rules' => $validated['behavior_rules'],
+            'validation_hooks' => $validated['validation_hooks'] ?? [],
+        ];
+
+        return $this->mutate(fn () => $this->enterpriseDefinitions->createDeviceTemplateDraft(
+            $enterprise,
+            (string) $validated['template_key'],
+            (string) $validated['device_type'],
+            (string) $validated['name_ar'],
+            $definition,
+            $this->actorId(),
+        ), 'cep.simulation.index');
+    }
+
+    public function validateDeviceTemplateRevision(string $revision): RedirectResponse
+    {
+        return $this->mutate(
+            fn () => $this->enterpriseDefinitions->validateDeviceTemplateRevision($revision, $this->actorId()),
+            'cep.simulation.index',
+        );
+    }
+
+    public function publishDeviceTemplateRevision(string $revision): RedirectResponse
+    {
+        return $this->mutate(
+            fn () => $this->enterpriseDefinitions->publishDeviceTemplateRevision($revision, $this->actorId()),
+            'cep.simulation.index',
+        );
+    }
+
+    public function createDigitalTwinDraft(Request $request, string $enterprise): RedirectResponse
+    {
+        $validated = $request->validate([
+            'slug' => ['required', 'string', 'max:140', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/'],
+            'name_ar' => ['required', 'string', 'max:240'],
+            'behavior_model' => ['required', 'array', 'min:1'],
+        ]);
+
+        return $this->mutate(fn () => $this->enterpriseDefinitions->createDigitalTwinDraft(
+            $enterprise,
+            (string) $validated['slug'],
+            (string) $validated['name_ar'],
+            $validated['behavior_model'],
+            $this->actorId(),
+        ), 'cep.simulation.index');
+    }
+
+    public function addDigitalTwinComponent(Request $request, string $revision): RedirectResponse
+    {
+        $validated = $request->validate([
+            'component_key' => ['required', 'string', 'max:160', 'regex:/^[A-Za-z0-9._:-]+$/'],
+            'ownership_scope' => ['required', 'string', 'in:ENTERPRISE_ENTITY,SIMULATION_LOCAL'],
+            'enterprise_entity_id' => ['nullable', 'uuid'],
+            'device_template_revision_id' => ['nullable', 'uuid'],
+            'name_ar' => ['required', 'string', 'max:240'],
+            'simulation_definition' => ['required', 'array'],
+        ]);
+
+        return $this->mutate(
+            fn () => $this->enterpriseDefinitions->addDigitalTwinComponent($revision, $validated, $this->actorId()),
+            'cep.simulation.index',
+        );
+    }
+
+    public function addDigitalTwinRelationship(Request $request, string $revision): RedirectResponse
+    {
+        $validated = $request->validate([
+            'source_component_id' => ['required', 'uuid'],
+            'target_component_id' => ['required', 'uuid', 'different:source_component_id'],
+            'relationship_type' => ['required', 'string', 'in:HOSTS,DEPENDS_ON,AUTHENTICATES_WITH,CONNECTS_TO,MANAGED_BY,PROTECTED_BY,STORES,ROUTES_TO,MEMBER_OF'],
+            'properties' => ['nullable', 'array'],
+        ]);
+
+        return $this->mutate(
+            fn () => $this->enterpriseDefinitions->addDigitalTwinRelationship($revision, $validated, $this->actorId()),
+            'cep.simulation.index',
+        );
+    }
+
+    public function validateDigitalTwinRevision(string $revision): RedirectResponse
+    {
+        return $this->mutate(
+            fn () => $this->enterpriseDefinitions->validateDigitalTwinRevision($revision, $this->actorId()),
+            'cep.simulation.index',
+        );
+    }
+
+    public function publishDigitalTwinRevision(string $revision): RedirectResponse
+    {
+        return $this->mutate(
+            fn () => $this->enterpriseDefinitions->publishDigitalTwinRevision($revision, $this->actorId()),
+            'cep.simulation.index',
+        );
+    }
+
+    public function cloneDigitalTwinRevision(string $revision): RedirectResponse
+    {
+        return $this->mutate(
+            fn () => $this->enterpriseDefinitions->cloneDigitalTwinRevision($revision, $this->actorId()),
+            'cep.simulation.index',
+        );
+    }
+
+    public function createLabDraft(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'slug' => ['required', 'string', 'max:140', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/'],
+            'title_ar' => ['required', 'string', 'max:240'],
+            'environment_binding_mode' => ['required', 'string', 'in:LAB_LOCAL,ENTERPRISE_BASELINE'],
+            'enterprise_id' => ['nullable', 'uuid'],
+            'baseline_id' => ['nullable', 'uuid'],
+            'environment_contract' => ['required', 'array'],
+            'configuration' => ['required', 'array'],
+            'validation' => ['required', 'array', 'min:1'],
+        ]);
+
+        return $this->mutate(fn () => $this->definitions->createLabDraft(
+            (string) $validated['slug'],
+            (string) $validated['title_ar'],
+            (string) $validated['environment_binding_mode'],
+            $validated['environment_contract'],
+            $validated['configuration'],
+            $validated['validation'],
+            isset($validated['enterprise_id']) ? (string) $validated['enterprise_id'] : null,
+            isset($validated['baseline_id']) ? (string) $validated['baseline_id'] : null,
+            $this->actorId(),
+        ), 'cep.simulation.labs');
+    }
+
+    public function addLabTask(Request $request, string $lab): RedirectResponse
+    {
+        $validated = $request->validate([
+            'task_key' => ['required', 'string', 'max:160', 'regex:/^[A-Za-z0-9._:-]+$/'],
+            'title_ar' => ['required', 'string', 'max:240'],
+            'objective' => ['required', 'string', 'max:2000'],
+            'permitted_tools' => ['nullable', 'array', 'max:32'],
+            'required_capabilities' => ['nullable', 'array', 'max:32'],
+            'required_role' => ['nullable', 'string', 'max:120'],
+            'expected_signals' => ['nullable', 'array', 'max:64'],
+            'validation_rule' => ['required', 'array', 'min:1'],
+            'completion_weight' => ['nullable', 'numeric', 'gt:0', 'max:100'],
+            'is_optional' => ['nullable', 'boolean'],
+        ]);
+
+        return $this->mutate(
+            fn () => $this->definitions->addLabTask($lab, $validated, $this->actorId()),
+            'cep.simulation.labs',
+        );
+    }
+
+    public function addLabTaskDependency(Request $request, string $lab): RedirectResponse
+    {
+        $validated = $request->validate([
+            'predecessor_task_id' => ['required', 'uuid'],
+            'successor_task_id' => ['required', 'uuid', 'different:predecessor_task_id'],
+            'dependency_type' => ['required', 'string', 'in:REQUIRED,CONDITIONAL'],
+            'condition' => ['nullable', 'array'],
+        ]);
+
+        return $this->mutate(
+            fn () => $this->definitions->addLabTaskDependency($lab, $validated, $this->actorId()),
+            'cep.simulation.labs',
+        );
+    }
+
+    public function addLabDeviceTemplateReference(Request $request, string $lab): RedirectResponse
+    {
+        $validated = $request->validate([
+            'device_template_revision_id' => ['required', 'uuid'],
+            'reference_key' => ['required', 'string', 'max:160', 'regex:/^[A-Za-z0-9._:-]+$/'],
+            'required_capabilities' => ['nullable', 'array', 'max:64'],
+            'parameters' => ['nullable', 'array'],
+        ]);
+
+        return $this->mutate(
+            fn () => $this->definitions->addLabDeviceTemplateReference($lab, $validated, $this->actorId()),
+            'cep.simulation.labs',
+        );
+    }
+
+    public function validateLabDefinition(string $lab): RedirectResponse
+    {
+        return $this->mutate(
+            fn () => $this->definitions->validateLabDefinition($lab, $this->actorId()),
+            'cep.simulation.labs',
+        );
+    }
+
+    public function publishLabDefinition(string $lab): RedirectResponse
+    {
+        return $this->mutate(
+            fn () => $this->definitions->publishLabDefinition($lab, $this->actorId()),
+            'cep.simulation.labs',
+        );
+    }
+
+    public function cloneLabDefinition(string $lab): RedirectResponse
+    {
+        return $this->mutate(
+            fn () => $this->definitions->cloneLabDefinition($lab, $this->actorId()),
+            'cep.simulation.labs',
+        );
     }
 
     public function prepareScenario(Request $request, string $scenario): RedirectResponse
@@ -234,17 +501,77 @@ final class SimulationEnterpriseController extends Controller
     /** @return list<array<string, mixed>> */
     private function labsData(): array
     {
-        return DB::table('simulation_lab_definitions')->where('status', 'PUBLISHED')->orderByDesc('created_at')->get()->map(fn (stdClass $lab): array => [
-            'id' => (string) $lab->id,
-            'slug' => (string) $lab->slug,
-            'title_ar' => (string) $lab->title_ar,
-            'revision' => (int) $lab->revision,
-            'baseline_id' => (string) $lab->baseline_id,
-            'digest' => (string) $lab->digest,
-            'configuration' => $this->decode($lab->configuration),
-            'validation' => $this->decode($lab->validation),
-            'provenance' => SimulationEnterpriseService::PROVENANCE_SIMULATED,
-        ])->all();
+        return DB::table('simulation_lab_definitions')
+            ->orderBy('slug')
+            ->orderByDesc('revision')
+            ->get()
+            ->map(function (stdClass $lab): array {
+                $tasks = DB::table(self::LAB_TASKS_TABLE)
+                    ->where('lab_definition_id', $lab->id)
+                    ->orderBy('task_key')
+                    ->get()
+                    ->map(fn (stdClass $task): array => [
+                        'id' => (string) $task->id,
+                        'task_key' => (string) $task->task_key,
+                        'title_ar' => (string) $task->title_ar,
+                        'objective' => (string) $task->objective,
+                        'permitted_tools' => $this->decodeList($task->permitted_tools),
+                        'required_capabilities' => $this->decodeList($task->required_capabilities),
+                        'required_role' => $task->required_role === null ? null : (string) $task->required_role,
+                        'expected_signals' => $this->decodeList($task->expected_signals),
+                        'validation_rule' => $this->decode($task->validation_rule),
+                        'completion_weight' => (float) $task->completion_weight,
+                        'is_optional' => (bool) $task->is_optional,
+                    ])->all();
+                $dependencies = DB::table(self::LAB_DEPENDENCIES_TABLE)
+                    ->where('lab_definition_id', $lab->id)
+                    ->orderBy('id')
+                    ->get()
+                    ->map(fn (stdClass $dependency): array => [
+                        'id' => (string) $dependency->id,
+                        'predecessor_task_id' => (string) $dependency->predecessor_task_id,
+                        'successor_task_id' => (string) $dependency->successor_task_id,
+                        'dependency_type' => (string) $dependency->dependency_type,
+                        'condition' => $dependency->condition === null ? null : $this->decode($dependency->condition),
+                    ])->all();
+                $templateReferences = DB::table(self::LAB_TEMPLATE_REFERENCES_TABLE)
+                    ->where('lab_definition_id', $lab->id)
+                    ->orderBy('reference_key')
+                    ->get()
+                    ->map(fn (stdClass $reference): array => [
+                        'id' => (string) $reference->id,
+                        'reference_key' => (string) $reference->reference_key,
+                        'device_template_revision_id' => (string) $reference->device_template_revision_id,
+                        'required_capabilities' => $this->decodeList($reference->required_capabilities),
+                        'parameters' => $this->decode($reference->parameters),
+                    ])->all();
+
+                return [
+                    'id' => (string) $lab->id,
+                    'lab_id' => (string) $lab->lab_id,
+                    'based_on_revision_id' => $lab->based_on_revision_id === null ? null : (string) $lab->based_on_revision_id,
+                    'slug' => (string) $lab->slug,
+                    'title_ar' => (string) $lab->title_ar,
+                    'revision' => (int) $lab->revision,
+                    'status' => (string) $lab->status,
+                    'environment_binding_mode' => (string) $lab->environment_binding_mode,
+                    'enterprise_id' => $lab->enterprise_id === null ? null : (string) $lab->enterprise_id,
+                    'baseline_id' => $lab->baseline_id === null ? null : (string) $lab->baseline_id,
+                    'environment_contract' => $this->decode($lab->environment_contract),
+                    'digest' => (string) $lab->digest,
+                    'configuration' => $this->decode($lab->configuration),
+                    'validation' => $this->decode($lab->validation),
+                    'validation_report' => $this->decode($lab->validation_report),
+                    'validated_at' => $lab->validated_at === null ? null : (string) $lab->validated_at,
+                    'published_at' => $lab->published_at === null ? null : (string) $lab->published_at,
+                    'tasks' => $tasks,
+                    'task_dependencies' => $dependencies,
+                    'device_template_references' => $templateReferences,
+                    'can_prepare' => (string) $lab->status === 'PUBLISHED'
+                        && (string) $lab->environment_binding_mode === SimulationDefinitionService::ENTERPRISE_BASELINE,
+                    'provenance' => SimulationEnterpriseService::PROVENANCE_SIMULATED,
+                ];
+            })->all();
     }
 
     /** @return list<array<string, mixed>> */

@@ -3,9 +3,12 @@ import { computed } from 'vue';
 
 import { shortDigest } from '../formatters';
 import { displayValue } from '../projections';
-import type { LabItem } from '../types';
+import type { LabItem, LabTaskItem } from '../types';
 
-const props = defineProps<{ lab: LabItem | null }>();
+const props = defineProps<{
+  lab: LabItem | null;
+  selectedTask: LabTaskItem | null;
+}>();
 
 const contextualConfiguration = computed(() =>
   Object.fromEntries(
@@ -24,6 +27,37 @@ const contextualConfiguration = computed(() =>
     </div>
 
     <template v-if="lab">
+      <section v-if="selectedTask" class="sim-context-section" data-testid="lab-selected-task">
+        <h3>Selected task</h3>
+        <p class="sim-context-copy">{{ selectedTask.objective }}</p>
+        <dl class="sim-facts">
+          <div>
+            <dt>Stable task key</dt>
+            <dd class="sim-technical">{{ selectedTask.task_key }}</dd>
+          </div>
+          <div>
+            <dt>Role</dt>
+            <dd class="sim-technical">{{ selectedTask.required_role ?? 'ANY' }}</dd>
+          </div>
+          <div>
+            <dt>Tools</dt>
+            <dd class="sim-technical">{{ displayValue(selectedTask.permitted_tools) }}</dd>
+          </div>
+          <div>
+            <dt>Required capabilities</dt>
+            <dd class="sim-technical">{{ displayValue(selectedTask.required_capabilities) }}</dd>
+          </div>
+          <div>
+            <dt>Expected signals</dt>
+            <dd class="sim-technical">{{ displayValue(selectedTask.expected_signals) }}</dd>
+          </div>
+          <div>
+            <dt>Validation rule</dt>
+            <dd class="sim-technical sim-wrap">{{ displayValue(selectedTask.validation_rule) }}</dd>
+          </div>
+        </dl>
+      </section>
+
       <section class="sim-context-section">
         <h3>Governed configuration</h3>
         <dl v-if="Object.keys(contextualConfiguration).length" class="sim-facts">
@@ -56,13 +90,21 @@ const contextualConfiguration = computed(() =>
 
       <section class="sim-context-section">
         <h3>Target Baseline</h3>
-        <code class="sim-technical sim-wrap">{{ lab.baseline_id }}</code>
+        <code class="sim-technical sim-wrap">{{ lab.baseline_id ?? 'LAB-LOCAL PROFILE' }}</code>
       </section>
 
       <dl class="sim-facts">
         <div>
           <dt>Revision</dt>
           <dd>{{ lab.revision }}</dd>
+        </div>
+        <div v-if="lab.status">
+          <dt>Lifecycle</dt>
+          <dd class="sim-technical">{{ lab.status }}</dd>
+        </div>
+        <div v-if="lab.environment_binding_mode">
+          <dt>Environment binding</dt>
+          <dd class="sim-technical">{{ lab.environment_binding_mode }}</dd>
         </div>
         <div>
           <dt>Slug</dt>

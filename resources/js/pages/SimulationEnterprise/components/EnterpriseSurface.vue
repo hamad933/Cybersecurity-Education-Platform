@@ -2,9 +2,13 @@
 import { computed, ref, watch } from 'vue';
 
 import { topologyLinks, topologyNodes } from '../projections';
-import type { DigitalTwinRevisionItem, EnterpriseItem, TopologyNode } from '../types';
+import type { DigitalTwinRevisionItem, EnterpriseItem, TopologyLink, TopologyNode } from '../types';
 
-const props = defineProps<{ enterprise: EnterpriseItem | null }>();
+const props = defineProps<{
+  enterprise: EnterpriseItem | null;
+  selectedContextId: string | null;
+}>();
+const emit = defineEmits<{ selectContext: [id: string] }>();
 
 const selectedTwinId = ref('');
 const selectedRevisionId = ref('');
@@ -20,11 +24,38 @@ const selectedTwin = computed(
 const selectedRevision = computed<DigitalTwinRevisionItem | null>(
   () =>
     selectedTwin.value?.revisions.find((revision) => revision.id === selectedRevisionId.value) ??
-    selectedTwin.value?.revisions.at(-1) ??
+    selectedTwin.value?.revisions[0] ??
     null,
 );
-const nodes = computed(() => topologyNodes(selectedRevision.value));
-const links = computed(() => topologyLinks(selectedRevision.value));
+const nodes = computed<TopologyNode[]>(() => {
+  if (selectedRevision.value?.components?.length) {
+    return selectedRevision.value.components.map((component) => ({
+      id: component.id,
+      label: component.name_ar,
+      kind: component.ownership_scope,
+      raw: {
+        component_key: component.component_key,
+        ownership_scope: component.ownership_scope,
+        enterprise_entity_id: component.enterprise_entity_id ?? null,
+        device_template_revision_id: component.device_template_revision_id ?? null,
+        simulation_definition: component.simulation_definition,
+      },
+    }));
+  }
+
+  return topologyNodes(selectedRevision.value);
+});
+const links = computed<TopologyLink[]>(() => {
+  if (selectedRevision.value?.components?.length) {
+    return (selectedRevision.value.relationships ?? []).map((relationship) => ({
+      from: relationship.source_component_id,
+      to: relationship.target_component_id,
+      label: relationship.relationship_type,
+    }));
+  }
+
+  return topologyLinks(selectedRevision.value);
+});
 
 watch(
   () => props.enterprise,
@@ -36,7 +67,7 @@ watch(
 watch(
   selectedTwin,
   (twin) => {
-    selectedRevisionId.value = twin?.revisions.at(-1)?.id ?? '';
+    selectedRevisionId.value = twin?.revisions[0]?.id ?? '';
   },
   { immediate: true },
 );
@@ -49,6 +80,19 @@ watch(
   },
   { immediate: true },
 );
+watch(
+  () => props.selectedContextId,
+  (contextId) => {
+    if (contextId && nodes.value.some((node) => node.id === contextId)) {
+      selectedNodeId.value = contextId;
+    }
+  },
+);
+
+function selectNode(nodeId: string): void {
+  selectedNodeId.value = nodeId;
+  emit('selectContext', nodeId);
+}
 
 function getNodeRole(node: TopologyNode): {
   icon: string;
@@ -318,6 +362,9 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
         <div class="sim-caption-main">
           <strong>{{ selectedTwin?.name_ar }} — {{ enterprise.name_ar }}</strong>
           <span class="sim-badge">Revision {{ selectedRevision.revision }}</span>
+          <span v-if="selectedRevision.status" class="sim-badge">{{
+            selectedRevision.status
+          }}</span>
         </div>
         <div class="sim-canvas-counts">
           <span>{{ nodes.length }} NODES</span>
@@ -396,9 +443,9 @@ function getLinkLabel(link: { from: string; to: string; label: string | null }):
             role="button"
             tabindex="0"
             data-testid="topology-node"
-            @click="selectedNodeId = node.id"
-            @keydown.enter="selectedNodeId = node.id"
-            @keydown.space.prevent="selectedNodeId = node.id"
+            @click="selectNode(node.id)"
+            @keydown.enter="selectNode(node.id)"
+            @keydown.space.prevent="selectNode(node.id)"
           >
             <rect width="200" height="80" rx="10" class="sim-node-card-bg" />
             <circle cx="32" cy="40" r="16" class="sim-node-icon-circle" />

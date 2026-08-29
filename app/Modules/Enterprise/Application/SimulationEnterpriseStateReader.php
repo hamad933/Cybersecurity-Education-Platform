@@ -25,6 +25,9 @@ interface SimulationEnterpriseStateReader
         string $baselineId,
     ): ?SimulationEnterpriseState;
 
+    /** @return array<string, mixed>|null */
+    public function findPublishedDeviceTemplateRevisionForSimulation(string $revisionId): ?array;
+
     /** @return list<array<string,mixed>> */
     public function listForSimulationWorkspace(): array;
 }
