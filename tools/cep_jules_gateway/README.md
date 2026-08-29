@@ -8,6 +8,7 @@ This package is **Controller infrastructure**, not product authority. v1 remains
 - `.github/workflows/cep-jules-v2-mutation.yml` is a separate, manual `workflow_dispatch` **mutation canary** using schema `2.1`.
 - The mutation canary does not subscribe to Issue traffic and does not replace the active v1 workflows.
 - `execution_mode=MUTATION_CANARY` is mandatory for every v2.1 provider mutation.
+- The reusable mutation worker receives only the explicitly required `JULES_API_KEY`; the caller does not use `secrets: inherit`.
 
 A future cutover, if separately authorized, can follow:
 
@@ -72,9 +73,9 @@ A separate `provider_identity_digest` is computed **in memory before sanitizatio
 - exact session identity;
 - exact plan-generating activity identity;
 - activity creation/update metadata;
-- the complete provider `planGenerated` object.
+- the complete provider `planGenerated` object, including the provider `plan.id` when present.
 
-Only the digest is emitted. Original provider material is never logged or persisted by the digest path.
+Only the digest and bounded provider identity metadata are emitted. Original provider material is never logged or persisted by the digest path.
 
 `approve_plan` requires all of:
 
@@ -87,9 +88,11 @@ Only the digest is emitted. Original provider material is never logged or persis
 
 The worker performs a final direct session/activity read after durable intent, reconstructs the exact identity again, then re-reads the session to verify that state/update identity did not change while activities were collected. It compares that result with the reviewed values and recorded preflight before calling `approvePlan` at most once. Any mismatch returns `PLAN_CHANGED_SINCE_REVIEW__REAPPROVAL_REQUIRED` or a deterministic state rejection with no provider write.
 
+The current Jules activity contract exposes `Plan.id` and a `planApproved.planId` event. v2 requires the reviewed provider plan to contain that stable ID. After `approvePlan`, `VERIFIED` requires a newly observed `planApproved` activity whose `planId` exactly matches the reviewed plan. A state/update transition without that matching activity is `UNKNOWN_WRITE_OUTCOME`, not success.
+
 ### Residual approval race
 
-The observed Jules interface exposes session-scoped `approvePlan` but no atomic plan revision/precondition token that can be supplied with that mutation. Therefore a narrow TOCTOU remains between the final provider read and the `approvePlan` request. v2 does not claim to eliminate this provider-level race. It fails closed whenever the reviewed identity cannot be reconstructed or differs before the write.
+The observed Jules interface exposes session-scoped `approvePlan` but no atomic plan revision/precondition token that can be supplied with that mutation. Therefore a narrow TOCTOU remains between the final provider read and the `approvePlan` request. v2 does not claim to eliminate this provider-level race. It fails closed whenever the reviewed identity cannot be reconstructed or differs before the write, and post-write verification is tied to the exact provider `planId`.
 
 ## Provider protocol and deterministic selection
 
@@ -123,6 +126,16 @@ No provider mutation has an automatic retry. HTTP 429, transport ambiguity, 5xx,
 
 `send_message` is fail-closed to the explicitly known compatible states `IN_PROGRESS`, `AWAITING_USER_FEEDBACK`, and `AWAITING_PLAN_APPROVAL`, in addition to the caller's exact `expected_state` guard. Unknown and terminal states are rejected before the provider write.
 
+## Performance and parallelism
+
+- `inspect_bundle` removes duplicate patch/Bash hydration reads by sharing one activity cache.
+- One global provider-read budget covers the combined inspection request rather than independently budgeting selectors.
+- Combined inspection evidence reduces Controller read round trips for session + plan + messages + changesets + Bash output.
+- Request-level serialization affects only the same `request_id`; effect serialization affects only the same session or pre-session write effect.
+- Independent sessions and unrelated logical effects remain parallel across Controllers A/B/C.
+- There is no global mutation lock and no busy-poll loop.
+- Unknown mutation outcomes convert to reconciliation reads rather than retry churn or duplicate provider writes.
+
 ## Rate limits and waiting
 
 Safe provider retry metadata is preserved for reads. This candidate deliberately does **not** implement `wait_for_state`: avoiding a polling loop keeps the P0 mutation-safety work smaller and reduces rate-limit/429 exposure. Controllers can make bounded explicit reads until a separately reviewed wait primitive is justified.
@@ -136,10 +149,11 @@ v1 is byte-for-byte retained and therefore does not participate in the new v2 ef
 The scoped test suite is synthetic and secret-free:
 
 ```bash
+ruby -e 'require "yaml"; Dir[".github/workflows/cep-jules-v2*.yml"].sort.each { |path| YAML.load_file(path, aliases: true); puts "YAML_OK=#{path}" }'
 python -m compileall -q tools/cep_jules_gateway
 python -m unittest discover -s tools/cep_jules_gateway/tests -p 'test_*.py' -v
 ```
 
-It covers the Foundation tests plus malformed 2xx protocol responses, provider/session identity, shared budgets/cache, total result bounds, deterministic selection, request/effect concurrency keys, durable request idempotency, pre-session create-effect collision protection, session task/domain binding, exact plan binding, state drift, one-write semantics, ambiguous write outcomes, shadow compatibility, v1 blob identity, and shell/secret handling.
+It covers the Foundation tests plus malformed 2xx protocol responses, provider/session identity, shared budgets/cache, total result bounds, deterministic selection, request/effect concurrency keys, durable request idempotency, pre-session create-effect collision protection, session task/domain binding, exact plan binding and exact post-approval `planId`, state drift, one-write semantics, ambiguous write outcomes, shadow compatibility, v1 blob identity, least-privilege secret forwarding, and shell/secret handling.
 
 Hosted CI for this candidate is not live Jules acceptance evidence; the test workflow intentionally does not call Jules with a secret or perform a provider mutation.
