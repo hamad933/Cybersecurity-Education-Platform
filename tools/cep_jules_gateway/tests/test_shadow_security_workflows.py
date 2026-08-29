@@ -47,6 +47,18 @@ class ShadowSecurityWorkflowTests(unittest.TestCase):
         self.assertIn("cancel-in-progress: false", outer)
         self.assertIn("cancel-in-progress: false", worker)
 
+    def test_session_bindings_are_durably_persisted_around_mutation(self):
+        outer = (ROOT / ".github/workflows/cep-jules-v2-mutation.yml").read_text(encoding="utf-8")
+        worker = (ROOT / ".github/workflows/cep-jules-v2-mutation-worker.yml").read_text(encoding="utf-8")
+        self.assertIn("session_binding_marker: ${{ steps.route.outputs.session_binding_marker }}", outer)
+        self.assertIn("session_binding_specific_marker: ${{ steps.route.outputs.session_binding_specific_marker }}", outer)
+        self.assertIn("Persist generic session binding before provider write", worker)
+        self.assertIn("Persist exact session task/domain binding before provider write", worker)
+        self.assertIn("Persist binding for newly created verified session", worker)
+        self.assertIn("Persist exact task/domain binding for newly created verified session", worker)
+        self.assertLess(worker.index("Persist generic session binding before provider write"), worker.index("Final pre-read, one provider write"))
+        self.assertLess(worker.index("Persist exact session task/domain binding before provider write"), worker.index("Final pre-read, one provider write"))
+
     def test_canary_has_no_repository_write_or_issue_write_permission(self):
         combined = "\n".join(
             (ROOT / path).read_text(encoding="utf-8")
