@@ -16,12 +16,14 @@ def plan_identity_from_activities(activities: list[dict[str, Any]], session_id: 
             "status": ProviderOutcome.NOT_FOUND.value,
             "plan_digest": None,
             "provider_identity_digest": None,
+            "plan_id": None,
             "steps": [],
         }
 
     activity_name = validate_activity_identity(activity, session_id)
     generated = activity["planGenerated"]
     plan = generated.get("plan") if isinstance(generated.get("plan"), dict) else {}
+    plan_id = str(plan.get("id") or "") or None
     raw_steps = plan.get("steps")
     if raw_steps is None:
         raw_steps = []
@@ -53,6 +55,7 @@ def plan_identity_from_activities(activities: list[dict[str, Any]], session_id: 
         "activity_name": activity_name,
         "create_time": activity.get("createTime"),
         "update_time": activity.get("updateTime"),
+        "plan_id": plan_id,
         "step_count": len(steps),
         "plan_digest": sha256_json(normalized_display),
         "provider_identity_digest": sha256_json(exact_provider_material),
