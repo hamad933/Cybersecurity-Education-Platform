@@ -23,7 +23,10 @@ jobs:
       completed_marker: ${{ steps.route.outputs.completed_marker }}
       unknown_marker: ${{ steps.route.outputs.unknown_marker }}
       create_effect_marker: ${{ steps.route.outputs.create_effect_marker }}
+      session_binding_marker: ${{ steps.route.outputs.session_binding_marker }}
+      session_binding_specific_marker: ${{ steps.route.outputs.session_binding_specific_marker }}
       is_create: ${{ steps.route.outputs.is_create }}
+      is_session_mutation: ${{ steps.route.outputs.is_session_mutation }}
     env:
       CEP_JULES_REQUEST_JSON: ${{ inputs.request_json }}
     steps:
@@ -52,5 +55,8 @@ jobs:
       completed_marker: ${{ needs.route.outputs.completed_marker }}
       unknown_marker: ${{ needs.route.outputs.unknown_marker }}
       create_effect_marker: ${{ needs.route.outputs.create_effect_marker }}
+      session_binding_marker: ${{ needs.route.outputs.session_binding_marker }}
+      session_binding_specific_marker: ${{ needs.route.outputs.session_binding_specific_marker }}
       is_create: ${{ needs.route.outputs.is_create }}
+      is_session_mutation: ${{ needs.route.outputs.is_session_mutation }}
     secrets: inherit
