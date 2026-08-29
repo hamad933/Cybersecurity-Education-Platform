@@ -49,36 +49,50 @@ final class ManualAiBridgeCorrectionTest extends TestCase
         ]);
     }
 
-    public function test_import_raw_json_result_package_via_http_endpoint(): void
+    public function test_import_result_package_via_http_endpoint(): void
     {
         $this->seed();
         $owner = $this->owner();
         $actorId = (string) $owner->getAuthIdentifier();
 
         $bridge = app(ManualAiBridgeService::class);
-        $export = $bridge->exportPrompt($actorId, 'Draft revision', ['knowledge_unit_id' => 'KU-SEC-20'], ['instruction' => 'Draft instruction.']);
+        $export = $bridge->exportPrompt($actorId, 'Draft revision', ['knowledge_unit_id' => 'KU-AD-02'], ['instruction' => 'Draft instruction.']);
 
         $resultPayload = [
-            'prompt_package_id' => (string) $export['prompt']->id,
-            'prompt_revision' => 1,
-            'input_digest' => (string) $export['revision']->input_digest,
-            'knowledge_unit_id' => 'KU-SEC-20',
+            'knowledge_unit_id' => 'KU-AD-02',
             'proposed_blocks' => [['type' => 'paragraph', 'body' => 'محتوى تجريبي من الذكاء الاصطناعي اليدوي.']],
-            'citation_claim_ids' => ['CLAIM-001'],
+            'citation_claim_ids' => ['WIN-AUTH-002'],
             'derived_from_revision_id' => null,
             'authority_baseline_id' => config('vs001.authority_baseline_id'),
             'limitations' => ['Manual AI output'],
             'confidence' => 'high',
         ];
 
-        $uploadedFile = UploadedFile::fake()->createWithContent(
-            'result.json',
-            json_encode($resultPayload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)
+        $created = app(\App\Modules\Platform\Packages\SafePackageService::class)->create(
+            'manual-ai-result',
+            1,
+            $actorId,
+            [
+                'prompt_package_id' => (string) $export['prompt']->id,
+                'prompt_revision' => 1,
+                'input_digest' => (string) $export['revision']->input_digest,
+            ],
+            ['result.json' => json_encode($resultPayload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)],
+            ownerModule: 'MOD-AIB',
         );
+
+        $blobStream = app(\App\Modules\Platform\Blobs\BlobStore::class)->readStream($created['blob_key']);
+        $zipPath = tempnam(sys_get_temp_dir(), 'aib_pkg_').'.zip';
+        file_put_contents($zipPath, stream_get_contents($blobStream));
+        fclose($blobStream);
+
+        $uploadedFile = new UploadedFile($zipPath, 'result.zip', 'application/zip', null, true);
 
         $response = $this->actingAs($owner)->post('/system/ai-bridge/results/import', [
             'package' => $uploadedFile,
         ]);
+
+        @unlink($zipPath);
 
         $response->assertRedirect();
 
@@ -96,15 +110,15 @@ final class ManualAiBridgeCorrectionTest extends TestCase
         $actorId = (string) $owner->getAuthIdentifier();
 
         $bridge = app(ManualAiBridgeService::class);
-        $export = $bridge->exportPrompt($actorId, 'Draft for decision', ['knowledge_unit_id' => 'KU-SEC-30'], ['instruction' => 'Draft.']);
+        $export = $bridge->exportPrompt($actorId, 'Draft for decision', ['knowledge_unit_id' => 'KU-AD-02'], ['instruction' => 'Draft.']);
 
         $result = [
             'prompt_package_id' => (string) $export['prompt']->id,
             'prompt_revision' => 1,
             'input_digest' => (string) $export['revision']->input_digest,
-            'knowledge_unit_id' => 'KU-SEC-30',
+            'knowledge_unit_id' => 'KU-AD-02',
             'proposed_blocks' => [['type' => 'paragraph', 'body' => 'مقترح مسودة معتمد بعد مراجعة دقيقة.']],
-            'citation_claim_ids' => ['CLAIM-002'],
+            'citation_claim_ids' => ['WIN-AUTH-002'],
             'derived_from_revision_id' => null,
             'authority_baseline_id' => config('vs001.authority_baseline_id'),
             'limitations' => ['human review required'],

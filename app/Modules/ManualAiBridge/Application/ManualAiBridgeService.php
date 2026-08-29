@@ -127,14 +127,34 @@ final class ManualAiBridgeService
                 throw new InvalidArgumentException('AI result package actor or scope is invalid.');
             }
 
-            $result = json_decode($verified->files['result.json'] ?? '', true, 64, JSON_THROW_ON_ERROR);
+            try {
+                $result = json_decode($verified->files['result.json'] ?? '', true, 64, JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
+                throw new InvalidArgumentException('AI result payload is not valid JSON.');
+            }
+            if (! is_array($result)) {
+                throw new InvalidArgumentException('AI result payload must be a JSON object.');
+            }
+
+            $result['prompt_package_id'] ??= $scope['prompt_package_id'] ?? null;
+            $result['prompt_revision'] ??= $scope['prompt_revision'] ?? null;
+            $result['input_digest'] ??= $scope['input_digest'] ?? null;
+
             $this->validateResult($result);
 
-            $promptId = $scope['prompt_package_id'] ?? null;
-            $revisionNumber = $scope['prompt_revision'] ?? null;
-            $inputDigest = $scope['input_digest'] ?? null;
+            $promptId = $result['prompt_package_id'];
+            $revisionNumber = $result['prompt_revision'];
+            $inputDigest = $result['input_digest'];
         } else {
-            $result = json_decode($content, true, 64, JSON_THROW_ON_ERROR);
+            try {
+                $result = json_decode($content, true, 64, JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
+                throw new InvalidArgumentException('AI result payload is not valid JSON.');
+            }
+            if (! is_array($result)) {
+                throw new InvalidArgumentException('AI result payload must be a JSON object.');
+            }
+
             $this->validateResult($result);
 
             $promptId = $result['prompt_package_id'] ?? null;

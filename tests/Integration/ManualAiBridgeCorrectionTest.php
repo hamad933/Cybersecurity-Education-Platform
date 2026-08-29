@@ -21,15 +21,15 @@ final class ManualAiBridgeCorrectionTest extends TestCase
         $this->seed();
         $owner = app(CreateOwner::class)->execute('Owner', 'owner-corr@example.test', 'VeryStrong!Pass9', (string) Str::uuid7());
         $bridge = app(ManualAiBridgeService::class);
-        $export = $bridge->exportPrompt((string) $owner->id, 'Draft lesson improvement', ['knowledge_unit_id' => 'KU-SEC-01'], ['instruction' => 'Refine section 1.']);
+        $export = $bridge->exportPrompt((string) $owner->id, 'Draft lesson improvement', ['knowledge_unit_id' => 'KU-AD-02'], ['instruction' => 'Refine section 1.']);
 
         $result = [
             'prompt_package_id' => (string) $export['prompt']->id,
             'prompt_revision' => 1,
             'input_digest' => (string) $export['revision']->input_digest,
-            'knowledge_unit_id' => 'KU-SEC-01',
+            'knowledge_unit_id' => 'KU-AD-02',
             'proposed_blocks' => [['type' => 'paragraph', 'body' => 'مقترح مسودة محكم يخضع للتدقيق البشري.']],
-            'citation_claim_ids' => ['WIN-AUTH-001'],
+            'citation_claim_ids' => ['WIN-AUTH-002'],
             'derived_from_revision_id' => null,
             'authority_baseline_id' => config('vs001.authority_baseline_id'),
             'limitations' => ['manual test result'],
@@ -74,10 +74,10 @@ final class ManualAiBridgeCorrectionTest extends TestCase
         $this->seed();
         $owner = app(CreateOwner::class)->execute('Owner 2', 'owner-zip@example.test', 'VeryStrong!Pass9', (string) Str::uuid7());
         $bridge = app(ManualAiBridgeService::class);
-        $export = $bridge->exportPrompt((string) $owner->id, 'Draft lesson for ZIP package', ['knowledge_unit_id' => 'KU-SEC-02'], ['instruction' => 'Refine section 2.']);
+        $export = $bridge->exportPrompt((string) $owner->id, 'Draft lesson for ZIP package', ['knowledge_unit_id' => 'KU-AD-02'], ['instruction' => 'Refine section 2.']);
 
         $result = [
-            'knowledge_unit_id' => 'KU-SEC-02',
+            'knowledge_unit_id' => 'KU-AD-02',
             'proposed_blocks' => [['type' => 'paragraph', 'body' => 'محتوى حزمة آمنة.']],
             'citation_claim_ids' => ['WIN-AUTH-002'],
             'derived_from_revision_id' => null,
@@ -121,13 +121,13 @@ final class ManualAiBridgeCorrectionTest extends TestCase
         $this->seed();
         $owner = app(CreateOwner::class)->execute('Owner 3', 'owner-tamper@example.test', 'VeryStrong!Pass9', (string) Str::uuid7());
         $bridge = app(ManualAiBridgeService::class);
-        $export = $bridge->exportPrompt((string) $owner->id, 'Draft prompt for tamper test', ['knowledge_unit_id' => 'KU-SEC-03'], ['instruction' => 'Test tamper.']);
+        $export = $bridge->exportPrompt((string) $owner->id, 'Draft prompt for tamper test', ['knowledge_unit_id' => 'KU-AD-02'], ['instruction' => 'Test tamper.']);
 
         $result = [
             'prompt_package_id' => (string) $export['prompt']->id,
             'prompt_revision' => 1,
             'input_digest' => str_repeat('e', 64),
-            'knowledge_unit_id' => 'KU-SEC-03',
+            'knowledge_unit_id' => 'KU-AD-02',
             'proposed_blocks' => [['type' => 'paragraph', 'body' => 'Content.']],
             'citation_claim_ids' => ['WIN-AUTH-003'],
             'derived_from_revision_id' => null,
@@ -156,13 +156,13 @@ final class ManualAiBridgeCorrectionTest extends TestCase
         $this->seed();
         $owner = app(CreateOwner::class)->execute('Owner 4', 'owner-imm@example.test', 'VeryStrong!Pass9', (string) Str::uuid7());
         $bridge = app(ManualAiBridgeService::class);
-        $export = $bridge->exportPrompt((string) $owner->id, 'Draft prompt for immutable test', ['knowledge_unit_id' => 'KU-SEC-04'], ['instruction' => 'Test immutability.']);
+        $export = $bridge->exportPrompt((string) $owner->id, 'Draft prompt for immutable test', ['knowledge_unit_id' => 'KU-AD-02'], ['instruction' => 'Test immutability.']);
 
         $result = [
             'prompt_package_id' => (string) $export['prompt']->id,
             'prompt_revision' => 1,
             'input_digest' => (string) $export['revision']->input_digest,
-            'knowledge_unit_id' => 'KU-SEC-04',
+            'knowledge_unit_id' => 'KU-AD-02',
             'proposed_blocks' => [['type' => 'paragraph', 'body' => 'Content.']],
             'citation_claim_ids' => ['WIN-AUTH-004'],
             'derived_from_revision_id' => null,
@@ -188,5 +188,42 @@ final class ManualAiBridgeCorrectionTest extends TestCase
         $this->expectExceptionMessage('AI result already has a final decision.');
 
         $bridge->decide((string) $import->id, (string) $owner->id, 'REJECT', 'Second decision attempt.');
+    }
+
+    public function test_import_result_is_idempotent_for_identical_payload(): void
+    {
+        $this->seed();
+        $owner = app(CreateOwner::class)->execute('Owner 5', 'owner-idem@example.test', 'VeryStrong!Pass9', (string) Str::uuid7());
+        $bridge = app(ManualAiBridgeService::class);
+        $export = $bridge->exportPrompt((string) $owner->id, 'Draft prompt for idempotency test', ['knowledge_unit_id' => 'KU-AD-02'], ['instruction' => 'Test idempotency.']);
+
+        $result = [
+            'prompt_package_id' => (string) $export['prompt']->id,
+            'prompt_revision' => 1,
+            'input_digest' => (string) $export['revision']->input_digest,
+            'knowledge_unit_id' => 'KU-AD-02',
+            'proposed_blocks' => [['type' => 'paragraph', 'body' => 'Content.']],
+            'citation_claim_ids' => ['WIN-AUTH-004'],
+            'derived_from_revision_id' => null,
+            'authority_baseline_id' => config('vs001.authority_baseline_id'),
+            'limitations' => ['idempotency test'],
+            'confidence' => 'high',
+        ];
+
+        $json = json_encode($result, JSON_THROW_ON_ERROR);
+
+        $stream1 = fopen('php://memory', 'r+');
+        fwrite($stream1, $json);
+        rewind($stream1);
+        $import1 = $bridge->importResult($stream1, (string) $owner->id);
+        fclose($stream1);
+
+        $stream2 = fopen('php://memory', 'r+');
+        fwrite($stream2, $json);
+        rewind($stream2);
+        $import2 = $bridge->importResult($stream2, (string) $owner->id);
+        fclose($stream2);
+
+        $this->assertSame((string) $import1->id, (string) $import2->id);
     }
 }

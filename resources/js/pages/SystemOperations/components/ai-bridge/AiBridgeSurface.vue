@@ -169,11 +169,11 @@ const inspectResult = (res: AiResult) => {
 
         <form class="box-form" @submit.prevent="submitImport">
           <div class="form-group">
-            <label class="form-label">ملف حزمة النتيجة (JSON Package)</label>
+            <label class="form-label">ملف حزمة النتيجة (SafePackage ZIP / JSON)</label>
             <input
               type="file"
               class="form-file-input"
-              accept=".json,.zip"
+              accept=".zip,.json"
               aria-label="ملف حزمة نتيجة الذكاء الاصطناعي"
               @change="handlePackageSelect"
             />
