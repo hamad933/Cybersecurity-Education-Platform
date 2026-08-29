@@ -10,7 +10,7 @@ DEFAULT_API_BASE = "https://api.github.com"
 
 
 class GitHubClient:
-    """Minimal read-only GitHub client for authority/baseline preconditions."""
+    """Minimal read-only GitHub client for CEP v2 preconditions and idempotency readback."""
 
     def __init__(
         self,
@@ -53,15 +53,22 @@ class GitHubClient:
                 retry=retry,
             )
         )
-        if 200 <= response.status < 300:
-            return response.payload
-        raise GatewayError(
-            classification or ErrorClassification.PROVIDER_READ_FAILED,
-            f"GitHub provider read failed during {operation}",
-            http_status=response.status,
-            retry=retry,
-            details={"operation": operation},
-        )
+        if classification is not None:
+            raise GatewayError(
+                classification,
+                f"GitHub provider read failed during {operation}",
+                http_status=response.status,
+                retry=retry,
+                details={"operation": operation, "protocol_error": response.protocol_error},
+            )
+        if not isinstance(response.payload, dict):
+            raise GatewayError(
+                ErrorClassification.PROVIDER_PROTOCOL_FAILED,
+                f"GitHub returned an unexpected top-level type during {operation}",
+                http_status=response.status,
+                details={"operation": operation},
+            )
+        return response.payload
 
     def get_branch_head(self, branch: str) -> str:
         owner, repo = self.repository.split("/", 1)
@@ -74,9 +81,10 @@ class GitHubClient:
             + "/branches/"
             + urllib.parse.quote(branch, safe=""),
         )
-        actual = str(((payload.get("commit") or {}).get("sha") or "")).lower()
+        commit = payload.get("commit")
+        actual = str(commit.get("sha") or "").lower() if isinstance(commit, dict) else ""
         if len(actual) != 40 or any(ch not in "0123456789abcdef" for ch in actual):
-            raise GatewayError(ErrorClassification.INVALID_STATE, "GitHub branch response did not contain a valid commit SHA")
+            raise GatewayError(ErrorClassification.PROVIDER_PROTOCOL_FAILED, "GitHub branch response did not contain a valid commit SHA")
         return actual
 
     def require_branch_head(self, branch: str, expected_sha: str) -> dict[str, Any]:
@@ -95,3 +103,23 @@ class GitHubClient:
             "actual_sha": actual_sha,
             "read_only": True,
         }
+
+    def list_active_artifacts_by_name(self, name: str) -> list[dict[str, Any]]:
+        if not name or len(name) > 220:
+            raise GatewayError(ErrorClassification.INVALID_REQUEST, "artifact idempotency marker name is invalid")
+        owner, repo = self.repository.split("/", 1)
+        query = urllib.parse.urlencode({"name": name, "per_page": 100})
+        payload = self._get(
+            "github_list_idempotency_artifacts",
+            f"/repos/{urllib.parse.quote(owner, safe='')}/{urllib.parse.quote(repo, safe='')}/actions/artifacts?{query}",
+        )
+        artifacts = payload.get("artifacts")
+        if not isinstance(artifacts, list):
+            raise GatewayError(ErrorClassification.PROVIDER_PROTOCOL_FAILED, "GitHub artifact collection is structurally invalid")
+        rows: list[dict[str, Any]] = []
+        for item in artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("name"), str):
+                raise GatewayError(ErrorClassification.PROVIDER_PROTOCOL_FAILED, "GitHub artifact collection contains an invalid item")
+            if item.get("name") == name and not bool(item.get("expired")):
+                rows.append(item)
+        return rows
