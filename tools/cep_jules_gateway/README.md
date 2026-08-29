@@ -45,6 +45,8 @@ Therefore two Controllers cannot concurrently mutate the same session through v2
 
 For `create_session`, a durable create-effect intent marker is written inside the effect lock before the provider write. A later request with a different `request_id` but the same pre-session logical effect is blocked rather than creating a second Jules session blindly.
 
+For existing sessions, the first v2 mutation also persists a generic session-binding marker and a binding-specific marker derived from `logical_task_id + write_domain`. Later v2 mutations of that session must reproduce the same binding. A mismatched task/domain or a partially persisted binding fails closed with `RECONCILIATION_REQUIRED`. A verified `create_session` persists the same binding pair for the newly created session. This is a deterministic collision guard, not a claim of a perfect distributed lock.
+
 ## Repository-wide idempotency
 
 v2 uses bounded GitHub Actions artifacts as the smallest CEP-specific durable reconciliation store. Marker names contain a hash of `request_id`, not request content.
@@ -59,7 +61,7 @@ States:
 
 Before any provider write, v2 publishes an `INTENT_RECORDED` artifact. A verified or deterministically rejected request receives a `COMPLETED` marker. An ambiguous write receives `UNKNOWN_WRITE_OUTCOME`. A later invocation that sees `INTENT_RECORDED` or `UNKNOWN_WRITE_OUTCOME` returns reconciliation-required and never replays the mutation blindly.
 
-Durable idempotency/effect artifacts use 90-day retention; short diagnostic evidence uses 14 days. This intentionally bounds state growth. The resulting limitation is that request/effect deduplication is retention-window bounded, so very old identifiers must not be recycled.
+Durable idempotency/effect/session-binding artifacts use 90-day retention; short diagnostic evidence uses 14 days. This intentionally bounds state growth. The resulting limitation is that request/effect/session-binding deduplication is retention-window bounded, so very old identifiers must not be recycled.
 
 ## Exact plan approval binding
 
@@ -83,7 +85,7 @@ Only the digest is emitted. Original provider material is never logged or persis
 - `expected_plan_create_time`;
 - `expected_session_update_time`.
 
-The worker performs a final direct session/activity read after durable intent, reconstructs the exact identity again, compares it with the reviewed values and recorded preflight, then calls `approvePlan` at most once. Any mismatch returns `PLAN_CHANGED_SINCE_REVIEW__REAPPROVAL_REQUIRED` or a deterministic state rejection with no provider write.
+The worker performs a final direct session/activity read after durable intent, reconstructs the exact identity again, then re-reads the session to verify that state/update identity did not change while activities were collected. It compares that result with the reviewed values and recorded preflight before calling `approvePlan` at most once. Any mismatch returns `PLAN_CHANGED_SINCE_REVIEW__REAPPROVAL_REQUIRED` or a deterministic state rejection with no provider write.
 
 ### Residual approval race
 
@@ -119,6 +121,8 @@ Every mutation follows:
 
 No provider mutation has an automatic retry. HTTP 429, transport ambiguity, 5xx, malformed successful mutation response, or inconclusive post-read is classified as `UNKNOWN_WRITE_OUTCOME`. The receipt includes `blind_retry=false` and the exact safe next read (`list_sessions` for create, `inspect_bundle` for session mutations).
 
+`send_message` is fail-closed to the explicitly known compatible states `IN_PROGRESS`, `AWAITING_USER_FEEDBACK`, and `AWAITING_PLAN_APPROVAL`, in addition to the caller's exact `expected_state` guard. Unknown and terminal states are rejected before the provider write.
+
 ## Rate limits and waiting
 
 Safe provider retry metadata is preserved for reads. This candidate deliberately does **not** implement `wait_for_state`: avoiding a polling loop keeps the P0 mutation-safety work smaller and reduces rate-limit/429 exposure. Controllers can make bounded explicit reads until a separately reviewed wait primitive is justified.
@@ -136,6 +140,6 @@ python -m compileall -q tools/cep_jules_gateway
 python -m unittest discover -s tools/cep_jules_gateway/tests -p 'test_*.py' -v
 ```
 
-It covers the Foundation tests plus malformed 2xx protocol responses, provider/session identity, shared budgets/cache, total result bounds, deterministic selection, concurrency keys, durable idempotency, plan binding, state drift, one-write semantics, ambiguous write outcomes, shadow compatibility, v1 blob identity, and shell/secret handling.
+It covers the Foundation tests plus malformed 2xx protocol responses, provider/session identity, shared budgets/cache, total result bounds, deterministic selection, request/effect concurrency keys, durable request idempotency, pre-session create-effect collision protection, session task/domain binding, exact plan binding, state drift, one-write semantics, ambiguous write outcomes, shadow compatibility, v1 blob identity, and shell/secret handling.
 
 Hosted CI for this candidate is not live Jules acceptance evidence; the test workflow intentionally does not call Jules with a secret or perform a provider mutation.
