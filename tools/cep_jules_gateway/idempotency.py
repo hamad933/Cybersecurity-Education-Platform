@@ -53,6 +53,12 @@ def marker_name(request_id: str, state: IdempotencyState) -> str:
     return f"{marker_prefix(request_id)}-{state.value}"
 
 
+def create_effect_guard_name(effect_key: str) -> str:
+    if not effect_key.startswith("effect-") or len(effect_key) > 80:
+        raise ValueError("invalid effect key")
+    return f"cep-jules-v2-create-{effect_key}-INTENT_RECORDED"
+
+
 def inspect_idempotency(reader: ArtifactReader, request_id: str) -> IdempotencySnapshot:
     states = (
         IdempotencyState.COMPLETED,
@@ -87,4 +93,15 @@ def require_new_intent(snapshot: IdempotencySnapshot) -> None:
             ErrorClassification.RECONCILIATION_REQUIRED,
             "request_id has prior durable write intent or unknown outcome; reconcile before any replay",
             details={**snapshot.to_dict(), "blind_retry": False},
+        )
+
+
+def require_unused_create_effect(reader: ArtifactReader, effect_key: str) -> None:
+    marker = create_effect_guard_name(effect_key)
+    count = len(reader.list_active_artifacts_by_name(marker))
+    if count:
+        raise GatewayError(
+            ErrorClassification.RECONCILIATION_REQUIRED,
+            "pre-session logical write effect already has durable create intent; refusing a second session create",
+            details={"effect_key": effect_key, "active_effect_intents": count, "blind_retry": False},
         )
