@@ -73,10 +73,10 @@ export interface OrchestrationNode<T> {
 export interface TodayOrchestrationPayload {
   registeredDomainEntries: number;
   expectedDomainEntries: number;
-  continueSession?: OrchestrationNode<TodaySessionItem>;
-  nextAction?: OrchestrationNode<TodayNextActionItem>;
-  rationale?: OrchestrationNode<TodayRationaleItem>;
-  attentionItems?: OrchestrationNode<TodayAttentionItem[]>;
-  recentContext?: OrchestrationNode<TodayRecentContextItem[]>;
-  progressProjection?: OrchestrationNode<TodayProgressProjection>;
+  continueSession?: OrchestrationNode<TodaySessionItem> | TodaySessionItem | null;
+  nextAction?: OrchestrationNode<TodayNextActionItem> | TodayNextActionItem | null;
+  rationale?: OrchestrationNode<TodayRationaleItem> | TodayRationaleItem | null;
+  attentionItems?: OrchestrationNode<TodayAttentionItem[]> | TodayAttentionItem[] | null;
+  recentContext?: OrchestrationNode<TodayRecentContextItem[]> | TodayRecentContextItem[] | null;
+  progressProjection?: OrchestrationNode<TodayProgressProjection> | TodayProgressProjection | null;
 }

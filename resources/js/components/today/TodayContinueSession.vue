@@ -1,13 +1,23 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 
 import CepEmptyState from '../shared/CepEmptyState.vue';
 import TechnicalText from '../shared/TechnicalText.vue';
 import type { TodaySessionItem, OrchestrationNode } from './types';
 
-defineProps<{
-  session?: OrchestrationNode<TodaySessionItem> | null;
+const props = defineProps<{
+  session?: OrchestrationNode<TodaySessionItem> | TodaySessionItem | null;
 }>();
+
+const node = computed<OrchestrationNode<TodaySessionItem>>(() => {
+  const s = props.session;
+  if (!s) return { status: 'EMPTY', data: null };
+  if (typeof s === 'object' && 'status' in s) {
+    return s as OrchestrationNode<TodaySessionItem>;
+  }
+  return { status: 'AVAILABLE', data: s as TodaySessionItem };
+});
 </script>
 
 <template>
@@ -22,14 +32,14 @@ defineProps<{
         <p class="cep-kicker">الأولوية التشغيلية القصوى</p>
         <h2 id="continue-session-title" class="cep-section-title">متابعة الجلسة الحالية</h2>
       </div>
-      <span v-if="session" class="today-live-pulse-badge">
+      <span v-if="node.status === 'AVAILABLE' && node.data" class="today-live-pulse-badge">
         <span class="today-live-pulse-dot" />
         جلسة نشطة قيد التشغيل
       </span>
     </div>
 
     <div
-      v-if="session?.status === 'AVAILABLE' && session.data"
+      v-if="node.status === 'AVAILABLE' && node.data"
       class="today-session-card today-session-card--active"
       data-testid="today-session-active"
     >
@@ -48,15 +58,15 @@ defineProps<{
                 clip-rule="evenodd"
               />
             </svg>
-            {{ session.data.domainLabel }}
+            {{ node.data.domainLabel }}
           </span>
-          <span v-if="session.data.moduleName" class="today-code-pill">
+          <span v-if="node.data.moduleName" class="today-code-pill">
             <span class="today-code-pill__prefix">الوحدة:</span>
-            <TechnicalText :value="session.data.moduleName" />
+            <TechnicalText :value="node.data.moduleName" />
           </span>
         </div>
 
-        <span v-if="session.data.lastActivityAt" class="today-meta-time">
+        <span v-if="node.data.lastActivityAt" class="today-meta-time">
           <svg class="today-time-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path
               fill-rule="evenodd"
@@ -64,28 +74,28 @@ defineProps<{
               clip-rule="evenodd"
             />
           </svg>
-          آخر نشاط: <TechnicalText :value="session.data.lastActivityAt" />
+          آخر نشاط: <TechnicalText :value="node.data.lastActivityAt" />
         </span>
       </div>
 
       <div class="today-session-card__body">
-        <h3 class="today-session-card__title">{{ session.data.title }}</h3>
+        <h3 class="today-session-card__title">{{ node.data.title }}</h3>
 
-        <div v-if="session.data.currentStep" class="today-session-card__step-row">
+        <div v-if="node.data.currentStep" class="today-session-card__step-row">
           <span class="today-step-label">الخطوة الحالية في المسار:</span>
           <span class="today-step-value">
-            <TechnicalText :value="session.data.currentStep" />
+            <TechnicalText :value="node.data.currentStep" />
           </span>
         </div>
       </div>
 
       <div class="today-session-card__actions">
         <Link
-          :href="session.data.href"
+          :href="node.data.href"
           class="today-hero-button focus-ring"
           data-testid="today-session-resume"
         >
-          <span>{{ session.data.actionLabel || 'استئناف الجلسة الآن' }}</span>
+          <span>{{ node.data.actionLabel || 'استئناف الجلسة الآن' }}</span>
           <span class="today-hero-btn-arrow" aria-hidden="true">◀</span>
         </Link>
         <span class="today-hero-subnote"
@@ -94,7 +104,7 @@ defineProps<{
       </div>
     </div>
 
-    <div v-else-if="session?.status === 'UNAVAILABLE'" class="today-empty-wrapper">
+    <div v-else-if="node.status === 'UNAVAILABLE'" class="today-empty-wrapper">
       <div class="today-empty-icon-box" aria-hidden="true">
         <svg
           viewBox="0 0 24 24"

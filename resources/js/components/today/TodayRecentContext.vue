@@ -1,13 +1,29 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 
 import CepEmptyState from '../shared/CepEmptyState.vue';
 import TechnicalText from '../shared/TechnicalText.vue';
-import type { TodayRecentContextItem, OrchestrationNode } from './types';
+import type { TodayRecentContextItem, OrchestrationNode, OrchestrationStatus } from './types';
 
-defineProps<{
-  items?: OrchestrationNode<TodayRecentContextItem[]> | null;
+const props = defineProps<{
+  items?: OrchestrationNode<TodayRecentContextItem[]> | TodayRecentContextItem[] | null;
 }>();
+
+const node = computed<OrchestrationNode<TodayRecentContextItem[]>>(() => {
+  const it = props.items;
+  if (!it) return { status: 'EMPTY', data: [] };
+  if (typeof it === 'object' && !Array.isArray(it) && 'status' in it) {
+    return it as OrchestrationNode<TodayRecentContextItem[]>;
+  }
+  if (Array.isArray(it)) {
+    return {
+      status: (it.length > 0 ? 'AVAILABLE' : 'EMPTY') as OrchestrationStatus,
+      data: it as TodayRecentContextItem[],
+    };
+  }
+  return { status: 'EMPTY', data: [] };
+});
 </script>
 
 <template>
@@ -22,7 +38,10 @@ defineProps<{
         <p class="cep-kicker">السجل والنشاط</p>
         <h2 id="recent-context-title" class="cep-section-title">السياق والنشاط الحديث</h2>
       </div>
-      <span v-if="items?.status === 'AVAILABLE' && items.data && items.data.length > 0" class="today-recent-badge">
+      <span
+        v-if="node.status === 'AVAILABLE' && node.data && node.data.length > 0"
+        class="today-recent-badge"
+      >
         <svg class="today-recent-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
           <path
             fill-rule="evenodd"
@@ -35,12 +54,12 @@ defineProps<{
     </div>
 
     <div
-      v-if="items?.status === 'AVAILABLE' && items.data && items.data.length > 0"
+      v-if="node.status === 'AVAILABLE' && node.data && node.data.length > 0"
       class="today-recent-stack"
       data-testid="today-recent-list"
     >
       <div class="today-timeline-rail">
-        <article v-for="item in items.data" :key="item.id" class="today-recent-card">
+        <article v-for="item in node.data" :key="item.id" class="today-recent-card">
           <div class="today-timeline-dot" aria-hidden="true" />
 
           <div class="today-recent-card__inner">
@@ -93,10 +112,20 @@ defineProps<{
       </div>
     </div>
 
-    <div v-else-if="items?.status === 'UNAVAILABLE'" class="today-empty-wrapper">
+    <div v-else-if="node.status === 'UNAVAILABLE'" class="today-empty-wrapper">
       <div class="today-empty-icon-box" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="today-empty-svg">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          class="today-empty-svg"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+          />
         </svg>
       </div>
       <CepEmptyState

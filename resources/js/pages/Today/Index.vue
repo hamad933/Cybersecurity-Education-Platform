@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 import TodayAttentionItems from '../../components/today/TodayAttentionItems.vue';
@@ -157,6 +157,10 @@ function refreshOrchestration() {
           <span class="today-nav-index">06</span>
           <span class="today-nav-label">التوقعات المرحلية</span>
         </a>
+        <a class="cep-structure-nav__link focus-ring" href="#workspace-handoffs">
+          <span class="today-nav-index">07</span>
+          <span class="today-nav-label">التوجيه للمجالات</span>
+        </a>
       </nav>
     </template>
 
@@ -268,7 +272,11 @@ function refreshOrchestration() {
           </ul>
         </section>
 
-        <section class="today-context-card" aria-labelledby="today-handoff-title">
+        <section
+          id="workspace-handoffs"
+          class="today-context-card"
+          aria-labelledby="today-handoff-title"
+        >
           <div class="today-context-card__header">
             <svg
               class="today-context-card__icon"
@@ -288,11 +296,22 @@ function refreshOrchestration() {
             </div>
           </div>
           <p class="cep-context-copy today-context-copy">
-            تنتقل كافة الإجراءات فورًا إلى مساحة العمل المعتمدة (<TechnicalText
-              value="/knowledge"
-            />، <TechnicalText value="/simulation" />، <TechnicalText value="/progress" />،
-            <TechnicalText value="/system" />) لضمان اتساق البيانات.
+            تنتقل كافة الإجراءات فورًا إلى مساحة العمل المعتمدة لضمان اتساق البيانات.
           </p>
+          <div class="today-canonical-links">
+            <Link href="/knowledge" data-today-workspace="knowledge" class="today-context-link">
+              <span>المعرفة والتعلّم</span>
+            </Link>
+            <Link href="/simulation" data-today-workspace="simulation" class="today-context-link">
+              <span>المحاكاة والمؤسسات</span>
+            </Link>
+            <Link href="/progress" data-today-workspace="progress" class="today-context-link">
+              <span>التقدم والأدلة</span>
+            </Link>
+            <Link href="/system" data-today-workspace="system" class="today-context-link">
+              <span>إدارة وتشغيل المنظومة</span>
+            </Link>
+          </div>
         </section>
       </div>
     </template>
