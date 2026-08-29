@@ -161,7 +161,10 @@ class MutationSafetyTests(unittest.TestCase):
         activity = plan_activity()
         envelope = approve_envelope(activity)
         jules = FakeJules(
-            session_reads=[{"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"}],
+            session_reads=[
+                {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"},
+                {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"},
+            ],
             activities=[activity],
         )
         intent = preflight_mutation(envelope, jules, FakeGitHub(), source_name=SOURCE)
@@ -280,7 +283,10 @@ class MutationSafetyTests(unittest.TestCase):
         intent = preflight_mutation(
             envelope,
             FakeJules(
-                session_reads=[{"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"}],
+                session_reads=[
+                    {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"},
+                    {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"},
+                ],
                 activities=[activity],
             ),
             FakeGitHub(),
@@ -288,6 +294,7 @@ class MutationSafetyTests(unittest.TestCase):
         )
         execution = FakeJules(
             session_reads=[
+                {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"},
                 {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"},
                 {"id": "123", "state": "IN_PROGRESS", "updateTime": "u2"},
             ],
@@ -303,7 +310,10 @@ class MutationSafetyTests(unittest.TestCase):
         intent = preflight_mutation(
             envelope,
             FakeJules(
-                session_reads=[{"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"}],
+                session_reads=[
+                    {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"},
+                    {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"},
+                ],
                 activities=[reviewed],
             ),
             FakeGitHub(),
