@@ -71,6 +71,11 @@ class ShadowSecurityWorkflowTests(unittest.TestCase):
         self.assertNotIn("issues: write", combined)
         self.assertNotIn("pull-requests: write", combined)
 
+    def test_only_jules_secret_is_forwarded_to_worker(self):
+        outer = (ROOT / ".github/workflows/cep-jules-v2-mutation.yml").read_text(encoding="utf-8")
+        self.assertNotIn("secrets: inherit", outer)
+        self.assertIn("JULES_API_KEY: ${{ secrets.JULES_API_KEY }}", outer)
+
     def test_mutation_request_is_passed_as_environment_data_not_shell_program(self):
         combined = "\n".join(
             (ROOT / path).read_text(encoding="utf-8")
