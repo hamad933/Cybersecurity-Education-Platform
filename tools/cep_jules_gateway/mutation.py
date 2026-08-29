@@ -11,6 +11,7 @@ from .plan_identity import plan_identity_from_activities
 from .sanitize import sanitize_obj, sanitize_text
 
 APPROVAL_STATE = "AWAITING_PLAN_APPROVAL"
+SEND_COMPATIBLE_STATES = {"IN_PROGRESS", "AWAITING_USER_FEEDBACK", "AWAITING_PLAN_APPROVAL"}
 TERMINAL_STATES = {"COMPLETED", "FAILED", "CANCELLED", "CANCELED", "ABORTED"}
 
 
@@ -94,10 +95,27 @@ def _approval_preconditions(envelope: RequestEnvelope, jules: JulesClient, sessi
                 "actual": mismatches,
             },
         )
+
+    # Confirm that collecting activities did not span a provider session update.
+    confirm = jules.get_session(envelope.session_id or "")
+    confirm_state = _require_state(confirm, envelope)
+    confirm_update = str(confirm.get("updateTime") or "")
+    if confirm_state != state or confirm_update != update_time:
+        raise GatewayError(
+            ErrorClassification.PLAN_CHANGED_SINCE_REVIEW,
+            "session identity changed while reconstructing the reviewed plan",
+            details={
+                "before_state": state,
+                "after_state": confirm_state,
+                "before_update_time": update_time,
+                "after_update_time": confirm_update,
+            },
+        )
+
     return {
         "pre_state": state,
         "session_id": envelope.session_id,
-        "session_update_time": update_time,
+        "session_update_time": confirm_update,
         "plan_provider_identity_digest": plan.get("provider_identity_digest"),
         "plan_display_digest": plan.get("plan_digest"),
         "plan_activity_name": plan.get("activity_name"),
@@ -118,9 +136,10 @@ def preflight_mutation(
         raise GatewayError(ErrorClassification.INVALID_REQUEST, "preflight_mutation requires a v2.1 mutating action")
 
     if envelope.action == "create_session":
-        github_precondition = github.require_branch_head(envelope.starting_branch or "", envelope.expected_sha or "")
         if not _source_present(jules, source_name):
             raise GatewayError(ErrorClassification.INVALID_STATE, "configured Jules repository source is unavailable")
+        # Keep branch/SHA verification as the final provider read in this preflight.
+        github_precondition = github.require_branch_head(envelope.starting_branch or "", envelope.expected_sha or "")
         preconditions = {
             "pre_state": "PRE_SESSION",
             "starting_branch": envelope.starting_branch,
@@ -132,8 +151,12 @@ def preflight_mutation(
     elif envelope.action == "send_message":
         session = jules.get_session(envelope.session_id or "")
         state = _require_state(session, envelope)
-        if state in TERMINAL_STATES:
-            raise GatewayError(ErrorClassification.INVALID_STATE, "send_message is prohibited for a terminal Jules session", details={"state": state})
+        if state not in SEND_COMPATIBLE_STATES:
+            raise GatewayError(
+                ErrorClassification.INVALID_STATE,
+                "send_message is not permitted in the current Jules session state",
+                details={"state": state, "allowed_states": sorted(SEND_COMPATIBLE_STATES)},
+            )
         update_time = str(session.get("updateTime") or "")
         if envelope.expected_session_update_time is not None and update_time != envelope.expected_session_update_time:
             raise GatewayError(ErrorClassification.INVALID_STATE, "session update identity drifted before send_message")
@@ -246,9 +269,7 @@ def execute_mutation(
     if intent.get("intent_identity") != intent_identity(envelope):
         raise GatewayError(ErrorClassification.IDEMPOTENCY_CONFLICT, "intent identity does not match the supplied request envelope")
 
-    # This is the one final authoritative pre-read after durable intent. It is
-    # compared byte-for-byte at the safe structured level with the recorded
-    # preflight before any provider write is attempted.
+    # This is the final authoritative pre-read after durable request/effect intent.
     try:
         current_intent = preflight_mutation(envelope, jules, github, source_name=source_name)
         _same_preconditions(intent.get("preconditions") or {}, current_intent.get("preconditions") or {})
