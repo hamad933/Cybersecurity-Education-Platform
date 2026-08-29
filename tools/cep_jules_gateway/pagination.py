@@ -50,10 +50,7 @@ def paginate(
         items.extend(page.items)
         next_token = (page.next_page_token or "").strip() or None
         if next_token is None:
-            return PaginationResult(
-                items,
-                PaginationInfo(page_number, len(items), True, max_pages, max_items),
-            )
+            return PaginationResult(items, PaginationInfo(page_number, len(items), True, max_pages, max_items))
         if next_token in seen_tokens or next_token == token:
             raise GatewayError(
                 ErrorClassification.PROVIDER_READ_FAILED,
@@ -76,6 +73,14 @@ def paginate(
         seen_tokens.add(next_token)
         token = next_token
 
+    if max_items is None:
+        # Preserve the Foundation v2.0 fail-closed contract for callers that
+        # did not opt into explicit continuation metadata.
+        raise GatewayError(
+            ErrorClassification.PAGINATION_LIMIT_EXCEEDED,
+            "provider pagination exceeded the configured safety bound",
+            details={"pages_scanned": max_pages, "items_scanned": len(items)},
+        )
     return PaginationResult(
         items,
         PaginationInfo(
