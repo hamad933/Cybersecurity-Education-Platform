@@ -76,6 +76,12 @@ def _approval_preconditions(envelope: RequestEnvelope, jules: JulesClient, sessi
     plan = plan_identity_from_activities(snapshot["activities"], envelope.session_id or "")
     if plan.get("status") != ProviderOutcome.FOUND.value:
         raise GatewayError(ErrorClassification.INVALID_STATE, "no provider plan is available for approval")
+    plan_id = str(plan.get("plan_id") or "")
+    if not plan_id:
+        raise GatewayError(
+            ErrorClassification.PROVIDER_PROTOCOL_FAILED,
+            "provider plan omitted the stable plan id required for exact approval verification",
+        )
 
     mismatches: dict[str, Any] = {}
     if plan.get("provider_identity_digest") != envelope.expected_plan_digest:
@@ -116,6 +122,7 @@ def _approval_preconditions(envelope: RequestEnvelope, jules: JulesClient, sessi
         "pre_state": state,
         "session_id": envelope.session_id,
         "session_update_time": confirm_update,
+        "plan_id": plan_id,
         "plan_provider_identity_digest": plan.get("provider_identity_digest"),
         "plan_display_digest": plan.get("plan_digest"),
         "plan_activity_name": plan.get("activity_name"),
@@ -138,7 +145,6 @@ def preflight_mutation(
     if envelope.action == "create_session":
         if not _source_present(jules, source_name):
             raise GatewayError(ErrorClassification.INVALID_STATE, "configured Jules repository source is unavailable")
-        # Keep branch/SHA verification as the final provider read in this preflight.
         github_precondition = github.require_branch_head(envelope.starting_branch or "", envelope.expected_sha or "")
         preconditions = {
             "pre_state": "PRE_SESSION",
@@ -258,6 +264,17 @@ def _rejected_receipt(envelope: RequestEnvelope, intent: dict[str, Any], exc: Ga
     return sanitize_obj(receipt)
 
 
+def _matching_new_plan_approval(snapshot: dict[str, Any], pre_names: set[str], plan_id: str) -> bool:
+    for activity in snapshot.get("activities") or []:
+        name = str(activity.get("name") or "")
+        approved = activity.get("planApproved")
+        if name in pre_names or not isinstance(approved, dict):
+            continue
+        if str(approved.get("planId") or "") == plan_id:
+            return True
+    return False
+
+
 def execute_mutation(
     envelope: RequestEnvelope,
     intent: dict[str, Any],
@@ -269,7 +286,6 @@ def execute_mutation(
     if intent.get("intent_identity") != intent_identity(envelope):
         raise GatewayError(ErrorClassification.IDEMPOTENCY_CONFLICT, "intent identity does not match the supplied request envelope")
 
-    # This is the final authoritative pre-read after durable request/effect intent.
     try:
         current_intent = preflight_mutation(envelope, jules, github, source_name=source_name)
         _same_preconditions(intent.get("preconditions") or {}, current_intent.get("preconditions") or {})
@@ -330,14 +346,16 @@ def execute_mutation(
         post_session = jules.get_session(envelope.session_id or "")
         post_state = str(post_session.get("state") or "")
         post_update = str(post_session.get("updateTime") or "")
-        new_activity = False
+        approval_event_verified = False
         if envelope.action == "approve_plan":
-            try:
-                post_snapshot = _activity_snapshot(jules, envelope)
-                if post_snapshot["complete"]:
-                    new_activity = bool(set(post_snapshot["names"]) - set(current_pre.get("activity_names") or []))
-            except GatewayError:
-                new_activity = False
+            post_snapshot = _activity_snapshot(jules, envelope)
+            if not post_snapshot["complete"]:
+                raise GatewayError(ErrorClassification.READ_BUDGET_EXCEEDED, "post-approval activity read is partial")
+            approval_event_verified = _matching_new_plan_approval(
+                post_snapshot,
+                set(current_pre.get("activity_names") or []),
+                str(current_pre.get("plan_id") or ""),
+            )
     except GatewayError as exc:
         return _unknown_receipt(
             envelope,
@@ -351,11 +369,10 @@ def execute_mutation(
         )
 
     pre_update = str(current_pre.get("session_update_time") or "")
-    verified = (
-        post_state != APPROVAL_STATE or post_update != pre_update or new_activity
-        if envelope.action == "approve_plan"
-        else post_update != pre_update
-    )
+    if envelope.action == "approve_plan":
+        verified = approval_event_verified
+    else:
+        verified = post_update != pre_update
     if not verified:
         return _unknown_receipt(
             envelope,
@@ -374,7 +391,7 @@ def execute_mutation(
             "provider_result_class": "MUTATION_ACCEPTED_AND_POST_READ_VERIFIED",
             "post_state": post_state,
             "provider_update_time": post_session.get("updateTime"),
-            "new_activity_observed": new_activity,
+            "matching_plan_approved_activity_observed": approval_event_verified if envelope.action == "approve_plan" else None,
             "verification": ProviderOutcome.VERIFIED.value,
             "idempotency_final_state": "COMPLETED",
             "next_safe_read": None,
