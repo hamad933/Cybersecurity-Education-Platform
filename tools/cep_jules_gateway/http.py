@@ -12,8 +12,9 @@ from .models import ErrorClassification, SafeRetryMetadata
 @dataclass(frozen=True)
 class HttpResponse:
     status: int
-    payload: dict[str, Any]
+    payload: Any
     headers: dict[str, str]
+    protocol_error: str | None = None
 
 
 class JsonTransport(Protocol):
@@ -24,6 +25,7 @@ class JsonTransport(Protocol):
         *,
         headers: Mapping[str, str],
         timeout: float,
+        body: Any | None = None,
     ) -> HttpResponse: ...
 
 
@@ -38,35 +40,40 @@ class UrllibJsonTransport:
         *,
         headers: Mapping[str, str],
         timeout: float,
+        body: Any | None = None,
     ) -> HttpResponse:
-        request = urllib.request.Request(url, method=method)
+        data = None if body is None else json.dumps(body, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8")
+        request = urllib.request.Request(url, data=data, method=method)
         for name, value in headers.items():
             request.add_header(name, value)
+        if data is not None:
+            request.add_header("Content-Type", "application/json")
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 raw = response.read(self.max_response_bytes + 1)
+                safe_headers = _safe_headers(response.headers)
                 if len(raw) > self.max_response_bytes:
-                    return HttpResponse(502, {"error": "PROVIDER_RESPONSE_TOO_LARGE"}, _safe_headers(response.headers))
-                return HttpResponse(response.status, _decode_payload(raw), _safe_headers(response.headers))
+                    return HttpResponse(response.status, None, safe_headers, "PROVIDER_RESPONSE_TOO_LARGE")
+                payload, protocol_error = _decode_payload(raw)
+                return HttpResponse(response.status, payload, safe_headers, protocol_error)
         except urllib.error.HTTPError as exc:
             raw = exc.read(self.max_response_bytes + 1)
+            safe_headers = _safe_headers(exc.headers)
             if len(raw) > self.max_response_bytes:
-                payload = {"error": "PROVIDER_ERROR_RESPONSE_TOO_LARGE"}
-            else:
-                payload = _decode_payload(raw)
-            return HttpResponse(exc.code, payload, _safe_headers(exc.headers))
-        except (urllib.error.URLError, TimeoutError) as exc:
-            return HttpResponse(599, {"transport_error": type(exc).__name__}, {})
+                return HttpResponse(exc.code, None, safe_headers, "PROVIDER_ERROR_RESPONSE_TOO_LARGE")
+            payload, protocol_error = _decode_payload(raw)
+            return HttpResponse(exc.code, payload, safe_headers, protocol_error)
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
+            return HttpResponse(599, {"transport_error": type(exc).__name__}, {}, "TRANSPORT_OUTCOME_AMBIGUOUS")
 
 
-def _decode_payload(raw: bytes) -> dict[str, Any]:
+def _decode_payload(raw: bytes) -> tuple[Any, str | None]:
     if not raw:
-        return {}
+        return {}, None
     try:
-        value = json.loads(raw.decode("utf-8"))
+        return json.loads(raw.decode("utf-8")), None
     except (UnicodeDecodeError, json.JSONDecodeError):
-        return {"error": "NON_JSON_PROVIDER_RESPONSE"}
-    return value if isinstance(value, dict) else {"value": value}
+        return None, "NON_JSON_PROVIDER_RESPONSE"
 
 
 def _safe_headers(headers: Mapping[str, str] | None) -> dict[str, str]:
@@ -87,6 +94,8 @@ def classify_response(response: HttpResponse) -> ErrorClassification | None:
     status = response.status
     remaining = {k.lower(): v for k, v in response.headers.items()}.get("x-ratelimit-remaining")
     if 200 <= status < 300:
+        if response.protocol_error:
+            return ErrorClassification.PROVIDER_PROTOCOL_FAILED
         return None
     if status == 429 or (status == 403 and remaining == "0"):
         return ErrorClassification.RATE_LIMITED
