@@ -9,7 +9,14 @@ from typing import Any
 from .effect import effect_concurrency_key, request_concurrency_key
 from .envelope import parse_envelope
 from .github import GitHubClient
-from .idempotency import IdempotencyState, inspect_idempotency, marker_name, require_new_intent
+from .idempotency import (
+    IdempotencyState,
+    create_effect_guard_name,
+    inspect_idempotency,
+    marker_name,
+    require_new_intent,
+    require_unused_create_effect,
+)
 from .jules import JulesClient
 from .models import ErrorClassification, GatewayError
 from .mutation import execute_mutation, preflight_mutation
@@ -62,12 +69,15 @@ def route(out_dir: Path) -> int:
     envelope = _request()
     if not envelope.is_mutation:
         raise GatewayError(ErrorClassification.INVALID_REQUEST, "mutation route requires a v2.1 mutating action")
+    effect_key = effect_concurrency_key(envelope)
     data = {
         "request_key": request_concurrency_key(envelope),
-        "effect_key": effect_concurrency_key(envelope),
+        "effect_key": effect_key,
         "intent_marker": marker_name(envelope.request_id, IdempotencyState.INTENT_RECORDED),
         "completed_marker": marker_name(envelope.request_id, IdempotencyState.COMPLETED),
         "unknown_marker": marker_name(envelope.request_id, IdempotencyState.UNKNOWN_WRITE_OUTCOME),
+        "create_effect_marker": create_effect_guard_name(effect_key),
+        "is_create": "true" if envelope.action == "create_session" else "false",
     }
     _write_json(out_dir / "routing.json", data)
     for key, value in data.items():
@@ -114,6 +124,30 @@ def preflight(out_dir: Path) -> int:
     return 0
 
 
+def effect_guard(out_dir: Path) -> int:
+    envelope = _request()
+    effect_key = effect_concurrency_key(envelope)
+    if envelope.action != "create_session":
+        _write_json(out_dir / "effect_guard.json", {"required": False, "effect_key": effect_key})
+        _append_output("effect_guard_proceed", "true")
+        return 0
+    github = _github()
+    require_unused_create_effect(github, effect_key)
+    marker = create_effect_guard_name(effect_key)
+    _write_json(
+        out_dir / "effect_guard.json",
+        {
+            "required": True,
+            "effect_key": effect_key,
+            "marker": marker,
+            "state": IdempotencyState.INTENT_RECORDED.value,
+            "blind_retry": False,
+        },
+    )
+    _append_output("effect_guard_proceed", "true")
+    return 0
+
+
 def execute(out_dir: Path, intent_path: Path) -> int:
     envelope = _request()
     try:
@@ -146,7 +180,7 @@ def execute(out_dir: Path, intent_path: Path) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="CEP Jules Gateway v2 mutation-canary helper")
-    parser.add_argument("phase", choices=("route", "preflight", "execute"))
+    parser.add_argument("phase", choices=("route", "preflight", "effect-guard", "execute"))
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--intent-file")
     args = parser.parse_args(argv)
@@ -157,6 +191,8 @@ def main(argv: list[str] | None = None) -> int:
             return route(out_dir)
         if args.phase == "preflight":
             return preflight(out_dir)
+        if args.phase == "effect-guard":
+            return effect_guard(out_dir)
         if not args.intent_file:
             raise GatewayError(ErrorClassification.INVALID_REQUEST, "execute phase requires --intent-file")
         return execute(out_dir, Path(args.intent_file))
