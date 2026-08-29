@@ -3,16 +3,28 @@
 namespace App\Modules\Enterprise\Application;
 
 /**
- * Public application boundary for simulation consumers of Enterprise-owned state.
+ * Read-only application boundary for Simulation consumers of Enterprise-owned state.
  *
- * Implementations remain owned by MOD-ENT. The current integration baseline does not
- * bind or execute this reader because the W03 simulation_* tables are not integrated.
+ * Implementations remain owned by MOD-ENT and return model-free snapshots only.
  */
 interface SimulationEnterpriseStateReader
 {
     public function findForSimulation(
         string $enterpriseId,
+        string $digitalTwinId,
         string $digitalTwinRevisionId,
         string $baselineId,
     ): ?SimulationEnterpriseState;
+
+    public function findPublishedBaselineForSimulation(
+        string $enterpriseId,
+        string $baselineId,
+    ): ?SimulationEnterpriseState;
+
+    public function findPublishedBaselineTargetForSimulation(
+        string $baselineId,
+    ): ?SimulationEnterpriseState;
+
+    /** @return list<array<string,mixed>> */
+    public function listForSimulationWorkspace(): array;
 }
