@@ -1,0 +1,155 @@
+name: CEP Jules Gateway v2 Mutation Worker
+
+on:
+  workflow_call:
+    inputs:
+      request_json:
+        required: true
+        type: string
+      effect_key:
+        required: true
+        type: string
+      intent_marker:
+        required: true
+        type: string
+      completed_marker:
+        required: true
+        type: string
+      unknown_marker:
+        required: true
+        type: string
+      create_effect_marker:
+        required: true
+        type: string
+      is_create:
+        required: true
+        type: string
+    secrets:
+      JULES_API_KEY:
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    outputs:
+      proceed: ${{ steps.gate.outputs.proceed }}
+      preflight_state: ${{ steps.gate.outputs.preflight_state }}
+    env:
+      JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+      GITHUB_TOKEN: ${{ github.token }}
+      CEP_REPOSITORY: ${{ github.repository }}
+      CEP_JULES_SOURCE: sources/github/hamad933/Cybersecurity-Education-Platform
+      JULES_API_BASE: https://jules.googleapis.com/v1alpha
+      CEP_JULES_REQUEST_JSON: ${{ inputs.request_json }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - id: gate
+        name: Repository-wide idempotency and authoritative pre-read
+        shell: bash
+        run: |
+          set +e
+          python -m tools.cep_jules_gateway.mutation_cli preflight \
+            --output-dir "$RUNNER_TEMP/cep-jules-v2-preflight"
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ] || [ "$rc" -eq 10 ] || [ "$rc" -eq 11 ]; then
+            exit 0
+          fi
+          exit "$rc"
+      - name: Publish bounded preflight evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cep-jules-v2-preflight-${{ github.run_id }}
+          path: ${{ runner.temp }}/cep-jules-v2-preflight/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Persist durable repository-wide write intent
+        if: steps.gate.outputs.proceed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.intent_marker }}
+          path: ${{ runner.temp }}/cep-jules-v2-preflight/
+          if-no-files-found: error
+          retention-days: 90
+
+  mutation:
+    needs: preflight
+    if: needs.preflight.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    concurrency:
+      group: cep-jules-v2-${{ inputs.effect_key }}
+      cancel-in-progress: false
+    env:
+      JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+      GITHUB_TOKEN: ${{ github.token }}
+      CEP_REPOSITORY: ${{ github.repository }}
+      CEP_JULES_SOURCE: sources/github/hamad933/Cybersecurity-Education-Platform
+      JULES_API_BASE: https://jules.googleapis.com/v1alpha
+      CEP_JULES_REQUEST_JSON: ${{ inputs.request_json }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Read back this request durable intent
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.intent_marker }}
+          path: ${{ runner.temp }}/cep-jules-v2-intent
+      - id: effect_guard
+        name: Guard pre-session logical write effect
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m tools.cep_jules_gateway.mutation_cli effect-guard \
+            --output-dir "$RUNNER_TEMP/cep-jules-v2-effect"
+      - name: Persist create-effect intent before provider write
+        if: inputs.is_create == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.create_effect_marker }}
+          path: ${{ runner.temp }}/cep-jules-v2-effect/effect_guard.json
+          if-no-files-found: error
+          retention-days: 90
+      - id: execute
+        name: Final pre-read, one provider write, authoritative post-read
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m tools.cep_jules_gateway.mutation_cli execute \
+            --intent-file "$RUNNER_TEMP/cep-jules-v2-intent/intent.json" \
+            --output-dir "$RUNNER_TEMP/cep-jules-v2-final"
+      - name: Publish mutation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cep-jules-v2-mutation-${{ github.run_id }}
+          path: ${{ runner.temp }}/cep-jules-v2-final/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Persist completed request state
+        if: steps.execute.outputs.final_state == 'COMPLETED'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.completed_marker }}
+          path: ${{ runner.temp }}/cep-jules-v2-final/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Persist unknown write outcome
+        if: steps.execute.outputs.final_state == 'UNKNOWN_WRITE_OUTCOME'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.unknown_marker }}
+          path: ${{ runner.temp }}/cep-jules-v2-final/
+          if-no-files-found: error
+          retention-days: 90
