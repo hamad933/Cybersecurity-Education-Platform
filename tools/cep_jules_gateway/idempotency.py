@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Protocol
 
-from .digest import sha256_text
+from .digest import sha256_json, sha256_text
 from .models import ErrorClassification, GatewayError
 
 
@@ -39,6 +39,24 @@ class IdempotencySnapshot:
         }
 
 
+@dataclass(frozen=True)
+class SessionBindingDecision:
+    generic_marker: str
+    specific_marker: str
+    needs_persist: bool
+    generic_count: int
+    specific_count: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "generic_marker": self.generic_marker,
+            "specific_marker": self.specific_marker,
+            "needs_persist": self.needs_persist,
+            "generic_count": self.generic_count,
+            "specific_count": self.specific_count,
+        }
+
+
 def marker_prefix(request_id: str) -> str:
     return "cep-jules-v2-idem-" + sha256_text(request_id)[:32]
 
@@ -57,6 +75,17 @@ def create_effect_guard_name(effect_key: str) -> str:
     if not effect_key.startswith("effect-") or len(effect_key) > 80:
         raise ValueError("invalid effect key")
     return f"cep-jules-v2-create-{effect_key}-INTENT_RECORDED"
+
+
+def session_binding_names(session_id: str, logical_task_id: str, write_domain: str) -> tuple[str, str]:
+    if not session_id.isdigit() or not logical_task_id or not write_domain:
+        raise ValueError("invalid session binding identity")
+    session_hash = sha256_text(session_id)[:24]
+    binding_hash = sha256_json({"logical_task_id": logical_task_id, "write_domain": write_domain})[:24]
+    return (
+        f"cep-jules-v2-session-{session_hash}-BOUND",
+        f"cep-jules-v2-session-{session_hash}-binding-{binding_hash}",
+    )
 
 
 def inspect_idempotency(reader: ArtifactReader, request_id: str) -> IdempotencySnapshot:
@@ -105,3 +134,28 @@ def require_unused_create_effect(reader: ArtifactReader, effect_key: str) -> Non
             "pre-session logical write effect already has durable create intent; refusing a second session create",
             details={"effect_key": effect_key, "active_effect_intents": count, "blind_retry": False},
         )
+
+
+def require_session_binding(
+    reader: ArtifactReader,
+    session_id: str,
+    logical_task_id: str,
+    write_domain: str,
+) -> SessionBindingDecision:
+    generic, specific = session_binding_names(session_id, logical_task_id, write_domain)
+    generic_count = len(reader.list_active_artifacts_by_name(generic))
+    specific_count = len(reader.list_active_artifacts_by_name(specific))
+    if generic_count == 0 and specific_count == 0:
+        return SessionBindingDecision(generic, specific, True, 0, 0)
+    if generic_count > 0 and specific_count > 0:
+        return SessionBindingDecision(generic, specific, False, generic_count, specific_count)
+    raise GatewayError(
+        ErrorClassification.RECONCILIATION_REQUIRED,
+        "session is durably bound but not to the requested logical_task_id/write_domain identity",
+        details={
+            "session_id": session_id,
+            "generic_binding_count": generic_count,
+            "matching_binding_count": specific_count,
+            "blind_retry": False,
+        },
+    )
