@@ -172,6 +172,8 @@ def effect_guard(out_dir: Path) -> int:
     _write_json(out_dir / "effect_guard.json", data)
     _write_json(out_dir / "session_binding.json", data)
     _append_output("bind_session", "true" if decision.needs_persist else "false")
+    _append_output("session_binding_marker", decision.generic_marker)
+    _append_output("session_binding_specific_marker", decision.specific_marker)
     return 0
 
 
