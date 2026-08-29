@@ -44,7 +44,7 @@ const subtitles: Record<Surface, string> = {
   validation: 'فحص البصمات والمخططات وتطابق البيانات دون التدخل في أحكام جودة المعرفة.',
   'ai-bridge': 'تجهيز حزم الموجهات واستيراد النتائج للمراجعة البشرية الواعية قبل الاعتماد.',
   backups: 'توليد نسخ احتياطية مشفرة وحماية الاستعادة بالمرحلة المعزولة والتدقيق.',
-  audit: 'سجل أحداث تشغيلي غير قابل للتعديل مترابط بسلسلة تجزئة مشفرة قطعية.',
+  audit: 'سجل أحداث تشغيلي غير قابل للتعديل مترابط بسلسلة تجزئة قطعية.',
   releases: 'بوابة التحقق الشامل من جاهزية حزم الأدلة والوثائق التقنية قبل الإصدار.',
   configuration: 'عرض معايير التهيئة التشغيلية المقروءة فقط بلا كشف لأي أسرار أو مفاتيح.',
 };
@@ -101,13 +101,14 @@ const formatDeepValue = (val: unknown): string => {
         <div class="workspace-top-bar__actions" aria-label="أدوات المساحة الحالية">
           <!-- Primary & Secondary Action Buttons Matching Governed Dashboard -->
           <template v-if="surface === 'health'">
-            <button type="button" class="cep-text-button btn-top-primary" @click="refreshSurface">
-              <span class="btn-icon">⚡</span>
-              <span>تشغيل فحص</span>
-            </button>
-            <button type="button" class="cep-text-button btn-top-secondary" @click="refreshSurface">
+            <button
+              type="button"
+              class="cep-text-button btn-top-primary"
+              title="تحديث بيانات الصحة التشغيلية من الخادم"
+              @click="refreshSurface"
+            >
               <span class="btn-icon">🔄</span>
-              <span>إعادة المحاولة</span>
+              <span>تحديث البيانات</span>
             </button>
             <a href="/system/audit" class="cep-text-button btn-top-secondary">
               <span class="btn-icon">📄</span>

@@ -185,6 +185,9 @@ describe('SystemOperationsCoreCorrection Vitest Suite', () => {
 
       expect(wrapper.text()).toContain('evidence_acceptance');
       expect(wrapper.text()).toContain('Pending evidence records require Owner acceptance.');
+    });
+  });
+
   describe('StatusPill normalization', () => {
     it('normalizes pass, valid_chain, degraded, and warn statuses accurately', () => {
       const wrapperOk = mount(StatusPill, { props: { status: 'VALID_CHAIN' } });

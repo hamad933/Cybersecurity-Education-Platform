@@ -38,14 +38,14 @@ const inspectAudit = (rec: AuditRecord) => {
         <span class="cep-kicker">الحقيقة التشغيلية وسلسلة التدقيق</span>
         <h2 class="cep-page-title-md">سجل التدقيق غير القابل للتعديل (Append-Only)</h2>
         <p class="cep-lede-sm">
-          توثيق كافة الإجراءات التشغيلية والقرارات البشرية في سلسلة مشفرة ومترابطة تضمن النزاهة
-          التامة.
+          توثيق كافة الإجراءات التشغيلية والقرارات البشرية في سلسلة تجزئة قطعية مترابطة تكشف
+          أي تلاعب بالتسلسل فور وقوعه.
         </p>
       </div>
 
       <div class="chain-badge-group">
         <div class="chain-status-card">
-          <span class="chain-status-label">سلسلة التجزئة المشفرة:</span>
+          <span class="chain-status-label">سلسلة التجزئة القطعية:</span>
           <StatusPill
             v-if="state.chain && typeof state.chain.valid === 'boolean'"
             :status="state.chain.valid ? 'VALID_CHAIN' : 'CHAIN_INVALID'"
@@ -59,6 +59,15 @@ const inspectAudit = (rec: AuditRecord) => {
                 : '(غير متاح)'
             }}
           </small>
+        </div>
+        <!-- first_invalid_sequence disclosure (AUDIT-IPA-TRACE-01) -->
+        <div
+          v-if="state.chain && state.chain.valid === false && typeof state.chain.first_invalid_sequence === 'number'"
+          class="chain-fault-disclosure"
+          role="alert"
+        >
+          <span class="chain-fault-label">أول تسلسل متضارب (First Invalid Sequence):</span>
+          <bdi dir="ltr" class="chain-fault-seq">#{{ state.chain.first_invalid_sequence }}</bdi>
         </div>
       </div>
     </section>
@@ -189,6 +198,31 @@ const inspectAudit = (rec: AuditRecord) => {
   color: var(--cep-text-muted);
   font-weight: 600;
 }
+
+.chain-fault-disclosure {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 1rem;
+  margin-top: 0.5rem;
+  border-radius: var(--cep-radius-md);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.chain-fault-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #f87171;
+}
+
+.chain-fault-seq {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #f87171;
+}
+
 
 .section-header-flex {
   display: flex;

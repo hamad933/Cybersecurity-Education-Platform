@@ -10,7 +10,7 @@ defineProps<{
   <div class="audit-context cep-context-stack">
     <div class="context-header">
       <span class="cep-kicker">سياق التدقيق</span>
-      <h3 class="cep-context-title">سلسلة النزاهة المشفرة</h3>
+      <h3 class="cep-context-title">سلسلة تجزئة التدقيق القطعية</h3>
     </div>
 
     <!-- Append-Only Guarantee -->
@@ -19,8 +19,8 @@ defineProps<{
       <div class="context-block__content">
         <h4 class="context-block__heading">سجل إضافة فقط (Append-Only)</h4>
         <p class="context-block__body">
-          لا يمكن تعديل أو حذف أي سجل تدقيق بعد إنشائه؛ تضمن قاعدة البيانات منع أي عمليات تحديث أو
-          حذف نهائياً.
+          لا يمكن تعديل أو حذف أي سجل تدقيق بعد إنشائه؛ يفرض التطبيق ذلك عبر خطّافات
+          <bdi dir="ltr">Eloquent</bdi> وقفل الجدول على مستوى الكتابة.
         </p>
       </div>
     </article>
@@ -31,8 +31,8 @@ defineProps<{
       <div class="context-block__content">
         <h4 class="context-block__heading">ترابط التجزئة (Hash Chaining)</h4>
         <p class="context-block__body">
-          يرتبط كل سجل بالسجل السابق عبر بصمة مشفرة (<bdi dir="ltr">SHA-256</bdi>) لكشف أي محاولة
-          تلاعب بسجلات النظام فوراً.
+          يرتبط كل سجل بالسجل السابق عبر تجزئة قطعية (<bdi dir="ltr">SHA-256</bdi>) لكشف أي محاولة
+          تلاعب بتسلسل سجلات النظام فوراً.
         </p>
       </div>
     </article>

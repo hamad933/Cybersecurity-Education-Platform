@@ -201,7 +201,7 @@ export interface WorkspaceState {
   backups?: Backup[];
   restores?: Restore[];
   safety?: { web_restore_mode: string; activation_route_available: boolean };
-  chain?: { valid: boolean; count: number };
+  chain?: { valid: boolean; count: number; first_invalid_sequence?: number };
   records?: AuditRecord[];
   readiness?: ReleaseGate;
   authorization?: {
