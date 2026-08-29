@@ -1,11 +1,104 @@
-name: CEP Jules Gateway v2 Mutation Canary
+name: CEP Jules Gateway v2.2 Mutation Canary
 
 on:
   workflow_dispatch:
     inputs:
-      request_json:
-        description: Public-safe CEP Jules Gateway v2.1 mutation-canary envelope JSON
+      request_id:
+        description: Stable public-safe request identity
         required: true
+        type: string
+      controller_id:
+        description: Controller identity
+        required: true
+        type: choice
+        options: [PARENT, A, B, C]
+      lane:
+        description: Bounded CEP lane
+        required: true
+        type: choice
+        options: [PARENT, W01_W02, W03_W04, W05]
+      logical_task_id:
+        description: Stable logical task identity
+        required: true
+        type: string
+      action:
+        description: Mutation or reconciliation action
+        required: true
+        type: choice
+        options: [create_session, send_message, approve_plan, reconcile_create_session, reconcile_send_message, reconcile_approve_plan]
+      write_domain:
+        description: Bounded write/effect domain
+        required: true
+        type: string
+      session_id:
+        description: Existing Jules session id when applicable
+        required: false
+        type: string
+      starting_branch:
+        description: Exact starting branch for create/reconcile-create
+        required: false
+        type: string
+      expected_sha:
+        description: Exact 40-character branch SHA
+        required: false
+        type: string
+      expected_state:
+        description: Exact expected Jules session state
+        required: false
+        type: string
+      expected_plan_digest:
+        description: Exact provider plan identity SHA-256
+        required: false
+        type: string
+      expected_plan_id:
+        description: Exact Jules Plan.id
+        required: false
+        type: string
+      expected_plan_activity_name:
+        description: Exact plan-generating activity resource name
+        required: false
+        type: string
+      expected_plan_create_time:
+        description: Exact reviewed plan create time
+        required: false
+        type: string
+      expected_session_update_time:
+        description: Exact reviewed session update time
+        required: false
+        type: string
+      instruction_ref:
+        description: Public-safe opaque Drive instruction reference drive:file_id
+        required: false
+        type: string
+      instruction_digest:
+        description: SHA-256 of exact governed instruction bytes
+        required: false
+        type: string
+      instruction_action:
+        description: Bounded bridge action
+        required: false
+        type: choice
+        options: [EXECUTE, CONTINUE, CORRECT, REPLAN, REVIEW, COLLECT_EVIDENCE]
+      authority_event:
+        description: Optional bounded authority-event reference
+        required: false
+        type: string
+      authority_ref:
+        description: Optional bounded authority reference
+        required: false
+        type: string
+      target_request_id:
+        description: Original request id for reconciliation
+        required: false
+        type: string
+      target_intent_identity:
+        description: Original exact intent SHA-256 for reconciliation
+        required: false
+        type: string
+      min_reconcile_age_seconds:
+        description: Explicit settle window before a conservative NOT_APPLIED result
+        required: false
+        default: "60"
         type: string
 
 permissions:
@@ -13,51 +106,87 @@ permissions:
   actions: read
 
 jobs:
+  transport-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require repository owner on governed default branch
+        shell: bash
+        env:
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          test "$ACTOR" = "$OWNER"
+          test "$REF" = "refs/heads/main"
+
+  normalize:
+    needs: transport-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      request_json: ${{ steps.normalize.outputs.request_json }}
+    env:
+      CEP_INPUT_REQUEST_ID: ${{ inputs.request_id }}
+      CEP_INPUT_CONTROLLER_ID: ${{ inputs.controller_id }}
+      CEP_INPUT_LANE: ${{ inputs.lane }}
+      CEP_INPUT_LOGICAL_TASK_ID: ${{ inputs.logical_task_id }}
+      CEP_INPUT_ACTION: ${{ inputs.action }}
+      CEP_INPUT_WRITE_DOMAIN: ${{ inputs.write_domain }}
+      CEP_INPUT_SESSION_ID: ${{ inputs.session_id }}
+      CEP_INPUT_STARTING_BRANCH: ${{ inputs.starting_branch }}
+      CEP_INPUT_EXPECTED_SHA: ${{ inputs.expected_sha }}
+      CEP_INPUT_EXPECTED_STATE: ${{ inputs.expected_state }}
+      CEP_INPUT_EXPECTED_PLAN_DIGEST: ${{ inputs.expected_plan_digest }}
+      CEP_INPUT_EXPECTED_PLAN_ID: ${{ inputs.expected_plan_id }}
+      CEP_INPUT_EXPECTED_PLAN_ACTIVITY_NAME: ${{ inputs.expected_plan_activity_name }}
+      CEP_INPUT_EXPECTED_PLAN_CREATE_TIME: ${{ inputs.expected_plan_create_time }}
+      CEP_INPUT_EXPECTED_SESSION_UPDATE_TIME: ${{ inputs.expected_session_update_time }}
+      CEP_INPUT_INSTRUCTION_REF: ${{ inputs.instruction_ref }}
+      CEP_INPUT_INSTRUCTION_DIGEST: ${{ inputs.instruction_digest }}
+      CEP_INPUT_INSTRUCTION_ACTION: ${{ inputs.instruction_action }}
+      CEP_INPUT_AUTHORITY_EVENT: ${{ inputs.authority_event }}
+      CEP_INPUT_AUTHORITY_REF: ${{ inputs.authority_ref }}
+      CEP_INPUT_TARGET_REQUEST_ID: ${{ inputs.target_request_id }}
+      CEP_INPUT_TARGET_INTENT_IDENTITY: ${{ inputs.target_intent_identity }}
+      CEP_INPUT_MIN_RECONCILE_AGE_SECONDS: ${{ inputs.min_reconcile_age_seconds }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - id: normalize
+        name: Build validated public-safe v2.2 envelope
+        run: python -m tools.cep_jules_gateway.v22_cli dispatch --output-dir "$RUNNER_TEMP/cep-v22-dispatch"
+
   route:
+    needs: [transport-gate, normalize]
     runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
       request_key: ${{ steps.route.outputs.request_key }}
       effect_key: ${{ steps.route.outputs.effect_key }}
-      intent_marker: ${{ steps.route.outputs.intent_marker }}
-      completed_marker: ${{ steps.route.outputs.completed_marker }}
-      unknown_marker: ${{ steps.route.outputs.unknown_marker }}
-      create_effect_marker: ${{ steps.route.outputs.create_effect_marker }}
-      session_binding_marker: ${{ steps.route.outputs.session_binding_marker }}
-      session_binding_specific_marker: ${{ steps.route.outputs.session_binding_specific_marker }}
-      is_create: ${{ steps.route.outputs.is_create }}
-      is_session_mutation: ${{ steps.route.outputs.is_session_mutation }}
+      operation_kind: ${{ steps.route.outputs.operation_kind }}
     env:
-      CEP_JULES_REQUEST_JSON: ${{ inputs.request_json }}
+      CEP_JULES_REQUEST_JSON: ${{ needs.normalize.outputs.request_json }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - id: route
-        name: Derive bounded request and effect identities
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m tools.cep_jules_gateway.mutation_cli route \
-            --output-dir "$RUNNER_TEMP/cep-jules-v2-route"
+        run: python -m tools.cep_jules_gateway.v22_cli route --output-dir "$RUNNER_TEMP/cep-v22-route"
 
   request-serialized-worker:
-    needs: route
+    needs: [normalize, route]
     concurrency:
-      group: cep-jules-v2-${{ needs.route.outputs.request_key }}
+      group: cep-jules-v22-${{ needs.route.outputs.request_key }}
       cancel-in-progress: false
     uses: ./.github/workflows/cep-jules-v2-mutation-worker.yml
     with:
-      request_json: ${{ inputs.request_json }}
+      request_json: ${{ needs.normalize.outputs.request_json }}
       effect_key: ${{ needs.route.outputs.effect_key }}
-      intent_marker: ${{ needs.route.outputs.intent_marker }}
-      completed_marker: ${{ needs.route.outputs.completed_marker }}
-      unknown_marker: ${{ needs.route.outputs.unknown_marker }}
-      create_effect_marker: ${{ needs.route.outputs.create_effect_marker }}
-      session_binding_marker: ${{ needs.route.outputs.session_binding_marker }}
-      session_binding_specific_marker: ${{ needs.route.outputs.session_binding_specific_marker }}
-      is_create: ${{ needs.route.outputs.is_create }}
-      is_session_mutation: ${{ needs.route.outputs.is_session_mutation }}
+      operation_kind: ${{ needs.route.outputs.operation_kind }}
     secrets:
       JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
