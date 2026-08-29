@@ -24,9 +24,10 @@ class FakeGitHub:
 
 
 class FakeJules:
-    def __init__(self, *, session_reads=None, activities=None, sources=None):
+    def __init__(self, *, session_reads=None, activities=None, activity_reads=None, sources=None):
         self.session_reads = list(session_reads or [])
         self.activities = list(activities or [])
+        self.activity_reads = [list(rows) for rows in (activity_reads or [])]
         self.sources = list(sources or [{"name": "sources/github/hamad933/Cybersecurity-Education-Platform"}])
         self.send_calls = 0
         self.approve_calls = 0
@@ -45,10 +46,8 @@ class FakeJules:
         return value
 
     def list_activities(self, session_id, *, page_size, max_pages, max_items=2000):
-        return PaginationResult(
-            list(self.activities),
-            PaginationInfo(1, len(self.activities), True, max_pages, max_items),
-        )
+        rows = self.activity_reads.pop(0) if self.activity_reads else list(self.activities)
+        return PaginationResult(rows, PaginationInfo(1, len(rows), True, max_pages, max_items))
 
     def list_sources(self):
         return list(self.sources)
@@ -102,11 +101,19 @@ def send_envelope(*, expected_state="IN_PROGRESS", expected_update=None):
     return parse_envelope(json.dumps(payload))
 
 
-def plan_activity(description="safe"):
+def plan_activity(description="safe", *, plan_id="plan1"):
     return {
         "name": "sessions/123/activities/p1",
         "createTime": "2026-08-29T12:00:00Z",
-        "planGenerated": {"plan": {"steps": [{"title": "Implement", "description": description}]}},
+        "planGenerated": {"plan": {"id": plan_id, "steps": [{"title": "Implement", "description": description}]}},
+    }
+
+
+def plan_approved_activity(plan_id="plan1"):
+    return {
+        "name": "sessions/123/activities/a-approved",
+        "createTime": "2026-08-29T12:01:00Z",
+        "planApproved": {"planId": plan_id},
     }
 
 
@@ -160,34 +167,32 @@ class MutationSafetyTests(unittest.TestCase):
     def test_exact_plan_binding_preflight_matches(self):
         activity = plan_activity()
         envelope = approve_envelope(activity)
-        jules = FakeJules(
-            session_reads=[
-                {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"},
-                {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"},
-            ],
-            activities=[activity],
-        )
+        same = {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"}
+        jules = FakeJules(session_reads=[same, same], activities=[activity])
         intent = preflight_mutation(envelope, jules, FakeGitHub(), source_name=SOURCE)
         self.assertEqual(envelope.expected_plan_digest, intent["preconditions"]["plan_provider_identity_digest"])
+        self.assertEqual("plan1", intent["preconditions"]["plan_id"])
+
+    def test_plan_without_stable_id_fails_closed(self):
+        activity = plan_activity(plan_id="")
+        envelope = approve_envelope(activity)
+        jules = FakeJules(session_reads=[{"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"}], activities=[activity])
+        with self.assertRaises(GatewayError) as ctx:
+            preflight_mutation(envelope, jules, FakeGitHub(), source_name=SOURCE)
+        self.assertEqual(ErrorClassification.PROVIDER_PROTOCOL_FAILED, ctx.exception.classification)
 
     def test_plan_changed_after_review_requires_reapproval(self):
         reviewed = plan_activity("reviewed")
         changed = plan_activity("changed")
         envelope = approve_envelope(reviewed)
-        jules = FakeJules(
-            session_reads=[{"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"}],
-            activities=[changed],
-        )
+        jules = FakeJules(session_reads=[{"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"}], activities=[changed])
         with self.assertRaises(GatewayError) as ctx:
             preflight_mutation(envelope, jules, FakeGitHub(), source_name=SOURCE)
         self.assertEqual(ErrorClassification.PLAN_CHANGED_SINCE_REVIEW, ctx.exception.classification)
 
     def test_no_plan_fails_closed(self):
         envelope = approve_envelope()
-        jules = FakeJules(
-            session_reads=[{"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"}],
-            activities=[],
-        )
+        jules = FakeJules(session_reads=[{"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"}], activities=[])
         with self.assertRaises(GatewayError) as ctx:
             preflight_mutation(envelope, jules, FakeGitHub(), source_name=SOURCE)
         self.assertEqual(ErrorClassification.INVALID_STATE, ctx.exception.classification)
@@ -209,18 +214,8 @@ class MutationSafetyTests(unittest.TestCase):
 
     def test_send_write_occurs_once_and_post_read_verifies(self):
         envelope = send_envelope()
-        intent = preflight_mutation(
-            envelope,
-            FakeJules(session_reads=[{"id": "123", "state": "IN_PROGRESS", "updateTime": "u1"}]),
-            FakeGitHub(),
-            source_name=SOURCE,
-        )
-        execution = FakeJules(
-            session_reads=[
-                {"id": "123", "state": "IN_PROGRESS", "updateTime": "u1"},
-                {"id": "123", "state": "IN_PROGRESS", "updateTime": "u2"},
-            ]
-        )
+        intent = preflight_mutation(envelope, FakeJules(session_reads=[{"id": "123", "state": "IN_PROGRESS", "updateTime": "u1"}]), FakeGitHub(), source_name=SOURCE)
+        execution = FakeJules(session_reads=[{"id": "123", "state": "IN_PROGRESS", "updateTime": "u1"}, {"id": "123", "state": "IN_PROGRESS", "updateTime": "u2"}])
         receipt = execute_mutation(envelope, intent, execution, FakeGitHub(), source_name=SOURCE)
         self.assertEqual(1, execution.send_calls)
         self.assertEqual("VERIFIED", receipt["verification"])
@@ -228,12 +223,7 @@ class MutationSafetyTests(unittest.TestCase):
 
     def test_pre_read_drift_means_no_write(self):
         envelope = send_envelope()
-        intent = preflight_mutation(
-            envelope,
-            FakeJules(session_reads=[{"id": "123", "state": "IN_PROGRESS", "updateTime": "u1"}]),
-            FakeGitHub(),
-            source_name=SOURCE,
-        )
+        intent = preflight_mutation(envelope, FakeJules(session_reads=[{"id": "123", "state": "IN_PROGRESS", "updateTime": "u1"}]), FakeGitHub(), source_name=SOURCE)
         execution = FakeJules(session_reads=[{"id": "123", "state": "AWAITING_USER_FEEDBACK", "updateTime": "u2"}])
         receipt = execute_mutation(envelope, intent, execution, FakeGitHub(), source_name=SOURCE)
         self.assertEqual(0, execution.send_calls)
@@ -241,18 +231,9 @@ class MutationSafetyTests(unittest.TestCase):
 
     def test_ambiguous_write_outcome_is_not_retried(self):
         envelope = send_envelope()
-        intent = preflight_mutation(
-            envelope,
-            FakeJules(session_reads=[{"id": "123", "state": "IN_PROGRESS", "updateTime": "u1"}]),
-            FakeGitHub(),
-            source_name=SOURCE,
-        )
+        intent = preflight_mutation(envelope, FakeJules(session_reads=[{"id": "123", "state": "IN_PROGRESS", "updateTime": "u1"}]), FakeGitHub(), source_name=SOURCE)
         execution = FakeJules(session_reads=[{"id": "123", "state": "IN_PROGRESS", "updateTime": "u1"}])
-        execution.send_error = GatewayError(
-            ErrorClassification.PROVIDER_WRITE_OUTCOME_UNKNOWN,
-            "network ambiguous",
-            http_status=599,
-        )
+        execution.send_error = GatewayError(ErrorClassification.PROVIDER_WRITE_OUTCOME_UNKNOWN, "network ambiguous", http_status=599)
         receipt = execute_mutation(envelope, intent, execution, FakeGitHub(), source_name=SOURCE)
         self.assertEqual(1, execution.send_calls)
         self.assertEqual("UNKNOWN", receipt["verification"])
@@ -261,68 +242,46 @@ class MutationSafetyTests(unittest.TestCase):
 
     def test_post_read_inconclusive_becomes_unknown(self):
         envelope = send_envelope()
-        intent = preflight_mutation(
-            envelope,
-            FakeJules(session_reads=[{"id": "123", "state": "IN_PROGRESS", "updateTime": "u1"}]),
-            FakeGitHub(),
-            source_name=SOURCE,
-        )
-        execution = FakeJules(
-            session_reads=[
-                {"id": "123", "state": "IN_PROGRESS", "updateTime": "u1"},
-                {"id": "123", "state": "IN_PROGRESS", "updateTime": "u1"},
-            ]
-        )
+        intent = preflight_mutation(envelope, FakeJules(session_reads=[{"id": "123", "state": "IN_PROGRESS", "updateTime": "u1"}]), FakeGitHub(), source_name=SOURCE)
+        execution = FakeJules(session_reads=[{"id": "123", "state": "IN_PROGRESS", "updateTime": "u1"}, {"id": "123", "state": "IN_PROGRESS", "updateTime": "u1"}])
         receipt = execute_mutation(envelope, intent, execution, FakeGitHub(), source_name=SOURCE)
         self.assertEqual(1, execution.send_calls)
         self.assertEqual("UNKNOWN", receipt["verification"])
 
-    def test_approve_plan_write_once_and_state_transition_verifies(self):
+    def test_approve_plan_write_once_and_matching_plan_approved_event_verifies(self):
         activity = plan_activity()
         envelope = approve_envelope(activity)
-        intent = preflight_mutation(
-            envelope,
-            FakeJules(
-                session_reads=[
-                    {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"},
-                    {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"},
-                ],
-                activities=[activity],
-            ),
-            FakeGitHub(),
-            source_name=SOURCE,
-        )
+        same = {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"}
+        intent = preflight_mutation(envelope, FakeJules(session_reads=[same, same], activities=[activity]), FakeGitHub(), source_name=SOURCE)
         execution = FakeJules(
-            session_reads=[
-                {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"},
-                {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"},
-                {"id": "123", "state": "IN_PROGRESS", "updateTime": "u2"},
-            ],
-            activities=[activity],
+            session_reads=[same, same, {"id": "123", "state": "IN_PROGRESS", "updateTime": "u2"}],
+            activity_reads=[[activity], [activity, plan_approved_activity("plan1")]],
         )
         receipt = execute_mutation(envelope, intent, execution, FakeGitHub(), source_name=SOURCE)
         self.assertEqual(1, execution.approve_calls)
         self.assertEqual("VERIFIED", receipt["verification"])
+        self.assertTrue(receipt["matching_plan_approved_activity_observed"])
+
+    def test_approve_state_change_without_matching_plan_event_is_unknown(self):
+        activity = plan_activity()
+        envelope = approve_envelope(activity)
+        same = {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"}
+        intent = preflight_mutation(envelope, FakeJules(session_reads=[same, same], activities=[activity]), FakeGitHub(), source_name=SOURCE)
+        execution = FakeJules(
+            session_reads=[same, same, {"id": "123", "state": "IN_PROGRESS", "updateTime": "u2"}],
+            activity_reads=[[activity], [activity]],
+        )
+        receipt = execute_mutation(envelope, intent, execution, FakeGitHub(), source_name=SOURCE)
+        self.assertEqual(1, execution.approve_calls)
+        self.assertEqual("UNKNOWN", receipt["verification"])
+        self.assertEqual("UNKNOWN_WRITE_OUTCOME", receipt["idempotency_final_state"])
 
     def test_plan_change_between_intent_and_write_means_no_approve(self):
         reviewed = plan_activity("reviewed")
         envelope = approve_envelope(reviewed)
-        intent = preflight_mutation(
-            envelope,
-            FakeJules(
-                session_reads=[
-                    {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"},
-                    {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"},
-                ],
-                activities=[reviewed],
-            ),
-            FakeGitHub(),
-            source_name=SOURCE,
-        )
-        execution = FakeJules(
-            session_reads=[{"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"}],
-            activities=[plan_activity("changed")],
-        )
+        same = {"id": "123", "state": "AWAITING_PLAN_APPROVAL", "updateTime": "u1"}
+        intent = preflight_mutation(envelope, FakeJules(session_reads=[same, same], activities=[reviewed]), FakeGitHub(), source_name=SOURCE)
+        execution = FakeJules(session_reads=[same], activities=[plan_activity("changed")])
         receipt = execute_mutation(envelope, intent, execution, FakeGitHub(), source_name=SOURCE)
         self.assertEqual(0, execution.approve_calls)
         self.assertEqual("REJECTED", receipt["verification"])
@@ -330,8 +289,7 @@ class MutationSafetyTests(unittest.TestCase):
 
     def test_create_branch_drift_after_intent_means_no_write(self):
         envelope = create_envelope()
-        pre_jules = FakeJules()
-        intent = preflight_mutation(envelope, pre_jules, FakeGitHub(), source_name=SOURCE)
+        intent = preflight_mutation(envelope, FakeJules(), FakeGitHub(), source_name=SOURCE)
         execution = FakeJules()
         receipt = execute_mutation(envelope, intent, execution, FakeGitHub(fail=True), source_name=SOURCE)
         self.assertEqual(0, execution.create_calls)
