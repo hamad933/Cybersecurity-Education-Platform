@@ -7,16 +7,24 @@ from pathlib import Path
 from typing import Any
 
 from .envelope import RequestEnvelope, parse_envelope
-from .inspect_bundle import build_inspect_bundle
 from .github import GitHubClient
+from .inspect_bundle import build_inspect_bundle
 from .jules import JulesClient
 from .models import Completeness, ErrorClassification, GatewayError, ProviderOutcome
 from .receipt import error_receipt, receipt_from_bundle
 from .sanitize import sanitize_obj
 
 
+def _render_json(value: Any) -> str:
+    return json.dumps(sanitize_obj(value), ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+
+
 def _write_json(path: Path, value: Any) -> None:
-    path.write_text(json.dumps(sanitize_obj(value), ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    path.write_text(_render_json(value), encoding="utf-8")
+
+
+def _pagination_completeness(info: Any) -> str:
+    return Completeness.COMPLETE.value if bool(info.complete) else Completeness.PARTIAL.value
 
 
 def _run_read_action(envelope: RequestEnvelope, client: JulesClient) -> tuple[dict[str, Any] | None, dict[str, Any]]:
@@ -33,6 +41,8 @@ def _run_read_action(envelope: RequestEnvelope, client: JulesClient) -> tuple[di
             "provider_metadata": {
                 "state": session.get("state"),
                 "update_time": session.get("updateTime"),
+                "provider_reads": client.provider_reads,
+                "max_provider_reads": client.max_provider_reads,
                 "observations": [o.to_dict() for o in client.observations],
             },
             "public_safe": True,
@@ -45,21 +55,31 @@ def _run_read_action(envelope: RequestEnvelope, client: JulesClient) -> tuple[di
             envelope.session_id or "",
             page_size=envelope.options.page_size,
             max_pages=envelope.options.max_activity_pages,
+            max_items=envelope.options.max_total_items,
         )
         payload = {"activities": sanitize_obj(result.items), "pagination": result.info.to_dict()}
         receipt = {
             "schema_version": "cep.jules.gateway.receipt/v2",
             **envelope.public_dict(),
             "provider_outcome": ProviderOutcome.FOUND.value,
-            "completeness": Completeness.COMPLETE.value,
-            "provider_metadata": {"activity_count_scanned": len(result.items), "pagination": result.info.to_dict()},
+            "completeness": _pagination_completeness(result.info),
+            "provider_metadata": {
+                "activity_count_scanned": len(result.items),
+                "pagination": result.info.to_dict(),
+                "provider_reads": client.provider_reads,
+                "max_provider_reads": client.max_provider_reads,
+            },
             "public_safe": True,
             "shadow_safe": True,
             "provider_mutation_performed": False,
         }
         return payload, sanitize_obj(receipt)
     if envelope.action == "list_sessions":
-        result = client.list_sessions(page_size=envelope.options.page_size, max_pages=envelope.options.max_activity_pages)
+        result = client.list_sessions(
+            page_size=envelope.options.page_size,
+            max_pages=envelope.options.max_activity_pages,
+            max_items=envelope.options.max_total_items,
+        )
         rows = [
             {
                 "id": item.get("id"),
@@ -74,14 +94,19 @@ def _run_read_action(envelope: RequestEnvelope, client: JulesClient) -> tuple[di
             "schema_version": "cep.jules.gateway.receipt/v2",
             **envelope.public_dict(),
             "provider_outcome": ProviderOutcome.FOUND.value,
-            "completeness": Completeness.COMPLETE.value,
-            "provider_metadata": {"session_count_scanned": len(rows), "pagination": result.info.to_dict()},
+            "completeness": _pagination_completeness(result.info),
+            "provider_metadata": {
+                "session_count_scanned": len(rows),
+                "pagination": result.info.to_dict(),
+                "provider_reads": client.provider_reads,
+                "max_provider_reads": client.max_provider_reads,
+            },
             "public_safe": True,
             "shadow_safe": True,
             "provider_mutation_performed": False,
         }
         return payload, sanitize_obj(receipt)
-    raise GatewayError(ErrorClassification.INVALID_REQUEST, "unsupported action after validation")
+    raise GatewayError(ErrorClassification.INVALID_REQUEST, "unsupported read action after validation")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -96,21 +121,24 @@ def main(argv: list[str] | None = None) -> int:
     try:
         raw = os.environ.get(args.request_env, "")
         envelope = parse_envelope(raw)
+        if envelope.is_mutation:
+            raise GatewayError(
+                ErrorClassification.INVALID_REQUEST,
+                "mutations are disabled in the shadow-read workflow; use the explicit mutation-canary transport",
+            )
         github_precondition = None
         if envelope.starting_branch is not None and envelope.expected_sha is not None:
             github_client = GitHubClient(
                 os.environ.get("GITHUB_TOKEN", ""),
                 os.environ.get("CEP_REPOSITORY", "hamad933/Cybersecurity-Education-Platform"),
             )
-            github_precondition = github_client.require_branch_head(
-                envelope.starting_branch,
-                envelope.expected_sha,
-            )
+            github_precondition = github_client.require_branch_head(envelope.starting_branch, envelope.expected_sha)
             github_precondition["observations"] = [o.to_dict() for o in github_client.observations]
 
         client = JulesClient(
             os.environ.get("JULES_API_KEY", ""),
             api_base=os.environ.get("JULES_API_BASE", "https://jules.googleapis.com/v1alpha"),
+            max_provider_reads=envelope.options.max_provider_reads,
         )
         payload, receipt = _run_read_action(envelope, client)
         if github_precondition is not None:
@@ -118,7 +146,19 @@ def main(argv: list[str] | None = None) -> int:
             if payload is not None:
                 payload["github_precondition"] = sanitize_obj(github_precondition)
         if payload is not None:
-            _write_json(out_dir / "result.json", payload)
+            rendered = _render_json(payload)
+            rendered_bytes = len(rendered.encode("utf-8"))
+            if rendered_bytes > envelope.options.max_serialized_result_bytes:
+                raise GatewayError(
+                    ErrorClassification.OUTPUT_BUDGET_EXCEEDED,
+                    "serialized read result exceeds the configured overall output bound",
+                    details={
+                        "serialized_result_bytes": rendered_bytes,
+                        "max_serialized_result_bytes": envelope.options.max_serialized_result_bytes,
+                        "result_written": False,
+                    },
+                )
+            (out_dir / "result.json").write_text(rendered, encoding="utf-8")
         _write_json(out_dir / "receipt.json", receipt)
         print(json.dumps({"status": "OK", "request_id": envelope.request_id, "action": envelope.action}, separators=(",", ":")))
         return 0
