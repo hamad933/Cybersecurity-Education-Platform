@@ -15,10 +15,7 @@ TERMINAL_STATES = {"COMPLETED", "FAILED", "CANCELLED", "CANCELED", "ABORTED"}
 
 
 def _source_present(jules: JulesClient, source_name: str) -> bool:
-    for source in jules.list_sources():
-        if str(source.get("name") or "") == source_name:
-            return True
-    return False
+    return any(str(source.get("name") or "") == source_name for source in jules.list_sources())
 
 
 def _require_state(session: dict[str, Any], envelope: RequestEnvelope) -> str:
@@ -68,14 +65,14 @@ def _approval_preconditions(envelope: RequestEnvelope, jules: JulesClient, sessi
             },
         )
 
-    activity_snapshot = _activity_snapshot(jules, envelope)
-    if not activity_snapshot["complete"]:
+    snapshot = _activity_snapshot(jules, envelope)
+    if not snapshot["complete"]:
         raise GatewayError(
             ErrorClassification.READ_BUDGET_EXCEEDED,
             "cannot reconstruct the exact latest plan from a partial activity collection",
-            details={"pagination": activity_snapshot["pagination"]},
+            details={"pagination": snapshot["pagination"]},
         )
-    plan = plan_identity_from_activities(activity_snapshot["activities"], envelope.session_id or "")
+    plan = plan_identity_from_activities(snapshot["activities"], envelope.session_id or "")
     if plan.get("status") != ProviderOutcome.FOUND.value:
         raise GatewayError(ErrorClassification.INVALID_STATE, "no provider plan is available for approval")
 
@@ -98,14 +95,15 @@ def _approval_preconditions(envelope: RequestEnvelope, jules: JulesClient, sessi
             },
         )
     return {
+        "pre_state": state,
         "session_id": envelope.session_id,
-        "state": state,
         "session_update_time": update_time,
         "plan_provider_identity_digest": plan.get("provider_identity_digest"),
         "plan_display_digest": plan.get("plan_digest"),
         "plan_activity_name": plan.get("activity_name"),
         "plan_create_time": plan.get("create_time"),
-        "activity_pagination": activity_snapshot["pagination"],
+        "activity_names": snapshot["names"],
+        "activity_pagination": snapshot["pagination"],
     }
 
 
@@ -135,22 +133,18 @@ def preflight_mutation(
         session = jules.get_session(envelope.session_id or "")
         state = _require_state(session, envelope)
         if state in TERMINAL_STATES:
-            raise GatewayError(
-                ErrorClassification.INVALID_STATE,
-                "send_message is prohibited for a terminal Jules session",
-                details={"state": state},
-            )
-        if envelope.expected_session_update_time is not None and str(session.get("updateTime") or "") != envelope.expected_session_update_time:
+            raise GatewayError(ErrorClassification.INVALID_STATE, "send_message is prohibited for a terminal Jules session", details={"state": state})
+        update_time = str(session.get("updateTime") or "")
+        if envelope.expected_session_update_time is not None and update_time != envelope.expected_session_update_time:
             raise GatewayError(ErrorClassification.INVALID_STATE, "session update identity drifted before send_message")
         preconditions = {
             "pre_state": state,
             "session_id": envelope.session_id,
-            "session_update_time": session.get("updateTime"),
+            "session_update_time": update_time,
         }
     elif envelope.action == "approve_plan":
         session = jules.get_session(envelope.session_id or "")
         preconditions = _approval_preconditions(envelope, jules, session)
-        preconditions["pre_state"] = preconditions.pop("state")
     else:
         raise GatewayError(ErrorClassification.INVALID_REQUEST, "unsupported mutating action")
 
@@ -178,11 +172,7 @@ def _same_preconditions(recorded: dict[str, Any], current: dict[str, Any]) -> No
 def _next_read(envelope: RequestEnvelope) -> dict[str, Any]:
     if envelope.action == "create_session":
         return {"action": "list_sessions", "reason": "reconcile created session identity before any replay"}
-    return {
-        "action": "inspect_bundle",
-        "session_id": envelope.session_id,
-        "reason": "reconcile authoritative session/activity state before any replay",
-    }
+    return {"action": "inspect_bundle", "session_id": envelope.session_id, "reason": "reconcile authoritative session/activity state before any replay"}
 
 
 def _receipt_base(envelope: RequestEnvelope, intent: dict[str, Any]) -> dict[str, Any]:
@@ -256,40 +246,44 @@ def execute_mutation(
     if intent.get("intent_identity") != intent_identity(envelope):
         raise GatewayError(ErrorClassification.IDEMPOTENCY_CONFLICT, "intent identity does not match the supplied request envelope")
 
+    # This is the one final authoritative pre-read after durable intent. It is
+    # compared byte-for-byte at the safe structured level with the recorded
+    # preflight before any provider write is attempted.
     try:
         current_intent = preflight_mutation(envelope, jules, github, source_name=source_name)
         _same_preconditions(intent.get("preconditions") or {}, current_intent.get("preconditions") or {})
     except GatewayError as exc:
         return _rejected_receipt(envelope, intent, exc)
 
+    current_pre = current_intent.get("preconditions") or {}
     try:
         if envelope.action == "create_session":
             created = jules.create_session(
                 {
                     "prompt": envelope.prompt,
                     "title": envelope.title,
-                    "sourceContext": {
-                        "source": source_name,
-                        "githubRepoContext": {"startingBranch": envelope.starting_branch},
-                    },
+                    "sourceContext": {"source": source_name, "githubRepoContext": {"startingBranch": envelope.starting_branch}},
                     "requirePlanApproval": True,
                 }
             )
             session_id = str(created.get("id") or "")
-            envelope_session = session_id
             try:
                 post = jules.get_session(session_id)
             except GatewayError as exc:
-                return _unknown_receipt(envelope, intent, GatewayError(
-                    ErrorClassification.PROVIDER_WRITE_OUTCOME_UNKNOWN,
-                    "create_session write returned but authoritative post-read failed",
-                    http_status=exc.http_status,
-                    details={"post_read_classification": exc.classification.value, "blind_retry": False},
-                ))
+                return _unknown_receipt(
+                    envelope,
+                    intent,
+                    GatewayError(
+                        ErrorClassification.PROVIDER_WRITE_OUTCOME_UNKNOWN,
+                        "create_session write returned but authoritative post-read failed",
+                        http_status=exc.http_status,
+                        details={"post_read_classification": exc.classification.value, "blind_retry": False},
+                    ),
+                )
             receipt = _receipt_base(envelope, intent)
             receipt.update(
                 {
-                    "session_id": envelope_session,
+                    "session_id": session_id,
                     "provider_result_class": "CREATE_SESSION_ACCEPTED_AND_POST_READ_VERIFIED",
                     "post_state": post.get("state"),
                     "provider_update_time": post.get("updateTime"),
@@ -300,40 +294,9 @@ def execute_mutation(
             )
             return sanitize_obj(receipt)
 
-        pre_session = jules.get_session(envelope.session_id or "")
-        pre_state = _require_state(pre_session, envelope)
-        pre_update = str(pre_session.get("updateTime") or "")
-        pre_names: set[str] = set()
-        try:
-            pre_snapshot = _activity_snapshot(jules, envelope)
-            if pre_snapshot["complete"]:
-                pre_names = set(pre_snapshot["names"])
-        except GatewayError:
-            pre_names = set()
-
         if envelope.action == "approve_plan":
-            approval_check = _approval_preconditions(envelope, jules, pre_session)
-            recorded = intent.get("preconditions") or {}
-            for key in (
-                "pre_state",
-                "session_update_time",
-                "plan_provider_identity_digest",
-                "plan_activity_name",
-                "plan_create_time",
-            ):
-                current_value = approval_check.get("pre_state" if key == "pre_state" else key)
-                if key == "pre_state":
-                    current_value = approval_check.get("state")
-                if recorded.get(key) != current_value:
-                    return _rejected_receipt(
-                        envelope,
-                        intent,
-                        GatewayError(ErrorClassification.PLAN_CHANGED_SINCE_REVIEW, "plan/provider identity changed immediately before approve_plan"),
-                    )
             jules.approve_plan(envelope.session_id or "")
         elif envelope.action == "send_message":
-            if pre_state in TERMINAL_STATES:
-                return _rejected_receipt(envelope, intent, GatewayError(ErrorClassification.INVALID_STATE, "session became terminal before send_message"))
             jules.send_message(envelope.session_id or "", envelope.prompt or "")
         else:
             return _rejected_receipt(envelope, intent, GatewayError(ErrorClassification.INVALID_REQUEST, "unsupported mutation action"))
@@ -347,12 +310,13 @@ def execute_mutation(
         post_state = str(post_session.get("state") or "")
         post_update = str(post_session.get("updateTime") or "")
         new_activity = False
-        try:
-            post_snapshot = _activity_snapshot(jules, envelope)
-            if post_snapshot["complete"] and pre_names:
-                new_activity = bool(set(post_snapshot["names"]) - pre_names)
-        except GatewayError:
-            new_activity = False
+        if envelope.action == "approve_plan":
+            try:
+                post_snapshot = _activity_snapshot(jules, envelope)
+                if post_snapshot["complete"]:
+                    new_activity = bool(set(post_snapshot["names"]) - set(current_pre.get("activity_names") or []))
+            except GatewayError:
+                new_activity = False
     except GatewayError as exc:
         return _unknown_receipt(
             envelope,
@@ -365,10 +329,12 @@ def execute_mutation(
             ),
         )
 
-    if envelope.action == "approve_plan":
-        verified = post_state != APPROVAL_STATE or post_update != pre_update or new_activity
-    else:
-        verified = post_update != pre_update or new_activity
+    pre_update = str(current_pre.get("session_update_time") or "")
+    verified = (
+        post_state != APPROVAL_STATE or post_update != pre_update or new_activity
+        if envelope.action == "approve_plan"
+        else post_update != pre_update
+    )
     if not verified:
         return _unknown_receipt(
             envelope,
