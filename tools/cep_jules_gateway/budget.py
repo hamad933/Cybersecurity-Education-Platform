@@ -38,25 +38,35 @@ class HydrationPool:
     reads: int = 0
     cache_hits: int = 0
     cache: dict[str, dict[str, Any]] = field(default_factory=dict)
+    failures: dict[str, GatewayError] = field(default_factory=dict)
 
     def get(self, activity_name: str) -> dict[str, Any]:
         if activity_name in self.cache:
             self.cache_hits += 1
             return self.cache[activity_name]
+        if activity_name in self.failures:
+            self.cache_hits += 1
+            raise self.failures[activity_name]
         if self.reads >= self.max_reads:
-            raise GatewayError(
+            error = GatewayError(
                 ErrorClassification.READ_BUDGET_EXCEEDED,
                 "shared inspect_bundle hydration budget exhausted",
                 details={"hydration_reads": self.reads, "max_hydration_reads": self.max_reads},
             )
+            self.failures[activity_name] = error
+            raise error
         self.reads += 1
-        value = self.client.get_activity(activity_name)
-        validate_activity_identity(value, self.session_id)
-        if str(value.get("name") or "") != activity_name:
-            raise GatewayError(
-                ErrorClassification.PROVIDER_PROTOCOL_FAILED,
-                "hydrated activity identity differs from requested identity",
-                details={"requested_activity": activity_name},
-            )
+        try:
+            value = self.client.get_activity(activity_name)
+            validate_activity_identity(value, self.session_id)
+            if str(value.get("name") or "") != activity_name:
+                raise GatewayError(
+                    ErrorClassification.PROVIDER_PROTOCOL_FAILED,
+                    "hydrated activity identity differs from requested identity",
+                    details={"requested_activity": activity_name},
+                )
+        except GatewayError as exc:
+            self.failures[activity_name] = exc
+            raise
         self.cache[activity_name] = value
         return value
