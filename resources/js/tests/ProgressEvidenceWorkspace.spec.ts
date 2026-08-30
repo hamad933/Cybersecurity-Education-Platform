@@ -388,6 +388,101 @@ describe('Progress & Evidence governed workspace', () => {
     expect(right.text()).not.toContain('revision-1');
   });
 
+  it('preserves multiple authoritative backend groups with identical null keys as distinct without cross-pollination or inferred status', () => {
+    const duplicateNullKeyPortfolio = {
+      ...portfolio,
+      id: 'portfolio-duplicate-null',
+      grouping: 'REVIEW_DECISION',
+      groups: [
+        {
+          grouping: 'REVIEW_DECISION',
+          key: null,
+          items: [
+            {
+              id: 'portfolio-item-1',
+              evidence_id: 'evidence-1',
+              current_revision_id: 'revision-1',
+              title: 'تحليل المصادقة الأول',
+            },
+          ],
+        },
+        {
+          grouping: 'REVIEW_DECISION',
+          key: null,
+          items: [
+            {
+              id: 'portfolio-item-2',
+              evidence_id: 'evidence-2',
+              current_revision_id: 'revision-1',
+              title: 'تحليل المصادقة الثاني',
+            },
+            {
+              id: 'portfolio-item-3',
+              evidence_id: 'evidence-3',
+              current_revision_id: 'revision-2',
+              title: 'تحليل المصادقة الثالث',
+            },
+          ],
+        },
+      ],
+    };
+
+    const wrapper = mount(Workspace, {
+      props: { ...propsFor('portfolio'), portfolios: [duplicateNullKeyPortfolio] },
+    });
+
+    const center = wrapper.get('[data-testid="portfolio-detail"]');
+    expect(center.text()).toContain('2 Groups');
+
+    // Both groups render the unavailable translation
+    const groupCards = wrapper.findAll('.portfolio-group-card');
+    expect(groupCards).toHaveLength(2);
+    expect(groupCards[0].get('.group-title').text()).toBe('غير متوفر');
+    expect(groupCards[1].get('.group-title').text()).toBe('غير متوفر');
+
+    // Assert unique DOM presentation attributes using the computed grp.id
+    const id0 = groupCards[0].attributes('data-group-presentation-id');
+    const id1 = groupCards[1].attributes('data-group-presentation-id');
+    expect(id0).toBeDefined();
+    expect(id1).toBeDefined();
+    expect(id0).not.toEqual(id1);
+
+    // Explicit unavailable rendering, no inferred status (avoid depending on generic text like CAP-WEB-01)
+    expect(center.text()).not.toContain('MASTERED');
+
+    // Check exact membership without cross-pollination
+    expect(groupCards[0].text()).toContain('تحليل المصادقة الأول');
+    expect(groupCards[0].text()).not.toContain('تحليل المصادقة الثاني');
+    expect(groupCards[0].text()).not.toContain('تحليل المصادقة الثالث');
+
+    expect(groupCards[1].text()).not.toContain('تحليل المصادقة الأول');
+    expect(groupCards[1].text()).toContain('تحليل المصادقة الثاني');
+    expect(groupCards[1].text()).toContain('تحليل المصادقة الثالث');
+  });
+
+  it('renders blank string keys as explicitly unavailable without inventing semantics', () => {
+    const blankKeyPortfolio = {
+      ...portfolio,
+      id: 'portfolio-blank',
+      groups: [
+        {
+          grouping: 'EVIDENCE_TYPE',
+          key: '   ',
+          items: [],
+        },
+      ],
+    };
+
+    const wrapper = mount(Workspace, {
+      props: { ...propsFor('portfolio'), portfolios: [blankKeyPortfolio] },
+    });
+
+    const groupCards = wrapper.findAll('.portfolio-group-card');
+
+    expect(groupCards).toHaveLength(1);
+    expect(groupCards[0].get('.group-title').text()).toBe('غير متوفر');
+  });
+
   it('uses authoritative backend groups even when differing from local lookup, avoids raw constants, and empty groups remains empty', () => {
     const emptyPortfolio = {
       ...portfolio,

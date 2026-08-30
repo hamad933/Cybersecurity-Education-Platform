@@ -136,7 +136,7 @@ type Portfolio = {
   grouping: string;
   filters?: Record<string, unknown>;
   annotations?: Record<string, unknown>;
-  groups?: Array<{ grouping: string; key: string; items: PortfolioItem[] }>;
+  groups?: Array<{ grouping: string; key: string | null; items: PortfolioItem[] }>;
   items: PortfolioItem[];
 };
 
@@ -334,9 +334,11 @@ const portfolioGroups = computed(() => {
   }
 
   return authoritativeGroups.map((group, index) => {
+    const stableKeyPart =
+      group.key === null ? 'null' : group.key.trim() === '' ? 'blank' : group.key;
     return {
-      id: `group-${group.grouping}-${group.key}-${index}`,
-      title: group.key,
+      id: `group-${group.grouping}-${stableKeyPart}-${index}`,
+      title: displayValue(group.key),
       projection: 'إسقاط محكوم',
       statusBadge: null as { text: string } | null,
       items: group.items.map((item) => {
@@ -2295,6 +2297,7 @@ function removePortfolioItem(): void {
               <div
                 v-for="(grp, grpIdx) in portfolioGroups"
                 :key="grp.id"
+                :data-group-presentation-id="grp.id"
                 class="portfolio-group-card"
               >
                 <div class="group-card-header">
