@@ -14,6 +14,8 @@ const formatBytes = (bytes: number | undefined): string => {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 };
+
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 </script>
 
 <template>
@@ -111,6 +113,53 @@ const formatBytes = (bytes: number | undefined): string => {
           <small class="param-hint">تشفير القنوات</small>
         </article>
       </div>
+    </section>
+
+    <!-- User Local Settings Section -->
+    <section v-if="state.local_settings" class="cep-section">
+      <h3 class="cep-section-title">إعدادات الواجهة المحلية (Local UI Settings)</h3>
+      <p class="cep-lede-sm">هذه الإعدادات تنطبق على الجلسة الحالية فقط ولا تؤثر على التهيئة التشغيلية للمنصة.</p>
+      
+      <div class="params-grid" style="margin-bottom: 2rem;">
+        <article class="param-card">
+          <span class="param-label">اللغة (Language)</span>
+          <strong class="param-value"><bdi dir="ltr">{{ state.local_settings.effective?.language ?? 'ar' }}</bdi></strong>
+        </article>
+        
+        <article class="param-card">
+          <span class="param-label">الاتجاه (Direction)</span>
+          <strong class="param-value"><bdi dir="ltr">{{ state.local_settings.effective?.direction ?? 'rtl' }}</bdi></strong>
+        </article>
+        
+        <article class="param-card">
+          <span class="param-label">المظهر (Appearance)</span>
+          <strong class="param-value"><bdi dir="ltr">{{ state.local_settings.effective?.appearance ?? 'system' }}</bdi></strong>
+        </article>
+        
+        <article class="param-card">
+          <span class="param-label">حالة الحفظ (Status)</span>
+          <div class="param-value-flex">
+            <StatusPill :status="state.local_settings.status" variant="ok" />
+          </div>
+        </article>
+      </div>
+      
+      <form method="POST" action="/system/configuration/settings" class="local-settings-form">
+        <!-- In a real app this would use Inertia form helper, but we are just demonstrating structural presence -->
+        <input type="hidden" name="_token" :value="csrfToken" />
+        <div style="display: flex; gap: 1rem; align-items: center;">
+            <select name="language" class="cep-select">
+                <option value="ar">العربية (Arabic)</option>
+                <option value="en">English (الإنجليزية)</option>
+            </select>
+            <select name="appearance" class="cep-select">
+                <option value="system">النظام (System)</option>
+                <option value="light">فاتح (Light)</option>
+                <option value="dark">داكن (Dark)</option>
+            </select>
+            <button type="submit" class="cep-button cep-button-primary">حفظ الإعدادات المحلية</button>
+        </div>
+      </form>
     </section>
 
     <!-- Operational Limits Section -->

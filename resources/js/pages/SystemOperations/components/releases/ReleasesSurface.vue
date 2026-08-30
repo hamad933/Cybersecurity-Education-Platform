@@ -73,6 +73,27 @@ const inspectPackage = (pkg: PackageRecord) => {
           :variant="!hasObservedChecks ? 'neutral' : isReady ? 'ok' : 'warning'"
         />
       </div>
+      <div class="readiness-card" style="margin-top: 0.5rem;">
+        <span class="readiness-card__label">حالة التحقق التقني:</span>
+        <StatusPill
+          :status="state.technical_verification_status ?? 'UNAVAILABLE'"
+          :variant="state.technical_verification_status === 'VERIFIED_TECHNICALLY' ? 'ok' : 'warning'"
+        />
+      </div>
+      <div class="readiness-card" style="margin-top: 0.5rem;">
+        <span class="readiness-card__label">حالة القبول:</span>
+        <StatusPill
+          :status="state.owner_acceptance_status ?? 'UNAVAILABLE'"
+          variant="warning"
+        />
+      </div>
+      <div class="readiness-card" style="margin-top: 0.5rem;">
+        <span class="readiness-card__label">تصريح النشر (Deployment):</span>
+        <StatusPill
+          :status="state.authorization?.deployment_authorized ? 'AUTHORIZED' : 'UNAUTHORIZED'"
+          :variant="state.authorization?.deployment_authorized ? 'ok' : 'danger'"
+        />
+      </div>
     </section>
 
     <!-- Release Checks Checklist Grid -->

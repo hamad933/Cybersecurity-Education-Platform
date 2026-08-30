@@ -16,6 +16,8 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/audit', [SystemOperationsController::class, 'audit'])->name('audit');
         Route::get('/releases', [SystemOperationsController::class, 'releases'])->name('releases');
         Route::get('/configuration', [SystemOperationsController::class, 'configuration'])->name('configuration');
+        Route::post('/configuration/settings', [SystemOperationsController::class, 'updateSettings'])->name('configuration.settings.update');
+
 
         Route::post('/processing/runs/{run}/cancel', [SystemOperationsController::class, 'cancelProcessingRun'])
             ->middleware('throttle:30,1')->whereUuid('run')->name('processing.runs.cancel');

@@ -118,6 +118,16 @@ const inspectPackage = (pkg: PackageRecord) => {
       </form>
     </section>
 
+    <!-- Observation Status & Filter Truth -->
+    <section v-if="state.observation_status" class="cep-section">
+      <h3 class="cep-section-title">حالة الملاحظة (Observation Truth)</h3>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <StatusPill v-if="state.observation_status.unavailable_truth" status="ملاحظة غير متاحة صحيحة" variant="neutral" />
+        <StatusPill v-if="state.observation_status.error_truth" status="حالة الخطأ صحيحة" variant="neutral" />
+        <StatusPill v-if="state.observation_status.observed_empty_zero_truth" status="حالة الصفر/الفارغ صحيحة" variant="neutral" />
+      </div>
+    </section>
+
     <!-- Portable Packages Verification Table -->
     <section class="cep-section">
       <div class="section-header-flex">

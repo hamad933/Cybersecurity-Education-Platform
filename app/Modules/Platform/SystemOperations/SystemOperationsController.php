@@ -131,4 +131,35 @@ final class SystemOperationsController extends Controller
             'state' => $this->state->forSurface($surface, $actorId),
         ]);
     }
+
+    public function updateSettings(Request $request): RedirectResponse
+    {
+        // Platform configurations remain truthfully read-only/observed.
+        // We only persist bounded local settings: Owner/session, language/direction, appearance, local behavior.
+        
+        $validated = $request->validate([
+            'language' => ['sometimes', 'string', 'in:ar,en'],
+            'direction' => ['sometimes', 'string', 'in:rtl,ltr'],
+            'appearance' => ['sometimes', 'string', 'in:light,dark,system'],
+            'behavior' => ['sometimes', 'array'],
+        ]);
+
+        if (isset($validated['language'])) {
+            session(['local_settings.language' => $validated['language']]);
+        }
+        if (isset($validated['direction'])) {
+            session(['local_settings.direction' => $validated['direction']]);
+        }
+        if (isset($validated['appearance'])) {
+            session(['local_settings.appearance' => $validated['appearance']]);
+        }
+        if (isset($validated['behavior'])) {
+            session(['local_settings.behavior' => array_merge(
+                session('local_settings.behavior', []),
+                $validated['behavior']
+            )]);
+        }
+
+        return back()->with('success', 'Local configuration settings updated.');
+    }
 }

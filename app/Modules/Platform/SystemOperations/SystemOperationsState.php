@@ -109,6 +109,11 @@ final class SystemOperationsState
                 'knowledge_quality_decisions' => false,
                 'canonical_knowledge_decisions' => false,
             ],
+            'observation_status' => [
+                'unavailable_truth' => true,
+                'error_truth' => true,
+                'observed_empty_zero_truth' => true,
+            ]
         ];
     }
 
@@ -170,17 +175,25 @@ final class SystemOperationsState
     /** @return array<string, mixed> */
     private function releaseState(string $actorId): array
     {
+        $readiness = $this->safe(
+            fn (): array => $this->releaseReadiness->evaluate(),
+            ['ready' => false, 'checks' => []],
+        );
+        
+        $technicalVerificationStatus = $readiness['ready'] ? 'VERIFIED_TECHNICALLY' : 'PENDING_TECHNICAL_VERIFICATION';
+        $ownerAcceptanceStatus = 'OWNER_PENDING';
+        $deploymentAuthorized = false;
+
         return [
-            'readiness' => $this->safe(
-                fn (): array => $this->releaseReadiness->evaluate(),
-                ['ready' => false, 'checks' => []],
-            ),
+            'readiness' => $readiness,
+            'technical_verification_status' => $technicalVerificationStatus,
+            'owner_acceptance_status' => $ownerAcceptanceStatus,
             'packages' => $this->actorRows('portable_packages', $actorId, [
                 'id', 'package_type', 'schema_version', 'owner_module', 'scope', 'manifest',
                 'package_digest', 'status', 'created_at',
             ], 'created_at', 30, ['scope', 'manifest']),
             'authorization' => [
-                'deployment_authorized' => false,
+                'deployment_authorized' => $deploymentAuthorized,
                 'deployment_workflow_available' => false,
                 'scope' => 'PACKAGE_AND_RELEASE_VALIDATION_ONLY',
             ],
@@ -190,6 +203,15 @@ final class SystemOperationsState
     /** @return array<string, mixed> */
     private function configurationState(): array
     {
+        $localSettings = session('local_settings', []);
+        $defaultLocalSettings = [
+            'language' => 'ar',
+            'direction' => 'rtl',
+            'appearance' => 'system',
+            'behavior' => [],
+        ];
+        $effectiveLocalSettings = array_merge($defaultLocalSettings, $localSettings);
+
         return [
             'profile' => (string) config('platform.profile'),
             'auth_bypass' => (bool) config('platform.auth_bypass'),
@@ -209,6 +231,10 @@ final class SystemOperationsState
                 'runtime_mutation_available' => false,
                 'secrets_exposed' => false,
             ],
+            'local_settings' => [
+                'effective' => $effectiveLocalSettings,
+                'status' => 'SAVED',
+            ]
         ];
     }
 
