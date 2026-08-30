@@ -30,6 +30,13 @@ const node = computed<OrchestrationNode<TodayRationaleItem>>(() => {
         <p class="cep-kicker">السياق والمسوّغ</p>
         <h2 id="rationale-title" class="cep-section-title">المسوّغ والهدف</h2>
       </div>
+      <span v-if="node.status === 'STALE'" class="today-stale-badge" data-testid="today-stale-badge">
+        <svg class="today-stale-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+        بيانات غير محدثة
+      </span>
+
       <span v-if="node.status === 'AVAILABLE' && node.data" class="today-rationale-badge">
         <svg
           class="today-rationale-icon"
@@ -48,7 +55,7 @@ const node = computed<OrchestrationNode<TodayRationaleItem>>(() => {
     </div>
 
     <div
-      v-if="node.status === 'AVAILABLE' && node.data"
+      v-if="(node.status === 'AVAILABLE' || node.status === 'STALE') && node.data"
       class="today-rationale-card"
       data-testid="today-rationale-active"
     >
@@ -182,6 +189,35 @@ const node = computed<OrchestrationNode<TodayRationaleItem>>(() => {
         title="المسوغات غير متوفرة"
         description="تعذر الاتصال بالمجال لمعرفة مسوغات التوصية."
         data-testid="today-rationale-unavailable"
+      />
+    </div>
+
+    
+    <div v-else-if="node.status === 'ERROR'" class="today-empty-wrapper">
+      <div class="today-empty-icon-box" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.05);" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="today-empty-svg">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+      </div>
+      <CepEmptyState
+        class="cep-section__body today-empty-content"
+        title="حدث خطأ في جلب البيانات"
+        :description="node.message || 'تعذر تحميل هذه البيانات بسبب خطأ غير معروف.'"
+        data-testid="today-error-state"
+      />
+    </div>
+
+    <div v-else-if="node.status === 'STALE' && !node.data" class="today-empty-wrapper">
+      <div class="today-empty-icon-box" style="color: #f59e0b; border-color: rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.05);" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="today-empty-svg">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      </div>
+      <CepEmptyState
+        class="cep-section__body today-empty-content"
+        title="البيانات غير محدّثة (قديمة)"
+        :description="node.message || 'هذه البيانات قديمة ولم نتمكن من تحديثها الآن ولا توجد نسخة محفوظة صالحة للعرض.'"
+        data-testid="today-stale-empty-state"
       />
     </div>
 
@@ -408,5 +444,22 @@ const node = computed<OrchestrationNode<TodayRationaleItem>>(() => {
   .today-empty-wrapper {
     flex-direction: column;
   }
+}
+
+.today-stale-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--cep-radius-sm);
+  background: rgba(245, 158, 11, 0.08);
+  padding: 0.22rem 0.55rem;
+  color: #f59e0b;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+.today-stale-icon {
+  width: 0.85rem;
+  height: 0.85rem;
 }
 </style>

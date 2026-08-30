@@ -184,7 +184,7 @@ function startDragLeft(e: PointerEvent) {
 function onDragLeft(e: PointerEvent) {
   if (!isDraggingLeft.value) return;
   const deltaX = e.clientX - dragStartX;
-  const newWidth = clampLeftWidth(dragStartWidth - deltaX);
+  const newWidth = clampLeftWidth(dragStartWidth + deltaX);
   leftWidth.value = newWidth;
 }
 
@@ -223,7 +223,7 @@ function startDragRight(e: PointerEvent) {
 function onDragRight(e: PointerEvent) {
   if (!isDraggingRight.value) return;
   const deltaX = e.clientX - dragStartX;
-  const newWidth = clampRightWidth(dragStartWidth + deltaX);
+  const newWidth = clampRightWidth(dragStartWidth - deltaX);
   rightWidth.value = newWidth;
 }
 
@@ -250,10 +250,10 @@ onUnmounted(() => {
 function handleLeftKeydown(e: KeyboardEvent) {
   if (e.key === 'ArrowRight') {
     e.preventDefault();
-    leftWidth.value = clampLeftWidth(leftWidth.value - 10);
+    leftWidth.value = clampLeftWidth(leftWidth.value + 10);
   } else if (e.key === 'ArrowLeft') {
     e.preventDefault();
-    leftWidth.value = clampLeftWidth(leftWidth.value + 10);
+    leftWidth.value = clampLeftWidth(leftWidth.value - 10);
   } else if (e.key === 'Home') {
     e.preventDefault();
     leftWidth.value = MIN_LEFT_WIDTH;
@@ -269,10 +269,10 @@ function handleLeftKeydown(e: KeyboardEvent) {
 function handleRightKeydown(e: KeyboardEvent) {
   if (e.key === 'ArrowLeft') {
     e.preventDefault();
-    rightWidth.value = clampRightWidth(rightWidth.value - 10);
+    rightWidth.value = clampRightWidth(rightWidth.value + 10);
   } else if (e.key === 'ArrowRight') {
     e.preventDefault();
-    rightWidth.value = clampRightWidth(rightWidth.value + 10);
+    rightWidth.value = clampRightWidth(rightWidth.value - 10);
   } else if (e.key === 'Home') {
     e.preventDefault();
     rightWidth.value = MIN_RIGHT_WIDTH;
@@ -360,6 +360,7 @@ const gridStyle = computed(() => {
           'cep-workspace-grid--has-left': isLeftVisible,
           'cep-workspace-grid--has-right': isRightVisible,
         }"
+        dir="ltr"
       >
         <!-- LEFT PANEL (Structure/Navigation, physical LEFT) -->
         <aside

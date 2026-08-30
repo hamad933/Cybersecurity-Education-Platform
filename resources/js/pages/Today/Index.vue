@@ -157,10 +157,6 @@ function refreshOrchestration() {
           <span class="today-nav-index">06</span>
           <span class="today-nav-label">التوقعات المرحلية</span>
         </a>
-        <a class="cep-structure-nav__link focus-ring" href="#workspace-handoffs">
-          <span class="today-nav-index">07</span>
-          <span class="today-nav-label">التوجيه للمجالات</span>
-        </a>
       </nav>
     </template>
 
@@ -272,47 +268,6 @@ function refreshOrchestration() {
           </ul>
         </section>
 
-        <section
-          id="workspace-handoffs"
-          class="today-context-card"
-          aria-labelledby="today-handoff-title"
-        >
-          <div class="today-context-card__header">
-            <svg
-              class="today-context-card__icon"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M4.25 2A2.25 2.25 0 002 4.25v11.5A2.25 2.25 0 004.25 18h11.5A2.25 2.25 0 0018 15.75V4.25A2.25 2.25 0 0015.75 2H4.25zm4.03 6.28a.75.75 0 00-1.06-1.06L4.97 9.47a.75.75 0 000 1.06l2.25 2.25a.75.75 0 001.06-1.06L7.06 10.5h5.88l-1.22 1.22a.75.75 0 101.06 1.06l2.25-2.25a.75.75 0 000-1.06l-2.25-2.25a.75.75 0 10-1.06 1.06l1.22 1.22H7.06l1.22-1.22z"
-                clip-rule="evenodd"
-              />
-            </svg>
-            <div>
-              <p class="cep-kicker">استقلالية المجالات</p>
-              <h2 id="today-handoff-title" class="cep-context-title">التوجيه للمالك المعتمد</h2>
-            </div>
-          </div>
-          <p class="cep-context-copy today-context-copy">
-            تنتقل كافة الإجراءات فورًا إلى مساحة العمل المعتمدة لضمان اتساق البيانات.
-          </p>
-          <div class="today-canonical-links">
-            <Link href="/knowledge" data-today-workspace="knowledge" class="today-context-link">
-              <span>المعرفة والتعلّم</span>
-            </Link>
-            <Link href="/simulation" data-today-workspace="simulation" class="today-context-link">
-              <span>المحاكاة والمؤسسات</span>
-            </Link>
-            <Link href="/progress" data-today-workspace="progress" class="today-context-link">
-              <span>التقدم والأدلة</span>
-            </Link>
-            <Link href="/system" data-today-workspace="system" class="today-context-link">
-              <span>إدارة وتشغيل المنظومة</span>
-            </Link>
-          </div>
-        </section>
       </div>
     </template>
 

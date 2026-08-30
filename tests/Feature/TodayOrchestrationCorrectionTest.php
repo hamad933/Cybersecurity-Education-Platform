@@ -126,6 +126,45 @@ class TodayOrchestrationCorrectionTest extends TestCase
         );
     }
 
+
+    public function test_today_route_preserves_error_and_stale_states_without_mutation(): void
+    {
+        $owner = $this->owner();
+
+        // Arrange
+        $mockProvider = new class implements TodayOrchestrationProviderInterface {
+            public function getContinueSession(): array { return ['status' => 'ERROR', 'data' => null, 'message' => 'Provider error']; }
+            public function getNextAction(): array { return ['status' => 'STALE', 'data' => ['id' => 'act-stale', 'title' => 'Stale Action', 'description' => 'Desc', 'href' => '/knowledge/1', 'domain' => 'knowledge', 'domainLabel' => 'المعرفة'], 'message' => 'Cache expired']; }
+            public function getRationale(): array { return ['status' => 'ERROR', 'data' => null]; }
+            public function getAttentionItems(): array { return ['status' => 'STALE', 'data' => []]; }
+            public function getRecentContext(): array { return ['status' => 'STALE', 'data' => []]; }
+            public function getProgressProjection(): array { return ['status' => 'ERROR', 'data' => null]; }
+        };
+
+        $this->app->instance(TodayOrchestrationProviderInterface::class, $mockProvider);
+
+        // Act
+        $response = $this->actingAs($owner)->get('/');
+
+        // Assert
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('Today/Index')
+            ->has('orchestration', fn ($page) => $page
+                ->where('continueSession.status', 'ERROR')
+                ->where('continueSession.message', 'Provider error')
+                ->where('nextAction.status', 'STALE')
+                ->where('nextAction.data.title', 'Stale Action')
+                ->where('nextAction.message', 'Cache expired')
+                ->where('rationale.status', 'ERROR')
+                ->where('attentionItems.status', 'STALE')
+                ->where('recentContext.status', 'STALE')
+                ->where('progressProjection.status', 'ERROR')
+                ->etc()
+            )
+        );
+    }
+
     private function owner(): OwnerAccount
     {
         return app(CreateOwner::class)->execute(
