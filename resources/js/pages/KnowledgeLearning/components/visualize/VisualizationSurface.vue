@@ -9,6 +9,11 @@ const props = defineProps<{
   activeOverlay: OverlayName | null;
   overlayLayer: OverlayLayer | null;
   visualPositions?: Record<string, { x: number; y: number }>;
+  selectedNodeId?: string | null;
+}>();
+
+const emit = defineEmits<{
+  selectNode: [id: string | null];
 }>();
 
 const nodeById = computed(() => new Map(props.nodes.map((node) => [node.id, node])));
@@ -182,16 +187,34 @@ const observationLabel = (value: unknown): string | null => {
           </span>
         </div>
 
+        <!-- VIS-GRAPH-01: focus graph topology around active/selected canonical node -->
+        <div class="mb-4 text-xs text-slate-400">
+          انقر على أي عقدة لتركيز الرسم البياني عليها وعرض السياق (VIS-CONTEXT-01).
+        </div>
+
         <div class="space-y-6">
           <article
             v-for="edge in edges"
             :key="edge.id"
             dir="ltr"
-            class="grid items-stretch gap-3 xl:grid-cols-[minmax(0,1fr)_140px_minmax(0,1fr)]"
+            class="grid items-stretch gap-3 transition-opacity duration-200 xl:grid-cols-[minmax(0,1fr)_140px_minmax(0,1fr)]"
+            :class="[
+              selectedNodeId && edge.from !== selectedNodeId && edge.to !== selectedNodeId
+                ? 'opacity-30 grayscale'
+                : 'opacity-100',
+            ]"
           >
-            <div
+            <button
               dir="rtl"
-              class="rounded-2xl border border-indigo-500/40 bg-indigo-950/30 p-4 shadow-md"
+              type="button"
+              class="focus-ring cursor-pointer rounded-2xl border p-4 text-start shadow-md transition hover:border-indigo-400/60 hover:bg-indigo-900/40"
+              :class="
+                edge.from === selectedNodeId
+                  ? 'border-indigo-400 bg-indigo-900/50 ring-2 ring-indigo-500/50'
+                  : 'border-indigo-500/40 bg-indigo-950/30'
+              "
+              :aria-pressed="edge.from === selectedNodeId"
+              @click="emit('selectNode', edge.from === selectedNodeId ? null : edge.from)"
             >
               <span
                 class="rounded-full bg-indigo-500/20 px-2 py-0.5 font-mono text-[9px] font-bold text-indigo-300"
@@ -210,7 +233,7 @@ const observationLabel = (value: unknown): string | null => {
               >
                 {{ observationLabel(observationFor(edge.from)) }}
               </span>
-            </div>
+            </button>
 
             <div class="flex flex-col items-center justify-center gap-2 text-center">
               <div class="h-px w-full bg-gradient-to-r from-indigo-500 via-amber-400 to-cyan-500" />
@@ -225,9 +248,17 @@ const observationLabel = (value: unknown): string | null => {
               >
             </div>
 
-            <div
+            <button
               dir="rtl"
-              class="rounded-2xl border border-cyan-500/40 bg-cyan-950/30 p-4 shadow-md"
+              type="button"
+              class="focus-ring cursor-pointer rounded-2xl border p-4 text-start shadow-md transition hover:border-cyan-400/60 hover:bg-cyan-900/40"
+              :class="
+                edge.to === selectedNodeId
+                  ? 'border-cyan-400 bg-cyan-900/50 ring-2 ring-cyan-500/50'
+                  : 'border-cyan-500/40 bg-cyan-950/30'
+              "
+              :aria-pressed="edge.to === selectedNodeId"
+              @click="emit('selectNode', edge.to === selectedNodeId ? null : edge.to)"
             >
               <span
                 class="rounded-full bg-cyan-500/20 px-2 py-0.5 font-mono text-[9px] font-bold text-cyan-300"
@@ -246,7 +277,7 @@ const observationLabel = (value: unknown): string | null => {
               >
                 {{ observationLabel(observationFor(edge.to)) }}
               </span>
-            </div>
+            </button>
           </article>
         </div>
       </div>
