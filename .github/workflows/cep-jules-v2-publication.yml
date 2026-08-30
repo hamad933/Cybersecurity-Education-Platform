@@ -88,9 +88,9 @@ jobs:
       CONTROLLER_ID: ${{ inputs.controller_id }}
       LANE: ${{ inputs.lane }}
       BRIDGE_ISSUE_NUMBER: ${{ inputs.bridge_issue_number }}
-      PATCH_FILE: ${{ runner.temp }}/cep-jules-publication/reviewed.patch
-      PREFLIGHT_RECEIPT: ${{ runner.temp }}/cep-jules-publication/preflight.json
-      RESULT_RECEIPT: ${{ runner.temp }}/cep-jules-publication/result.json
+      PATCH_FILE: /tmp/cep-jules-publication/reviewed.patch
+      PREFLIGHT_RECEIPT: /tmp/cep-jules-publication/preflight.json
+      RESULT_RECEIPT: /tmp/cep-jules-publication/result.json
 
     steps:
       - name: Enforce owner or authenticated issue-bridge dispatch gate
@@ -334,6 +334,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cep-jules-publication-${{ github.run_id }}
-          path: ${{ runner.temp }}/cep-jules-publication/
+          path: /tmp/cep-jules-publication/
           if-no-files-found: warn
           retention-days: 14
