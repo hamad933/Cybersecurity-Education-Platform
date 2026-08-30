@@ -585,6 +585,70 @@ final class RunResultCapabilityTest extends TestCase
         }
     }
     
+    public function test_operation_with_invalid_value_type_is_rejected(): void
+    {
+        $validKey = 'valid_key-123';
+
+        $invalidInputs = [
+            ['operation_key' => $validKey, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => 'true'],
+            ['operation_key' => $validKey, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => 1],
+            ['operation_key' => $validKey, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => null],
+            ['operation_key' => $validKey, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => ['true']],
+        ];
+
+        foreach ($invalidInputs as $invalidInput) {
+            $exceptionThrown = false;
+            try {
+                $digest = hash('sha256', $this->capability->canonicalizeJson(json_encode($invalidInput, JSON_THROW_ON_ERROR)));
+
+                $resultId = $this->createCanonicalResultWithBaselineStructure(
+                    [
+                        ['operation_key' => $validKey, 'grammar_version' => RunResultVocabulary::OPERATION_ENGINE_V1, 'input' => $invalidInput, 'input_digest' => $digest, 'actor_id' => 'a1']
+                    ],
+                    [['sequence' => 1, 'event_type' => 'SIMULATION_OPERATION_APPLIED', 'actor_id' => 'a1', 'payload' => ['operation_key' => $validKey, 'grammar_version' => RunResultVocabulary::OPERATION_ENGINE_V1, 'verb' => $invalidInput['verb'], 'target' => $invalidInput['target'], 'value' => $invalidInput['value']]]]
+                );
+
+                $revId = $this->capability->createResultRevision($resultId, []);
+                $this->capability->projectReplayState($revId);
+            } catch (InvalidArgumentException $e) {
+                $exceptionThrown = true;
+            }
+
+            $this->assertTrue($exceptionThrown, 'Expected InvalidArgumentException for non-boolean value type: ' . gettype($invalidInput['value']));
+        }
+    }
+
+    public function test_operation_with_valid_boolean_value_is_accepted(): void
+    {
+        $validKey = 'valid_key-123';
+
+        $validInputs = [
+            ['operation_key' => $validKey, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true],
+            ['operation_key' => $validKey, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => false],
+        ];
+
+        foreach ($validInputs as $validInput) {
+            $exceptionThrown = false;
+            try {
+                $digest = hash('sha256', $this->capability->canonicalizeJson(json_encode($validInput, JSON_THROW_ON_ERROR)));
+
+                $resultId = $this->createCanonicalResultWithBaselineStructure(
+                    [
+                        ['operation_key' => $validKey, 'grammar_version' => RunResultVocabulary::OPERATION_ENGINE_V1, 'input' => $validInput, 'input_digest' => $digest, 'actor_id' => 'a1']
+                    ],
+                    [['sequence' => 1, 'event_type' => 'SIMULATION_OPERATION_APPLIED', 'actor_id' => 'a1', 'payload' => ['operation_key' => $validKey, 'grammar_version' => RunResultVocabulary::OPERATION_ENGINE_V1, 'verb' => $validInput['verb'], 'target' => $validInput['target'], 'value' => $validInput['value']]]]
+                );
+
+                $revId = $this->capability->createResultRevision($resultId, []);
+                $this->capability->projectReplayState($revId);
+            } catch (\Exception $e) {
+                $exceptionThrown = true;
+            }
+
+            $this->assertFalse($exceptionThrown, 'Did not expect exception for valid boolean value type: ' . ($validInput['value'] ? 'true' : 'false'));
+        }
+    }
+
     public function test_multi_hop_revision_preserves_explicit_null_effective_state_without_resurrecting_canonical_values(): void
     {
         $op1Key = 'valid-op-key-01';

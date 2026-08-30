@@ -516,6 +516,9 @@ final class RunResultCapability
         if ($input['target'] !== 'IDENTITY_MFA') {
             throw new InvalidArgumentException('Input target must be exactly IDENTITY_MFA per exact baseline contract.');
         }
+        if (!is_bool($input['value'])) {
+            throw new InvalidArgumentException('Input value must be strictly boolean per exact baseline contract.');
+        }
         
         if ($input['operation_key'] !== $operation['operation_key']) {
             throw new InvalidArgumentException('Inner operation_key does not match outer key.');
