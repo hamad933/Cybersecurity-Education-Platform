@@ -1,0 +1,121 @@
+name: CEP Jules Gateway v2.3 Issue Publication Bridge
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  actions: write
+  issues: write
+
+jobs:
+  dispatch-publication:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >
+      github.actor == github.repository_owner &&
+      github.event.issue.author_association == 'OWNER' &&
+      startsWith(github.event.issue.title, '[CEP-V23-PUBLISH]')
+    steps:
+      - name: Validate packet and dispatch trusted publisher
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import sys
+
+          try:
+              data = json.loads(os.environ.get("ISSUE_BODY") or "{}")
+              expected_fields = {
+                  "request_id", "controller_id", "lane", "logical_task",
+                  "write_domain", "session_id", "expected_session_state",
+                  "expected_session_update_time", "target_branch",
+                  "expected_remote_sha", "expected_review_sha256",
+                  "expected_paths_sha256",
+              }
+              if set(data) != expected_fields:
+                  raise ValueError("payload keys do not match exact governed set")
+              for key, value in data.items():
+                  if not isinstance(value, str) or not value:
+                      raise ValueError(f"field {key} must be a non-empty string")
+              if not re.fullmatch(r"[0-9]+", data["session_id"]):
+                  raise ValueError("session_id must be numeric")
+              if not re.fullmatch(r"[0-9a-fA-F]{40}", data["expected_remote_sha"]):
+                  raise ValueError("expected_remote_sha must be 40 hex")
+              if not re.fullmatch(r"[0-9a-fA-F]{64}", data["expected_review_sha256"]):
+                  raise ValueError("expected_review_sha256 must be 64 hex")
+              if not re.fullmatch(r"[0-9a-fA-F]{64}", data["expected_paths_sha256"]):
+                  raise ValueError("expected_paths_sha256 must be 64 hex")
+              if data["controller_id"] not in {"PARENT", "A", "B", "C"}:
+                  raise ValueError("invalid controller_id")
+              if data["lane"] not in {"PARENT", "W01_W02", "W03_W04", "W05"}:
+                  raise ValueError("invalid lane")
+              if data["expected_session_state"] not in {"COMPLETED", "AWAITING_USER_FEEDBACK"}:
+                  raise ValueError("invalid expected_session_state")
+              if not data["target_branch"].startswith(("work/", "fix/", "checkpoint/", "candidate/")):
+                  raise ValueError("invalid target_branch prefix")
+              with open("packet.json", "w", encoding="utf-8") as handle:
+                  json.dump(data, handle, sort_keys=True)
+          except Exception as exc:
+              print(f"INVALID_PUBLICATION_PACKET: {exc}", file=sys.stderr)
+              raise SystemExit(2)
+          PY
+
+          REQUEST_ID="$(jq -r '.request_id' packet.json)"
+          COMMENTS="$(gh api "/repos/$REPO/issues/$ISSUE_NUMBER/comments" --paginate --jq '.[].body')"
+
+          if grep -Fq "CEP_V23_BRIDGE_RECEIPT request_id=$REQUEST_ID outcome=DISPATCH_ACCEPTED" <<<"$COMMENTS"; then
+            echo "IDEMPOTENT_ALREADY_DISPATCHED"
+            exit 0
+          fi
+          if grep -Fq "CEP_V23_BRIDGE_WRITE_INTENT request_id=$REQUEST_ID" <<<"$COMMENTS"; then
+            gh issue comment "$ISSUE_NUMBER" --body "CEP_V23_BRIDGE_REJECTED request_id=$REQUEST_ID reason=UNKNOWN_PRIOR_WRITE_OUTCOME"
+            echo "UNKNOWN_PRIOR_WRITE_OUTCOME" >&2
+            exit 3
+          fi
+
+          TARGET_BRANCH="$(jq -r '.target_branch' packet.json)"
+          ENCODED_BRANCH="$(python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$TARGET_BRANCH")"
+          gh api "/repos/$REPO/branches/$ENCODED_BRANCH" >/dev/null || {
+            echo "TARGET_BRANCH_NOT_FOUND" >&2
+            exit 4
+          }
+          gh api "/repos/$REPO/contents/.github/workflows/cep-jules-v2-publication.yml?ref=main" >/dev/null || {
+            echo "WORKFLOW_MISSING_ON_MAIN" >&2
+            exit 4
+          }
+
+          gh issue comment "$ISSUE_NUMBER" --body "CEP_V23_BRIDGE_WRITE_INTENT request_id=$REQUEST_ID blind_retry=false"
+
+          jq -n \
+            --arg ref "main" \
+            --arg bridge_issue_number "$ISSUE_NUMBER" \
+            --slurpfile packet packet.json \
+            '{ref:$ref, inputs:($packet[0] + {bridge_issue_number:$bridge_issue_number})}' \
+            > dispatch.json
+
+          set +e
+          gh api -X POST "/repos/$REPO/actions/workflows/cep-jules-v2-publication.yml/dispatches" \
+            --input dispatch.json \
+            --silent
+          RC=$?
+          set -e
+
+          if [ "$RC" -eq 0 ]; then
+            gh issue comment "$ISSUE_NUMBER" --body "CEP_V23_BRIDGE_RECEIPT request_id=$REQUEST_ID outcome=DISPATCH_ACCEPTED"
+            gh issue close "$ISSUE_NUMBER" --reason completed
+            echo "DISPATCH_ACCEPTED request_id=$REQUEST_ID"
+          else
+            gh issue comment "$ISSUE_NUMBER" --body "CEP_V23_BRIDGE_RECEIPT request_id=$REQUEST_ID outcome=UNKNOWN_OR_REJECTED rc=$RC"
+            exit "$RC"
+          fi
