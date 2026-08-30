@@ -4,6 +4,7 @@ import Learn from '../pages/KnowledgeLearning/Learn.vue';
 import Library from '../pages/KnowledgeLearning/Library.vue';
 import ResearchQuality from '../pages/KnowledgeLearning/ResearchQuality.vue';
 import Visualize from '../pages/KnowledgeLearning/Visualize.vue';
+import { lessonContentContractFixture } from './fixtures/lessonContentContract';
 
 // Minimal mock component for Inertia Link and Head
 const stubComponents = {
@@ -17,8 +18,22 @@ describe('Knowledge & Learning Phase 1 Layouts & Governance (W02-C01 through W02
     const wrapper = mount(Learn, {
       props: {
         catalog: [],
-        active: { id: 'u1', title_ar: 'الوحدة 1', title_en: 'Unit 1', revision: null },
+        active: {
+          id: 'u1',
+          canonical_ref: { kind: 'knowledge_unit', id: 'u1' },
+          title_ar: 'الوحدة 1',
+          title_en: 'Unit 1',
+        },
+        lesson: {
+          availability: 'UNAVAILABLE_NO_PUBLISHED_REVISION',
+          selection_policy: 'latest_published_revision_only',
+          revision: null,
+          unavailable_reason: 'No published lesson revision.',
+        },
+        selection: { requested_id: 'u1', resolved_id: 'u1', state: 'REQUESTED_CANONICAL_UNIT' },
+        content_contract: lessonContentContractFixture,
         journey: {
+          state: 'PRACTICE_ACTIVITY_AVAILABLE',
           items: [
             {
               id: 'j1',
@@ -30,19 +45,58 @@ describe('Knowledge & Learning Phase 1 Layouts & Governance (W02-C01 through W02
               latest_outcome: 'correct',
               latest_activity_at: '2023-01-01',
               activity_state: 'COMPLETED',
+              activity_completed: true,
+              completion_semantics: 'practice_activity_only_not_mastery',
               definition: { lab_reference: { id: 'lab-1' } },
             },
           ],
-          labs: [],
-          assessments: { state: 'NO_ASSESSMENT' },
+          labs: [
+            {
+              id: 'lab-1',
+              preview_state: 'REFERENCE_ONLY_FROM_LEARNING_DEFINITION',
+              canonical_owner: 'simulation_enterprise',
+              prepare_run_handoff: {
+                state: 'PARENT_INTEGRATION_REQUIRED',
+                executable: false,
+                href: null,
+              },
+            },
+          ],
+          assessments: {
+            state: 'NO_ASSESSMENT',
+            integration_state: 'AUTHORITATIVE_ASSESSMENT_CONTRACT_REQUIRED',
+          },
+          next: {
+            state: 'PRACTICE_ACTIVITY_COMPLETE',
+            practice_id: null,
+            completion_is_mastery: false,
+          },
           activity: {
+            practice_count: 1,
             attempt_count: 0,
             completed_practice_count: 0,
+            started_practice_count: 0,
+            completion_is_mastery: false,
             latest_activity_at: null,
             semantic_scope: '',
           },
         },
-        semantic_boundary: { progress: '', mastery: '' },
+        context: {
+          placements: [],
+          sources: [],
+          prerequisites: {
+            state: 'AUTHORITATIVE_PREREQUISITE_CONTRACT_UNAVAILABLE',
+            items: [],
+            availability_may_be_inferred: false,
+          },
+          navigation: {},
+          resume: {
+            storage: 'browser_local',
+            server_persisted: false,
+            semantic_scope: 'reading_position_only_not_completion_or_mastery',
+          },
+        },
+        semantic_boundary: { progress: '', completion: '', mastery: '' },
       },
       global: { stubs: stubComponents },
     });
@@ -56,7 +110,7 @@ describe('Knowledge & Learning Phase 1 Layouts & Governance (W02-C01 through W02
     // CENTER Lesson surface with truthful no-lesson state and clear Arabic strings (W02-C06)
     expect(html).toContain('سطح الدرس والمحتوى التعليمي');
     expect(html).toContain('الدرس غير متوفر');
-    expect(html).toContain('لا يتوفر درس مسجل لهذه الوحدة');
+    expect(html).toContain('لا يتوفر درس منشور لهذه الوحدة');
     expect(html).toContain('NO_ASSESSMENT');
 
     // No fake SQL Injection or fabricated 28% completion data
@@ -126,9 +180,15 @@ describe('Knowledge & Learning Phase 1 Layouts & Governance (W02-C01 through W02
       props: {
         catalog: [],
         active: null,
+        selection: { requested_id: null, resolved_id: null, state: 'EMPTY_CANONICAL_LIBRARY' },
         quality: {
           sources: [],
           active_source: null,
+          source_selection: {
+            requested_id: null,
+            resolved_id: null,
+            state: 'NO_SOURCES_AVAILABLE',
+          },
           canonical_claim_ids: [],
           review_semantics: 'test',
         },
@@ -159,13 +219,24 @@ describe('Knowledge & Learning Phase 1 Layouts & Governance (W02-C01 through W02
           unresolved_capabilities: [],
           unplaced: [],
         },
+        selection: { requested_id: 'u1', resolved_id: 'u1', state: 'REQUESTED_CANONICAL_UNIT' },
+        content_contract: lessonContentContractFixture,
+        capability_manifest: {
+          canonical_store: {},
+          hierarchy: { available: [], requires_parent_context: [] },
+          canonical_object_families_requiring_schema_or_parent_integration: [],
+          projection_policy: 'reference_canonical_objects_without_silent_copy',
+        },
         context: {
           placements: [],
           sources: [],
           unresolved_citation_count: 0,
+          hierarchy_state: 'NO_CURRICULUM_PLACEMENT',
+          navigation: {},
         },
         active: {
           id: 'u1',
+          canonical_ref: { kind: 'knowledge_unit', id: 'u1' },
           title_ar: 'Title',
           title_en: 'Title',
           revision: {
@@ -193,6 +264,12 @@ describe('Knowledge & Learning Phase 1 Layouts & Governance (W02-C01 through W02
               updated_at: '2023-01-01',
             },
           ],
+          revision_selection: {
+            requested_id: null,
+            selected_id: 'rev1',
+            state: 'LATEST_REVISION',
+            policy: 'explicit_revision_or_latest_revision',
+          },
         },
       },
       global: { stubs: stubComponents },

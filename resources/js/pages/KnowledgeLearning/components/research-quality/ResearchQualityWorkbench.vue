@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import type { ResearchAnalysis, Source } from './types';
 
 defineProps<{
@@ -6,6 +7,20 @@ defineProps<{
   source: Source | null;
   analysis: ResearchAnalysis | null;
 }>();
+
+const reconciliationNotes = ref<Record<string, string>>({});
+const copiedClaimId = ref<string | null>(null);
+
+const copyReconciliationNote = async (claimId: string) => {
+  const note = reconciliationNotes.value[claimId]?.trim();
+  if (!note || typeof navigator === 'undefined' || !navigator.clipboard) return;
+
+  await navigator.clipboard.writeText(note);
+  copiedClaimId.value = claimId;
+  setTimeout(() => {
+    if (copiedClaimId.value === claimId) copiedClaimId.value = null;
+  }, 1600);
+};
 </script>
 
 <template>
@@ -138,6 +153,41 @@ defineProps<{
           <bdi dir="ltr" class="font-bold">system_truth_decision</bdi>. قرار التوفيق
           (reconciliation) من اختصاص المراجع البشري.
         </p>
+
+        <section class="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <label
+              :for="`reconciliation-note-${conflict.claim_id}`"
+              class="text-xs font-bold text-slate-300"
+            >
+              مذكرة توفيق بشرية مؤقتة
+            </label>
+            <bdi dir="ltr" class="font-mono text-[9px] text-amber-300">
+              RQ_PERSISTENT_RECONCILIATION_OWNER_REQUIRED
+            </bdi>
+          </div>
+          <textarea
+            :id="`reconciliation-note-${conflict.claim_id}`"
+            v-model="reconciliationNotes[conflict.claim_id]"
+            rows="3"
+            maxlength="2000"
+            class="focus-ring mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-xs leading-6 text-slate-200 placeholder:text-slate-600"
+            placeholder="دوّن أسئلة المراجعة أو نقاط المقارنة هنا. ستُفقد عند مغادرة الصفحة ولن تصبح قرارًا قانونيًا."
+          ></textarea>
+          <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <p class="text-[10px] leading-5 text-slate-500">
+              ذاكرة واجهة مؤقتة فقط؛ لا تُكتب في metadata أو assessment أو Evidence.
+            </p>
+            <button
+              type="button"
+              class="focus-ring rounded-lg border border-slate-700 px-2.5 py-1 text-[10px] font-bold text-slate-300 hover:bg-slate-800 disabled:opacity-40"
+              :disabled="!reconciliationNotes[conflict.claim_id]?.trim()"
+              @click="copyReconciliationNote(conflict.claim_id)"
+            >
+              {{ copiedClaimId === conflict.claim_id ? 'نُسخت المذكرة' : 'نسخ المذكرة المؤقتة' }}
+            </button>
+          </div>
+        </section>
       </article>
     </div>
     <p

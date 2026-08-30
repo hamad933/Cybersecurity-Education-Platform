@@ -2,6 +2,8 @@
 
 namespace App\Modules\Knowledge\Application\Library;
 
+use App\Modules\Knowledge\Content\LessonContentContract;
+
 final class LibraryCapabilityManifest
 {
     /** @return array<string, mixed> */
@@ -11,6 +13,11 @@ final class LibraryCapabilityManifest
             'canonical_store' => [
                 'knowledge_unit' => 'persisted',
                 'lesson_revision' => 'persisted_revisioned_content',
+            ],
+            'content_contract' => [
+                'version' => LessonContentContract::VERSION,
+                'owner' => 'knowledge',
+                'learn_projection' => 'latest_published_revision_only',
             ],
             'hierarchy' => [
                 'available' => ['capability', 'knowledge_unit'],

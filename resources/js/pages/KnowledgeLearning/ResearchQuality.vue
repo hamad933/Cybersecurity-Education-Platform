@@ -3,6 +3,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import CepWorkspaceLayout from '../../layouts/CepWorkspaceLayout.vue';
 import KnowledgeTabs from './components/KnowledgeTabs.vue';
+import type { KnowledgeUnitSelection } from './components/content/lessonContent';
 import ProvenancePanel from './components/research-quality/ProvenancePanel.vue';
 import ResearchQualityWorkbench from './components/research-quality/ResearchQualityWorkbench.vue';
 import SourceComparisonTable from './components/research-quality/SourceComparisonTable.vue';
@@ -19,9 +20,15 @@ defineProps<{
     title_en: string;
     revision: { id: string; revision: number; state: string; citations: string[] } | null;
   } | null;
+  selection: KnowledgeUnitSelection;
   quality: {
     sources: Source[];
     active_source: Source | null;
+    source_selection: {
+      requested_id: string | null;
+      resolved_id: string | null;
+      state: string;
+    };
     canonical_claim_ids: string[];
     review_semantics: string;
     analysis?: ResearchAnalysis;
@@ -57,6 +64,17 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
       class="kl-research-quality-route min-h-full bg-[var(--cep-bg-canvas)] text-[var(--cep-text)]"
     >
       <div class="w-full px-0 py-3 sm:px-4 xl:px-6">
+        <div
+          v-if="
+            selection.state === 'REQUESTED_UNIT_NOT_FOUND_FALLBACK' ||
+            quality.source_selection.state === 'REQUESTED_SOURCE_NOT_FOUND_FALLBACK'
+          "
+          role="alert"
+          class="mb-3 rounded-xl border border-amber-700/60 bg-amber-950/40 px-4 py-2.5 text-xs text-amber-200"
+        >
+          تعذّر حل الكائن أو المصدر المطلوب. عُرض أقرب سجل قانوني متاح مع إبقاء حالة الاختيار صريحة؛
+          لم تُنشأ بيانات بديلة.
+        </div>
         <!-- Top Modes Toolbar -->
         <header
           class="mb-4 rounded-2xl border border-slate-800/80 bg-slate-900/50 p-3.5 shadow-lg backdrop-blur dark:bg-[#0b1322]/90"
@@ -228,6 +246,24 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
                   النظام لا يقرر حقيقة المعرفة. يمكنه كشف التعارضات وتجميع المنشأ (provenance) فقط؛
                   أما التوفيق النهائي (reconciliation) فحكم بشري.
                 </p>
+                <div
+                  class="rounded-xl border border-amber-600/60 bg-amber-950/30 p-3 text-[11px] text-amber-100"
+                >
+                  <p class="font-bold">لا يوجد مخزن قرار توفيق دائم مصرح به في W02.</p>
+                  <bdi
+                    dir="ltr"
+                    class="mt-1.5 block font-mono text-[10px] break-all text-amber-300"
+                  >
+                    {{
+                      quality.analysis?.reconciliation.persistence_boundary.state ??
+                      'RQ_PERSISTENT_RECONCILIATION_OWNER_REQUIRED'
+                    }}
+                  </bdi>
+                  <p class="mt-1.5 leading-5 text-amber-100/70">
+                    الملاحظات المؤقتة لا تُحفظ في SourceRecord أو SourceClaim ولا تتحول إلى
+                    Evidence.
+                  </p>
+                </div>
                 <dl
                   class="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-[11px] text-slate-400"
                 >

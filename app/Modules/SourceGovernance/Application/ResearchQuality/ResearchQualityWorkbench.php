@@ -34,7 +34,14 @@ final class ResearchQualityWorkbench
                 'pending_conflict_count' => count($conflicts),
                 'human_judgment_required' => $conflicts !== [],
                 'system_truth_decision' => null,
-                'allowed_next_tools' => ['compare', 'inspect_provenance', 'record_human_reconciliation'],
+                'allowed_next_tools' => ['compare', 'inspect_provenance', 'draft_ephemeral_reconciliation_note'],
+                'persistence_boundary' => [
+                    'state' => 'RQ_PERSISTENT_RECONCILIATION_OWNER_REQUIRED',
+                    'durable_write_authorized' => false,
+                    'persistent_owner' => null,
+                    'decision_record' => null,
+                    'current_experience' => 'read_only_analysis_with_ephemeral_human_note',
+                ],
             ],
             'revision_reasoning' => [
                 'canonical_claim_ids' => $canonicalClaimIds,

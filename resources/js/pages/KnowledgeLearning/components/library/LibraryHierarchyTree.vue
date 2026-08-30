@@ -79,6 +79,7 @@ const itemHref = (item: LibraryProjectionItem) =>
                 <li v-for="item in capability.items" :key="item.canonical_ref.id">
                   <Link
                     :href="itemHref(item)"
+                    :aria-current="item.canonical_ref.id === activeId ? 'page' : undefined"
                     class="focus-ring group flex items-start gap-2 rounded-lg p-2 transition-all duration-150"
                     :class="
                       item.canonical_ref.id === activeId
@@ -109,6 +110,20 @@ const itemHref = (item: LibraryProjectionItem) =>
                       >
                         {{ item.canonical_ref.id }}
                       </bdi>
+                      <span
+                        class="mt-1 inline-flex rounded px-1.5 py-0.5 font-mono text-[8px]"
+                        :class="
+                          item.published_revision
+                            ? 'bg-emerald-950/60 text-emerald-400'
+                            : 'bg-amber-950/60 text-amber-300'
+                        "
+                      >
+                        {{
+                          item.published_revision
+                            ? `published r${item.published_revision}`
+                            : 'no published lesson'
+                        }}
+                      </span>
                     </div>
                   </Link>
                 </li>
@@ -140,6 +155,7 @@ const itemHref = (item: LibraryProjectionItem) =>
           <li v-for="item in capability.items" :key="item.canonical_ref.id">
             <Link
               :href="itemHref(item)"
+              :aria-current="item.canonical_ref.id === activeId ? 'page' : undefined"
               class="focus-ring flex items-start gap-2 rounded-lg p-2 text-xs transition"
               :class="
                 item.canonical_ref.id === activeId
@@ -170,6 +186,7 @@ const itemHref = (item: LibraryProjectionItem) =>
         <li v-for="item in projection.unplaced" :key="item.canonical_ref.id">
           <Link
             :href="itemHref(item)"
+            :aria-current="item.canonical_ref.id === activeId ? 'page' : undefined"
             class="focus-ring flex items-start gap-2 rounded-lg p-2 text-xs transition"
             :class="
               item.canonical_ref.id === activeId

@@ -194,6 +194,11 @@ final class LibraryHierarchyProjector
             'title_en' => (string) ($item['title_en'] ?? ''),
             'latest_revision' => is_int($item['latest_revision'] ?? null) ? $item['latest_revision'] : null,
             'latest_state' => is_string($item['latest_state'] ?? null) ? $item['latest_state'] : null,
+            'revision_count' => is_int($item['revision_count'] ?? null) ? $item['revision_count'] : 0,
+            'published_revision' => is_int($item['published_revision'] ?? null) ? $item['published_revision'] : null,
+            'lesson_availability' => is_string($item['lesson_availability'] ?? null)
+                ? $item['lesson_availability']
+                : 'NO_PUBLISHED_LESSON',
             'projection_reason' => $placement === null ? 'unplaced_canonical_object' : 'curriculum_placement',
             'placement' => $placement === null ? null : [
                 'id' => is_string($placement['id'] ?? null) ? $placement['id'] : null,

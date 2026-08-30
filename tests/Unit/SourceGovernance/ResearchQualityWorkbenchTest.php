@@ -21,6 +21,13 @@ final class ResearchQualityWorkbenchTest extends TestCase
         self::assertNull($analysis['conflicts'][0]['system_truth_decision']);
         self::assertTrue($analysis['reconciliation']['human_judgment_required']);
         self::assertNull($analysis['reconciliation']['system_truth_decision']);
+        self::assertSame(
+            'RQ_PERSISTENT_RECONCILIATION_OWNER_REQUIRED',
+            $analysis['reconciliation']['persistence_boundary']['state'],
+        );
+        self::assertFalse($analysis['reconciliation']['persistence_boundary']['durable_write_authorized']);
+        self::assertNull($analysis['reconciliation']['persistence_boundary']['persistent_owner']);
+        self::assertNotContains('record_human_reconciliation', $analysis['reconciliation']['allowed_next_tools']);
         self::assertSame('human', $analysis['review']['decision_authority']);
         self::assertFalse($analysis['review']['system_may_decide_truth']);
         self::assertFalse($analysis['review']['evidence_review']);

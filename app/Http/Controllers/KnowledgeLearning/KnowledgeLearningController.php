@@ -4,9 +4,9 @@ namespace App\Http\Controllers\KnowledgeLearning;
 
 use App\Application\KnowledgeLearning\KnowledgeLearningWorkspace;
 use App\Http\Controllers\Controller;
+use App\Modules\Knowledge\Content\LessonContentContract;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use InvalidArgumentException;
@@ -46,18 +46,13 @@ final class KnowledgeLearningController extends Controller
         ));
     }
 
-    public function updateRevision(Request $request, KnowledgeLearningWorkspace $workspace, string $revision): RedirectResponse
-    {
-        $validated = $request->validate([
-            'lock_version' => ['required', 'integer', 'min:1'],
-            'blocks' => ['required', 'array', 'min:1', 'max:24'],
-            'blocks.*' => ['array:type,body,depth'],
-            'blocks.*.type' => ['required', Rule::in(['heading', 'paragraph', 'callout', 'rules', 'boundaries', 'code', 'request', 'response', 'log'])],
-            'blocks.*.body' => ['required', 'string', 'max:4000'],
-            'blocks.*.depth' => ['required', 'integer', 'min:0', 'max:3'],
-            'citations' => ['required', 'array', 'min:1', 'max:20'],
-            'citations.*' => ['required', 'string', 'max:80'],
-        ]);
+    public function updateRevision(
+        Request $request,
+        KnowledgeLearningWorkspace $workspace,
+        LessonContentContract $content,
+        string $revision,
+    ): RedirectResponse {
+        $validated = $request->validate($content->requestValidationRules());
 
         try {
             $workspace->updateRevision(

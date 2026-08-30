@@ -26,14 +26,18 @@ defineProps<{ rows: ComparisonRow[] }>();
       class="mt-4 max-h-[600px] overflow-auto rounded-2xl border border-slate-800/80 bg-slate-950/60 shadow-lg"
     >
       <table class="min-w-full divide-y divide-slate-800/80 text-xs">
+        <caption class="sr-only">
+          مقارنة وصفية بين المصادر من حيث السلطة والادعاءات والمراسي وبصمة السلامة؛ لا تمثل ترتيبًا
+          للحقيقة.
+        </caption>
         <thead class="sticky top-0 z-10 bg-slate-900/95 text-[11px] font-bold text-slate-400">
           <tr>
-            <th class="px-4 py-3.5 text-right">المصدر</th>
-            <th class="px-4 py-3.5 text-right">Authority</th>
-            <th class="px-4 py-3.5 text-right">Claims</th>
-            <th class="px-4 py-3.5 text-right">Active revision</th>
-            <th class="px-4 py-3.5 text-right">Anchors</th>
-            <th class="px-4 py-3.5 text-right">Digest</th>
+            <th scope="col" class="px-4 py-3.5 text-right">المصدر</th>
+            <th scope="col" class="px-4 py-3.5 text-right">Authority</th>
+            <th scope="col" class="px-4 py-3.5 text-right">Claims</th>
+            <th scope="col" class="px-4 py-3.5 text-right">Active revision</th>
+            <th scope="col" class="px-4 py-3.5 text-right">Anchors</th>
+            <th scope="col" class="px-4 py-3.5 text-right">Digest</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-800/60">

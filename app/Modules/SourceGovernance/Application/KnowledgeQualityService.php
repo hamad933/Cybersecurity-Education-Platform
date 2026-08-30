@@ -41,12 +41,17 @@ final class KnowledgeQualityService
             ->all();
 
         $active = null;
+        $selectionState = 'NO_SOURCES_AVAILABLE';
         if ($requestedSourceId !== null) {
             foreach ($sources as $source) {
                 if (($source['id'] ?? null) === $requestedSourceId) {
                     $active = $source;
+                    $selectionState = 'REQUESTED_SOURCE';
                     break;
                 }
+            }
+            if ($active === null && $sources !== []) {
+                $selectionState = 'REQUESTED_SOURCE_NOT_FOUND_FALLBACK';
             }
         }
 
@@ -60,6 +65,9 @@ final class KnowledgeQualityService
                 foreach ($claims as $claim) {
                     if (is_array($claim) && ($claim['used_by_active_revision'] ?? false) === true) {
                         $active = $source;
+                        if ($selectionState !== 'REQUESTED_SOURCE_NOT_FOUND_FALLBACK') {
+                            $selectionState = 'ACTIVE_REVISION_SOURCE';
+                        }
                         break 2;
                     }
                 }
@@ -68,11 +76,19 @@ final class KnowledgeQualityService
 
         if ($active === null) {
             $active = $sources[0] ?? null;
+            if ($active !== null && $selectionState !== 'REQUESTED_SOURCE_NOT_FOUND_FALLBACK') {
+                $selectionState = 'DEFAULTED_TO_FIRST_SOURCE';
+            }
         }
 
         return [
             'sources' => $sources,
             'active_source' => $active,
+            'source_selection' => [
+                'requested_id' => $requestedSourceId,
+                'resolved_id' => is_string($active['id'] ?? null) ? $active['id'] : null,
+                'state' => $selectionState,
+            ],
             'canonical_claim_ids' => $canonicalClaimIds,
             'review_semantics' => 'knowledge_quality',
             'analysis' => (new ResearchQualityWorkbench)->analyze($sources, $canonicalClaimIds),

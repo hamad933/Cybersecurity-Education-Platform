@@ -1,8 +1,22 @@
 <script setup lang="ts">
-import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import CepWorkspaceLayout from '../../layouts/CepWorkspaceLayout.vue';
 import KnowledgeTabs from './components/KnowledgeTabs.vue';
+import {
+  areValidLessonCitations,
+  citationMatchesContract,
+  inlineLessonTokens,
+  isValidLessonContent,
+  isValidLessonHierarchy,
+  normalizeLessonBlocks,
+  safeHttpsUrl,
+  type KnowledgeUnitSelection,
+  type LessonBlock,
+  type LessonContentContract,
+  type LessonRevision,
+  type StoredLessonBlock,
+} from './components/content/lessonContent';
 import LibraryHierarchyTree from './components/library/LibraryHierarchyTree.vue';
 import type {
   LibraryHierarchyProjection,
@@ -15,23 +29,13 @@ type CatalogItem = {
   title_en: string;
   latest_revision: number | null;
   latest_state: string | null;
+  revision_count: number;
+  published_revision: number | null;
+  lesson_availability: string;
 };
-type RevisionBlock = { type: string; body: string; depth?: number };
-type EditorBlock = { type: string; body: string; depth: number };
-type Revision = {
-  id: string;
-  revision: number;
-  state: string;
-  lock_version: number;
-  blocks: RevisionBlock[];
-  citations: string[];
-  authority_baseline_id: string | null;
-  content_digest: string;
-  derived_from_revision_id: string | null;
-  published_at: string | null;
-  updated_at: string | null;
-  editable: boolean;
-};
+type RevisionBlock = StoredLessonBlock;
+type EditorBlock = LessonBlock;
+type Revision = LessonRevision;
 type RevisionSummary = {
   id: string;
   revision: number;
@@ -43,10 +47,17 @@ type RevisionSummary = {
 };
 type ActiveUnit = {
   id: string;
+  canonical_ref: { kind: 'knowledge_unit'; id: string };
   title_ar: string;
   title_en: string;
   revision: Revision | null;
   revisions: RevisionSummary[];
+  revision_selection: {
+    requested_id: string | null;
+    selected_id: string | null;
+    state: string;
+    policy: string;
+  };
 };
 type Source = {
   id: string;
@@ -70,20 +81,24 @@ type RecoveryRecord = {
   snapshot: EditorSnapshot;
 };
 type InertiaRevisionPayload = { props?: { active?: ActiveUnit | null } };
-type InlineToken = {
-  kind: 'text' | 'strong' | 'emphasis' | 'code' | 'link';
-  text: string;
-  href?: string;
-};
-
 const props = defineProps<{
   catalog: CatalogItem[];
   structure: LibraryHierarchyProjection;
   active: ActiveUnit | null;
+  selection: KnowledgeUnitSelection;
+  content_contract: LessonContentContract;
+  capability_manifest: {
+    canonical_store: Record<string, string>;
+    hierarchy: { available: string[]; requires_parent_context: string[] };
+    canonical_object_families_requiring_schema_or_parent_integration: string[];
+    projection_policy: string;
+  };
   context: {
     placements: Placement[];
     sources: Source[];
     unresolved_citation_count: number;
+    hierarchy_state: string;
+    navigation: Record<string, string | null>;
   };
 }>();
 
@@ -132,19 +147,16 @@ const filteredStructure = computed<LibraryHierarchyProjection>(() => {
   return { domains, unresolved_capabilities, unplaced };
 });
 
-const MAX_BLOCK_DEPTH = 3;
-// NON-AUTHORITATIVE UX MIRROR: CEP-KNOWLEDGE-CORE-CORR-01 must inject an authoritative block registry
-// via Inertia props so the frontend does not manually mirror backend types.
-const technicalTypes = new Set(['code', 'request', 'response', 'log']);
-
-const structuralDepth = (block: RevisionBlock): number =>
-  Number.isInteger(block.depth) ? (block.depth as number) : 0;
-const normalizeBlock = (block: RevisionBlock): EditorBlock => ({
-  type: block.type,
-  body: block.body,
-  depth: structuralDepth(block),
-});
-const normalizeBlocks = (blocks: RevisionBlock[]): EditorBlock[] => blocks.map(normalizeBlock);
+const blockRegistry = computed(() => props.content_contract.block_registry);
+const technicalTypes = computed(
+  () =>
+    new Set(
+      blockRegistry.value
+        .filter((definition) => definition.technical)
+        .map((definition) => definition.type),
+    ),
+);
+const normalizeBlocks = (blocks: RevisionBlock[]): EditorBlock[] => normalizeLessonBlocks(blocks);
 const normalizeSnapshot = (snapshot: {
   blocks: RevisionBlock[];
   citations: string[];
@@ -158,6 +170,13 @@ const form = useForm({
   blocks: normalizeBlocks(props.active?.revision?.blocks ?? []),
   citations: props.active?.revision?.citations.slice() ?? [],
 });
+const revisionError = computed(
+  () =>
+    (form.errors as Record<string, string | undefined>).revision ??
+    Object.values(form.errors as Record<string, string | undefined>).find(Boolean) ??
+    page.props.errors?.revision,
+);
+const contractValidationError = ref('');
 
 const cloneSnapshot = (snapshot: EditorSnapshot): EditorSnapshot => ({
   blocks: snapshot.blocks.map((block) => ({ ...block })),
@@ -170,19 +189,8 @@ const currentSnapshot = (): EditorSnapshot => ({
 const snapshotsEqual = (left: EditorSnapshot, right: EditorSnapshot) =>
   JSON.stringify(left) === JSON.stringify(right);
 
-const isValidHierarchy = (blocks: EditorBlock[]): boolean => {
-  if (!blocks.length || blocks[0]?.depth !== 0) return false;
-
-  return blocks.every((block, index) => {
-    if (!Number.isInteger(block.depth) || block.depth < 0 || block.depth > MAX_BLOCK_DEPTH) {
-      return false;
-    }
-    if (index === 0) return block.depth === 0;
-
-    const previous = blocks[index - 1];
-    return Boolean(previous) && block.depth <= previous.depth + 1;
-  });
-};
+const isValidHierarchy = (blocks: EditorBlock[]): boolean =>
+  isValidLessonHierarchy(blocks, props.content_contract);
 
 const subtreeEnd = (blocks: EditorBlock[], index: number): number => {
   const root = blocks[index];
@@ -229,7 +237,9 @@ const canIndentBlock = (index: number) => {
   if (!block || previousSiblingIndex(form.blocks, index) === null) return false;
 
   const end = subtreeEnd(form.blocks, index);
-  return form.blocks.slice(index, end).every((item) => item.depth < MAX_BLOCK_DEPTH);
+  return form.blocks
+    .slice(index, end)
+    .every((item) => item.depth < props.content_contract.constraints.max_depth);
 };
 const canOutdentBlock = (index: number) => (form.blocks[index]?.depth ?? 0) > 0;
 const canMoveBlock = (index: number, delta: number) =>
@@ -237,7 +247,13 @@ const canMoveBlock = (index: number, delta: number) =>
     ? previousSiblingIndex(form.blocks, index) !== null
     : nextSiblingIndex(form.blocks, index) !== null;
 
-const addBlock = () => form.blocks.push({ type: 'paragraph', body: '', depth: 0 });
+const addBlock = () => {
+  if (form.blocks.length >= props.content_contract.constraints.max_blocks) {
+    contractValidationError.value = `الحد الأقصى لكتل المراجعة هو ${props.content_contract.constraints.max_blocks}.`;
+    return;
+  }
+  form.blocks.push({ type: 'paragraph', body: '', depth: 0 });
+};
 const removeBlock = (index: number) => {
   const end = subtreeEnd(form.blocks, index);
   const count = end - index;
@@ -320,12 +336,18 @@ const insertReference = (index: number) => {
   const normalized = reference?.trim();
   if (!normalized) return;
 
-  // NON-AUTHORITATIVE UX MIRROR: This regex mirrors the backend domain validator in LessonRevisionWorkflow.php.
-  // CEP-KNOWLEDGE-CORE-CORR-01 must provide a shared citation validation contract.
-  if (!/^(?:WIN|WEB|VS3)-AUTH-\d{3}$/.test(normalized)) {
+  if (!citationMatchesContract(normalized, props.content_contract)) {
     window.alert(
       'معرّف المرجع غير صالح. يجب أن يطابق النمط: WIN-AUTH-001 أو WEB-AUTH-001 أو VS3-AUTH-001.',
     );
+    return;
+  }
+
+  if (
+    !form.citations.includes(normalized) &&
+    form.citations.length >= props.content_contract.citation.max_items
+  ) {
+    contractValidationError.value = `الحد الأقصى للاستشهادات هو ${props.content_contract.citation.max_items}.`;
     return;
   }
 
@@ -354,7 +376,7 @@ const canAutosave = computed(
     Boolean(props.active?.revision?.editable) &&
     form.blocks.length > 0 &&
     form.blocks.every((block) => block.body.trim().length > 0) &&
-    isValidHierarchy(form.blocks),
+    isValidLessonContent(form.blocks, form.citations, props.content_contract),
 );
 
 const totalWordCount = computed(() => {
@@ -489,7 +511,10 @@ const submitRevision = (mode: 'manual' | 'auto') => {
   const url = revisionUrl();
   if (!url || !props.active?.revision?.editable || form.processing) return;
   if (mode === 'auto' && !canAutosave.value) return;
-  if (!isValidHierarchy(form.blocks)) {
+  if (!isValidLessonContent(form.blocks, form.citations, props.content_contract)) {
+    contractValidationError.value = areValidLessonCitations(form.citations, props.content_contract)
+      ? 'بنية كتل المراجعة لا تطابق عقد المحتوى القانوني.'
+      : 'قائمة الاستشهادات لا تطابق حدود أو نمط عقد المحتوى القانوني.';
     autosaveState.value = 'error';
     return;
   }
@@ -514,6 +539,7 @@ watch(
   () => JSON.stringify({ blocks: form.blocks, citations: form.citations }),
   () => {
     if (suppressHistory || !props.active?.revision?.editable) return;
+    contractValidationError.value = '';
     if (historyTimer) clearTimeout(historyTimer);
     if (autosaveTimer) clearTimeout(autosaveTimer);
     autosaveState.value = 'pending';
@@ -555,46 +581,7 @@ const restore = () => {
   );
 };
 
-const safeHttpsUrl = (candidate: string): string | null => {
-  try {
-    const parsed = new URL(candidate);
-    return parsed.protocol === 'https:' ? parsed.toString() : null;
-  } catch {
-    return null;
-  }
-};
-
-const inlineTokens = (body: string): InlineToken[] => {
-  // prettier-ignore
-  const pattern = /(\*\*[^*\n]+\*\*|_[^_\n]+_|`[^`\n]+`|\[[^\]\n]+\]\(https:\/\/[^)\s]+\))/g;
-  const tokens: InlineToken[] = [];
-  let offset = 0;
-
-  for (const match of body.matchAll(pattern)) {
-    const index = match.index ?? 0;
-    if (index > offset) tokens.push({ kind: 'text', text: body.slice(offset, index) });
-
-    const raw = match[0];
-    const link = raw.match(/^\[([^\]]+)\]\((https:\/\/[^)\s]+)\)$/);
-    const href = link?.[2] ? safeHttpsUrl(link[2]) : null;
-    if (link?.[1] && href) {
-      tokens.push({ kind: 'link', text: link[1], href });
-    } else if (raw.startsWith('**') && raw.endsWith('**')) {
-      tokens.push({ kind: 'strong', text: raw.slice(2, -2) });
-    } else if (raw.startsWith('_') && raw.endsWith('_')) {
-      tokens.push({ kind: 'emphasis', text: raw.slice(1, -1) });
-    } else if (raw.startsWith('`') && raw.endsWith('`')) {
-      tokens.push({ kind: 'code', text: raw.slice(1, -1) });
-    } else {
-      tokens.push({ kind: 'text', text: raw });
-    }
-
-    offset = index + raw.length;
-  }
-
-  if (offset < body.length) tokens.push({ kind: 'text', text: body.slice(offset) });
-  return tokens.length ? tokens : [{ kind: 'text', text: body }];
-};
+const inlineTokens = inlineLessonTokens;
 
 const shelfOpen = ref(false);
 const shelfTab = ref<'overview' | 'compare' | 'diagnostics'>('compare');
@@ -763,6 +750,31 @@ const loadComparison = async () => {
           class="rounded-xl border border-emerald-700/60 bg-emerald-950/50 px-4 py-2.5 text-xs font-medium text-emerald-200"
         >
           {{ page.props.flash.status }}
+        </p>
+
+        <p
+          v-if="contractValidationError || revisionError"
+          role="alert"
+          class="mt-2 rounded-xl border border-rose-700/60 bg-rose-950/50 px-4 py-2.5 text-xs font-medium text-rose-200"
+        >
+          {{ contractValidationError || revisionError }}
+        </p>
+
+        <p
+          v-if="selection.state === 'REQUESTED_UNIT_NOT_FOUND_FALLBACK'"
+          role="alert"
+          class="mt-2 rounded-xl border border-amber-700/60 bg-amber-950/40 px-4 py-2.5 text-xs text-amber-200"
+        >
+          لم تُعثر على وحدة المعرفة المطلوبة. عُرض أول كائن قانوني متاح دون تغيير المعرّف المطلوب أو
+          اختلاق ملكية جديدة.
+        </p>
+
+        <p
+          v-if="active?.revision_selection.state === 'REQUESTED_REVISION_NOT_FOUND_FALLBACK'"
+          role="alert"
+          class="mt-2 rounded-xl border border-amber-700/60 bg-amber-950/40 px-4 py-2.5 text-xs text-amber-200"
+        >
+          المراجعة المطلوبة لا تنتمي إلى هذا الكائن أو لم تعد متاحة؛ عُرضت أحدث مراجعة فعلية فقط.
         </p>
 
         <section
@@ -987,21 +999,18 @@ const loadComparison = async () => {
                       :aria-label="`أدوات الكتلة ${index + 1}`"
                     >
                       <div class="flex flex-wrap items-center gap-2">
-                        <!-- NON-AUTHORITATIVE UX MIRROR: block types mirrored from backend LessonRevisionWorkflow.php -->
                         <select
                           v-model="block.type"
                           class="form-input focus-ring rounded-md border-slate-700 bg-slate-900 py-1 pr-2 pl-6 font-mono text-xs text-slate-200"
                           :aria-label="`نوع الكتلة ${index + 1}`"
                         >
-                          <option value="heading">عنوان فرعي (Heading)</option>
-                          <option value="paragraph">فقرة (Paragraph)</option>
-                          <option value="callout">ملاحظة بارزة (Callout)</option>
-                          <option value="rules">قواعد وضوابط (Rules)</option>
-                          <option value="boundaries">حدود وسياق (Boundaries)</option>
-                          <option value="code">شفرة برمجية (Code)</option>
-                          <option value="request">طلب (Request)</option>
-                          <option value="response">استجابة (Response)</option>
-                          <option value="log">سجل (Log)</option>
+                          <option
+                            v-for="definition in blockRegistry"
+                            :key="definition.type"
+                            :value="definition.type"
+                          >
+                            {{ definition.label_ar }} ({{ definition.label_en }})
+                          </option>
                         </select>
 
                         <span class="font-mono text-[10px] text-slate-500"
@@ -1319,6 +1328,44 @@ const loadComparison = async () => {
                     </bdi>
                   </div>
                   <p v-else class="mt-1 text-slate-500">لا يوجد موضع منهجي مسجل لهذه الوحدة.</p>
+                  <bdi dir="ltr" class="mt-2 block font-mono text-[10px] break-all text-amber-300">
+                    {{ context.hierarchy_state }}
+                  </bdi>
+                </section>
+
+                <section
+                  class="rounded-lg border border-amber-900/60 bg-amber-950/20 p-3 text-[11px]"
+                >
+                  <h3 class="font-bold text-amber-200">حد ملكية العائلات والبنية</h3>
+                  <p class="mt-1.5 leading-5 text-amber-100/80">
+                    لا تُنشئ المكتبة Domain أو Capability Cluster أو عائلة كائن جديدة دون سياق أبوي
+                    معتمد. العائلات التالية ما زالت تتطلب مخططًا أو مالك تكامل:
+                  </p>
+                  <div class="mt-2 flex flex-wrap gap-1">
+                    <bdi
+                      v-for="family in capability_manifest.canonical_object_families_requiring_schema_or_parent_integration"
+                      :key="family"
+                      dir="ltr"
+                      class="rounded bg-amber-950/80 px-1.5 py-0.5 font-mono text-[9px] text-amber-300"
+                    >
+                      {{ family }}
+                    </bdi>
+                  </div>
+                </section>
+
+                <section class="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                  <Link
+                    :href="context.navigation.learn ?? '/knowledge/learn'"
+                    class="focus-ring rounded-lg border border-cyan-800 bg-cyan-950/30 px-3 py-2 text-center text-xs font-bold text-cyan-200 hover:bg-cyan-900/40"
+                  >
+                    متابعة التعلّم من هذا الكائن
+                  </Link>
+                  <Link
+                    :href="context.navigation.research_quality ?? '/knowledge/research-quality'"
+                    class="focus-ring rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-center text-xs font-bold text-slate-300 hover:bg-slate-800"
+                  >
+                    فحص المصادر والجودة
+                  </Link>
                 </section>
               </div>
 

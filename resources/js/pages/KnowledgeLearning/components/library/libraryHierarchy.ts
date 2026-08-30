@@ -7,6 +7,9 @@ export type LibraryProjectionItem = {
   title_en: string;
   latest_revision: number | null;
   latest_state: string | null;
+  revision_count: number;
+  published_revision: number | null;
+  lesson_availability: string;
   projection_reason: 'curriculum_placement' | 'unplaced_canonical_object';
   placement: {
     id: string | null;

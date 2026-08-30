@@ -10,6 +10,18 @@ const props = defineProps<{
 const row = computed(
   () => props.provenance.find((item) => item.source_id === props.source?.id) ?? null,
 );
+
+const safeExactUrl = computed(() => {
+  const candidate = props.source?.exact_url;
+  if (!candidate) return null;
+
+  try {
+    const parsed = new URL(candidate);
+    return parsed.protocol === 'https:' ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+});
 </script>
 
 <template>
@@ -30,15 +42,23 @@ const row = computed(
       <section class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
         <p class="text-[11px] font-bold text-slate-400">موقع المصدر (Locator)</p>
         <a
-          v-if="source.exact_url"
-          :href="source.exact_url"
+          v-if="safeExactUrl"
+          :href="safeExactUrl"
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
           dir="ltr"
           class="focus-ring mt-1.5 block text-left font-mono text-xs break-all text-cyan-300 underline"
         >
           {{ source.exact_url }}
         </a>
+        <div v-else-if="source.exact_url" class="mt-1.5">
+          <bdi dir="ltr" class="block font-mono text-xs break-all text-amber-300">
+            {{ source.exact_url }}
+          </bdi>
+          <p class="mt-1 text-[10px] text-amber-300">
+            الموقع محفوظ للمنشأ لكنه غير قابل للفتح: تتطلب الروابط الخارجية HTTPS صالحًا.
+          </p>
+        </div>
         <bdi
           v-else-if="source.relative_path"
           dir="ltr"

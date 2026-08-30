@@ -196,6 +196,8 @@ final class LearnJourneyProjectionTest extends TestCase
                 ->where('journey.labs.0.prepare_run_handoff.target_workspace', 'simulation_enterprise')
                 ->where('journey.labs.0.prepare_run_handoff.target_area', 'labs')
                 ->where('journey.labs.0.prepare_run_handoff.state', 'PARENT_INTEGRATION_REQUIRED')
+                ->where('journey.labs.0.prepare_run_handoff.reason', 'W03_AUTHORITATIVE_HANDOFF_ROUTE_AND_PAYLOAD_UNAVAILABLE')
+                ->where('journey.labs.0.prepare_run_handoff.executable', false)
                 ->where('journey.labs.0.prepare_run_handoff.href', null));
     }
 
@@ -233,8 +235,10 @@ final class LearnJourneyProjectionTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('journey.assessments.state', 'NO_CANONICAL_ASSESSMENT_PERSISTENCE_IN_CURRENT_ARCHITECTURE')
-                ->where('journey.assessments.semantic_owner', 'learning')
+                ->where('journey.assessments.integration_state', 'AUTHORITATIVE_ASSESSMENT_CONTRACT_REQUIRED')
+                ->where('journey.assessments.semantic_owner', null)
                 ->where('journey.assessments.fake_fallback_allowed', false)
+                ->where('journey.assessments.executable', false)
                 ->has('journey.assessments.definitions', 0)
                 ->has('journey.assessments.results', 0)
                 ->has('journey.items', 1));
