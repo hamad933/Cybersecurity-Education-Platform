@@ -79,7 +79,7 @@ jobs:
             exit 0
           fi
           if grep -Fq "CEP_V23_BRIDGE_WRITE_INTENT request_id=$REQUEST_ID" <<<"$COMMENTS"; then
-            gh issue comment "$ISSUE_NUMBER" --body "CEP_V23_BRIDGE_REJECTED request_id=$REQUEST_ID reason=UNKNOWN_PRIOR_WRITE_OUTCOME"
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "CEP_V23_BRIDGE_REJECTED request_id=$REQUEST_ID reason=UNKNOWN_PRIOR_WRITE_OUTCOME"
             echo "UNKNOWN_PRIOR_WRITE_OUTCOME" >&2
             exit 3
           fi
@@ -95,7 +95,7 @@ jobs:
             exit 4
           }
 
-          gh issue comment "$ISSUE_NUMBER" --body "CEP_V23_BRIDGE_WRITE_INTENT request_id=$REQUEST_ID blind_retry=false"
+          gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "CEP_V23_BRIDGE_WRITE_INTENT request_id=$REQUEST_ID blind_retry=false"
 
           jq -n \
             --arg ref "main" \
@@ -112,10 +112,10 @@ jobs:
           set -e
 
           if [ "$RC" -eq 0 ]; then
-            gh issue comment "$ISSUE_NUMBER" --body "CEP_V23_BRIDGE_RECEIPT request_id=$REQUEST_ID outcome=DISPATCH_ACCEPTED"
-            gh issue close "$ISSUE_NUMBER" --reason completed
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "CEP_V23_BRIDGE_RECEIPT request_id=$REQUEST_ID outcome=DISPATCH_ACCEPTED"
+            gh issue close "$ISSUE_NUMBER" --repo "$REPO" --reason completed
             echo "DISPATCH_ACCEPTED request_id=$REQUEST_ID"
           else
-            gh issue comment "$ISSUE_NUMBER" --body "CEP_V23_BRIDGE_RECEIPT request_id=$REQUEST_ID outcome=UNKNOWN_OR_REJECTED rc=$RC"
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "CEP_V23_BRIDGE_RECEIPT request_id=$REQUEST_ID outcome=UNKNOWN_OR_REJECTED rc=$RC"
             exit "$RC"
           fi
