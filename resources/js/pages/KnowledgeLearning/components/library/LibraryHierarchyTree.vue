@@ -110,20 +110,6 @@ const itemHref = (item: LibraryProjectionItem) =>
                       >
                         {{ item.canonical_ref.id }}
                       </bdi>
-                      <span
-                        class="mt-1 inline-flex rounded px-1.5 py-0.5 font-mono text-[8px]"
-                        :class="
-                          item.published_revision
-                            ? 'bg-emerald-950/60 text-emerald-400'
-                            : 'bg-amber-950/60 text-amber-300'
-                        "
-                      >
-                        {{
-                          item.published_revision
-                            ? `published r${item.published_revision}`
-                            : 'no published lesson'
-                        }}
-                      </span>
                     </div>
                   </Link>
                 </li>
@@ -141,7 +127,7 @@ const itemHref = (item: LibraryProjectionItem) =>
     >
       <div class="flex items-center gap-1.5 text-amber-300">
         <span>⚠️</span>
-        <h3 class="text-[11px] font-bold">Capabilities بانتظار سياق Domain / Cluster</h3>
+        <h3 class="text-[11px] font-bold">وحدات تحتاج سياقًا بنيويًا مكتملًا</h3>
       </div>
       <section
         v-for="capability in projection.unresolved_capabilities"

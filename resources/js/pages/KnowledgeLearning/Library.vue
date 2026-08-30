@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import CepWorkspaceLayout from '../../layouts/CepWorkspaceLayout.vue';
 import KnowledgeTabs from './components/KnowledgeTabs.vue';
 import {
@@ -17,6 +17,7 @@ import {
   type LessonRevision,
   type StoredLessonBlock,
 } from './components/content/lessonContent';
+import LessonContentRenderer from './components/content/LessonContentRenderer.vue';
 import LibraryHierarchyTree from './components/library/LibraryHierarchyTree.vue';
 import type {
   LibraryHierarchyProjection,
@@ -156,6 +157,7 @@ const technicalTypes = computed(
         .map((definition) => definition.type),
     ),
 );
+const activeBlockIndex = ref(0);
 const normalizeBlocks = (blocks: RevisionBlock[]): EditorBlock[] => normalizeLessonBlocks(blocks);
 const normalizeSnapshot = (snapshot: {
   blocks: RevisionBlock[];
@@ -170,6 +172,7 @@ const form = useForm({
   blocks: normalizeBlocks(props.active?.revision?.blocks ?? []),
   citations: props.active?.revision?.citations.slice() ?? [],
 });
+const activeEditorBlock = computed(() => form.blocks[activeBlockIndex.value] ?? null);
 const revisionError = computed(
   () =>
     (form.errors as Record<string, string | undefined>).revision ??
@@ -188,6 +191,8 @@ const currentSnapshot = (): EditorSnapshot => ({
 });
 const snapshotsEqual = (left: EditorSnapshot, right: EditorSnapshot) =>
   JSON.stringify(left) === JSON.stringify(right);
+const savedSnapshot = ref<EditorSnapshot>(currentSnapshot());
+const isDirty = computed(() => !snapshotsEqual(currentSnapshot(), savedSnapshot.value));
 
 const isValidHierarchy = (blocks: EditorBlock[]): boolean =>
   isValidLessonHierarchy(blocks, props.content_contract);
@@ -252,13 +257,18 @@ const addBlock = () => {
     contractValidationError.value = `الحد الأقصى لكتل المراجعة هو ${props.content_contract.constraints.max_blocks}.`;
     return;
   }
-  form.blocks.push({ type: 'paragraph', body: '', depth: 0 });
+  const active = form.blocks[activeBlockIndex.value];
+  const index = active ? subtreeEnd(form.blocks, activeBlockIndex.value) : form.blocks.length;
+  form.blocks.splice(index, 0, { type: 'paragraph', body: '', depth: active?.depth ?? 0 });
+  activeBlockIndex.value = index;
+  void nextTick(() => document.getElementById(`knowledge-block-${index}`)?.focus());
 };
 const removeBlock = (index: number) => {
   const end = subtreeEnd(form.blocks, index);
   const count = end - index;
   if (count < 1 || form.blocks.length - count < 1) return;
   form.blocks.splice(index, count);
+  activeBlockIndex.value = Math.min(index, form.blocks.length - 1);
 };
 const moveBlock = (index: number, delta: number) => {
   if (delta < 0) {
@@ -267,6 +277,7 @@ const moveBlock = (index: number, delta: number) => {
     const end = subtreeEnd(form.blocks, index);
     const segment = form.blocks.splice(index, end - index);
     form.blocks.splice(previous, 0, ...segment);
+    activeBlockIndex.value = previous;
     return;
   }
 
@@ -277,6 +288,7 @@ const moveBlock = (index: number, delta: number) => {
   const nextLength = nextEnd - next;
   const segment = form.blocks.splice(index, end - index);
   form.blocks.splice(index + nextLength, 0, ...segment);
+  activeBlockIndex.value = index + nextLength;
 };
 const indentBlock = (index: number) => {
   if (!canIndentBlock(index)) return;
@@ -297,15 +309,24 @@ const outdentBlock = (index: number) => {
   const count = end - index;
 
   form.blocks.splice(index, count);
-  form.blocks.splice(parentEnd - count, 0, ...segment);
+  const insertionIndex = parentEnd - count;
+  form.blocks.splice(insertionIndex, 0, ...segment);
+  activeBlockIndex.value = insertionIndex;
 };
 
-const replaceSelection = (index: number, before: string, after = before, fallback = '') => {
+type SelectionRange = { start: number; end: number };
+const replaceSelection = (
+  index: number,
+  before: string,
+  after = before,
+  fallback = '',
+  range?: SelectionRange,
+) => {
   const block = form.blocks[index];
   const input = document.getElementById(`knowledge-block-${index}`) as HTMLTextAreaElement | null;
   if (!block || !input) return;
-  const start = input.selectionStart;
-  const end = input.selectionEnd;
+  const start = range?.start ?? input.selectionStart;
+  const end = range?.end ?? input.selectionEnd;
   const selected = block.body.slice(start, end) || fallback;
   block.body = `${block.body.slice(0, start)}${before}${selected}${after}${block.body.slice(end)}`;
   void nextTick(() => {
@@ -315,48 +336,75 @@ const replaceSelection = (index: number, before: string, after = before, fallbac
   });
 };
 
-const linkValidationError = ref('');
+type EditorDialogKind = 'link' | 'reference';
+const editorDialog = ref<EditorDialogKind | null>(null);
+const editorDialogValue = ref('');
+const editorDialogError = ref('');
+const editorDialogSelection = ref<(SelectionRange & { index: number }) | null>(null);
+const openEditorDialog = (kind: EditorDialogKind, index: number) => {
+  const input = document.getElementById(`knowledge-block-${index}`) as HTMLTextAreaElement | null;
+  editorDialog.value = kind;
+  editorDialogValue.value = '';
+  editorDialogError.value = '';
+  editorDialogSelection.value = {
+    index,
+    start: input?.selectionStart ?? 0,
+    end: input?.selectionEnd ?? 0,
+  };
+  void nextTick(() => document.getElementById('editor-dialog-value')?.focus());
+};
+const closeEditorDialog = () => {
+  editorDialog.value = null;
+  editorDialogValue.value = '';
+  editorDialogError.value = '';
+  editorDialogSelection.value = null;
+};
 const insertLink = (index: number) => {
-  if (typeof window === 'undefined') return;
-  linkValidationError.value = '';
-  const href = window.prompt('أدخل رابط HTTPS المرجعي:', 'https://');
-  if (!href) return;
-
-  const safeHref = safeHttpsUrl(href.trim());
-  if (!safeHref) {
-    linkValidationError.value = 'يُسمح فقط بروابط HTTPS صحيحة.';
-    return;
-  }
-
-  replaceSelection(index, '[', `](${safeHref})`, 'نص الرابط');
+  openEditorDialog('link', index);
 };
 const insertReference = (index: number) => {
-  if (typeof window === 'undefined') return;
-  const reference = window.prompt('أدخل معرّف المرجع أو الاستشهاد:');
-  const normalized = reference?.trim();
-  if (!normalized) return;
-
-  if (!citationMatchesContract(normalized, props.content_contract)) {
-    window.alert(
-      'معرّف المرجع غير صالح. يجب أن يطابق النمط: WIN-AUTH-001 أو WEB-AUTH-001 أو VS3-AUTH-001.',
-    );
+  openEditorDialog('reference', index);
+};
+const applyEditorDialog = () => {
+  const selection = editorDialogSelection.value;
+  const value = editorDialogValue.value.trim();
+  if (!editorDialog.value || !selection || !value) {
+    editorDialogError.value = 'أدخل قيمة صالحة قبل المتابعة.';
     return;
   }
 
+  if (editorDialog.value === 'link') {
+    const safeHref = safeHttpsUrl(value);
+    if (!safeHref || value.slice('https://'.length).includes('://')) {
+      editorDialogError.value = 'يُسمح فقط بروابط HTTPS صحيحة.';
+      return;
+    }
+    replaceSelection(selection.index, '[', `](${safeHref})`, 'نص الرابط', selection);
+    closeEditorDialog();
+    return;
+  }
+
+  if (!citationMatchesContract(value, props.content_contract)) {
+    editorDialogError.value =
+      'معرّف المرجع غير صالح. استخدم معرّفًا محكومًا مثل KU-D05-0021-CLM-0001 أو WEB-AUTH-001.';
+    return;
+  }
   if (
-    !form.citations.includes(normalized) &&
+    !form.citations.includes(value) &&
     form.citations.length >= props.content_contract.citation.max_items
   ) {
-    contractValidationError.value = `الحد الأقصى للاستشهادات هو ${props.content_contract.citation.max_items}.`;
+    editorDialogError.value = `الحد الأقصى للاستشهادات هو ${props.content_contract.citation.max_items}.`;
     return;
   }
 
-  if (!form.citations.includes(normalized)) form.citations.push(normalized);
-  replaceSelection(index, '', '', `[@${normalized}]`);
+  if (!form.citations.includes(value)) form.citations.push(value);
+  replaceSelection(selection.index, '', '', `[@${value}]`, selection);
+  closeEditorDialog();
 };
 const removeCitation = (citation: string) => {
   if (form.citations.length <= 1) {
-    window.alert('يجب أن تحتوي الوحدة المعرفية على استشهاد واحد على الأقل كمرجع للسلطة.');
+    contractValidationError.value =
+      'يجب أن تحتوي الوحدة المعرفية على استشهاد واحد على الأقل كمرجع للسلطة.';
     return;
   }
   form.citations = form.citations.filter((item) => item !== citation);
@@ -525,6 +573,7 @@ const submitRevision = (mode: 'manual' | 'auto') => {
     onSuccess: () => {
       form.lock_version = props.active?.revision?.lock_version ?? form.lock_version;
       lastSnapshot = currentSnapshot();
+      savedSnapshot.value = cloneSnapshot(lastSnapshot);
       removeRecovery();
       autosaveState.value = 'saved';
     },
@@ -558,6 +607,8 @@ watch(revisionKey, () => {
   undoStack.value = [];
   redoStack.value = [];
   lastSnapshot = currentSnapshot();
+  savedSnapshot.value = cloneSnapshot(lastSnapshot);
+  activeBlockIndex.value = 0;
   autosaveState.value = 'idle';
   void nextTick(() => {
     suppressHistory = false;
@@ -565,11 +616,36 @@ watch(revisionKey, () => {
   });
 });
 void nextTick(loadRecovery);
+const handleEditorShortcut = (event: KeyboardEvent) => {
+  if (!props.active?.revision?.editable || (!event.ctrlKey && !event.metaKey)) return;
+  const key = event.key.toLowerCase();
+  if (key === 's') {
+    event.preventDefault();
+    save();
+  } else if (key === 'z') {
+    event.preventDefault();
+    event.shiftKey ? redo() : undo();
+  } else if (key === 'y') {
+    event.preventDefault();
+    redo();
+  }
+};
+const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+  if (!isDirty.value) return;
+  persistRecovery(currentSnapshot());
+  event.preventDefault();
+};
+onMounted(() => {
+  window.addEventListener('keydown', handleEditorShortcut);
+  window.addEventListener('beforeunload', handleBeforeUnload);
+});
 onBeforeUnmount(() => {
   if (historyTimer) clearTimeout(historyTimer);
   if (autosaveTimer) clearTimeout(autosaveTimer);
   // Ensure the latest local snapshot is saved to local recovery synchronously before teardown
   commitHistoryCheckpoint();
+  window.removeEventListener('keydown', handleEditorShortcut);
+  window.removeEventListener('beforeunload', handleBeforeUnload);
 });
 
 const restore = () => {
@@ -614,6 +690,7 @@ const loadComparison = async () => {
       headers: {
         Accept: 'text/html, application/xhtml+xml',
         'X-Inertia': 'true',
+        ...(page.version ? { 'X-Inertia-Version': page.version } : {}),
         'X-Requested-With': 'XMLHttpRequest',
       },
     });
@@ -653,7 +730,7 @@ const loadComparison = async () => {
         <div class="mx-auto flex w-full flex-wrap items-center justify-between gap-4">
           <div class="flex items-center gap-2 text-xs font-semibold text-slate-400">
             <span>📚</span>
-            <span>مكتبة المعرفة القانونية — سطح الوثائق والمراجعات</span>
+            <span>مكتبة المعرفة — قراءة وتحرير الكائن الحالي</span>
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
@@ -814,12 +891,68 @@ const loadComparison = async () => {
         </section>
       </div>
 
+      <div
+        v-if="editorDialog"
+        class="fixed inset-0 z-50 grid place-items-center bg-slate-950/75 p-4 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+        :aria-labelledby="`${editorDialog}-dialog-title`"
+        @keydown.esc="closeEditorDialog"
+      >
+        <form
+          class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl"
+          @submit.prevent="applyEditorDialog"
+        >
+          <h2 :id="`${editorDialog}-dialog-title`" class="text-sm font-bold text-slate-100">
+            {{ editorDialog === 'link' ? 'إدراج رابط مرجعي' : 'إدراج استشهاد محكوم' }}
+          </h2>
+          <p class="mt-1 text-xs leading-5 text-slate-400">
+            {{
+              editorDialog === 'link'
+                ? 'أدخل رابط HTTPS صالحًا؛ سيُطبّق على النص المحدد.'
+                : 'أدخل معرّف الاستشهاد المطابق لعقد المحتوى.'
+            }}
+          </p>
+          <label for="editor-dialog-value" class="mt-4 block text-xs font-semibold text-slate-300">
+            {{ editorDialog === 'link' ? 'الرابط' : 'معرّف الاستشهاد' }}
+          </label>
+          <input
+            id="editor-dialog-value"
+            v-model="editorDialogValue"
+            dir="ltr"
+            class="form-input focus-ring mt-2 w-full rounded-lg border-slate-700 bg-slate-950 text-left font-mono text-sm text-slate-100"
+            :placeholder="
+              editorDialog === 'link' ? 'https://example.test/reference' : 'KU-D05-0021-CLM-0001'
+            "
+            autocomplete="off"
+          />
+          <p v-if="editorDialogError" role="alert" class="mt-2 text-xs text-rose-300">
+            {{ editorDialogError }}
+          </p>
+          <div class="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              class="focus-ring rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+              @click="closeEditorDialog"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              class="focus-ring rounded-lg bg-cyan-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-300"
+            >
+              إدراج
+            </button>
+          </div>
+        </form>
+      </div>
+
       <!-- 3-Column Desktop Workspace Surface -->
       <!-- The outer grid uses dir="ltr" so Column 1 is visual LEFT, Column 2 is CENTER, Column 3 is visual RIGHT -->
       <div class="mx-auto w-full flex-1 px-0 py-3 sm:px-4 xl:px-6">
         <div
           dir="ltr"
-          class="grid min-h-[740px] grid-cols-1 gap-4 md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_300px]"
+          class="grid min-h-[740px] grid-cols-1 items-start gap-4 md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_300px]"
         >
           <!-- Visual LEFT: Structure / Hierarchy Tree -->
           <aside
@@ -848,15 +981,9 @@ const loadComparison = async () => {
               <LibraryHierarchyTree :projection="filteredStructure" :active-id="active?.id" />
             </div>
 
-            <!-- Tree Footer: Library Info -->
-            <div
-              class="mt-4 flex items-center justify-between border-t border-slate-800/80 pt-3 text-xs text-slate-400"
-            >
-              <span class="flex items-center gap-1.5">
-                <span>⚙️</span>
-                <span>إدارة المكتبة</span>
-              </span>
-              <span class="font-mono text-[10px] text-slate-500">{{ catalog.length }} كائن</span>
+            <!-- Tree Footer: bounded structural count -->
+            <div class="mt-4 border-t border-slate-800/80 pt-3 text-xs text-slate-500">
+              <span>{{ catalog.length }} كائن معرفة في النطاق الحالي</span>
             </div>
           </aside>
 
@@ -875,7 +1002,7 @@ const loadComparison = async () => {
                     aria-label="مسار الوحدة"
                     class="flex items-center gap-1.5 font-mono text-slate-400"
                   >
-                    <span class="font-semibold text-slate-300">{{ active.title_ar }}</span>
+                    <span class="font-semibold text-slate-300">الكائن المحدد</span>
                     <template v-if="context.placements[0]?.capability_id">
                       <span class="text-slate-600">&gt;</span>
                       <bdi dir="ltr" class="hidden whitespace-nowrap text-cyan-400 sm:inline">
@@ -900,7 +1027,10 @@ const loadComparison = async () => {
                 <div class="mt-3 flex flex-wrap items-start justify-between gap-4">
                   <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-3">
-                      <h1 class="text-2xl font-black tracking-tight text-slate-100 sm:text-3xl">
+                      <h1
+                        dir="auto"
+                        class="bidi-editor text-2xl font-black tracking-tight text-slate-100 sm:text-3xl"
+                      >
                         {{ active.title_ar }}
                       </h1>
                       <span
@@ -929,10 +1059,6 @@ const loadComparison = async () => {
                       <bdi dir="ltr" class="font-bold text-cyan-300">{{ active.id }}</bdi>
                       <span class="text-slate-600">·</span>
                       <span class="text-slate-400"
-                        >lock v{{ active.revision?.lock_version ?? 1 }}</span
-                      >
-                      <span class="text-slate-600">·</span>
-                      <span class="text-slate-400"
                         >مراجعة {{ active.revision?.revision ?? 1 }}</span
                       >
                       <span
@@ -952,17 +1078,6 @@ const loadComparison = async () => {
                     </div>
                   </div>
                 </div>
-
-                <!-- Governed Metadata & Citation Badges Row -->
-                <div class="mt-4 flex flex-wrap items-center gap-2 text-xs">
-                  <span
-                    v-for="citation in active.revision?.citations ?? []"
-                    :key="citation"
-                    class="inline-flex items-center gap-1.5 rounded-full border border-slate-700/80 bg-slate-900/90 px-2.5 py-1 font-mono text-[11px] text-slate-300"
-                  >
-                    <bdi dir="ltr">{{ citation }}</bdi>
-                  </span>
-                </div>
               </div>
 
               <!-- Content Area: Governed Block Editor or Document Renderer -->
@@ -971,259 +1086,195 @@ const loadComparison = async () => {
                 <form
                   v-if="active.revision?.editable"
                   id="knowledge-editor"
-                  class="space-y-4"
+                  class="space-y-1"
                   @submit.prevent="save"
                 >
-                  <!-- Editor Blocks List -->
+                  <div
+                    v-if="activeEditorBlock"
+                    class="sticky top-2 z-20 mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-700/80 bg-slate-950/95 p-2 shadow-xl shadow-slate-950/40 backdrop-blur"
+                    role="toolbar"
+                    aria-label="أدوات المحرر الموحد"
+                  >
+                    <div class="flex flex-wrap items-center gap-1.5">
+                      <span class="px-1 font-mono text-[10px] text-cyan-400">
+                        {{ String(activeBlockIndex + 1).padStart(2, '0') }}
+                      </span>
+                      <select
+                        v-model="activeEditorBlock.type"
+                        class="form-input focus-ring rounded-md border-slate-700 bg-slate-900 py-1 pr-2 pl-6 text-xs text-slate-200"
+                        aria-label="نوع الكتلة المركزة"
+                      >
+                        <option
+                          v-for="definition in blockRegistry"
+                          :key="definition.type"
+                          :value="definition.type"
+                        >
+                          {{ definition.label_ar }}
+                        </option>
+                      </select>
+                      <button
+                        type="button"
+                        class="editor-tool"
+                        :disabled="!canMoveBlock(activeBlockIndex, -1)"
+                        title="تحريك القسم لأعلى"
+                        aria-label="تحريك القسم المركز لأعلى"
+                        @click="moveBlock(activeBlockIndex, -1)"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        class="editor-tool"
+                        :disabled="!canMoveBlock(activeBlockIndex, 1)"
+                        title="تحريك القسم لأسفل"
+                        aria-label="تحريك القسم المركز لأسفل"
+                        @click="moveBlock(activeBlockIndex, 1)"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        type="button"
+                        class="editor-tool"
+                        :disabled="!canIndentBlock(activeBlockIndex)"
+                        title="تعشيق القسم"
+                        aria-label="زيادة عمق القسم المركز"
+                        @click="indentBlock(activeBlockIndex)"
+                      >
+                        ⇥
+                      </button>
+                      <button
+                        type="button"
+                        class="editor-tool"
+                        :disabled="!canOutdentBlock(activeBlockIndex)"
+                        title="إلغاء تعشيق القسم"
+                        aria-label="تقليل عمق القسم المركز"
+                        @click="outdentBlock(activeBlockIndex)"
+                      >
+                        ⇤
+                      </button>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-1">
+                      <button
+                        type="button"
+                        class="editor-tool font-bold"
+                        title="خط عريض"
+                        aria-label="تنسيق التحديد بخط عريض"
+                        @click="replaceSelection(activeBlockIndex, '**', '**', 'نص بارز')"
+                      >
+                        B
+                      </button>
+                      <button
+                        type="button"
+                        class="editor-tool italic"
+                        title="خط مائل"
+                        aria-label="تنسيق التحديد بخط مائل"
+                        @click="replaceSelection(activeBlockIndex, '_', '_', 'نص مائل')"
+                      >
+                        I
+                      </button>
+                      <button
+                        type="button"
+                        class="editor-tool font-mono"
+                        title="رمز ضمن السطر"
+                        aria-label="تنسيق التحديد كرمز ضمن السطر"
+                        @click="replaceSelection(activeBlockIndex, '`', '`', 'inline_code')"
+                      >
+                        &lt;/&gt;
+                      </button>
+                      <button
+                        type="button"
+                        class="editor-tool"
+                        title="إدراج رابط مرجعي"
+                        aria-label="إدراج رابط في القسم المركز"
+                        @click="insertLink(activeBlockIndex)"
+                      >
+                        🔗
+                      </button>
+                      <button
+                        type="button"
+                        class="editor-tool"
+                        title="إدراج استشهاد"
+                        aria-label="إدراج استشهاد في القسم المركز"
+                        @click="insertReference(activeBlockIndex)"
+                      >
+                        〔+〕
+                      </button>
+                      <button
+                        type="button"
+                        class="editor-tool"
+                        title="إدراج قسم بعد القسم المركز"
+                        aria-label="إدراج قسم جديد"
+                        @click="addBlock"
+                      >
+                        ＋
+                      </button>
+                      <button
+                        type="button"
+                        class="editor-tool text-rose-300 hover:text-rose-200"
+                        :disabled="form.blocks.length <= 1"
+                        title="حذف القسم"
+                        aria-label="حذف القسم المركز"
+                        @click="removeBlock(activeBlockIndex)"
+                      >
+                        حذف
+                      </button>
+                    </div>
+                  </div>
+
                   <article
                     v-for="(block, index) in form.blocks"
                     :key="`${revisionKey}:${index}`"
-                    class="group relative rounded-xl border p-3.5 transition-all duration-150"
+                    class="group relative border-s-2 px-2 py-2 transition sm:px-4"
                     :class="[
+                      index === activeBlockIndex
+                        ? 'border-s-cyan-400 bg-cyan-950/10'
+                        : 'border-s-transparent',
                       block.type === 'callout'
-                        ? 'border-cyan-500/40 bg-cyan-950/20'
+                        ? 'my-3 rounded-e-xl bg-cyan-950/20 py-4'
                         : block.type === 'rules'
-                          ? 'border-indigo-500/40 bg-indigo-950/20'
+                          ? 'my-3 rounded-e-xl bg-indigo-950/20 py-4'
                           : block.type === 'boundaries'
-                            ? 'border-amber-500/40 bg-amber-950/20'
+                            ? 'my-3 rounded-e-xl bg-amber-950/20 py-4'
                             : technicalTypes.has(block.type)
-                              ? 'border-slate-800 bg-[#050911]'
-                              : 'border-slate-800/80 bg-slate-950/60 focus-within:border-cyan-600/50',
+                              ? 'my-3 rounded-xl bg-[#050911] py-3'
+                              : '',
                     ]"
-                    :style="{ marginInlineStart: `${block.depth * 1.25}rem` }"
+                    :style="{ marginInlineStart: `${block.depth * 0.8}rem` }"
+                    @click="activeBlockIndex = index"
                   >
-                    <!-- Block Toolbar (accessible on focus / hover) -->
-                    <div
-                      class="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-2 text-xs"
-                      role="toolbar"
-                      :aria-label="`أدوات الكتلة ${index + 1}`"
+                    <span
+                      class="mb-1 block font-mono text-[9px] text-slate-600 opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100"
                     >
-                      <div class="flex flex-wrap items-center gap-2">
-                        <select
-                          v-model="block.type"
-                          class="form-input focus-ring rounded-md border-slate-700 bg-slate-900 py-1 pr-2 pl-6 font-mono text-xs text-slate-200"
-                          :aria-label="`نوع الكتلة ${index + 1}`"
-                        >
-                          <option
-                            v-for="definition in blockRegistry"
-                            :key="definition.type"
-                            :value="definition.type"
-                          >
-                            {{ definition.label_ar }} ({{ definition.label_en }})
-                          </option>
-                        </select>
-
-                        <span class="font-mono text-[10px] text-slate-500"
-                          >عمق {{ block.depth }}</span
-                        >
-                      </div>
-
-                      <div class="flex items-center gap-1">
-                        <button
-                          type="button"
-                          class="focus-ring rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-30"
-                          :disabled="!canMoveBlock(index, -1)"
-                          title="تحريك لأعلى"
-                          :aria-label="`تحريك الكتلة ${index + 1} لأعلى`"
-                          @click="moveBlock(index, -1)"
-                        >
-                          ▲
-                        </button>
-                        <button
-                          type="button"
-                          class="focus-ring rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-30"
-                          :disabled="!canMoveBlock(index, 1)"
-                          title="تحريك لأسفل"
-                          :aria-label="`تحريك الكتلة ${index + 1} لأسفل`"
-                          @click="moveBlock(index, 1)"
-                        >
-                          ▼
-                        </button>
-                        <button
-                          type="button"
-                          class="focus-ring rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-30"
-                          :disabled="!canIndentBlock(index)"
-                          title="إزاحة للداخل (زيادة العمق)"
-                          :aria-label="`زيادة عمق الكتلة ${index + 1}`"
-                          @click="indentBlock(index)"
-                        >
-                          →
-                        </button>
-                        <button
-                          type="button"
-                          class="focus-ring rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-30"
-                          :disabled="!canOutdentBlock(index)"
-                          title="إزاحة للخارج (تقليل العمق)"
-                          :aria-label="`تقليل عمق الكتلة ${index + 1}`"
-                          @click="outdentBlock(index)"
-                        >
-                          ←
-                        </button>
-                        <span class="text-slate-700">|</span>
-                        <button
-                          type="button"
-                          class="focus-ring rounded p-1 text-xs font-bold text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                          title="خط عريض"
-                          @click="replaceSelection(index, '**')"
-                        >
-                          B
-                        </button>
-                        <button
-                          type="button"
-                          class="focus-ring rounded p-1 text-xs text-slate-400 italic hover:bg-slate-800 hover:text-slate-200"
-                          title="خط مائل"
-                          @click="replaceSelection(index, '_')"
-                        >
-                          I
-                        </button>
-                        <button
-                          type="button"
-                          class="focus-ring rounded p-1 font-mono text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                          title="رمز كود"
-                          @click="replaceSelection(index, '`')"
-                        >
-                          &lt;/&gt;
-                        </button>
-                        <button
-                          type="button"
-                          class="focus-ring rounded p-1 text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                          title="إدراج رابط مرجعي"
-                          @click="insertLink(index)"
-                        >
-                          🔗
-                        </button>
-                        <button
-                          type="button"
-                          class="focus-ring rounded p-1 text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                          title="إدراج استشهاد"
-                          @click="insertReference(index)"
-                        >
-                          🏷️
-                        </button>
-                        <span class="text-slate-700">|</span>
-                        <button
-                          type="button"
-                          class="focus-ring rounded p-1 text-rose-400 hover:bg-rose-950/40 disabled:opacity-30"
-                          :disabled="form.blocks.length <= 1"
-                          title="حذف الكتلة"
-                          :aria-label="`حذف الكتلة ${index + 1}`"
-                          @click="removeBlock(index)"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
-
-                    <!-- Text Area for Block Content -->
+                      {{ String(index + 1).padStart(2, '0') }} ·
+                      {{ blockRegistry.find((item) => item.type === block.type)?.label_ar }}
+                    </span>
                     <textarea
                       :id="`knowledge-block-${index}`"
                       v-model="block.body"
-                      rows="3"
-                      :dir="technicalTypes.has(block.type) ? 'ltr' : 'rtl'"
-                      class="form-textarea focus-ring w-full resize-y rounded-lg border-0 bg-transparent p-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:ring-1 focus:ring-cyan-500"
+                      :rows="block.type === 'heading' ? 1 : technicalTypes.has(block.type) ? 6 : 4"
+                      :dir="technicalTypes.has(block.type) ? 'ltr' : 'auto'"
+                      class="bidi-editor form-textarea focus-ring w-full resize-y border-0 bg-transparent p-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:ring-0"
                       :class="
                         technicalTypes.has(block.type)
-                          ? 'font-mono text-emerald-300'
-                          : 'leading-relaxed'
+                          ? 'text-left font-mono leading-6 text-emerald-200'
+                          : block.type === 'heading'
+                            ? 'text-lg leading-8 font-black'
+                            : 'leading-8'
                       "
-                      placeholder="اكتب محتوى هذه الكتلة…"
-                      :aria-label="`محتوى الكتلة ${index + 1}`"
+                      placeholder="اكتب محتوى القسم…"
+                      :aria-label="`محتوى القسم ${index + 1}`"
+                      @focus="activeBlockIndex = index"
                     />
                   </article>
-
-                  <div class="flex items-center justify-between pt-2">
-                    <button
-                      type="button"
-                      class="focus-ring flex items-center gap-1.5 rounded-lg border border-dashed border-slate-700 bg-slate-900/40 px-3.5 py-2 text-xs font-semibold text-slate-300 transition hover:border-cyan-500/60 hover:bg-cyan-950/20 hover:text-cyan-200"
-                      aria-label="إضافة كتلة محتوى جديدة"
-                      @click="addBlock"
-                    >
-                      <span>＋</span>
-                      <span>إضافة كتلة جديدة</span>
-                    </button>
-
-                    <p v-if="linkValidationError" class="text-xs text-rose-400">
-                      {{ linkValidationError }}
-                    </p>
-                  </div>
                 </form>
 
                 <!-- Published / Read-only Document Renderer -->
-                <div v-else class="space-y-4">
-                  <div v-if="displayedBlocks.length" class="space-y-3">
-                    <article
-                      v-for="(block, index) in displayedBlocks"
-                      :key="index"
-                      class="rounded-xl border p-4 shadow-sm"
-                      :class="[
-                        block.type === 'callout'
-                          ? 'border-cyan-500/40 bg-cyan-950/20 text-cyan-100'
-                          : block.type === 'rules'
-                            ? 'border-indigo-500/40 bg-indigo-950/20 text-indigo-100'
-                            : block.type === 'boundaries'
-                              ? 'border-amber-500/40 bg-amber-950/20 text-amber-100'
-                              : technicalTypes.has(block.type)
-                                ? 'border-slate-800 bg-[#050911]'
-                                : 'border-slate-800/90 bg-slate-950/60',
-                      ]"
-                      :style="{ marginInlineStart: `${block.depth * 1.25}rem` }"
-                    >
-                      <div
-                        class="flex items-center justify-between pb-1 text-[11px] text-slate-500"
-                      >
-                        <bdi dir="ltr" class="font-mono text-cyan-400">{{ block.type }}</bdi>
-                        <button
-                          type="button"
-                          class="focus-ring rounded px-1.5 py-0.5 text-[10px] text-slate-500 hover:text-slate-300"
-                          title="نسخ محتوى الكتلة"
-                          @click="copyBlockText(block.body, index)"
-                        >
-                          {{ copiedBlockIndex === index ? 'تم النسخ ✓' : 'نسخ' }}
-                        </button>
-                      </div>
-
-                      <div
-                        :dir="technicalTypes.has(block.type) ? 'ltr' : 'rtl'"
-                        class="mt-2 text-xs leading-relaxed"
-                        :class="
-                          technicalTypes.has(block.type)
-                            ? 'font-mono whitespace-pre-wrap text-emerald-300'
-                            : 'text-slate-200'
-                        "
-                      >
-                        <template
-                          v-for="(token, tokenIndex) in inlineTokens(block.body)"
-                          :key="tokenIndex"
-                        >
-                          <strong v-if="token.kind === 'strong'">{{ token.text }}</strong>
-                          <em v-else-if="token.kind === 'emphasis'">{{ token.text }}</em>
-                          <code
-                            v-else-if="token.kind === 'code'"
-                            dir="ltr"
-                            class="rounded bg-slate-800 px-1 font-mono text-[0.92em]"
-                            >{{ token.text }}</code
-                          >
-                          <a
-                            v-else-if="token.kind === 'link' && token.href"
-                            :href="token.href"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="text-cyan-300 underline decoration-cyan-700 underline-offset-4"
-                            >{{ token.text }}</a
-                          >
-                          <span v-else>{{ token.text }}</span>
-                        </template>
-                      </div>
-                    </article>
-                  </div>
-
-                  <div
-                    v-else
-                    class="rounded-2xl border border-dashed border-slate-800 bg-slate-950/40 p-8 text-center text-xs text-slate-500"
-                  >
-                    لا توجد كتل محتوى مضافة لهذه المراجعة بعد.
-                  </div>
-                </div>
+                <LessonContentRenderer
+                  v-else
+                  :blocks="displayedBlocks"
+                  :contract="content_contract"
+                />
               </div>
 
               <!-- Document Footer: Governed Stats -->
@@ -1250,9 +1301,6 @@ const loadComparison = async () => {
                     <strong class="font-mono text-slate-400">{{ totalWordCount }}</strong></span
                   >
                 </div>
-                <bdi dir="ltr" class="font-mono text-[11px] text-slate-600">
-                  {{ active.id }}
-                </bdi>
               </div>
             </div>
 
@@ -1274,7 +1322,7 @@ const loadComparison = async () => {
             <!-- Context Header -->
             <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
               <h2 class="text-sm font-bold text-slate-100">السياق</h2>
-              <span class="font-mono text-[10px] text-slate-500">GOVERNED CONTEXT</span>
+              <span class="text-[10px] text-slate-500">معلومات مرتبطة بالاختيار</span>
             </div>
 
             <!-- Lens Selector for Detail Views -->
@@ -1305,7 +1353,11 @@ const loadComparison = async () => {
                     dir="ltr"
                     class="mt-1.5 block font-mono text-[11px] break-all text-cyan-300"
                   >
-                    {{ active.revision.authority_baseline_id }}
+                    {{
+                      active.revision.authority_baseline_id === 'ACCEPTANCE_BALANCED_6'
+                        ? 'خط أساس قبول محلي محكوم'
+                        : active.revision.authority_baseline_id
+                    }}
                   </bdi>
                   <p v-else class="mt-1 text-slate-500">لا توجد سلطة مراجعة مسجلة.</p>
                 </section>
@@ -1328,29 +1380,6 @@ const loadComparison = async () => {
                     </bdi>
                   </div>
                   <p v-else class="mt-1 text-slate-500">لا يوجد موضع منهجي مسجل لهذه الوحدة.</p>
-                  <bdi dir="ltr" class="mt-2 block font-mono text-[10px] break-all text-amber-300">
-                    {{ context.hierarchy_state }}
-                  </bdi>
-                </section>
-
-                <section
-                  class="rounded-lg border border-amber-900/60 bg-amber-950/20 p-3 text-[11px]"
-                >
-                  <h3 class="font-bold text-amber-200">حد ملكية العائلات والبنية</h3>
-                  <p class="mt-1.5 leading-5 text-amber-100/80">
-                    لا تُنشئ المكتبة Domain أو Capability Cluster أو عائلة كائن جديدة دون سياق أبوي
-                    معتمد. العائلات التالية ما زالت تتطلب مخططًا أو مالك تكامل:
-                  </p>
-                  <div class="mt-2 flex flex-wrap gap-1">
-                    <bdi
-                      v-for="family in capability_manifest.canonical_object_families_requiring_schema_or_parent_integration"
-                      :key="family"
-                      dir="ltr"
-                      class="rounded bg-amber-950/80 px-1.5 py-0.5 font-mono text-[9px] text-amber-300"
-                    >
-                      {{ family }}
-                    </bdi>
-                  </div>
                 </section>
 
                 <section class="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
@@ -1379,17 +1408,9 @@ const loadComparison = async () => {
                   >
                     <div class="flex items-start justify-between gap-2">
                       <h4 class="font-bold text-slate-200">{{ source.title }}</h4>
-                      <span
-                        class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-cyan-300"
-                      >
-                        {{ source.authority_class }}
+                      <span class="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-cyan-300">
+                        مصدر مرتبط
                       </span>
-                    </div>
-                    <div class="mt-2 flex items-center justify-between text-[11px]">
-                      <span class="text-slate-500">حالة مراجعة المصدر المسجلة:</span>
-                      <bdi dir="ltr" class="font-mono text-cyan-300">{{
-                        source.review_status
-                      }}</bdi>
                     </div>
                   </article>
                 </div>
@@ -1476,13 +1497,13 @@ const loadComparison = async () => {
                     ? 'bg-slate-800 font-bold text-cyan-200'
                     : 'text-slate-400 hover:text-slate-200'
                 "
-                aria-label="تشخيص التزامن والتضارب"
+                aria-label="تفاصيل الحفظ والاسترداد"
                 @click="
                   shelfOpen = true;
                   shelfTab = 'diagnostics';
                 "
               >
-                تشخيص التزامن
+                تفاصيل الحفظ
               </button>
             </div>
           </div>
@@ -1546,15 +1567,23 @@ const loadComparison = async () => {
                 </div>
               </div>
 
+              <p
+                v-if="compareError"
+                role="alert"
+                class="rounded-lg border border-rose-800/60 bg-rose-950/40 px-3 py-2 text-xs text-rose-200"
+              >
+                {{ compareError }}
+              </p>
+
               <!-- Comparison Diff Cards -->
               <div v-if="compareOpen && active?.revision && compareRevision" class="mt-4 space-y-3">
                 <div class="grid gap-4 md:grid-cols-2">
                   <div class="rounded-lg border border-cyan-800/80 bg-cyan-950/30 p-2.5">
                     <div class="flex items-center justify-between font-mono text-xs text-cyan-300">
                       <span>المراجعة الحالية: مراجعة {{ active.revision.revision }}</span>
-                      <span class="rounded bg-cyan-900/60 px-1.5 py-0.5 text-[10px]">{{
-                        active.revision.state
-                      }}</span>
+                      <span class="rounded bg-cyan-900/60 px-1.5 py-0.5 text-[10px]">
+                        {{ active.revision.state === 'published' ? 'منشورة' : 'مسودة' }}
+                      </span>
                     </div>
                   </div>
                   <div class="rounded-lg border border-indigo-800/80 bg-indigo-950/30 p-2.5">
@@ -1562,9 +1591,9 @@ const loadComparison = async () => {
                       class="flex items-center justify-between font-mono text-xs text-indigo-300"
                     >
                       <span>المراجعة المقارنة: مراجعة {{ compareRevision.revision }}</span>
-                      <span class="rounded bg-indigo-900/60 px-1.5 py-0.5 text-[10px]">{{
-                        compareRevision.state
-                      }}</span>
+                      <span class="rounded bg-indigo-900/60 px-1.5 py-0.5 text-[10px]">
+                        {{ compareRevision.state === 'published' ? 'منشورة' : 'مسودة' }}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1717,6 +1746,28 @@ const loadComparison = async () => {
 </template>
 
 <style>
+.kl-library-route .editor-tool {
+  border-radius: 0.375rem;
+  padding: 0.3rem 0.48rem;
+  color: rgb(148 163 184);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.kl-library-route .editor-tool:hover:not(:disabled) {
+  background: rgb(30 41 59);
+  color: rgb(226 232 240);
+}
+
+.kl-library-route .editor-tool:disabled {
+  opacity: 0.3;
+}
+
+.kl-library-route .bidi-editor {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
+
 [data-theme='light'] .kl-library-route [class*='bg-slate-950'],
 [data-theme='light'] .kl-library-route [class*='bg-slate-900'],
 [data-theme='light'] .kl-library-route [class*='bg-slate-800'],

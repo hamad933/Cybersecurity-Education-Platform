@@ -42,7 +42,10 @@ final class KnowledgeLearningWorkspace
 
         return [
             'catalog' => $catalog,
-            'structure' => $this->knowledge->hierarchyProjection($placements, []),
+            'structure' => $this->knowledge->hierarchyProjection(
+                $placements,
+                $this->hierarchyContexts($placements),
+            ),
             'active' => $active,
             'selection' => $selection,
             'content_contract' => $this->knowledge->contentContract(),
@@ -80,6 +83,8 @@ final class KnowledgeLearningWorkspace
         $lessonCitations = is_array($lessonCitations)
             ? array_values(array_filter($lessonCitations, 'is_string'))
             : [];
+        $activePlacements = $this->curriculum->placementsForUnit($activeUnitId);
+        $learningContext = $this->learningContext($activePlacements, $catalog);
 
         return [
             'catalog' => $catalog,
@@ -89,13 +94,13 @@ final class KnowledgeLearningWorkspace
             'selection' => $selection,
             'content_contract' => $this->knowledge->contentContract(),
             'context' => [
-                'placements' => $this->curriculum->placementsForUnit($activeUnitId),
+                'placements' => $activePlacements,
                 'sources' => $this->quality->sourcesForClaims($lessonCitations),
-                'prerequisites' => [
-                    'state' => 'AUTHORITATIVE_PREREQUISITE_CONTRACT_UNAVAILABLE',
-                    'items' => [],
-                    'availability_may_be_inferred' => false,
-                ],
+                'prerequisites' => $learningContext['prerequisites'],
+                'objectives' => $learningContext['objectives'],
+                'pathway' => $learningContext['pathway'],
+                'assessment_blueprints' => $learningContext['assessment_blueprints'],
+                'lab_blueprints' => $learningContext['lab_blueprints'],
                 'navigation' => $this->unitNavigation($activeUnitId),
                 'resume' => [
                     'storage' => 'browser_local',
@@ -231,6 +236,105 @@ final class KnowledgeLearningWorkspace
             'learn' => '/knowledge/learn'.$query,
             'visualize' => '/knowledge/visualize'.$query,
             'research_quality' => '/knowledge/research-quality'.$query,
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $placements
+     * @return list<array<string, string|null>>
+     */
+    private function hierarchyContexts(array $placements): array
+    {
+        $contexts = [];
+        foreach ($placements as $placement) {
+            $lifecycle = $placement['lifecycle'] ?? null;
+            if (! is_array($lifecycle) || array_is_list($lifecycle)) {
+                continue;
+            }
+
+            $domainId = $lifecycle['domain_id'] ?? null;
+            $clusterId = $lifecycle['cluster_id'] ?? null;
+            $capabilityId = $placement['capability_id'] ?? null;
+            if (! is_string($domainId) || ! is_string($clusterId) || ! is_string($capabilityId)) {
+                continue;
+            }
+
+            $contexts[] = [
+                'domain_id' => $domainId,
+                'domain_title_ar' => $domainId,
+                'domain_title_en' => null,
+                'capability_cluster_id' => $clusterId,
+                'capability_cluster_title_ar' => $clusterId,
+                'capability_cluster_title_en' => null,
+                'capability_id' => $capabilityId,
+                'capability_title_ar' => $capabilityId,
+                'capability_title_en' => null,
+            ];
+        }
+
+        return $contexts;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $placements
+     * @param  list<array<string, mixed>>  $catalog
+     * @return array<string, mixed>
+     */
+    private function learningContext(array $placements, array $catalog): array
+    {
+        $lifecycle = $placements[0]['lifecycle'] ?? null;
+        $lifecycle = is_array($lifecycle) && ! array_is_list($lifecycle) ? $lifecycle : [];
+        $catalogById = [];
+        foreach ($catalog as $item) {
+            if (is_string($item['id'] ?? null)) {
+                $catalogById[$item['id']] = $item;
+            }
+        }
+
+        $prerequisiteIds = array_values(array_filter(
+            is_array($lifecycle['prerequisite_ku_ids'] ?? null) ? $lifecycle['prerequisite_ku_ids'] : [],
+            'is_string',
+        ));
+        $prerequisites = array_map(static function (string $id) use ($catalogById): array {
+            $item = $catalogById[$id] ?? null;
+
+            return [
+                'id' => $id,
+                'title_ar' => is_array($item) && is_string($item['title_ar'] ?? null) ? $item['title_ar'] : null,
+                'title_en' => is_array($item) && is_string($item['title_en'] ?? null) ? $item['title_en'] : null,
+                'available_in_current_corpus' => is_array($item),
+            ];
+        }, $prerequisiteIds);
+
+        $objectives = [];
+        foreach (is_array($lifecycle['objectives'] ?? null) ? $lifecycle['objectives'] : [] as $objective) {
+            if (! is_array($objective) || ! is_string($objective['objective_text'] ?? null)) {
+                continue;
+            }
+            $objectives[] = [
+                'id' => is_string($objective['objective_id'] ?? null) ? $objective['objective_id'] : null,
+                'text' => $objective['objective_text'],
+                'competency_level' => is_string($objective['competency_level'] ?? null)
+                    ? $objective['competency_level']
+                    : null,
+            ];
+        }
+
+        $pathway = is_array($lifecycle['pathway'] ?? null) ? $lifecycle['pathway'] : null;
+
+        return [
+            'prerequisites' => [
+                'state' => $prerequisites === [] ? 'not_listed' : 'available',
+                'items' => $prerequisites,
+            ],
+            'objectives' => $objectives,
+            'pathway' => $pathway,
+            'assessment_blueprints' => is_array($lifecycle['assessment_blueprints'] ?? null)
+                ? array_values($lifecycle['assessment_blueprints'])
+                : [],
+            'lab_blueprints' => is_array($lifecycle['lab_blueprints'] ?? null)
+                ? array_values($lifecycle['lab_blueprints'])
+                : [],
         ];
     }
 }

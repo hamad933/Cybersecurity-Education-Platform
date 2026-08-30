@@ -69,8 +69,6 @@ describe('KnowledgeEditorCorrection', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
-    vi.stubGlobal('prompt', vi.fn());
-    vi.stubGlobal('alert', vi.fn());
 
     if (typeof window !== 'undefined' && !window.performance) {
       Object.defineProperty(window, 'performance', { configurable: true, value: {} });
@@ -101,12 +99,16 @@ describe('KnowledgeEditorCorrection', () => {
     const insertCitationButton = wrapper.find('button[title="إدراج استشهاد"]');
     expect(insertCitationButton.exists()).toBe(true);
 
-    vi.mocked(window.prompt).mockReturnValueOnce('INVALID-AUTH-123');
     await insertCitationButton.trigger('click');
     await nextTick();
+    const dialogInput = wrapper.find('#editor-dialog-value');
+    expect(dialogInput.exists()).toBe(true);
+    await dialogInput.setValue('INVALID-AUTH-123');
+    await wrapper.find('[role="dialog"] form').trigger('submit');
+    await nextTick();
 
-    expect(window.alert).toHaveBeenCalledWith(
-      'معرّف المرجع غير صالح. يجب أن يطابق النمط: WIN-AUTH-001 أو WEB-AUTH-001 أو VS3-AUTH-001.',
+    expect(wrapper.find('[role="dialog"] [role="alert"]').text()).toBe(
+      'معرّف المرجع غير صالح. استخدم معرّفًا محكومًا مثل KU-D05-0021-CLM-0001 أو WEB-AUTH-001.',
     );
 
     // Test DOM rendered citations
@@ -114,18 +116,95 @@ describe('KnowledgeEditorCorrection', () => {
     const citationsBeforeTexts = renderedCitationsBefore
       .map((b) => b.text())
       .filter((t) => t.includes('-AUTH-'));
-    expect(citationsBeforeTexts.length).toBe(2);
+    expect(citationsBeforeTexts.length).toBe(1);
 
-    vi.mocked(window.prompt).mockReturnValueOnce('WEB-AUTH-002');
-    await insertCitationButton.trigger('click');
+    await dialogInput.setValue('WEB-AUTH-002');
+    await wrapper.find('[role="dialog"] form').trigger('submit');
     await nextTick();
 
-    // After adding, we should see 2 citations rendered in the editor form area
-    const renderedCitationsAfter = wrapper.findAll('bdi[dir="ltr"]');
-    const citationsAfterTexts = renderedCitationsAfter
-      .map((b) => b.text())
-      .filter((t) => t.includes('-AUTH-'));
-    expect(citationsAfterTexts.length).toBeGreaterThan(1);
+    expect((wrapper.vm as unknown as { form: { citations: string[] } }).form.citations).toContain(
+      'WEB-AUTH-002',
+    );
+  });
+
+  it('rejects non-HTTPS and nested URL schemes in the in-app link dialog', async () => {
+    const wrapper = mount(Library, {
+      props: createProps(['KU-D05-0021-CLM-0001']),
+      ...mountOptions,
+    });
+    await nextTick();
+
+    await wrapper.find('button[title="إدراج رابط مرجعي"]').trigger('click');
+    const dialogInput = wrapper.find('#editor-dialog-value');
+    expect((dialogInput.element as HTMLInputElement).value).toBe('');
+
+    await dialogInput.setValue('http://example.test');
+    await wrapper.find('[role="dialog"] form').trigger('submit');
+    expect(wrapper.find('[role="dialog"] [role="alert"]').text()).toBe(
+      'يُسمح فقط بروابط HTTPS صحيحة.',
+    );
+
+    await dialogInput.setValue('https://http://example.test');
+    await wrapper.find('[role="dialog"] form').trigger('submit');
+    expect(wrapper.find('[role="dialog"] [role="alert"]').text()).toBe(
+      'يُسمح فقط بروابط HTTPS صحيحة.',
+    );
+  });
+
+  it('owns formatting in one selection-aware toolbar instead of repeating a toolbar per block', async () => {
+    const props = createProps(['KU-D05-0021-CLM-0001']);
+    props.active.revision.blocks = [
+      { type: 'paragraph', body: 'هذا السطر يختبر resource داخل العربية.', depth: 0 },
+      { type: 'paragraph', body: 'English prefix — عبارة عربية — suffix.', depth: 0 },
+    ];
+    const wrapper = mount(Library, { props, ...mountOptions });
+    await nextTick();
+
+    expect(wrapper.findAll('[role="toolbar"]')).toHaveLength(1);
+    expect(wrapper.findAll('textarea[dir="auto"]')).toHaveLength(2);
+
+    const second = wrapper.find('#knowledge-block-1');
+    await second.trigger('focus');
+    expect((wrapper.vm as unknown as { activeBlockIndex: number }).activeBlockIndex).toBe(1);
+
+    const secondInput = second.element as HTMLTextAreaElement;
+    secondInput.setSelectionRange(secondInput.value.length, secondInput.value.length);
+    await wrapper.find('button[title="خط عريض"]').trigger('click');
+    expect(
+      (wrapper.vm as unknown as { form: { blocks: Array<{ body: string }> } }).form.blocks[1]?.body,
+    ).toBe('English prefix — عبارة عربية — suffix.**نص بارز**');
+  });
+
+  it('inserts after the active subtree and keeps selection attached while moving it', async () => {
+    const props = createProps(['KU-D05-0021-CLM-0001']);
+    props.active.revision.blocks = [
+      { type: 'heading', body: 'Parent', depth: 0 },
+      { type: 'paragraph', body: 'Child', depth: 1 },
+      { type: 'heading', body: 'Sibling', depth: 0 },
+    ];
+    const wrapper = mount(Library, { props, ...mountOptions });
+    await nextTick();
+    const vm = wrapper.vm as unknown as {
+      activeBlockIndex: number;
+      addBlock: () => void;
+      moveBlock: (index: number, delta: number) => void;
+      form: { blocks: Array<{ body: string; depth: number }> };
+    };
+
+    vm.activeBlockIndex = 0;
+    vm.addBlock();
+    expect(vm.form.blocks.map((block) => block.body)).toEqual(['Parent', 'Child', '', 'Sibling']);
+    expect(vm.form.blocks[2]?.depth).toBe(0);
+
+    vm.form.blocks[2]!.body = 'Inserted';
+    vm.moveBlock(2, 1);
+    expect(vm.form.blocks.map((block) => block.body)).toEqual([
+      'Parent',
+      'Child',
+      'Sibling',
+      'Inserted',
+    ]);
+    expect(vm.activeBlockIndex).toBe(3);
   });
 
   it('prevents removing the last citation (minimum citation invariant)', async () => {
@@ -143,19 +222,17 @@ describe('KnowledgeEditorCorrection', () => {
     const vm = wrapper.vm as unknown as {
       removeCitation: (citation: string) => void;
       form: { citations: string[] };
+      contractValidationError: string;
     };
     vm.removeCitation('WIN-AUTH-001');
     await nextTick();
 
     // Once removed, there is 1 citation left. The v-if="form.citations.length > 1" hides the button.
-    const removeButtonsAfter = wrapper.findAll('button[aria-label^="حذف استشهاد"]');
     // In Vue test utils with mock refs, the array length may need manual check if reactivity is broken by proxy
     expect(vm.form.citations.length).toBe(1);
-    expect(removeButtonsAfter).toHaveLength(0);
-    // We don't assert DOM if VTU isn't flushing the mock properly, but we assert the VM state.
-    // Try removing again to verify the alert triggers.
+    // Try removing again to verify the invariant at the component boundary.
     vm.removeCitation('WEB-AUTH-002');
-    expect(window.alert).toHaveBeenCalledWith(
+    expect(vm.contractValidationError).toBe(
       'يجب أن تحتوي الوحدة المعرفية على استشهاد واحد على الأقل كمرجع للسلطة.',
     );
     expect(vm.form.citations.length).toBe(1);

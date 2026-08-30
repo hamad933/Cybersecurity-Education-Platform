@@ -59,17 +59,18 @@ export const lessonContentContractFixture: LessonContentContract = {
     })),
   ],
   constraints: {
-    max_blocks: 24,
+    max_blocks: 64,
     max_body_length: 4000,
     max_depth: 3,
     first_block_depth: 0,
     max_depth_step: 1,
   },
   citation: {
-    pattern: '^(?:WIN|WEB|VS3)-AUTH-\\d{3}$',
-    examples: ['WIN-AUTH-001', 'WEB-AUTH-001', 'VS3-AUTH-001'],
+    pattern:
+      '^(?:(?:WIN|WEB|VS3)-AUTH-\\d{3}|KU-D\\d{2}-\\d{4}-CLM-\\d{4}|VS\\d{3}-SRC-\\d{3}R?-\\d{2})$',
+    examples: ['KU-D05-0021-CLM-0001', 'WEB-AUTH-001', 'VS3-AUTH-001'],
     min_items: 1,
-    max_items: 20,
+    max_items: 64,
     max_length: 80,
   },
   revision_semantics: {

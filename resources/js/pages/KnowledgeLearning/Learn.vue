@@ -5,7 +5,6 @@ import CepWorkspaceLayout from '../../layouts/CepWorkspaceLayout.vue';
 import KnowledgeTabs from './components/KnowledgeTabs.vue';
 import LessonContentRenderer from './components/content/LessonContentRenderer.vue';
 import {
-  lessonBlockDefinition,
   normalizeLessonBlocks,
   type KnowledgeUnitSelection,
   type LessonContentContract,
@@ -90,6 +89,34 @@ type SourceContext = {
   review_status: string;
 };
 
+type LearningObjective = {
+  id: string | null;
+  text: string;
+  competency_level: string | null;
+};
+
+type Prerequisite = {
+  id: string;
+  title_ar: string | null;
+  title_en: string | null;
+  available_in_current_corpus: boolean;
+};
+
+type AssessmentBlueprint = {
+  assessment_blueprint_id?: string;
+  assessment_type?: string;
+  evidence_expected?: string;
+  safety_boundary?: string;
+};
+
+type LabBlueprint = {
+  lab_blueprint_id?: string;
+  lab_title?: string;
+  lab_intent?: string;
+  environment?: string;
+  safety_boundary?: string;
+};
+
 const props = defineProps<{
   catalog: CatalogItem[];
   active: ActiveUnit | null;
@@ -123,9 +150,13 @@ const props = defineProps<{
     sources: SourceContext[];
     prerequisites: {
       state: string;
-      items: unknown[];
-      availability_may_be_inferred: boolean;
+      items: Prerequisite[];
+      availability_may_be_inferred?: boolean;
     };
+    objectives?: LearningObjective[];
+    pathway?: { id?: string | null; title?: string | null } | null;
+    assessment_blueprints?: AssessmentBlueprint[];
+    lab_blueprints?: LabBlueprint[];
     navigation: Record<string, string | null>;
     resume: {
       storage: string;
@@ -205,15 +236,19 @@ watch(() => props.lesson.revision?.id, restoreReadingPosition);
 onMounted(restoreReadingPosition);
 
 const lessonOutline = computed(() =>
-  lessonBlocks.value.map((block, index) => ({
-    index,
-    depth: block.depth,
-    label:
-      block.type === 'heading'
-        ? block.body
-        : (lessonBlockDefinition(props.content_contract, block.type)?.label_ar ?? block.type),
-  })),
+  lessonBlocks.value.flatMap((block, index) =>
+    block.type === 'heading' ? [{ index, depth: block.depth, label: block.body }] : [],
+  ),
 );
+const activeOutlineItem = computed(() => {
+  const preceding = lessonOutline.value.filter((item) => item.index <= selectedBlockIndex.value);
+  return preceding.at(-1) ?? lessonOutline.value[0] ?? null;
+});
+const activeOutlinePosition = computed(() => {
+  const item = activeOutlineItem.value;
+  if (!item) return 0;
+  return lessonOutline.value.findIndex((candidate) => candidate.index === item.index) + 1;
+});
 
 const shelfOpen = ref(false);
 const toggleShelf = () => {
@@ -225,6 +260,10 @@ const libraryHref = computed(() => props.context.navigation.library ?? '/knowled
 const qualityHref = computed(
   () => props.context.navigation.research_quality ?? '/knowledge/research-quality',
 );
+const assessmentBlueprint = computed(() => props.context.assessment_blueprints?.[0] ?? null);
+const labBlueprint = computed(() => props.context.lab_blueprints?.[0] ?? null);
+const activityLabel = (state: string) =>
+  state === 'COMPLETED' ? 'مكتمل كنشاط' : state === 'IN_PROGRESS' ? 'قيد المتابعة' : 'لم يبدأ';
 </script>
 
 <template>
@@ -249,7 +288,7 @@ const qualityHref = computed(
         </p>
         <div
           dir="ltr"
-          class="grid min-h-[740px] grid-cols-1 gap-4 md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_300px]"
+          class="grid min-h-[740px] grid-cols-1 items-start gap-4 md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_300px]"
         >
           <!-- LEFT: Learning Journey (Visual LEFT) -->
           <aside
@@ -260,12 +299,10 @@ const qualityHref = computed(
             <div class="border-b border-slate-800/80 pb-3">
               <div class="flex items-center justify-between gap-2">
                 <h2 class="text-xs font-bold text-slate-200">مسار التعلّم</h2>
-                <bdi dir="ltr" class="font-mono text-[9px] text-slate-500">
-                  {{ lesson.availability }}
-                </bdi>
+                <span class="text-[9px] text-slate-500">رحلة الوحدة الحالية</span>
               </div>
-              <p class="mt-2.5 truncate text-xs font-semibold text-slate-300">
-                {{ active?.title_ar ?? 'لا توجد وحدة معرفة نشطة' }}
+              <p dir="auto" class="mt-2.5 line-clamp-2 text-xs font-semibold text-slate-300">
+                {{ context.pathway?.title ?? 'مسار مستقل ضمن مكتبة المعرفة' }}
               </p>
             </div>
 
@@ -273,10 +310,10 @@ const qualityHref = computed(
               <section v-if="lessonOutline.length" aria-labelledby="lesson-outline-heading">
                 <div class="flex items-center justify-between gap-2">
                   <p id="lesson-outline-heading" class="text-[10px] font-bold text-slate-500">
-                    بنية مراجعة الدرس المنشورة
+                    أقسام الدرس
                   </p>
                   <span class="font-mono text-[9px] text-slate-500">
-                    {{ selectedBlockIndex + 1 }}/{{ lessonOutline.length }}
+                    {{ activeOutlinePosition }}/{{ lessonOutline.length }}
                   </span>
                 </div>
                 <ol class="mt-2 space-y-1">
@@ -285,12 +322,14 @@ const qualityHref = computed(
                       type="button"
                       class="focus-ring flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-right transition"
                       :class="
-                        item.index === selectedBlockIndex
+                        item.index === activeOutlineItem?.index
                           ? 'border border-cyan-500/40 bg-cyan-500/10 text-cyan-100'
                           : 'border border-transparent text-slate-400 hover:bg-slate-900/60 hover:text-slate-200'
                       "
                       :style="{ paddingInlineStart: `${0.5 + item.depth * 0.7}rem` }"
-                      :aria-current="item.index === selectedBlockIndex ? 'location' : undefined"
+                      :aria-current="
+                        item.index === activeOutlineItem?.index ? 'location' : undefined
+                      "
                       @click="selectLessonBlock(item.index)"
                     >
                       <span class="font-mono text-[9px] text-cyan-500">
@@ -304,7 +343,7 @@ const qualityHref = computed(
 
               <section class="border-t border-slate-800/80 pt-3" aria-labelledby="practice-heading">
                 <p id="practice-heading" class="text-[10px] font-bold text-slate-500">
-                  Practice — انتقالات سياقية
+                  التطبيق والممارسة
                 </p>
                 <div v-if="journey.items.length" class="mt-2 space-y-1.5">
                   <button
@@ -331,7 +370,7 @@ const qualityHref = computed(
                           dir="ltr"
                           class="mt-0.5 block truncate font-mono text-[9px] opacity-70"
                         >
-                          {{ item.practice_id }} · {{ item.activity_state }}
+                          {{ item.practice_id }} · {{ activityLabel(item.activity_state) }}
                         </bdi>
                       </div>
                     </div>
@@ -342,22 +381,22 @@ const qualityHref = computed(
                   v-else
                   class="mt-2 rounded-xl border border-dashed border-slate-800 bg-slate-950/30 p-3 text-center text-slate-500"
                 >
-                  لا توجد أنشطة Practice مسجلة لهذه الوحدة؛ لم تُنشأ بدائل وهمية.
+                  لا توجد ممارسة تفاعلية مسجلة لهذه الوحدة حاليًا. يمكنك متابعة الدرس وأهدافه.
                 </div>
               </section>
 
-              <section class="grid grid-cols-2 gap-2 border-t border-slate-800/80 pt-3 text-[10px]">
-                <div class="rounded-lg border border-slate-800 bg-slate-950/50 p-2">
-                  <span class="block text-slate-500">Assessment</span>
-                  <bdi dir="ltr" class="mt-1 block font-mono break-all text-amber-300">
-                    {{ journey.assessments.integration_state ?? journey.assessments.state }}
-                  </bdi>
+              <section class="space-y-1 border-t border-slate-800/80 pt-3 text-xs">
+                <div
+                  class="flex items-center justify-between rounded-lg px-2 py-1.5 text-slate-400"
+                >
+                  <span>التقييم</span>
+                  <span>{{ assessmentBlueprint ? 'مخطط متاح' : 'غير متاح حاليًا' }}</span>
                 </div>
-                <div class="rounded-lg border border-slate-800 bg-slate-950/50 p-2">
-                  <span class="block text-slate-500">Lab</span>
-                  <bdi dir="ltr" class="mt-1 block font-mono text-slate-300">
-                    {{ journey.labs.length ? 'REFERENCE_ONLY' : 'NO_REFERENCE' }}
-                  </bdi>
+                <div
+                  class="flex items-center justify-between rounded-lg px-2 py-1.5 text-slate-400"
+                >
+                  <span>المختبر</span>
+                  <span>{{ labBlueprint ? 'مخطط آمن متاح' : 'غير متاح حاليًا' }}</span>
                 </div>
               </section>
             </div>
@@ -386,7 +425,9 @@ const qualityHref = computed(
                     aria-label="سياق وحدة المعرفة"
                     class="flex min-w-0 items-center gap-1.5 text-slate-400"
                   >
-                    <span class="font-semibold text-slate-300">{{ active.title_ar }}</span>
+                    <span class="font-semibold text-slate-300">{{
+                      context.pathway?.title ?? 'مسار التعلّم'
+                    }}</span>
                   </nav>
                   <div
                     class="rounded-lg border border-slate-800 bg-slate-950/60 px-2.5 py-1 text-xs font-medium text-slate-400"
@@ -398,8 +439,11 @@ const qualityHref = computed(
 
                 <div class="mt-3 flex flex-wrap items-start justify-between gap-4">
                   <div class="min-w-0">
-                    <p class="text-xs font-bold text-cyan-300">سطح الدرس والمحتوى التعليمي</p>
-                    <h1 class="mt-1 text-2xl font-black tracking-tight text-slate-100 sm:text-3xl">
+                    <p class="text-xs font-bold text-cyan-300">الدرس الحالي</p>
+                    <h1
+                      dir="auto"
+                      class="bidi-plaintext mt-1 text-2xl font-black tracking-tight text-slate-100 sm:text-3xl"
+                    >
                       {{
                         lessonAvailable
                           ? active.title_ar
@@ -408,8 +452,8 @@ const qualityHref = computed(
                     </h1>
                     <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400">
                       <template v-if="lessonAvailable">
-                        هذا المحتوى إسقاط تعلّم للنسخة المنشورة من كائن المعرفة نفسه؛ لا توجد نسخة
-                        Lesson مكررة ولا تُعرض مسودة Library للمتعلّم.
+                        راجع الأهداف أولًا، ثم انتقل بين أقسام الدرس وواصل من آخر موضع محفوظ على هذا
+                        الجهاز.
                       </template>
                       <template v-else>
                         الوحدة النشطة هي
@@ -434,7 +478,7 @@ const qualityHref = computed(
                         v-if="lesson.revision"
                         class="rounded-full border border-slate-700/80 bg-slate-800/80 px-3 py-1 font-mono text-[11px] text-slate-300"
                       >
-                        مراجعة {{ lesson.revision.revision }} · {{ lesson.revision.state }}
+                        مراجعة {{ lesson.revision.revision }} · منشورة
                       </span>
                     </div>
                   </div>
@@ -454,27 +498,43 @@ const qualityHref = computed(
                     </span>
                     <span v-else>{{ lesson.unavailable_reason }}</span>
                   </div>
-                  <div class="flex items-center gap-2 text-xs text-slate-500">
-                    <span>حد التقدم:</span>
-                    <bdi dir="ltr" class="font-mono text-slate-400">{{
-                      semantic_boundary.progress || 'غير محدد'
-                    }}</bdi>
-                  </div>
                 </div>
               </header>
 
               <div class="mt-6 flex-1 space-y-4">
+                <section
+                  v-if="context.objectives?.length"
+                  class="border-b border-slate-800/80 pb-5"
+                  aria-labelledby="lesson-objectives-heading"
+                >
+                  <p class="text-[10px] font-bold tracking-wide text-cyan-400">قبل أن تبدأ</p>
+                  <h2
+                    id="lesson-objectives-heading"
+                    class="mt-1 text-base font-black text-slate-100"
+                  >
+                    أهداف التعلّم
+                  </h2>
+                  <ol class="mt-3 space-y-2 text-sm leading-7 text-slate-300">
+                    <li
+                      v-for="(objective, index) in context.objectives ?? []"
+                      :key="objective.id ?? index"
+                      class="flex gap-3"
+                    >
+                      <span class="mt-1 font-mono text-xs text-cyan-400">{{ index + 1 }}</span>
+                      <span dir="auto" class="bidi-plaintext">{{ objective.text }}</span>
+                    </li>
+                  </ol>
+                </section>
+
                 <section v-if="lessonAvailable" aria-labelledby="published-lesson-heading">
                   <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p class="text-[10px] font-bold tracking-wide text-slate-500">
-                        PUBLISHED LESSON REVISION
-                      </p>
+                      <p class="text-[10px] font-bold tracking-wide text-slate-500">محتوى الوحدة</p>
                       <h2
                         id="published-lesson-heading"
                         class="mt-1 text-sm font-bold text-slate-200"
                       >
-                        محتوى الدرس القانوني
+                        محتوى الدرس
                       </h2>
                     </div>
                     <div class="flex items-center gap-2">
@@ -482,7 +542,7 @@ const qualityHref = computed(
                         :href="libraryHref"
                         class="focus-ring rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
                       >
-                        فتح الكائن في Library
+                        فتح الكائن في المكتبة
                       </Link>
                       <Link
                         :href="qualityHref"
@@ -521,7 +581,7 @@ const qualityHref = computed(
                 <div class="flex items-center gap-3 pt-2">
                   <span class="h-px flex-1 bg-slate-800"></span>
                   <span class="text-[10px] font-bold tracking-wide text-slate-500">
-                    TRANSITIONS — NOT CONTENT OWNERSHIP
+                    تطبيق ما تعلّمته
                   </span>
                   <span class="h-px flex-1 bg-slate-800"></span>
                 </div>
@@ -531,9 +591,9 @@ const qualityHref = computed(
                     <div class="flex items-center justify-between gap-3">
                       <div>
                         <p class="text-[10px] font-bold tracking-wide text-slate-500">
-                          الأنشطة الفعلية
+                          متابعة النشاط
                         </p>
-                        <h3 class="mt-1 text-sm font-bold text-slate-200">الأنشطة المرتبطة</h3>
+                        <h3 class="mt-1 text-sm font-bold text-slate-200">الممارسات المرتبطة</h3>
                       </div>
                       <span class="font-mono text-xs text-slate-400">{{
                         journey.items.length
@@ -561,7 +621,7 @@ const qualityHref = computed(
                             {{ item.practice_id }}
                           </bdi>
                           <bdi dir="ltr" class="shrink-0 font-mono text-[10px] text-slate-500">
-                            {{ item.activity_state }}
+                            {{ activityLabel(item.activity_state) }}
                           </bdi>
                         </div>
                         <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
@@ -577,17 +637,12 @@ const qualityHref = computed(
                               item.successful_attempt_count
                             }}</strong></span
                           >
-                          <span
-                            >النتيجة:
-                            <bdi dir="ltr" class="font-mono text-slate-400">{{
-                              item.latest_outcome ?? '—'
-                            }}</bdi></span
-                          >
+                          <span v-if="item.latest_outcome">يوجد نشاط سابق محفوظ</span>
                         </div>
                       </button>
                     </div>
                     <p v-else class="mt-3 text-xs text-slate-500">
-                      لا توجد أنشطة مسجلة ضمن البيانات الحالية.
+                      لا توجد ممارسة تفاعلية لهذه الوحدة حاليًا؛ يظل الدرس والأهداف متاحين.
                     </p>
                   </article>
 
@@ -595,38 +650,26 @@ const qualityHref = computed(
                     <div class="flex items-center justify-between gap-3">
                       <div>
                         <p class="text-[10px] font-bold tracking-wide text-slate-500">التقييم</p>
-                        <h3 class="mt-1 text-sm font-bold text-slate-200">حالة التقييم الفعلية</h3>
+                        <h3 class="mt-1 text-sm font-bold text-slate-200">التحقق من الفهم</h3>
                       </div>
-                      <bdi
-                        dir="ltr"
-                        class="max-w-full font-mono text-xs font-bold break-all text-amber-300"
-                      >
-                        {{ journey.assessments?.state || 'لا يوجد تقييم مسجل' }}
-                      </bdi>
+                      <span class="text-xs font-bold text-amber-300">
+                        {{ assessmentBlueprint ? 'مخطط مراجعة متاح' : 'غير متاح حاليًا' }}
+                      </span>
                     </div>
-                    <dl class="mt-3 grid grid-cols-2 gap-2 text-xs">
-                      <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2.5">
-                        <dt class="text-slate-500">التعريفات</dt>
-                        <dd class="mt-1 font-mono text-slate-200">
-                          {{ journey.assessments?.definitions?.length ?? 0 }}
-                        </dd>
-                      </div>
-                      <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2.5">
-                        <dt class="text-slate-500">النتائج</dt>
-                        <dd class="mt-1 font-mono text-slate-200">
-                          {{ journey.assessments?.results?.length ?? 0 }}
-                        </dd>
-                      </div>
-                    </dl>
-                    <div
-                      class="mt-2 rounded-lg border border-amber-900/50 bg-amber-950/20 p-2 text-[11px] text-amber-200"
-                    >
-                      لا يوجد عقد Assessment مجمّد متوافق أو مالك تنفيذ متاح؛ لذلك لا يوجد زر بدء أو
-                      نتيجة مصطنعة.
-                      <bdi dir="ltr" class="mt-1 block font-mono break-all text-amber-300">
-                        {{ journey.assessments.integration_state }}
-                      </bdi>
-                    </div>
+                    <template v-if="assessmentBlueprint">
+                      <p dir="auto" class="bidi-plaintext mt-3 text-xs leading-6 text-slate-300">
+                        {{
+                          assessmentBlueprint.evidence_expected ??
+                          'يوضح المخطط ما ينبغي إثباته بعد إكمال الدرس.'
+                        }}
+                      </p>
+                      <p class="mt-2 text-[11px] leading-5 text-amber-200">
+                        هذا مخطط تحضيري للمعاينة؛ لا تتوفر محاولة تقييم أو نتيجة رسمية من هذا السطح.
+                      </p>
+                    </template>
+                    <p v-else class="mt-3 text-xs leading-6 text-slate-500">
+                      لم يُربط تقييم قابل للتنفيذ بهذه الوحدة بعد.
+                    </p>
                   </article>
                 </section>
 
@@ -634,54 +677,27 @@ const qualityHref = computed(
                   <div class="flex items-center justify-between gap-3">
                     <div>
                       <p class="text-[10px] font-bold tracking-wide text-slate-500">المختبرات</p>
-                      <h3 class="mt-1 text-sm font-bold text-slate-200">مراجع المختبر الفعلية</h3>
+                      <h3 class="mt-1 text-sm font-bold text-slate-200">التطبيق في بيئة آمنة</h3>
                     </div>
-                    <span class="font-mono text-xs text-slate-400">{{ journey.labs.length }}</span>
+                    <span class="text-xs text-slate-400">{{
+                      labBlueprint ? 'مخطط متاح' : 'غير متاح'
+                    }}</span>
                   </div>
 
-                  <div v-if="journey.labs.length" class="mt-3 grid gap-2 sm:grid-cols-2">
-                    <div
-                      v-for="lab in journey.labs"
-                      :key="lab.id"
-                      class="rounded-lg border border-slate-800 bg-slate-950/60 p-3"
-                    >
-                      <p v-if="lab.title_ar" class="mb-1 text-xs font-bold text-slate-200">
-                        {{ lab.title_ar }}
-                      </p>
-                      <bdi dir="ltr" class="block font-mono text-xs font-bold text-cyan-300">{{
-                        lab.id
-                      }}</bdi>
-                      <div class="mt-1 space-y-1 text-[10px] text-slate-500">
-                        <div v-if="lab.preview_state">
-                          المعاينة:
-                          <bdi dir="ltr" class="font-mono text-slate-400">{{
-                            lab.preview_state
-                          }}</bdi>
-                        </div>
-                        <div v-if="lab.canonical_owner">
-                          المالك:
-                          <bdi dir="ltr" class="font-mono text-slate-400">{{
-                            lab.canonical_owner
-                          }}</bdi>
-                        </div>
-                        <div v-if="lab.prepare_run_handoff?.state">
-                          التسليم:
-                          <bdi dir="ltr" class="font-mono text-slate-400">{{
-                            lab.prepare_run_handoff.state
-                          }}</bdi>
-                        </div>
-                        <bdi
-                          v-if="lab.prepare_run_handoff?.reason"
-                          dir="ltr"
-                          class="block font-mono break-all text-amber-300"
-                        >
-                          {{ lab.prepare_run_handoff.reason }}
-                        </bdi>
-                      </div>
-                    </div>
+                  <div v-if="labBlueprint" class="mt-3 space-y-2">
+                    <p dir="auto" class="bidi-plaintext text-sm font-bold text-slate-200">
+                      {{ labBlueprint.lab_title || 'مختبر تدريبي مرتبط بالوحدة' }}
+                    </p>
+                    <p dir="auto" class="bidi-plaintext text-xs leading-6 text-slate-300">
+                      {{ labBlueprint.lab_intent }}
+                    </p>
+                    <p class="text-[11px] leading-5 text-amber-200">
+                      يمكنك معاينة المخطط هنا، لكن إعداد التشغيل يبدأ فقط من مساحة المحاكاة عند توفر
+                      تسليم معتمد.
+                    </p>
                   </div>
                   <p v-else class="mt-3 text-xs text-slate-500">
-                    لا توجد مختبرات مسجلة ضمن البيانات الحالية.
+                    لم يُربط مخطط مختبر آمن بهذه الوحدة بعد.
                   </p>
                 </section>
               </div>
@@ -704,84 +720,83 @@ const qualityHref = computed(
             aria-label="سياق النشاط والمختبرات"
           >
             <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
-              <h2 class="text-sm font-bold text-slate-100">سياق النشاط المحدد</h2>
-              <span class="font-mono text-[10px] text-slate-500">الحالة المسجلة</span>
+              <h2 class="text-sm font-bold text-slate-100">سياق التعلّم</h2>
+              <span class="text-[10px] text-slate-500">ما تحتاجه وما يأتي بعده</span>
             </div>
 
             <div class="mt-3 flex-1 space-y-4 overflow-y-auto pr-0.5 text-xs">
-              <section
-                v-if="selectedLab"
-                class="space-y-2 rounded-xl border border-indigo-900/60 bg-indigo-950/30 p-3.5"
-              >
-                <div class="flex items-center gap-1.5 font-semibold text-indigo-300">
-                  <span>🧪</span>
-                  <h4>مرجع المختبر (Lab Reference)</h4>
-                </div>
-                <bdi dir="ltr" class="block font-mono text-[11px] font-bold text-indigo-200">
-                  {{ selectedLab.id }}
-                </bdi>
-                <p v-if="selectedLab.title_ar" class="text-xs font-bold text-indigo-100">
-                  {{ selectedLab.title_ar }}
-                </p>
-                <p v-if="selectedLab.summary_ar" class="text-[11px] leading-5 text-indigo-200/80">
-                  {{ selectedLab.summary_ar }}
-                </p>
-                <div class="space-y-1 text-[10px] text-indigo-300/80">
-                  <div v-if="selectedLab.preview_state">
-                    المعاينة:
-                    <bdi dir="ltr" class="font-mono">{{ selectedLab.preview_state }}</bdi>
-                  </div>
-                  <div v-if="selectedLab.canonical_owner">
-                    المالك:
-                    <bdi dir="ltr" class="font-mono">{{ selectedLab.canonical_owner }}</bdi>
-                  </div>
-                  <div v-if="selectedLab.prepare_run_handoff?.state">
-                    التسليم:
-                    <bdi dir="ltr" class="font-mono">{{
-                      selectedLab.prepare_run_handoff.state
-                    }}</bdi>
-                  </div>
-                  <bdi
-                    v-if="selectedLab.prepare_run_handoff?.reason"
-                    dir="ltr"
-                    class="block font-mono break-all text-amber-300"
-                  >
-                    {{ selectedLab.prepare_run_handoff.reason }}
-                  </bdi>
-                </div>
-              </section>
-
-              <section class="space-y-2 rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
-                <div class="flex items-center gap-1.5 font-semibold text-slate-400">
-                  <span>🛡️</span>
-                  <h4>الوحدة والمراجعة القانونية</h4>
-                </div>
-                <bdi dir="ltr" class="block font-mono text-[11px] font-bold text-cyan-300">
-                  {{ active?.canonical_ref.id ?? 'NO_CANONICAL_UNIT' }}
-                </bdi>
-                <bdi
-                  v-if="lesson.revision"
-                  dir="ltr"
-                  class="block font-mono text-[10px] text-slate-400"
-                >
-                  lesson_revision:{{ lesson.revision.id }} · r{{ lesson.revision.revision }}
-                </bdi>
-                <p class="text-[10px] leading-5 text-slate-500">
-                  لا يملك Learn نسخة محتوى مستقلة؛ يعرض المراجعة المنشورة المملوكة لـ Knowledge.
-                </p>
-              </section>
-
               <section class="space-y-2 rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
                 <div class="flex items-center gap-1.5 font-semibold text-slate-400">
                   <span>📚</span>
-                  <h4>المتطلبات والمصادر</h4>
+                  <h4>المتطلبات السابقة</h4>
                 </div>
-                <bdi dir="ltr" class="block font-mono text-[10px] break-all text-amber-300">
-                  {{ context.prerequisites.state }}
-                </bdi>
-                <p class="text-[10px] leading-5 text-slate-500">
-                  لا تُستنتج الإتاحة أو المتطلبات من موضع منهجي أو نسبة محلية بلا عقد مرجعي.
+                <ul v-if="context.prerequisites.items.length" class="space-y-2">
+                  <li
+                    v-for="item in context.prerequisites.items"
+                    :key="item.id"
+                    class="rounded-lg border border-slate-800 bg-slate-900/60 p-2"
+                  >
+                    <span
+                      v-if="item.title_ar"
+                      dir="auto"
+                      class="bidi-plaintext block text-[11px] font-semibold text-slate-300"
+                    >
+                      {{ item.title_ar }}
+                    </span>
+                    <bdi dir="ltr" class="block font-mono text-[10px] text-cyan-300">{{
+                      item.id
+                    }}</bdi>
+                    <span class="mt-1 block text-[9px] text-slate-500">
+                      {{
+                        item.available_in_current_corpus
+                          ? 'متاحة في النطاق الحالي'
+                          : 'مرجع سابق خارج النطاق الحالي'
+                      }}
+                    </span>
+                  </li>
+                </ul>
+                <p v-else class="text-[11px] leading-5 text-slate-500">
+                  لا توجد متطلبات سابقة مسجلة لهذه الوحدة.
                 </p>
+              </section>
+
+              <section
+                v-if="selectedStep || selectedLab || labBlueprint"
+                class="space-y-2 rounded-xl border border-indigo-900/60 bg-indigo-950/25 p-3.5"
+              >
+                <div class="flex items-center gap-1.5 font-semibold text-slate-400">
+                  <span>🧭</span>
+                  <h4>الخطوة التالية المقترحة</h4>
+                </div>
+                <p
+                  v-if="selectedStep"
+                  dir="auto"
+                  class="bidi-plaintext text-xs font-bold text-slate-200"
+                >
+                  {{
+                    selectedStep.definition.title_ar ??
+                    selectedStep.definition.title_en ??
+                    selectedStep.practice_id
+                  }}
+                </p>
+                <p
+                  v-else-if="labBlueprint"
+                  dir="auto"
+                  class="bidi-plaintext text-xs font-bold text-slate-200"
+                >
+                  {{ labBlueprint.lab_title || 'معاينة مخطط المختبر الآمن' }}
+                </p>
+                <p class="text-[10px] leading-5 text-slate-500">
+                  لا يُصدر إكمال الدرس أو النشاط حكم إتقان رسميًا. تشغيل المختبر يبدأ من مساحة
+                  المحاكاة عند توفر التسليم.
+                </p>
+              </section>
+
+              <section class="space-y-2 rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
+                <div class="flex items-center gap-1.5 font-semibold text-slate-400">
+                  <span>🔗</span>
+                  <h4>مصادر هذا الدرس</h4>
+                </div>
                 <ul v-if="context.sources.length" class="space-y-1.5 pt-1">
                   <li
                     v-for="source in context.sources"
@@ -791,41 +806,11 @@ const qualityHref = computed(
                     <span class="block text-[11px] font-semibold text-slate-300">{{
                       source.title
                     }}</span>
-                    <bdi dir="ltr" class="mt-0.5 block font-mono text-[9px] text-slate-500">
-                      {{ source.authority_class }} · {{ source.review_status }}
-                    </bdi>
                   </li>
                 </ul>
                 <p v-else class="text-[10px] text-slate-500">
                   لا توجد مصادر مطابقة لاستشهادات المراجعة المنشورة.
                 </p>
-              </section>
-
-              <section class="space-y-2 rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
-                <div class="flex items-center gap-1.5 font-semibold text-slate-400">
-                  <span>🧭</span>
-                  <h4>حدود المعنى والملكية</h4>
-                </div>
-                <dl class="space-y-2 text-[11px]">
-                  <div>
-                    <dt class="text-slate-500">سياق التقدم</dt>
-                    <dd class="mt-0.5 font-mono break-all text-slate-300" dir="ltr">
-                      {{ semantic_boundary.progress || 'غير محدد' }}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt class="text-slate-500">حد الإكمال</dt>
-                    <dd class="mt-0.5 font-mono break-all text-slate-300" dir="ltr">
-                      {{ semantic_boundary.completion || 'غير محدد' }}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt class="text-slate-500">ملكية الإتقان</dt>
-                    <dd class="mt-0.5 font-mono break-all text-slate-300" dir="ltr">
-                      {{ semantic_boundary.mastery || 'غير محدد' }}
-                    </dd>
-                  </div>
-                </dl>
               </section>
             </div>
           </aside>
@@ -863,10 +848,10 @@ const qualityHref = computed(
             class="mx-auto grid max-w-[1720px] gap-3 text-xs text-slate-400 sm:grid-cols-2 xl:grid-cols-4"
           >
             <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
-              <span class="block text-[10px] font-bold text-slate-500">النطاق الدلالي للنشاط</span>
-              <bdi dir="ltr" class="mt-1 block font-mono break-all text-cyan-300">
-                {{ journey.activity.semantic_scope || '—' }}
-              </bdi>
+              <span class="block text-[10px] font-bold text-slate-500">نطاق النشاط</span>
+              <span class="mt-1 block text-xs text-cyan-300"
+                >محاولات التعلّم في هذه الوحدة فقط</span
+              >
             </div>
             <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
               <span class="block text-[10px] font-bold text-slate-500">آخر نشاط مسجل</span>
@@ -881,13 +866,13 @@ const qualityHref = computed(
                   journey.activity.practice_count
                 }}
               </bdi>
-              <span class="mt-1 block text-[10px] text-amber-300">Completion != Mastery</span>
+              <span class="mt-1 block text-[10px] text-amber-300">
+                اكتمال النشاط لا يمثل حكم إتقان رسميًا
+              </span>
             </div>
             <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
               <span class="block text-[10px] font-bold text-slate-500">استمرارية موضع القراءة</span>
-              <bdi dir="ltr" class="mt-1 block font-mono break-all text-cyan-300">
-                {{ context.resume.semantic_scope }}
-              </bdi>
+              <span class="mt-1 block text-xs text-cyan-300">موضع القراءة محفوظ في المتصفح</span>
               <span class="mt-1 block text-[10px] text-slate-500">
                 محلي على الجهاز · غير محفوظ في الخادم
               </span>
@@ -900,6 +885,11 @@ const qualityHref = computed(
 </template>
 
 <style>
+.kl-learn-route .bidi-plaintext {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
+
 [data-theme='light'] .kl-learn-route [class*='bg-slate-950'],
 [data-theme='light'] .kl-learn-route [class*='bg-slate-900'],
 [data-theme='light'] .kl-learn-route [class*='bg-slate-800'],
