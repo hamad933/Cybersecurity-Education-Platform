@@ -51,6 +51,12 @@ const selectOverlay = (overlay: OverlayName | null) => {
   selectedOverlay.value = overlay;
 };
 
+const selectedNodeId = ref<string | null>(null);
+const selectedNode = computed(() => {
+  if (!selectedNodeId.value) return null;
+  return props.graph.nodes.find((n) => n.id === selectedNodeId.value) ?? null;
+});
+
 const mapScope = computed(() => props.map.scope?.id ?? props.active?.id ?? null);
 const activeFilter = ref('all');
 const visibleNodes = computed(() => {
@@ -337,6 +343,8 @@ const handleZoomReset = () => {
                   :active-overlay="selectedOverlay"
                   :overlay-layer="selectedLayer"
                   :visual-positions="map.visual_positions"
+                  :selected-node-id="selectedNodeId"
+                  @select-node="selectedNodeId = $event"
                 />
               </div>
             </div>
@@ -354,8 +362,49 @@ const handleZoomReset = () => {
           <aside
             dir="rtl"
             class="order-3 flex min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur md:col-span-2 xl:col-span-1 dark:bg-[#0b1322]/90"
-            aria-label="تحليل الطبقات المرصودة"
+            aria-label="سياق العقدة المعرفية المرجعية وتحليل الطبقات"
           >
+            <!-- VIS-CONTEXT-01: Selected / focused canonical-node context -->
+            <section aria-labelledby="context-panel-title">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-[10px] font-bold tracking-[0.2em] text-slate-600" dir="ltr">
+                    CONTEXT
+                  </p>
+                  <h2 id="context-panel-title" class="mt-1 text-sm font-black">
+                    سياق العقدة المعرفية المرجعية
+                  </h2>
+                </div>
+              </div>
+              <div
+                v-if="selectedNode"
+                class="mt-4 space-y-3 rounded-xl border border-indigo-500/30 bg-indigo-950/20 p-3.5 text-xs shadow-sm"
+              >
+                <div>
+                  <span
+                    class="inline-block rounded-full bg-indigo-500/20 px-2 py-0.5 font-mono text-[9px] font-bold text-indigo-300"
+                  >
+                    {{ selectedNode.kind }}
+                  </span>
+                </div>
+                <p class="font-bold text-slate-100">{{ selectedNode.label }}</p>
+                <div class="border-t border-indigo-500/20 pt-2">
+                  <span class="block text-[10px] text-slate-500">المعرّف التقني</span>
+                  <bdi dir="ltr" class="mt-1 block font-mono break-all text-indigo-300">
+                    {{ selectedNode.technical_label }}
+                  </bdi>
+                </div>
+              </div>
+              <p
+                v-else
+                class="mt-4 rounded-xl border border-dashed border-slate-800 p-3 text-xs leading-6 text-slate-500"
+              >
+                لم تُحدّد عقدة معرفية مرجعية. انقر على عقدة في الرسم البياني لعرض سياقها.
+              </p>
+            </section>
+
+            <div class="my-6 h-px bg-slate-800/80"></div>
+
             <OverlayPanel mode="context" :overlay="overlay" :selected="selectedOverlay" />
 
             <section class="mt-6 border-t border-slate-800/80 pt-4">
