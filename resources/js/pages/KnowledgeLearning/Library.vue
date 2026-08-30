@@ -133,17 +133,9 @@ const filteredStructure = computed<LibraryHierarchyProjection>(() => {
 });
 
 const MAX_BLOCK_DEPTH = 3;
-const technicalTypes = new Set([
-  'code',
-  'sql',
-  'bash',
-  'json',
-  'python',
-  'yaml',
-  'shell',
-  'javascript',
-  'typescript',
-]);
+// NON-AUTHORITATIVE UX MIRROR: CEP-KNOWLEDGE-CORE-CORR-01 must inject an authoritative block registry
+// via Inertia props so the frontend does not manually mirror backend types.
+const technicalTypes = new Set(['code', 'request', 'response', 'log']);
 
 const structuralDepth = (block: RevisionBlock): number =>
   Number.isInteger(block.depth) ? (block.depth as number) : 0;
@@ -327,10 +319,24 @@ const insertReference = (index: number) => {
   const reference = window.prompt('أدخل معرّف المرجع أو الاستشهاد:');
   const normalized = reference?.trim();
   if (!normalized) return;
+
+  // NON-AUTHORITATIVE UX MIRROR: This regex mirrors the backend domain validator in LessonRevisionWorkflow.php.
+  // CEP-KNOWLEDGE-CORE-CORR-01 must provide a shared citation validation contract.
+  if (!/^(?:WIN|WEB|VS3)-AUTH-\d{3}$/.test(normalized)) {
+    window.alert(
+      'معرّف المرجع غير صالح. يجب أن يطابق النمط: WIN-AUTH-001 أو WEB-AUTH-001 أو VS3-AUTH-001.',
+    );
+    return;
+  }
+
   if (!form.citations.includes(normalized)) form.citations.push(normalized);
   replaceSelection(index, '', '', `[@${normalized}]`);
 };
 const removeCitation = (citation: string) => {
+  if (form.citations.length <= 1) {
+    window.alert('يجب أن تحتوي الوحدة المعرفية على استشهاد واحد على الأقل كمرجع للسلطة.');
+    return;
+  }
   form.citations = form.citations.filter((item) => item !== citation);
 };
 
@@ -536,6 +542,8 @@ void nextTick(loadRecovery);
 onBeforeUnmount(() => {
   if (historyTimer) clearTimeout(historyTimer);
   if (autosaveTimer) clearTimeout(autosaveTimer);
+  // Ensure the latest local snapshot is saved to local recovery synchronously before teardown
+  commitHistoryCheckpoint();
 });
 
 const restore = () => {
@@ -979,21 +987,21 @@ const loadComparison = async () => {
                       :aria-label="`أدوات الكتلة ${index + 1}`"
                     >
                       <div class="flex flex-wrap items-center gap-2">
+                        <!-- NON-AUTHORITATIVE UX MIRROR: block types mirrored from backend LessonRevisionWorkflow.php -->
                         <select
                           v-model="block.type"
                           class="form-input focus-ring rounded-md border-slate-700 bg-slate-900 py-1 pr-2 pl-6 font-mono text-xs text-slate-200"
                           :aria-label="`نوع الكتلة ${index + 1}`"
                         >
+                          <option value="heading">عنوان فرعي (Heading)</option>
                           <option value="paragraph">فقرة (Paragraph)</option>
                           <option value="callout">ملاحظة بارزة (Callout)</option>
                           <option value="rules">قواعد وضوابط (Rules)</option>
                           <option value="boundaries">حدود وسياق (Boundaries)</option>
-                          <option value="heading">عنوان فرعي (Heading)</option>
-                          <option value="list">قائمة (List)</option>
                           <option value="code">شفرة برمجية (Code)</option>
-                          <option value="sql">استعلام SQL (SQL)</option>
-                          <option value="bash">أوامر طرفية (Bash)</option>
-                          <option value="json">بيانات (JSON)</option>
+                          <option value="request">طلب (Request)</option>
+                          <option value="response">استجابة (Response)</option>
+                          <option value="log">سجل (Log)</option>
                         </select>
 
                         <span class="font-mono text-[10px] text-slate-500"
@@ -1360,6 +1368,7 @@ const loadComparison = async () => {
                   >
                     <bdi dir="ltr">{{ citation }}</bdi>
                     <button
+                      v-if="form.citations.length > 1"
                       type="button"
                       class="hover:text-rose-400"
                       :aria-label="`حذف استشهاد ${citation}`"
