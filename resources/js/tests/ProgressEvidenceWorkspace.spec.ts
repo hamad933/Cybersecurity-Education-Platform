@@ -99,6 +99,20 @@ const portfolio = {
   grouping: 'CAPABILITY',
   filters: { review_decisions: ['ACCEPT', 'ACCEPT_WITH_LIMITATIONS'] },
   annotations: { purpose: 'curated-projection' },
+  groups: [
+    {
+      grouping: 'CAPABILITY',
+      key: 'CAP-WEB-01',
+      items: [
+        {
+          id: 'portfolio-item-1',
+          evidence_id: 'evidence-1',
+          current_revision_id: 'revision-1',
+          title: 'تحليل المصادقة المحكوم',
+        },
+      ],
+    },
+  ],
   items: [
     {
       id: 'portfolio-item-1',
@@ -359,6 +373,7 @@ describe('Progress & Evidence governed workspace', () => {
     expect(center.text()).toContain('revision-1');
     expect(center.text()).toContain('Canonical Evidence Reference');
     expect(center.text()).toContain('Reference-only curated projection');
+    expect(center.text()).toContain('إسقاط محكوم');
     expect(center.text()).toContain('Evidence ID');
     expect(center.text()).not.toContain(evidence.evidence_claim);
     expect(center.text()).not.toContain(evidence.summary);
@@ -373,11 +388,79 @@ describe('Progress & Evidence governed workspace', () => {
     expect(right.text()).not.toContain('revision-1');
   });
 
+  it('uses authoritative backend groups even when differing from local lookup, avoids raw constants, and empty groups remains empty', () => {
+    const emptyPortfolio = {
+      ...portfolio,
+      id: 'portfolio-2',
+      groups: [],
+      items: [],
+    };
+    const differingPortfolio = {
+      ...portfolio,
+      id: 'portfolio-3',
+      grouping: 'REVIEW_DECISION',
+      groups: [
+        {
+          grouping: 'REVIEW_DECISION',
+          key: 'REJECT',
+          items: [
+            {
+              id: 'portfolio-item-1',
+              evidence_id: 'evidence-1',
+              current_revision_id: 'revision-1',
+              title: 'تحليل المصادقة المحكوم',
+            },
+          ],
+        },
+      ],
+    };
+
+    const wrapperEmpty = mount(Workspace, {
+      props: { ...propsFor('portfolio'), portfolios: [emptyPortfolio] },
+    });
+    const centerEmpty = wrapperEmpty.get('[data-testid="portfolio-detail"]');
+    expect(centerEmpty.text()).toContain('0 Groups');
+    expect(centerEmpty.text()).not.toContain('group-1'); // Not generating fallback
+    expect(centerEmpty.text()).not.toContain('PORTFOLIO_CAPABILITY_PROJECTION');
+    expect(centerEmpty.text()).not.toContain('PORTFOLIO_PROJECTION');
+
+    const wrapperDiffering = mount(Workspace, {
+      props: { ...propsFor('portfolio'), portfolios: [differingPortfolio] },
+    });
+    const centerDiffering = wrapperDiffering.get('[data-testid="portfolio-detail"]');
+    expect(centerDiffering.text()).toContain('1 Groups');
+    expect(centerDiffering.text()).toContain('REJECT'); // Rendering the key as is
+    expect(centerDiffering.text()).not.toContain('CAP-WEB-01'); // It uses key from group, not ev mapping
+    expect(centerDiffering.text()).toContain('إسقاط محكوم');
+    expect(centerDiffering.text()).not.toContain('PORTFOLIO_CAPABILITY_PROJECTION');
+    expect(centerDiffering.text()).not.toContain('PORTFOLIO_PROJECTION');
+  });
+
   it('keeps mobile surface navigation labels intact and exposes native keyboard controls', async () => {
     const props = propsFor('portfolio');
     props.portfolios = [
       {
         ...portfolio,
+        groups: [
+          {
+            grouping: 'CAPABILITY',
+            key: 'CAP-WEB-01',
+            items: [
+              {
+                id: 'portfolio-item-1',
+                evidence_id: 'evidence-1',
+                current_revision_id: 'revision-1',
+                title: 'تحليل المصادقة المحكوم',
+              },
+              {
+                id: 'portfolio-item-2',
+                evidence_id: 'evidence-1',
+                current_revision_id: 'revision-1',
+                title: 'مرجع ثانٍ',
+              },
+            ],
+          },
+        ],
         items: [
           ...portfolio.items,
           {
@@ -411,6 +494,30 @@ describe('Progress & Evidence governed workspace', () => {
     expect(settings.attributes('type')).toBe('button');
     await settings.trigger('click');
     expect(wrapper.get('[data-cep-region="bottom"]').find('form').exists()).toBe(true);
+  });
+
+  it('provides the correct supported grouping options in the create form and rail navigation', async () => {
+    const wrapper = mount(Workspace, { props: propsFor('portfolio') });
+
+    // Check left rail
+    const left = wrapper.get('[data-cep-region="left"]');
+    expect(left.text()).toContain('By Capability');
+    expect(left.text()).toContain('By Review Decision');
+    expect(left.text()).toContain('By Evidence Type');
+    expect(left.text()).toContain('By Time');
+    expect(left.text()).toContain('By Mastery Judgment');
+    expect(left.text()).toContain('By Freshness Status');
+    expect(left.text()).not.toContain('By Project');
+    expect(left.text()).not.toContain('By Learning Objective');
+
+    // Open bottom form
+    const settings = wrapper.get('.context-action-btn');
+    await settings.trigger('click');
+    const form = wrapper.get('[data-cep-region="bottom"] form');
+    expect(form.text()).toContain('REVIEW_DECISION');
+    expect(form.text()).toContain('FRESHNESS_STATUS');
+    expect(form.text()).not.toContain('PROJECT');
+    expect(form.text()).not.toContain('OBJECTIVE');
   });
 
   it('assigns TOP, LEFT, CENTER, RIGHT, and BOTTOM to their governed owners', () => {

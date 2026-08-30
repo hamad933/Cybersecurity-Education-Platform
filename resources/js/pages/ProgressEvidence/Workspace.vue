@@ -136,6 +136,7 @@ type Portfolio = {
   grouping: string;
   filters?: Record<string, unknown>;
   annotations?: Record<string, unknown>;
+  groups?: Array<{ grouping: string; key: string; items: PortfolioItem[] }>;
   items: PortfolioItem[];
 };
 
@@ -327,65 +328,18 @@ const canIssueDecision = computed(
 
 // Grouped portfolio items are reference-only projections. Group membership does not infer status.
 const portfolioGroups = computed(() => {
-  const items = selectedPortfolio.value?.items ?? [];
-  if (!items.length) return [];
-
-  const groupingStrategy = selectedPortfolio.value?.grouping;
-
-  if (groupingStrategy === 'CAPABILITY') {
-    const groupsMap = new Map<
-      string,
-      {
-        id: string;
-        title: string;
-        projection: string;
-        statusBadge: { text: string } | null;
-        items: Array<
-          PortfolioItem & {
-            typeLabel: string;
-            effectiveDecision: string | null;
-            annotationText: string;
-          }
-        >;
-      }
-    >();
-
-    items.forEach((item) => {
-      const ev = props.evidence.find((e) => e.id === item.evidence_id);
-      const capId = ev ? ev.capability_id : 'UNKNOWN_CAPABILITY';
-
-      if (!groupsMap.has(capId)) {
-        groupsMap.set(capId, {
-          id: capId,
-          title: capId,
-          projection: 'PORTFOLIO_CAPABILITY_PROJECTION',
-          statusBadge: null,
-          items: [],
-        });
-      }
-
-      const group = groupsMap.get(capId);
-      if (!group) return;
-
-      group.items.push({
-        ...item,
-        typeLabel: ev?.source_type ?? 'غير متوفر',
-        effectiveDecision: ev?.effective_review_decision ?? null,
-        annotationText: item.annotation ?? '',
-      });
-    });
-
-    return Array.from(groupsMap.values());
+  const authoritativeGroups = selectedPortfolio.value?.groups;
+  if (!authoritativeGroups || !authoritativeGroups.length) {
+    return [];
   }
 
-  // Fallback single reference group without inferred mastery, freshness, verification, or acceptance.
-  return [
-    {
-      id: selectedPortfolio.value?.id || 'group-1',
-      title: selectedPortfolio.value?.name ?? 'Curated Capability References',
-      projection: 'PORTFOLIO_PROJECTION',
-      statusBadge: null,
-      items: items.map((item) => {
+  return authoritativeGroups.map((group, index) => {
+    return {
+      id: `group-${group.grouping}-${group.key}-${index}`,
+      title: group.key,
+      projection: 'إسقاط محكوم',
+      statusBadge: null as { text: string } | null,
+      items: group.items.map((item) => {
         const ev = props.evidence.find((e) => e.id === item.evidence_id);
         return {
           ...item,
@@ -394,8 +348,8 @@ const portfolioGroups = computed(() => {
           annotationText: item.annotation ?? '',
         };
       }),
-    },
-  ];
+    };
+  });
 });
 
 // Computed properties for Mastery Step 2 and 4 dynamic data
@@ -1356,24 +1310,7 @@ function removePortfolioItem(): void {
               >
                 <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
               </svg>
-              <span class="menu-label">By Project</span>
-            </button>
-            <button
-              class="rail-menu-item"
-              type="button"
-              disabled
-              title="استخدم Portfolio View محفوظًا"
-            >
-              <svg
-                class="menu-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
-              </svg>
-              <span class="menu-label">By Learning Objective</span>
+              <span class="menu-label">By Review Decision</span>
             </button>
             <button
               class="rail-menu-item"
@@ -1424,7 +1361,24 @@ function removePortfolioItem(): void {
               >
                 <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
               </svg>
-              <span class="menu-label">By Mastery State</span>
+              <span class="menu-label">By Mastery Judgment</span>
+            </button>
+            <button
+              class="rail-menu-item"
+              type="button"
+              disabled
+              title="استخدم Portfolio View محفوظًا"
+            >
+              <svg
+                class="menu-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+              </svg>
+              <span class="menu-label">By Freshness Status</span>
             </button>
           </div>
 
@@ -3021,8 +2975,7 @@ function removePortfolioItem(): void {
             Grouping
             <select v-model="portfolioForm.grouping" dir="ltr" required>
               <option>CAPABILITY</option>
-              <option>PROJECT</option>
-              <option>OBJECTIVE</option>
+              <option>REVIEW_DECISION</option>
               <option>EVIDENCE_TYPE</option>
               <option>TIME</option>
               <option>MASTERY_JUDGMENT</option>
