@@ -1,5 +1,7 @@
 name: CEP Jules Gateway v2.3 Candidate Publication
 
+run-name: CEP-V23-PUBLISH ${{ inputs.logical_task }} / req-${{ inputs.request_id }}
+
 on:
   workflow_dispatch:
     inputs:
@@ -54,9 +56,14 @@ on:
         description: SHA-256 of sorted unique changed paths, each newline terminated
         required: true
         type: string
+      bridge_issue_number:
+        description: Owner-authored CEP-V23-PUBLISH issue number; empty for direct owner dispatch
+        required: false
+        type: string
 
 permissions:
   contents: write
+  issues: read
 
 concurrency:
   group: cep-jules-v23-publish-${{ inputs.target_branch }}
@@ -72,23 +79,96 @@ jobs:
       EXPECTED_REMOTE_SHA: ${{ inputs.expected_remote_sha }}
       EXPECTED_REVIEW_SHA256: ${{ inputs.expected_review_sha256 }}
       EXPECTED_PATHS_SHA256: ${{ inputs.expected_paths_sha256 }}
+      EXPECTED_SESSION_STATE: ${{ inputs.expected_session_state }}
+      EXPECTED_SESSION_UPDATE_TIME: ${{ inputs.expected_session_update_time }}
       SESSION_ID: ${{ inputs.session_id }}
       REQUEST_ID: ${{ inputs.request_id }}
       LOGICAL_TASK: ${{ inputs.logical_task }}
       WRITE_DOMAIN: ${{ inputs.write_domain }}
       CONTROLLER_ID: ${{ inputs.controller_id }}
       LANE: ${{ inputs.lane }}
+      BRIDGE_ISSUE_NUMBER: ${{ inputs.bridge_issue_number }}
       PATCH_FILE: ${{ runner.temp }}/cep-jules-publication/reviewed.patch
       PREFLIGHT_RECEIPT: ${{ runner.temp }}/cep-jules-publication/preflight.json
       RESULT_RECEIPT: ${{ runner.temp }}/cep-jules-publication/result.json
 
     steps:
-      - name: Enforce owner and main dispatch gate
+      - name: Enforce owner or authenticated issue-bridge dispatch gate
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          ACTOR: ${{ github.actor }}
         run: |
           set -euo pipefail
-          test "${{ github.actor }}" = "${{ github.repository_owner }}" || { echo "OWNER_GATE_FAILED" >&2; exit 2; }
           test "${{ github.ref }}" = "refs/heads/main" || { echo "MAIN_DISPATCH_GATE_FAILED" >&2; exit 2; }
+
+          if [ "$ACTOR" = "$REPO_OWNER" ]; then
+            echo "DIRECT_OWNER_DISPATCH_VERIFIED"
+            exit 0
+          fi
+
+          test "$ACTOR" = "github-actions[bot]" || {
+            echo "OWNER_GATE_FAILED actor=$ACTOR" >&2
+            exit 2
+          }
+          [[ "$BRIDGE_ISSUE_NUMBER" =~ ^[0-9]+$ ]] || {
+            echo "OWNER_GATE_FAILED missing_or_invalid_bridge_issue_number" >&2
+            exit 2
+          }
+
+          ISSUE_JSON="$(gh api "/repos/$REPO/issues/$BRIDGE_ISSUE_NUMBER")"
+          export ISSUE_JSON REPO REPO_OWNER
+
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          try:
+              issue = json.loads(os.environ["ISSUE_JSON"])
+              repo = os.environ["REPO"]
+              owner = os.environ["REPO_OWNER"]
+
+              if issue.get("repository_url") != f"https://api.github.com/repos/{repo}":
+                  raise ValueError("issue repository mismatch")
+              if "pull_request" in issue:
+                  raise ValueError("pull request cannot authorize publication")
+              if issue.get("user", {}).get("login") != owner:
+                  raise ValueError("issue author is not repository owner")
+              if issue.get("author_association") != "OWNER":
+                  raise ValueError("issue author_association is not OWNER")
+              if not issue.get("title", "").startswith("[CEP-V23-PUBLISH]"):
+                  raise ValueError("issue title does not begin with [CEP-V23-PUBLISH]")
+
+              body = json.loads(issue.get("body") or "{}")
+              expected = {
+                  "request_id": os.environ["REQUEST_ID"],
+                  "controller_id": os.environ["CONTROLLER_ID"],
+                  "lane": os.environ["LANE"],
+                  "logical_task": os.environ["LOGICAL_TASK"],
+                  "write_domain": os.environ["WRITE_DOMAIN"],
+                  "session_id": os.environ["SESSION_ID"],
+                  "expected_session_state": os.environ["EXPECTED_SESSION_STATE"],
+                  "expected_session_update_time": os.environ["EXPECTED_SESSION_UPDATE_TIME"],
+                  "target_branch": os.environ["TARGET_BRANCH"],
+                  "expected_remote_sha": os.environ["EXPECTED_REMOTE_SHA"],
+                  "expected_review_sha256": os.environ["EXPECTED_REVIEW_SHA256"],
+                  "expected_paths_sha256": os.environ["EXPECTED_PATHS_SHA256"],
+              }
+
+              if set(body) != set(expected):
+                  raise ValueError("issue body keys do not match governed publication packet")
+              if body != expected:
+                  mismatched = [key for key in expected if body.get(key) != expected[key]]
+                  raise ValueError(f"issue body/input mismatch: {','.join(mismatched)}")
+          except Exception as exc:
+              print(f"BRIDGE_PROVENANCE_FAILED: {exc}", file=sys.stderr)
+              raise SystemExit(2)
+
+          print("BRIDGE_PROVENANCE_VERIFIED")
+          PY
 
       - name: Checkout exact trusted Gateway revision
         uses: actions/checkout@v4
@@ -115,8 +195,8 @@ jobs:
             --logical-task "$LOGICAL_TASK" \
             --write-domain "$WRITE_DOMAIN" \
             --session-id "$SESSION_ID" \
-            --expected-session-state "${{ inputs.expected_session_state }}" \
-            --expected-session-update-time "${{ inputs.expected_session_update_time }}" \
+            --expected-session-state "$EXPECTED_SESSION_STATE" \
+            --expected-session-update-time "$EXPECTED_SESSION_UPDATE_TIME" \
             --target-branch "$TARGET_BRANCH" \
             --expected-base-sha "$EXPECTED_REMOTE_SHA" \
             --expected-review-sha256 "$EXPECTED_REVIEW_SHA256" \
