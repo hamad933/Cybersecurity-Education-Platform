@@ -76,14 +76,14 @@ describe('ManualAiBridgeCorrection Spec', () => {
     expect(wrapper.text()).toContain('✕ لا نشر تلقائي');
   });
 
-  it('proves file input accepts .json result package and renders upload button', () => {
+  it('proves file input accepts .zip result package and renders upload button', () => {
     const wrapper = mount(AiBridgeSurface, {
       props: { state: mockState },
     });
 
     const fileInput = wrapper.find('input[type="file"]');
     expect(fileInput.exists()).toBe(true);
-    expect(fileInput.attributes('accept')).toContain('.json');
+    expect(fileInput.attributes('accept')).toContain('.zip');
 
     const submitBtn = wrapper.findAll('button.btn-primary')[1];
     expect(submitBtn.text()).toContain('استيراد النتيجة للمراجعة');
@@ -104,6 +104,8 @@ describe('ManualAiBridgeCorrection Spec', () => {
     expect(textarea.exists()).toBe(true);
 
     await textarea.setValue('تم التدقيق والمطابقة مع المرجع.');
+    const propIdInput = wrapper.find('input[id="proposal-id-res-corr-01"]');
+    await propIdInput.setValue('prop_1');
     expect(wrapper.find('button.accept-button').attributes('disabled')).toBeUndefined();
     expect(wrapper.find('button.danger-button').attributes('disabled')).toBeUndefined();
   });
