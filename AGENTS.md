@@ -57,6 +57,23 @@ For Jules control:
 - a replacement session requires direct proof of an irrecoverable provider/input/isolation condition;
 - preserve one writer per write domain across local, Codex, Jules, and other executors.
 
+## ChatGPT Work handoff and trusted publication
+
+Files under `.github/workflows/cep-work-*.yml` and `tools/cep_work_gateway/` are Controller infrastructure for transporting an already-authorized ChatGPT Work writer result. They do not grant product acceptance, merge, release, deploy, or final-acceptance authority.
+
+A Work task may use the governed `[CEP-WORK-HANDOFF]` Issue protocol only when its writer contract fixes the exact base SHA, isolated target branch, write domain, writeScope, prohibited scope, validation, evidence, dependencies, and Stop Gate.
+
+Work may create the handoff Issue, bounded patch-chunk/evidence comments, and exactly one completion marker. Work must not:
+- create `[CEP-WORK-PUBLISH]` Controller publication issues;
+- approve or accept its own result;
+- target `main`, `master`, release refs, or tags;
+- modify `.github/`, `tools/cep_work_gateway/`, `tools/cep_jules_gateway/`, `AGENTS.md`, or secret/runtime/vendor paths through the external Work publisher;
+- merge, release, deploy, force-push, rewrite history, or perform destructive actions.
+
+The Work intake freezes the exact handoff bytes into a digest-bound short-retention Actions artifact. The Controller must review that exact frozen artifact and direct repository state before creating a publication request. The publisher then re-verifies the artifact, exact remote base SHA and changed-path identity before one non-force candidate publication followed by authoritative remote-ref readback.
+
+A Work Gateway publication is transport evidence only. `WORK HANDOFF != CONTROLLER APPROVAL`, `PUSH != ACCEPTANCE != MERGE`, and a candidate still requires the normal Controller review/adjudication path.
+
 ## Jules Google Drive bootstrap
 
 The canonical Jules↔Drive access method is `00_JULES_DRIVE_ACCESS_ATLAS_v1.0`, Drive ID `1P272cptZ7C8lZf98aY0WODrNsPaq6EzgTcIUVEKMV_s`.

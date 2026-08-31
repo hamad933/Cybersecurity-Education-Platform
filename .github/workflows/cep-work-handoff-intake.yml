@@ -1,0 +1,119 @@
+name: CEP Work Gateway v1 Handoff Intake
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  freeze-handoff:
+    if: >-
+      github.event.issue.user.login == github.repository_owner &&
+      github.event.issue.author_association == 'OWNER' &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      startsWith(github.event.issue.title, '[CEP-WORK-HANDOFF]') &&
+      startsWith(github.event.comment.body, 'CEP_WORK_HANDOFF_COMPLETE ')
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout trusted default-branch gateway revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch exact Issue and all comments
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/cep-work-intake/source /tmp/cep-work-intake/frozen
+          gh api "/repos/$REPO/issues/$ISSUE_NUMBER" > /tmp/cep-work-intake/source/issue.json
+          gh api --paginate --slurp "/repos/$REPO/issues/$ISSUE_NUMBER/comments?per_page=100" \
+            | jq 'add' > /tmp/cep-work-intake/source/comments.json
+
+      - name: Reconstruct, validate and freeze handoff
+        id: intake
+        env:
+          REPO: ${{ github.repository }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          RUN_ID: ${{ github.run_id }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python -m tools.cep_work_gateway.intake \
+            --repository "$REPO" \
+            --repository-owner "$REPO_OWNER" \
+            --issue-json /tmp/cep-work-intake/source/issue.json \
+            --comments-json /tmp/cep-work-intake/source/comments.json \
+            --run-id "$RUN_ID" \
+            --head-sha "$HEAD_SHA" \
+            --patch-out /tmp/cep-work-intake/frozen/reviewed.patch \
+            --manifest-out /tmp/cep-work-intake/frozen/manifest.json \
+            --receipt-out /tmp/cep-work-intake/frozen/intake-receipt.json
+          echo "request_id=$(jq -r '.request_id' /tmp/cep-work-intake/frozen/intake-receipt.json)" >> "$GITHUB_OUTPUT"
+          echo "patch_sha=$(jq -r '.patch_sha256' /tmp/cep-work-intake/frozen/intake-receipt.json)" >> "$GITHUB_OUTPUT"
+          echo "paths_sha=$(jq -r '.paths_sha256' /tmp/cep-work-intake/frozen/intake-receipt.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Detect exact prior verified intake
+        id: idem
+        env:
+          REQUEST_ID: ${{ steps.intake.outputs.request_id }}
+          PATCH_SHA: ${{ steps.intake.outputs.patch_sha }}
+          PATHS_SHA: ${{ steps.intake.outputs.paths_sha }}
+        run: |
+          set -euo pipefail
+          if jq -e --arg marker "CEP_WORK_INTAKE_VERIFIED request_id=$REQUEST_ID patch_sha256=$PATCH_SHA paths_sha256=$PATHS_SHA" \
+            'any(.[]; .user.login == "github-actions[bot]" and ((.body | startswith($marker + " ")) or .body == $marker))' \
+            /tmp/cep-work-intake/source/comments.json >/dev/null; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "IDEMPOTENT_ALREADY_VERIFIED"
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload frozen handoff artifact
+        if: steps.idem.outputs.already != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cep-work-handoff-${{ steps.intake.outputs.request_id }}-${{ github.run_id }}
+          path: /tmp/cep-work-intake/frozen/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Write intake receipt comment
+        if: steps.idem.outputs.already != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REQUEST_ID: ${{ steps.intake.outputs.request_id }}
+          PATCH_SHA: ${{ steps.intake.outputs.patch_sha }}
+          PATHS_SHA: ${{ steps.intake.outputs.paths_sha }}
+          RUN_ID: ${{ github.run_id }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body \
+            "CEP_WORK_INTAKE_VERIFIED request_id=$REQUEST_ID patch_sha256=$PATCH_SHA paths_sha256=$PATHS_SHA run_id=$RUN_ID intake_head_sha=$HEAD_SHA"
+
+      - name: Report rejected intake without payload disclosure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body \
+            "CEP_WORK_INTAKE_REJECTED run_id=$RUN_ID inspect_actions_log=true" || true

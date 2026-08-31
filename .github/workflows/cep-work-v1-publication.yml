@@ -1,0 +1,329 @@
+name: CEP Work Gateway v1 Candidate Publication
+
+run-name: CEP-WORK-PUBLISH ${{ inputs.logical_task }} / ${{ inputs.request_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      schema_version:
+        required: true
+        type: string
+      request_id:
+        required: true
+        type: string
+      controller_id:
+        required: true
+        type: choice
+        options: [PARENT, A, B, C, D, E]
+      workspace:
+        required: true
+        type: choice
+        options: [PARENT, W01, W02, W03, W04, W05]
+      logical_task:
+        required: true
+        type: string
+      write_domain:
+        required: true
+        type: string
+      handoff_issue_number:
+        required: true
+        type: string
+      intake_run_id:
+        required: true
+        type: string
+      intake_head_sha:
+        required: true
+        type: string
+      target_branch:
+        required: true
+        type: string
+      expected_remote_sha:
+        required: true
+        type: string
+      expected_patch_sha256:
+        required: true
+        type: string
+      expected_paths_sha256:
+        required: true
+        type: string
+      bridge_issue_number:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+  issues: write
+
+concurrency:
+  group: cep-work-publish-${{ inputs.target_branch }}
+  cancel-in-progress: false
+
+jobs:
+  publish-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      REPO: ${{ github.repository }}
+      REPO_OWNER: ${{ github.repository_owner }}
+      REQUEST_ID: ${{ inputs.request_id }}
+      CONTROLLER_ID: ${{ inputs.controller_id }}
+      WORKSPACE: ${{ inputs.workspace }}
+      LOGICAL_TASK: ${{ inputs.logical_task }}
+      WRITE_DOMAIN: ${{ inputs.write_domain }}
+      HANDOFF_ISSUE_NUMBER: ${{ inputs.handoff_issue_number }}
+      INTAKE_RUN_ID: ${{ inputs.intake_run_id }}
+      INTAKE_HEAD_SHA: ${{ inputs.intake_head_sha }}
+      TARGET_BRANCH: ${{ inputs.target_branch }}
+      EXPECTED_REMOTE_SHA: ${{ inputs.expected_remote_sha }}
+      EXPECTED_PATCH_SHA256: ${{ inputs.expected_patch_sha256 }}
+      EXPECTED_PATHS_SHA256: ${{ inputs.expected_paths_sha256 }}
+      BRIDGE_ISSUE_NUMBER: ${{ inputs.bridge_issue_number }}
+      ARTIFACT_DIR: /tmp/cep-work-publication/artifact
+      PATCH_FILE: /tmp/cep-work-publication/reviewed.patch
+      PREFLIGHT_RECEIPT: /tmp/cep-work-publication/preflight.json
+      RESULT_RECEIPT: /tmp/cep-work-publication/result.json
+
+    steps:
+      - name: Enforce issue-bridge publication authority
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          test "${{ github.ref }}" = "refs/heads/main" || { echo "MAIN_DISPATCH_GATE_FAILED" >&2; exit 2; }
+          [[ "$BRIDGE_ISSUE_NUMBER" =~ ^[0-9]+$ ]] || { echo "INVALID_BRIDGE_ISSUE" >&2; exit 2; }
+          gh api "/repos/$REPO/issues/$BRIDGE_ISSUE_NUMBER" > /tmp/bridge-issue.json
+          export ISSUE_JSON="$(cat /tmp/bridge-issue.json)"
+          python - <<'PY'
+          import json, os, sys
+          issue = json.loads(os.environ['ISSUE_JSON'])
+          owner = os.environ['REPO_OWNER']
+          if issue.get('user', {}).get('login') != owner or issue.get('author_association') != 'OWNER':
+              raise SystemExit('BRIDGE_OWNER_GATE_FAILED')
+          if not str(issue.get('title') or '').startswith('[CEP-WORK-PUBLISH]'):
+              raise SystemExit('BRIDGE_TITLE_GATE_FAILED')
+          body = json.loads(issue.get('body') or '{}')
+          expected = {
+              'schema_version': '${{ inputs.schema_version }}',
+              'request_id': os.environ['REQUEST_ID'],
+              'controller_id': os.environ['CONTROLLER_ID'],
+              'workspace': os.environ['WORKSPACE'],
+              'logical_task': os.environ['LOGICAL_TASK'],
+              'write_domain': os.environ['WRITE_DOMAIN'],
+              'handoff_issue_number': os.environ['HANDOFF_ISSUE_NUMBER'],
+              'intake_run_id': os.environ['INTAKE_RUN_ID'],
+              'intake_head_sha': os.environ['INTAKE_HEAD_SHA'],
+              'target_branch': os.environ['TARGET_BRANCH'],
+              'expected_remote_sha': os.environ['EXPECTED_REMOTE_SHA'],
+              'expected_patch_sha256': os.environ['EXPECTED_PATCH_SHA256'],
+              'expected_paths_sha256': os.environ['EXPECTED_PATHS_SHA256'],
+          }
+          if body != expected:
+              raise SystemExit('BRIDGE_PACKET_MISMATCH')
+          print('BRIDGE_PROVENANCE_VERIFIED')
+          PY
+
+      - name: Checkout exact trusted Gateway revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify intake run provenance and download exact frozen artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$ARTIFACT_DIR"
+          gh api "/repos/$REPO/actions/runs/$INTAKE_RUN_ID" > /tmp/intake-run.json
+          jq -e --arg head "$INTAKE_HEAD_SHA" \
+            '.conclusion == "success" and .event == "issue_comment" and .head_sha == $head and .path == ".github/workflows/cep-work-handoff-intake.yml"' \
+            /tmp/intake-run.json >/dev/null
+          gh api "/repos/$REPO/actions/runs/$INTAKE_RUN_ID/artifacts" > /tmp/intake-artifacts.json
+          EXPECTED_NAME="cep-work-handoff-$REQUEST_ID-$INTAKE_RUN_ID"
+          COUNT="$(jq --arg n "$EXPECTED_NAME" '[.artifacts[] | select(.name == $n and .expired == false)] | length' /tmp/intake-artifacts.json)"
+          test "$COUNT" = "1" || { echo "INTAKE_ARTIFACT_IDENTITY_AMBIGUOUS count=$COUNT" >&2; exit 3; }
+          ART_ID="$(jq -r --arg n "$EXPECTED_NAME" '.artifacts[] | select(.name == $n and .expired == false) | .id' /tmp/intake-artifacts.json)"
+          curl --fail --silent --show-error --location \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$REPO/actions/artifacts/$ART_ID/zip" \
+            -o /tmp/intake-artifact.zip
+          unzip -q /tmp/intake-artifact.zip -d "$ARTIFACT_DIR"
+          test -f "$ARTIFACT_DIR/reviewed.patch" \
+            -a -f "$ARTIFACT_DIR/manifest.json" \
+            -a -f "$ARTIFACT_DIR/intake-receipt.json" || { echo "INTAKE_ARTIFACT_INCOMPLETE" >&2; exit 3; }
+
+      - name: Re-verify frozen artifact against Controller packet
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "$PATCH_FILE")"
+          python -m tools.cep_work_gateway.publication \
+            --artifact-dir "$ARTIFACT_DIR" \
+            --repository "$REPO" \
+            --repository-owner "$REPO_OWNER" \
+            --request-id "$REQUEST_ID" \
+            --controller-id "$CONTROLLER_ID" \
+            --workspace "$WORKSPACE" \
+            --logical-task "$LOGICAL_TASK" \
+            --write-domain "$WRITE_DOMAIN" \
+            --handoff-issue-number "$HANDOFF_ISSUE_NUMBER" \
+            --intake-run-id "$INTAKE_RUN_ID" \
+            --intake-head-sha "$INTAKE_HEAD_SHA" \
+            --target-branch "$TARGET_BRANCH" \
+            --expected-remote-sha "$EXPECTED_REMOTE_SHA" \
+            --expected-patch-sha256 "$EXPECTED_PATCH_SHA256" \
+            --expected-paths-sha256 "$EXPECTED_PATHS_SHA256" \
+            --patch-out "$PATCH_FILE" \
+            --receipt-out "$PREFLIGHT_RECEIPT"
+
+      - name: Verify remote branch and detect exact idempotent completion
+        id: remote
+        run: |
+          set -euo pipefail
+          REF="refs/heads/$TARGET_BRANCH"
+          REMOTE_SHA="$(git ls-remote --heads origin "$REF" | awk 'NR==1 {print $1}')"
+          test -n "$REMOTE_SHA" || { echo "TARGET_BRANCH_NOT_FOUND" >&2; exit 4; }
+          echo "pre_sha=$REMOTE_SHA" >> "$GITHUB_OUTPUT"
+          git fetch --no-tags origin "$REF:refs/remotes/origin/cep-work-publish-current"
+          if [ "$REMOTE_SHA" != "$EXPECTED_REMOTE_SHA" ]; then
+            PARENT_SHA="$(git rev-parse 'refs/remotes/origin/cep-work-publish-current^' 2>/dev/null || true)"
+            MESSAGE="$(git show -s --format=%B refs/remotes/origin/cep-work-publish-current)"
+            if [ "$PARENT_SHA" = "$EXPECTED_REMOTE_SHA" ] \
+              && grep -Fqx "CEP-Work-Request: $REQUEST_ID" <<<"$MESSAGE" \
+              && grep -Fqx "CEP-Work-Patch-SHA256: $EXPECTED_PATCH_SHA256" <<<"$MESSAGE" \
+              && grep -Fqx "CEP-Work-Paths-SHA256: $EXPECTED_PATHS_SHA256" <<<"$MESSAGE"; then
+              echo "already=true" >> "$GITHUB_OUTPUT"
+              echo "published_sha=$REMOTE_SHA" >> "$GITHUB_OUTPUT"
+              echo "IDEMPOTENT_ALREADY_PUBLISHED=$REMOTE_SHA"
+              exit 0
+            fi
+            echo "REMOTE_BRANCH_DRIFT expected=$EXPECTED_REMOTE_SHA actual=$REMOTE_SHA" >&2
+            exit 4
+          fi
+          echo "already=false" >> "$GITHUB_OUTPUT"
+
+      - name: Apply exact frozen Work patch
+        if: steps.remote.outputs.already != 'true'
+        run: |
+          set -euo pipefail
+          git checkout --detach "$EXPECTED_REMOTE_SHA"
+          test -z "$(git status --porcelain=v1 -uall)" || { echo "WORKTREE_NOT_CLEAN" >&2; exit 5; }
+          git apply --check "$PATCH_FILE"
+          git apply --index --whitespace=nowarn "$PATCH_FILE"
+          test -n "$(git diff --cached --name-only)" || { echo "PATCH_PRODUCED_NO_STAGED_CHANGE" >&2; exit 5; }
+          ACTUAL_PATHS_SHA="$(git diff --cached --no-renames --name-only | LC_ALL=C sort -u | python -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())')"
+          test "$ACTUAL_PATHS_SHA" = "$EXPECTED_PATHS_SHA256" || {
+            echo "STAGED_PATH_IDENTITY_MISMATCH expected=$EXPECTED_PATHS_SHA256 actual=$ACTUAL_PATHS_SHA" >&2
+            exit 5
+          }
+          git diff --cached --check
+
+      - name: Commit bounded Work candidate locally
+        if: steps.remote.outputs.already != 'true'
+        id: commit
+        run: |
+          set -euo pipefail
+          git config user.name "CEP Work Gateway"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit \
+            -m "chore(cep): publish $LOGICAL_TASK Work candidate" \
+            -m "CEP-Work-Request: $REQUEST_ID" \
+            -m "CEP-Work-Handoff-Issue: $HANDOFF_ISSUE_NUMBER" \
+            -m "CEP-Work-Intake-Run: $INTAKE_RUN_ID" \
+            -m "CEP-Work-Patch-SHA256: $EXPECTED_PATCH_SHA256" \
+            -m "CEP-Work-Paths-SHA256: $EXPECTED_PATHS_SHA256" \
+            -m "CEP-Write-Domain: $WRITE_DOMAIN"
+          LOCAL_SHA="$(git rev-parse HEAD)"
+          echo "local_sha=$LOCAL_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Non-force publish and authoritative remote SHA readback
+        if: steps.remote.outputs.already != 'true'
+        id: push
+        run: |
+          set -euo pipefail
+          LOCAL_SHA="${{ steps.commit.outputs.local_sha }}"
+          set +e
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          PUSH_RC=$?
+          set -e
+          POST_SHA="$(git ls-remote --heads origin "refs/heads/$TARGET_BRANCH" | awk 'NR==1 {print $1}')"
+          if [ "$POST_SHA" != "$LOCAL_SHA" ]; then
+            echo "PUBLICATION_POSTCONDITION_FAILED push_rc=$PUSH_RC local=$LOCAL_SHA remote=$POST_SHA" >&2
+            exit 6
+          fi
+          echo "published_sha=$POST_SHA" >> "$GITHUB_OUTPUT"
+          if [ "$PUSH_RC" -eq 0 ]; then
+            echo "PUBLICATION_VERIFIED=$POST_SHA"
+          else
+            echo "PUBLICATION_RECONCILED_AFTER_AMBIGUOUS_PUSH=$POST_SHA"
+          fi
+
+      - name: Write machine-readable publication receipt
+        if: success()
+        env:
+          PRE_SHA: ${{ steps.remote.outputs.pre_sha }}
+          ALREADY: ${{ steps.remote.outputs.already }}
+          REMOTE_ALREADY_SHA: ${{ steps.remote.outputs.published_sha }}
+          NEW_SHA: ${{ steps.push.outputs.published_sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, pathlib
+          published = os.environ.get('REMOTE_ALREADY_SHA') or os.environ.get('NEW_SHA')
+          result = {
+              'schema_version': 'cep.work.publication-result/v1',
+              'request_id': os.environ['REQUEST_ID'],
+              'controller_id': os.environ['CONTROLLER_ID'],
+              'workspace': os.environ['WORKSPACE'],
+              'logical_task': os.environ['LOGICAL_TASK'],
+              'write_domain': os.environ['WRITE_DOMAIN'],
+              'handoff_issue_number': os.environ['HANDOFF_ISSUE_NUMBER'],
+              'intake_run_id': os.environ['INTAKE_RUN_ID'],
+              'target_branch': os.environ['TARGET_BRANCH'],
+              'pre_sha': os.environ.get('PRE_SHA'),
+              'published_sha': published,
+              'already_published': os.environ.get('ALREADY') == 'true',
+              'patch_sha256': os.environ['EXPECTED_PATCH_SHA256'],
+              'paths_sha256': os.environ['EXPECTED_PATHS_SHA256'],
+              'postcondition': 'REMOTE_REF_EQUALS_PUBLISHED_SHA',
+              'merge_release_deploy': 'NOT_AUTHORIZED_NOT_PERFORMED',
+          }
+          pathlib.Path(os.environ['RESULT_RECEIPT']).write_text(json.dumps(result, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          print(f"PUBLISHED_SHA={published}")
+          PY
+
+      - name: Comment verified publication and close bridge issue
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISHED: ${{ steps.remote.outputs.published_sha || steps.push.outputs.published_sha }}
+        run: |
+          set -euo pipefail
+          gh issue comment "$BRIDGE_ISSUE_NUMBER" --repo "$REPO" --body \
+            "CEP_WORK_PUBLICATION_VERIFIED request_id=$REQUEST_ID target_branch=$TARGET_BRANCH published_sha=$PUBLISHED patch_sha256=$EXPECTED_PATCH_SHA256"
+          gh issue close "$BRIDGE_ISSUE_NUMBER" --repo "$REPO" --reason completed
+
+      - name: Comment failed publication without blind retry
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          gh issue comment "$BRIDGE_ISSUE_NUMBER" --repo "$REPO" --body \
+            "CEP_WORK_PUBLICATION_FAILED request_id=$REQUEST_ID run_id=$RUN_ID blind_retry=false inspect_authoritative_post_state_first=true" || true
+
+      - name: Upload publication evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cep-work-publication-${{ inputs.request_id }}-${{ github.run_id }}
+          path: /tmp/cep-work-publication/
+          if-no-files-found: warn
+          retention-days: 14
