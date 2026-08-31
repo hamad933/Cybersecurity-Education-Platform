@@ -57,6 +57,20 @@ For Jules control:
 - a replacement session requires direct proof of an irrecoverable provider/input/isolation condition;
 - preserve one writer per write domain across local, Codex, Jules, and other executors.
 
+## Jules Google Drive bootstrap
+
+The canonical Jules↔Drive access method is `00_JULES_DRIVE_ACCESS_ATLAS_v1.0`, Drive ID `1P272cptZ7C8lZf98aY0WODrNsPaq6EzgTcIUVEKMV_s`.
+
+When a task references a Google Drive file/folder ID, Drive-owned authority/state/evidence, or a governed visual reference:
+- use the pre-provisioned `/home/jules/.local/bin/jules-drive` capability and read-only Drive credentials;
+- fetch the canonical Atlas first, then resolve only the minimum required authoritative files/assets for the task route;
+- keep Drive helpers/downloads in `/tmp` or the configured temporary cache and never stage them in the repository;
+- if visual/layout/interaction/Bidi fidelity is material, writers/correctors as well as reviewers may fetch and inspect the exact governed reference images;
+- return a bounded non-secret Drive access receipt identifying materially used file IDs/freshness and visual references opened when applicable;
+- if `jules-drive`, Drive auth, or a required source is unavailable, report `DRIVE_ACCESS_UNAVAILABLE` (or the exact missing-source state) and do not claim the source was inspected.
+
+A Drive ID in a prompt is not proof of access. Writer inspection of a reference image is useful implementation grounding but is not final visual acceptance; final adjudication requires fresh exact-candidate runtime/screenshots compared against the exact governed reference.
+
 Controller review must use direct evidence when available: exact plan, activity/changeSet patch, changed paths, tests/command outputs, runtime/browser evidence, branch SHA, PR state, and CI state. Agent summaries are supporting evidence, not acceptance decisions.
 
 ## Stop rule
