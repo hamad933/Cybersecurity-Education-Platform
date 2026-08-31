@@ -78,10 +78,19 @@ const props = {
     placements: [],
     sources: [],
     prerequisites: {
-      state: 'AUTHORITATIVE_PREREQUISITE_CONTRACT_UNAVAILABLE',
+      state: 'not_listed',
       items: [],
-      availability_may_be_inferred: false,
     },
+    objectives: [
+      {
+        id: 'OBJ-1',
+        text: 'ميّز حدود الثقة قبل اتخاذ قرار التفويض.',
+        competency_level: 'Foundation',
+      },
+    ],
+    pathway: { id: 'PATH-1', title: 'مسار حدود الثقة' },
+    assessment_blueprints: [],
+    lab_blueprints: [],
     navigation: {
       library: '/knowledge?object=KU-W02-CONTINUITY',
       visualize: '/knowledge/visualize?object=KU-W02-CONTINUITY',
@@ -139,17 +148,18 @@ describe('Knowledge lesson/content continuity', () => {
   it('renders published Knowledge revision content in Learn without creating a duplicate lesson object', async () => {
     const wrapper = mount(Learn, { props, global });
 
-    expect(wrapper.text()).toContain('محتوى الدرس القانوني');
+    expect(wrapper.text()).toContain('محتوى الدرس');
+    expect(wrapper.text()).toContain('أهداف التعلّم');
     expect(wrapper.text()).toContain('مدخل إلى حدود الثقة');
     expect(wrapper.text()).toContain('محتوى عربي قانوني من مراجعة Knowledge المنشورة.');
-    expect(wrapper.text()).toContain('lesson_revision:revision-published-2');
+    expect(wrapper.text()).not.toContain('AVAILABLE_PUBLISHED_REVISION');
+    expect(wrapper.text()).not.toContain('AUTHORITATIVE_ASSESSMENT_CONTRACT_REQUIRED');
     expect(wrapper.text()).not.toContain('لا توجد مراجعة منشورة للتعلّم');
 
     await wrapper.find('button[aria-label="طي أو توسيع المساحة السفلية"]').trigger('click');
-    expect(wrapper.text()).toContain('Completion != Mastery');
+    expect(wrapper.text()).toContain('اكتمال النشاط لا يمثل حكم إتقان رسميًا');
 
-    const positionButtons = wrapper.findAll('button[aria-label^="تعيين الكتلة"]');
-    await positionButtons[1]?.trigger('click');
+    await wrapper.find('#lesson-block-1').trigger('click');
     expect(window.localStorage.getItem('cep:knowledge-learn:position:revision-published-2')).toBe(
       '1',
     );

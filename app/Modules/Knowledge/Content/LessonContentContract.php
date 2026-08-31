@@ -15,7 +15,7 @@ final class LessonContentContract
 {
     public const VERSION = 'CEP_W02_LESSON_CONTENT_V1';
 
-    public const MAX_BLOCKS = 24;
+    public const MAX_BLOCKS = 64;
 
     public const MAX_BLOCK_BODY_LENGTH = 4000;
 
@@ -23,13 +23,13 @@ final class LessonContentContract
 
     public const MIN_CITATIONS = 1;
 
-    public const MAX_CITATIONS = 20;
+    public const MAX_CITATIONS = 64;
 
     public const MAX_CITATION_LENGTH = 80;
 
-    public const CITATION_PATTERN = '/^(?:WIN|WEB|VS3)-AUTH-\d{3}$/';
+    public const CITATION_PATTERN = '/^(?:(?:WIN|WEB|VS3)-AUTH-\d{3}|KU-D\d{2}-\d{4}-CLM-\d{4}|VS\d{3}-SRC-\d{3}R?-\d{2})$/';
 
-    public const CITATION_PATTERN_JAVASCRIPT = '^(?:WIN|WEB|VS3)-AUTH-\\d{3}$';
+    public const CITATION_PATTERN_JAVASCRIPT = '^(?:(?:WIN|WEB|VS3)-AUTH-\\d{3}|KU-D\\d{2}-\\d{4}-CLM-\\d{4}|VS\\d{3}-SRC-\\d{3}R?-\\d{2})$';
 
     /** @var list<array{type: string, label_ar: string, label_en: string, semantic_role: string, direction: string, technical: bool}> */
     private const BLOCK_REGISTRY = [
@@ -71,7 +71,7 @@ final class LessonContentContract
             ],
             'citation' => [
                 'pattern' => self::CITATION_PATTERN_JAVASCRIPT,
-                'examples' => ['WIN-AUTH-001', 'WEB-AUTH-001', 'VS3-AUTH-001'],
+                'examples' => ['KU-D05-0021-CLM-0001', 'WEB-AUTH-001', 'VS3-AUTH-001'],
                 'min_items' => self::MIN_CITATIONS,
                 'max_items' => self::MAX_CITATIONS,
                 'max_length' => self::MAX_CITATION_LENGTH,

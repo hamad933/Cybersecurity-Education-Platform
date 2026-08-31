@@ -24,11 +24,12 @@ final class LessonContentContractTest extends TestCase
         self::assertSame('knowledge_unit_revision_not_independent_canonical_copy', $manifest['identity']['lesson_projection']);
 
         $content = $contract->validateAndNormalize(
-            [['type' => 'paragraph', 'body' => 'محتوى مشترك.', 'depth' => 0]],
-            ['WIN-AUTH-001'],
+            [['type' => 'paragraph', 'body' => 'محتوى عربي مع English و KU-D03-0001.', 'depth' => 0]],
+            ['WIN-AUTH-001', 'KU-D03-0001-CLM-0001'],
         );
 
         self::assertSame(0, $content['blocks'][0]['depth']);
+        self::assertSame(['WIN-AUTH-001', 'KU-D03-0001-CLM-0001'], $content['citations']);
         self::assertMatchesRegularExpression(
             '/^[a-f0-9]{64}$/',
             $contract->contentDigest($content['blocks'], $content['citations']),

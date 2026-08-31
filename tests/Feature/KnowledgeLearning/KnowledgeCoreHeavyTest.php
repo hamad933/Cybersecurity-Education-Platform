@@ -146,8 +146,9 @@ final class KnowledgeCoreHeavyTest extends TestCase
                 ->where('selection.state', 'REQUESTED_UNIT_NOT_FOUND_FALLBACK')
                 ->where('lesson.availability', 'UNAVAILABLE_NO_PUBLISHED_REVISION')
                 ->where('lesson.revision', null)
-                ->where('context.prerequisites.state', 'AUTHORITATIVE_PREREQUISITE_CONTRACT_UNAVAILABLE')
-                ->where('context.prerequisites.availability_may_be_inferred', false));
+                ->where('context.prerequisites.state', 'not_listed')
+                ->has('context.prerequisites.items', 0)
+                ->has('context.objectives', 0));
 
         $this->actingAs($this->owner)->get("/knowledge?object={$unit->id}&revision=".Str::uuid())
             ->assertOk()
