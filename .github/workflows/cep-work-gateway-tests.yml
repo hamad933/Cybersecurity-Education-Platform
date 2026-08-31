@@ -1,0 +1,34 @@
+name: CEP Work Gateway Tests
+
+on:
+  pull_request:
+    paths:
+      - 'tools/cep_work_gateway/**'
+      - '.github/workflows/cep-work-*.yml'
+      - 'AGENTS.md'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/cep_work_gateway/**'
+      - '.github/workflows/cep-work-*.yml'
+      - 'AGENTS.md'
+
+permissions:
+  contents: read
+
+jobs:
+  protocol-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate workflow YAML
+        run: |
+          ruby -e 'require "yaml"; Dir[".github/workflows/cep-work-*.yml"].sort.each { |p| YAML.load_file(p, aliases: true); puts "YAML_OK=#{p}" }'
+      - name: Compile gateway
+        run: python -m compileall -q tools/cep_work_gateway
+      - name: Run protocol tests
+        run: python -m unittest discover -s tools/cep_work_gateway/tests -p 'test_*.py' -v
