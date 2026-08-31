@@ -68,8 +68,8 @@ jobs:
           gh api --paginate --slurp "/repos/$REPO/issues/$HANDOFF/comments?per_page=100" | jq 'add' \
             > /tmp/cep-work-publish-bridge/handoff-comments.json
           MARKER="CEP_WORK_INTAKE_VERIFIED request_id=$REQUEST_ID patch_sha256=$PATCH_SHA paths_sha256=$PATHS_SHA run_id=$RUN_ID intake_head_sha=$INTAKE_HEAD"
-          jq -e --arg marker "$MARKER" --arg owner "$REPO_OWNER" \
-            'any(.[]; .user.login == $owner and .author_association == "OWNER" and .body == $marker)' \
+          jq -e --arg marker "$MARKER" \
+            'any(.[]; .user.login == "github-actions[bot]" and .body == $marker)' \
             /tmp/cep-work-publish-bridge/handoff-comments.json >/dev/null
 
           gh api "/repos/$REPO/actions/runs/$RUN_ID" > /tmp/cep-work-publish-bridge/run.json
@@ -95,13 +95,15 @@ jobs:
           set -euo pipefail
           P=/tmp/cep-work-publish-bridge/packet.json
           REQUEST_ID="$(jq -r '.request_id' "$P")"
-          COMMENTS="$(gh api "/repos/$REPO/issues/$ISSUE_NUMBER/comments" --paginate --jq '.[].body')"
-          if grep -Fqx "CEP_WORK_PUBLISH_BRIDGE_RECEIPT request_id=$REQUEST_ID outcome=DISPATCH_ACCEPTED" <<<"$COMMENTS"; then
+          gh api --paginate --slurp "/repos/$REPO/issues/$ISSUE_NUMBER/comments?per_page=100" | jq 'add' > /tmp/cep-work-publish-bridge/bridge-comments.json
+          RECEIPT="CEP_WORK_PUBLISH_BRIDGE_RECEIPT request_id=$REQUEST_ID outcome=DISPATCH_ACCEPTED"
+          INTENT="CEP_WORK_PUBLISH_BRIDGE_WRITE_INTENT request_id=$REQUEST_ID"
+          if jq -e --arg body "$RECEIPT" 'any(.[]; .user.login == "github-actions[bot]" and .body == $body)' /tmp/cep-work-publish-bridge/bridge-comments.json >/dev/null; then
             echo "already=true" >> "$GITHUB_OUTPUT"
             echo "IDEMPOTENT_ALREADY_DISPATCHED"
             exit 0
           fi
-          if grep -Fqx "CEP_WORK_PUBLISH_BRIDGE_WRITE_INTENT request_id=$REQUEST_ID" <<<"$COMMENTS"; then
+          if jq -e --arg body "$INTENT" 'any(.[]; .user.login == "github-actions[bot]" and .body == $body)' /tmp/cep-work-publish-bridge/bridge-comments.json >/dev/null; then
             gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body \
               "CEP_WORK_PUBLISH_BRIDGE_REJECTED request_id=$REQUEST_ID reason=UNKNOWN_PRIOR_DISPATCH_OUTCOME"
             exit 5
