@@ -32,6 +32,7 @@ final class W02LibraryVisualEvidenceSeeder extends Seeder
         DB::transaction(function (): void {
             CurriculumPlacement::query()->where('knowledge_unit_id', self::UNIT_ID)->delete();
             LessonRevision::query()->where('knowledge_unit_id', self::UNIT_ID)->delete();
+            DB::table('curriculum_unit_states')->where('knowledge_unit_id', self::UNIT_ID)->delete();
             KnowledgeUnit::query()->where('id', self::UNIT_ID)->delete();
 
             $visualSources = SourceRecord::query()
