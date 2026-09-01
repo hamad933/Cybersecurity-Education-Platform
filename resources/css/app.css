@@ -557,6 +557,43 @@ bdi,
   }
 }
 
+@media (min-width: 48rem) and (max-width: 79.99rem) {
+  .cep-workspace-grid--medium-left-center {
+    grid-template-columns: min(15rem, var(--cep-left-panel-width)) auto minmax(0, 1fr) !important;
+  }
+
+  .cep-workspace-grid--medium-left-center .cep-structure-panel {
+    order: 1;
+    position: sticky;
+    top: 5.25rem;
+    max-height: calc(100vh - 6.5rem);
+  }
+
+  .cep-workspace-grid--medium-left-center .cep-primary-surface {
+    order: 2;
+    min-height: calc(100vh - 8rem);
+  }
+
+  .cep-workspace-grid--medium-left-center .cep-resize-handle--left {
+    display: flex;
+    order: 1;
+  }
+
+  .cep-workspace-grid--medium-left-center .cep-resize-handle--right {
+    display: none;
+  }
+
+  .cep-workspace-grid--medium-left-center .cep-context-panel {
+    position: fixed;
+    z-index: 40;
+    inset-block-start: 7.5rem;
+    inset-inline-end: 1rem;
+    width: min(var(--cep-right-panel-width), calc(100vw - 2rem));
+    max-height: calc(100vh - 9rem);
+    box-shadow: 0 24px 70px rgb(2 8 23 / 70%);
+  }
+}
+
 @media (max-width: 40rem) {
   .cep-global-header__inner {
     align-items: flex-start;

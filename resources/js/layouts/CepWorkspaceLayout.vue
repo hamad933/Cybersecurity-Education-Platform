@@ -33,10 +33,13 @@ const props = withDefaults(
     initialRightWidth?: number;
     initialLeftCollapsed?: boolean;
     initialRightCollapsed?: boolean;
+    workspaceKey?: string;
+    mediumLayout?: 'stack' | 'left-center-context-toggle';
   }>(),
   {
     temporaryWorkspaceOpen: false,
     temporaryWorkspaceLabel: 'مساحة العمل المؤقتة',
+    mediumLayout: 'stack',
   },
 );
 
@@ -88,9 +91,14 @@ function safeSetStorage(key: string, value: string) {
   }
 }
 
+function panelStorageKey(part: string): string {
+  return props.workspaceKey ? `cep-${props.workspaceKey}-${part}` : `cep-${part}`;
+}
+
 onMounted(() => {
-  if (props.initialLeftWidth === undefined) {
-    const savedLeftWidth = safeGetStorage('cep-left-width');
+  const restoreWorkspacePreference = props.workspaceKey !== undefined;
+  if (props.initialLeftWidth === undefined || restoreWorkspacePreference) {
+    const savedLeftWidth = safeGetStorage(panelStorageKey('left-width'));
     if (savedLeftWidth) {
       const parsed = parseInt(savedLeftWidth, 10);
       if (!isNaN(parsed)) {
@@ -99,8 +107,8 @@ onMounted(() => {
     }
   }
 
-  if (props.initialRightWidth === undefined) {
-    const savedRightWidth = safeGetStorage('cep-right-width');
+  if (props.initialRightWidth === undefined || restoreWorkspacePreference) {
+    const savedRightWidth = safeGetStorage(panelStorageKey('right-width'));
     if (savedRightWidth) {
       const parsed = parseInt(savedRightWidth, 10);
       if (!isNaN(parsed)) {
@@ -109,15 +117,15 @@ onMounted(() => {
     }
   }
 
-  if (props.initialLeftCollapsed === undefined) {
-    const savedLeftCollapsed = safeGetStorage('cep-left-collapsed');
+  if (props.initialLeftCollapsed === undefined || restoreWorkspacePreference) {
+    const savedLeftCollapsed = safeGetStorage(panelStorageKey('left-collapsed'));
     if (savedLeftCollapsed !== null) {
       leftCollapsed.value = savedLeftCollapsed === 'true';
     }
   }
 
-  if (props.initialRightCollapsed === undefined) {
-    const savedRightCollapsed = safeGetStorage('cep-right-collapsed');
+  if (props.initialRightCollapsed === undefined || restoreWorkspacePreference) {
+    const savedRightCollapsed = safeGetStorage(panelStorageKey('right-collapsed'));
     if (savedRightCollapsed !== null) {
       rightCollapsed.value = savedRightCollapsed === 'true';
     }
@@ -125,22 +133,22 @@ onMounted(() => {
 });
 
 watch(leftWidth, (val) => {
-  safeSetStorage('cep-left-width', val.toString());
+  safeSetStorage(panelStorageKey('left-width'), val.toString());
   emit('update:leftWidth', val);
 });
 
 watch(rightWidth, (val) => {
-  safeSetStorage('cep-right-width', val.toString());
+  safeSetStorage(panelStorageKey('right-width'), val.toString());
   emit('update:rightWidth', val);
 });
 
 watch(leftCollapsed, (val) => {
-  safeSetStorage('cep-left-collapsed', val.toString());
+  safeSetStorage(panelStorageKey('left-collapsed'), val.toString());
   emit('update:leftCollapsed', val);
 });
 
 watch(rightCollapsed, (val) => {
-  safeSetStorage('cep-right-collapsed', val.toString());
+  safeSetStorage(panelStorageKey('right-collapsed'), val.toString());
   emit('update:rightCollapsed', val);
 });
 
@@ -359,6 +367,7 @@ const gridStyle = computed(() => {
         :style="gridStyle"
         :class="{
           'cep-workspace-grid--dragging': isDraggingLeft || isDraggingRight,
+          'cep-workspace-grid--medium-left-center': mediumLayout === 'left-center-context-toggle',
         }"
       >
         <!-- LEFT PANEL (Structure/Navigation, physical LEFT) -->

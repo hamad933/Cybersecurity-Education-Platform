@@ -1,10 +1,30 @@
+// Generates a 24-character string using alphanumeric characters, underscore, and dash
+export const generateStableId = (): string => {
+  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_-';
+  const bytes = new Uint8Array(24);
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = Math.floor(Math.random() * 256);
+    }
+  }
+  let id = '';
+  for (const byte of bytes) {
+    id += chars.charAt(byte % chars.length);
+  }
+  return id;
+};
+
 export type LessonBlock = {
+  id: string;
   type: string;
   body: string;
   depth: number;
 };
 
 export type StoredLessonBlock = {
+  id?: string;
   type: string;
   body: string;
   depth?: number;
@@ -87,14 +107,32 @@ export type InlineToken = {
   href?: string;
 };
 
-export const normalizeLessonBlock = (block: StoredLessonBlock): LessonBlock => ({
+const legacyBlockId = (block: StoredLessonBlock, index: number): string => {
+  const input = `${index}\u001f${block.type}\u001f${block.depth ?? 0}\u001f${block.body}`;
+  let first = 0x811c9dc5;
+  let second = 0x9e3779b9;
+  let third = 0x85ebca6b;
+  for (let cursor = 0; cursor < input.length; cursor += 1) {
+    const value = input.charCodeAt(cursor);
+    first = Math.imul(first ^ value, 0x01000193) >>> 0;
+    second = Math.imul(second ^ value, 0x5bd1e995) >>> 0;
+    third = Math.imul(third ^ value, 0x27d4eb2d) >>> 0;
+  }
+  const token = `${first.toString(16).padStart(8, '0')}${second
+    .toString(16)
+    .padStart(8, '0')}${third.toString(16).padStart(8, '0')}`;
+  return `legacy_${token.slice(0, 17)}`;
+};
+
+export const normalizeLessonBlock = (block: StoredLessonBlock, index = 0): LessonBlock => ({
+  id: block.id ?? legacyBlockId(block, index),
   type: block.type,
   body: block.body,
   depth: Number.isInteger(block.depth) ? (block.depth as number) : 0,
 });
 
 export const normalizeLessonBlocks = (blocks: StoredLessonBlock[]): LessonBlock[] =>
-  blocks.map(normalizeLessonBlock);
+  blocks.map((block, index) => normalizeLessonBlock(block, index));
 
 export const lessonBlockDefinition = (
   contract: LessonContentContract,
@@ -118,9 +156,12 @@ export const isValidLessonHierarchy = (
   }
 
   const registeredTypes = new Set(contract.block_registry.map((definition) => definition.type));
+  const blockIds = new Set<string>();
 
   return blocks.every((block, index) => {
     if (!registeredTypes.has(block.type)) return false;
+    if (!/^[0-9a-zA-Z_-]{24}$/.test(block.id) || blockIds.has(block.id)) return false;
+    blockIds.add(block.id);
     if (
       !Number.isInteger(block.depth) ||
       block.depth < 0 ||
@@ -135,6 +176,110 @@ export const isValidLessonHierarchy = (
     const previous = blocks[index - 1];
     return Boolean(previous) && block.depth <= previous.depth + contract.constraints.max_depth_step;
   });
+};
+
+export type LessonBlockComparisonState = 'unchanged' | 'modified' | 'moved' | 'added' | 'removed';
+
+export type LessonBlockComparisonRow = {
+  id: string;
+  current: LessonBlock | null;
+  compared: LessonBlock | null;
+  currentIndex: number | null;
+  comparedIndex: number | null;
+  state: LessonBlockComparisonState;
+};
+
+export const compareLessonBlocks = (
+  currentBlocks: StoredLessonBlock[],
+  comparedBlocks: StoredLessonBlock[],
+): LessonBlockComparisonRow[] => {
+  const current = normalizeLessonBlocks(currentBlocks);
+  const compared = normalizeLessonBlocks(comparedBlocks);
+  const comparedById = new Map(compared.map((block, index) => [block.id, { block, index }]));
+  const matchedCompared = new Set<number>();
+  const rows: LessonBlockComparisonRow[] = [];
+  const unmatchedCurrent: Array<{ block: LessonBlock; index: number }> = [];
+
+  current.forEach((block, index) => {
+    const match = comparedById.get(block.id);
+    if (!match) {
+      unmatchedCurrent.push({ block, index });
+      return;
+    }
+    matchedCompared.add(match.index);
+    const contentChanged =
+      block.type !== match.block.type ||
+      block.body !== match.block.body ||
+      block.depth !== match.block.depth;
+    rows.push({
+      id: block.id,
+      current: block,
+      compared: match.block,
+      currentIndex: index,
+      comparedIndex: match.index,
+      state: contentChanged ? 'modified' : index !== match.index ? 'moved' : 'unchanged',
+    });
+  });
+
+  const unmatchedCompared = compared
+    .map((block, index) => ({ block, index }))
+    .filter(({ index }) => !matchedCompared.has(index));
+
+  // Legacy revisions have no shared persisted ID. Pair bounded unmatched rows
+  // by semantic type and nearest order before reporting additions/removals.
+  unmatchedCurrent.forEach(({ block, index }) => {
+    const candidateIndex = block.id.startsWith('legacy_')
+      ? unmatchedCompared.findIndex(
+          ({ block: candidate }) =>
+            candidate.id.startsWith('legacy_') && candidate.type === block.type,
+        )
+      : -1;
+    if (candidateIndex < 0) {
+      rows.push({
+        id: block.id,
+        current: block,
+        compared: null,
+        currentIndex: index,
+        comparedIndex: null,
+        state: 'added',
+      });
+      return;
+    }
+    const [match] = unmatchedCompared.splice(candidateIndex, 1);
+    if (!match) return;
+    rows.push({
+      id: block.id,
+      current: block,
+      compared: match.block,
+      currentIndex: index,
+      comparedIndex: match.index,
+      state:
+        block.body !== match.block.body || block.depth !== match.block.depth
+          ? 'modified'
+          : index !== match.index
+            ? 'moved'
+            : 'unchanged',
+    });
+  });
+
+  unmatchedCompared.forEach(({ block, index }) => {
+    rows.push({
+      id: block.id,
+      current: null,
+      compared: block,
+      currentIndex: null,
+      comparedIndex: index,
+      state: 'removed',
+    });
+  });
+
+  return rows.sort(
+    (left, right) =>
+      (left.currentIndex ?? Number.MAX_SAFE_INTEGER) -
+        (right.currentIndex ?? Number.MAX_SAFE_INTEGER) ||
+      (left.comparedIndex ?? Number.MAX_SAFE_INTEGER) -
+        (right.comparedIndex ?? Number.MAX_SAFE_INTEGER),
+  );
 };
 
 export const citationMatchesContract = (

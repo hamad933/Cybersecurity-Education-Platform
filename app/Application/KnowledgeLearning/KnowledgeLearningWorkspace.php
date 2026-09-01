@@ -52,7 +52,9 @@ final class KnowledgeLearningWorkspace
             'capability_manifest' => $this->knowledge->capabilityManifest(),
             'context' => [
                 'placements' => $activePlacements,
-                'sources' => $this->quality->sourcesForClaims($citations),
+                'sources' => $this->librarySourceProjection(
+                    $this->quality->sourcesForClaims($citations),
+                ),
                 'unresolved_citation_count' => $this->unresolvedCitationCount($citations),
                 'hierarchy_state' => $activePlacements === []
                     ? 'NO_CURRICULUM_PLACEMENT'
@@ -224,6 +226,46 @@ final class KnowledgeLearningWorkspace
         }
 
         return max(0, count(array_unique($citations)) - count($resolvedClaimIds));
+    }
+
+    /**
+     * Keep Library provenance intentionally smaller than the Research & Quality
+     * workbench payload. This projection is sufficient for source authority,
+     * review state, claim support, and a safe source anchor without serializing
+     * source metadata, digests, or unrelated claims into the Library page.
+     *
+     * @param list<array<string, mixed>> $sources
+     * @return list<array<string, mixed>>
+     */
+    private function librarySourceProjection(array $sources): array
+    {
+        $projection = [];
+        foreach ($sources as $source) {
+            $claims = [];
+            foreach (is_array($source['claims'] ?? null) ? $source['claims'] : [] as $claim) {
+                if (! is_array($claim)) {
+                    continue;
+                }
+                $claims[] = [
+                    'claim_id' => is_string($claim['claim_id'] ?? null) ? $claim['claim_id'] : '',
+                    'assessment' => is_string($claim['assessment'] ?? null) ? $claim['assessment'] : '',
+                    'segment_ref' => is_string($claim['segment_ref'] ?? null) ? $claim['segment_ref'] : '',
+                    'supported_scope' => is_string($claim['supported_scope'] ?? null) ? $claim['supported_scope'] : '',
+                ];
+            }
+
+            $exactUrl = is_string($source['exact_url'] ?? null) ? $source['exact_url'] : null;
+            $projection[] = [
+                'id' => is_string($source['id'] ?? null) ? $source['id'] : '',
+                'title' => is_string($source['title'] ?? null) ? $source['title'] : '',
+                'authority_class' => is_string($source['authority_class'] ?? null) ? $source['authority_class'] : '',
+                'review_status' => is_string($source['review_status'] ?? null) ? $source['review_status'] : '',
+                'href' => $exactUrl !== null && str_starts_with($exactUrl, 'https://') ? $exactUrl : null,
+                'claims' => $claims,
+            ];
+        }
+
+        return $projection;
     }
 
     /** @return array<string, string|null> */

@@ -141,10 +141,10 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
         $draft = $this->draft($unit->id);
 
         $nested = [
-            ['type' => 'heading', 'body' => 'الجذر', 'depth' => 0],
-            ['type' => 'paragraph', 'body' => 'الفرع الأول', 'depth' => 1],
-            ['type' => 'callout', 'body' => 'فرع أعمق', 'depth' => 2],
-            ['type' => 'paragraph', 'body' => 'شقيق في المستوى الأول', 'depth' => 1],
+            ['id' => str_repeat('A', 24), 'type' => 'heading', 'body' => 'الجذر', 'depth' => 0],
+            ['id' => str_repeat('B', 24), 'type' => 'paragraph', 'body' => 'الفرع الأول', 'depth' => 1],
+            ['id' => str_repeat('C', 24), 'type' => 'callout', 'body' => 'فرع أعمق', 'depth' => 2],
+            ['id' => str_repeat('D', 24), 'type' => 'paragraph', 'body' => 'شقيق في المستوى الأول', 'depth' => 1],
         ];
 
         $this->actingAs($this->owner)->patch("/knowledge/library/revisions/{$draft->id}", [
@@ -165,10 +165,10 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
                 ->where('active.revision.blocks.3.depth', 1));
 
         $outdented = [
-            ['type' => 'heading', 'body' => 'الجذر', 'depth' => 0],
-            ['type' => 'paragraph', 'body' => 'الفرع الأول', 'depth' => 1],
-            ['type' => 'callout', 'body' => 'أصبح شقيقًا في المستوى الأول', 'depth' => 1],
-            ['type' => 'paragraph', 'body' => 'كتلة جذرية لاحقة', 'depth' => 0],
+            ['id' => str_repeat('A', 24), 'type' => 'heading', 'body' => 'الجذر', 'depth' => 0],
+            ['id' => str_repeat('B', 24), 'type' => 'paragraph', 'body' => 'الفرع الأول', 'depth' => 1],
+            ['id' => str_repeat('C', 24), 'type' => 'callout', 'body' => 'أصبح شقيقًا في المستوى الأول', 'depth' => 1],
+            ['id' => str_repeat('D', 24), 'type' => 'paragraph', 'body' => 'كتلة جذرية لاحقة', 'depth' => 0],
         ];
 
         $this->actingAs($this->owner)->patch("/knowledge/library/revisions/{$draft->id}", [
@@ -208,9 +208,9 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
 
         $draft->refresh();
         $this->assertSame(1, $draft->lock_version);
-        $this->assertEquals([
-            ['type' => 'paragraph', 'body' => 'محتوى اختبار حقيقي من قاعدة البيانات.', 'depth' => 0],
-        ], $draft->blockList());
+        $this->assertSame('محتوى اختبار حقيقي من قاعدة البيانات.', $draft->blockList()[0]['body']);
+        $this->assertSame(0, $draft->blockList()[0]['depth']);
+        $this->assertMatchesRegularExpression('/^[0-9A-Za-z_-]{24}$/', $draft->blockList()[0]['id']);
     }
 
     #[Test]
@@ -235,7 +235,8 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('active.revision.blocks.0.type', 'paragraph')
                 ->where('active.revision.blocks.0.body', 'محتوى تاريخي بلا depth.')
-                ->where('active.revision.blocks.0.depth', 0));
+                ->where('active.revision.blocks.0.depth', 0)
+                ->where('active.revision.blocks.0.id', fn (string $id) => str_starts_with($id, 'legacy_')));
     }
 
     #[Test]
@@ -276,7 +277,14 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
             ->where('knowledge_unit_id', $unit->id)
             ->where('revision', 2)
             ->firstOrFail();
-        $this->assertEquals($publishedBlocks, $restored->blockList());
+        $this->assertSame(
+            array_column($publishedBlocks, 'body'),
+            array_column($restored->blockList(), 'body'),
+        );
+        $this->assertSame([0, 1], array_column($restored->blockList(), 'depth'));
+        foreach ($restored->blockList() as $block) {
+            $this->assertMatchesRegularExpression('/^[0-9A-Za-z_-]{24}$/', $block['id']);
+        }
         $this->assertDatabaseCount('lesson_revisions', 2);
     }
 
@@ -372,6 +380,17 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
             'excluded_semantics' => 'Does not establish Evidence Review or Mastery.',
             'assessment' => 'supported',
         ]);
+
+        $this->actingAs($this->owner)->get("/knowledge?object={$unit->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('context.sources.0.id', (string) $source->id)
+                ->where('context.sources.0.href', 'https://example.test/authority')
+                ->where('context.sources.0.claims.0.claim_id', 'WIN-AUTH-901')
+                ->missing('context.sources.0.metadata')
+                ->missing('context.sources.0.sha256')
+                ->missing('context.sources.0.exact_url')
+                ->missing('context.sources.0.claims.0.excluded_semantics'));
 
         $this->actingAs($this->owner)->get("/knowledge/research-quality?object={$unit->id}&source={$source->id}")
             ->assertOk()

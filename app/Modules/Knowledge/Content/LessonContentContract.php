@@ -13,7 +13,7 @@ use InvalidArgumentException;
  */
 final class LessonContentContract
 {
-    public const VERSION = 'CEP_W02_LESSON_CONTENT_V1';
+    public const VERSION = 'CEP_W02_LESSON_CONTENT_V2';
 
     public const MAX_BLOCKS = 64;
 
@@ -94,7 +94,10 @@ final class LessonContentContract
         return [
             'lock_version' => ['required', 'integer', 'min:1'],
             'blocks' => ['required', 'array', 'min:1', 'max:'.self::MAX_BLOCKS],
-            'blocks.*' => ['array:type,body,depth'],
+            'blocks.*' => ['array:type,body,depth,id'],
+            // Legacy callers may omit the V2 identity. validateAndNormalize()
+            // deterministically upgrades those blocks without rewriting history.
+            'blocks.*.id' => ['sometimes', 'string', 'size:24', 'regex:/^[0-9a-zA-Z_-]{24}$/'],
             'blocks.*.type' => ['required', Rule::in($this->blockTypes())],
             'blocks.*.body' => ['required', 'string', 'max:'.self::MAX_BLOCK_BODY_LENGTH],
             'blocks.*.depth' => ['required', 'integer', 'min:0', 'max:'.self::MAX_BLOCK_DEPTH],
@@ -112,9 +115,24 @@ final class LessonContentContract
     public function normalizeStoredBlocks(array $blocks): array
     {
         $normalized = [];
-        foreach ($blocks as $block) {
+        $usedIds = [];
+        foreach ($blocks as $index => $block) {
             if (! is_array($block)) {
                 throw new InvalidArgumentException('Lesson block must be an object.');
+            }
+
+            // V1 compatibility: derive a repeatable presentation identity. The
+            // stored historical revision and its digest remain untouched; a
+            // restored/edited draft persists this identity under Contract V2.
+            if (! array_key_exists('id', $block)) {
+                $block['id'] = $this->legacyBlockId($block, $index);
+            }
+
+            if (is_string($block['id']) && isset($usedIds[$block['id']])) {
+                throw new InvalidArgumentException('Duplicate lesson block ID.');
+            }
+            if (is_string($block['id'])) {
+                $usedIds[$block['id']] = true;
             }
 
             // Historical revisions created before structural editing may omit
@@ -125,6 +143,21 @@ final class LessonContentContract
         }
 
         return $normalized;
+    }
+
+    /** @param array<string, mixed> $block */
+    private function legacyBlockId(array $block, int $index): string
+    {
+        $fingerprint = json_encode([
+            'index' => $index,
+            'type' => $block['type'] ?? null,
+            'body' => $block['body'] ?? null,
+            'depth' => $block['depth'] ?? 0,
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        $token = rtrim(strtr(base64_encode(hash('sha256', $fingerprint, true)), '+/', '-_'), '=');
+
+        return 'legacy_'.substr($token, 0, 17);
     }
 
     /**
@@ -148,13 +181,16 @@ final class LessonContentContract
             if (! in_array($block['type'] ?? null, $this->blockTypes(), true)) {
                 throw new InvalidArgumentException('Unregistered lesson block type.');
             }
-            if (array_diff(array_keys($block), ['type', 'body', 'depth']) !== []) {
+            if (array_diff(array_keys($block), ['type', 'body', 'depth', 'id']) !== []) {
                 throw new InvalidArgumentException('Unknown lesson block key.');
             }
             if (! is_string($block['body'] ?? null) || trim($block['body']) === '' || mb_strlen($block['body']) > self::MAX_BLOCK_BODY_LENGTH) {
                 throw new InvalidArgumentException('Lesson block body is invalid or too large.');
             }
 
+            if (! is_string($block['id'] ?? null) || preg_match('/^[0-9a-zA-Z_-]{24}$/', $block['id']) !== 1) {
+                throw new InvalidArgumentException('Lesson block ID must be a 24-character stable string.');
+            }
             $depth = $block['depth'];
             if (! is_int($depth) || $depth < 0 || $depth > self::MAX_BLOCK_DEPTH) {
                 throw new InvalidArgumentException('Lesson block depth must be an integer between 0 and 3.');

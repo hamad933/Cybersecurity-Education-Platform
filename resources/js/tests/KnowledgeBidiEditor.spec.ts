@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils';
 import { describe, expect, it } from 'vitest';
 import LessonContentRenderer from '../pages/KnowledgeLearning/components/content/LessonContentRenderer.vue';
 import {
+  compareLessonBlocks,
   inlineLessonTokens,
   normalizeLessonBlocks,
 } from '../pages/KnowledgeLearning/components/content/lessonContent';
@@ -53,5 +54,16 @@ describe('W02 mixed-direction content', () => {
       'text',
     ]);
     expect(tokens.map((token) => token.text).join('')).toContain('KU-D05-0021');
+  });
+
+  it('normalizes legacy identities deterministically and distinguishes a moved V2 block', () => {
+    const legacy = [{ type: 'paragraph', body: 'Legacy block', depth: 0 }];
+    expect(normalizeLessonBlocks(legacy)[0]?.id).toBe(normalizeLessonBlocks(legacy)[0]?.id);
+    expect(normalizeLessonBlocks(legacy)[0]?.id).toMatch(/^legacy_[0-9a-f]{17}$/);
+
+    const first = { id: 'AAAAAAAAAAAAAAAAAAAAAAAA', type: 'paragraph', body: 'First', depth: 0 };
+    const second = { id: 'BBBBBBBBBBBBBBBBBBBBBBBB', type: 'paragraph', body: 'Second', depth: 0 };
+    const rows = compareLessonBlocks([second, first], [first, second]);
+    expect(rows.map((row) => row.state)).toEqual(['moved', 'moved']);
   });
 });

@@ -1,7 +1,7 @@
 import type { LessonContentContract } from '../../pages/KnowledgeLearning/components/content/lessonContent';
 
 export const lessonContentContractFixture: LessonContentContract = {
-  version: 'CEP_W02_LESSON_CONTENT_V1',
+  version: 'CEP_W02_LESSON_CONTENT_V2',
   canonical_owner: 'knowledge',
   identity: {
     canonical_object: 'knowledge_unit',

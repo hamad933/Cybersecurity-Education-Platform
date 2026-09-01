@@ -21,7 +21,9 @@ const itemHref = (item: LibraryProjectionItem) =>
       >
         <div class="flex min-w-0 items-center gap-2">
           <span class="text-sm text-amber-400 select-none">📁</span>
-          <span class="truncate font-bold text-slate-200">{{ domain.title_ar }}</span>
+          <span class="truncate font-bold text-slate-200">{{
+            domain.title_ar || 'غير متوفر'
+          }}</span>
         </div>
         <div class="flex shrink-0 items-center gap-1.5">
           <bdi dir="ltr" class="font-mono text-[10px] text-slate-500">{{ domain.id }}</bdi>
@@ -46,7 +48,7 @@ const itemHref = (item: LibraryProjectionItem) =>
             <div class="flex min-w-0 items-center gap-1.5">
               <span class="text-xs text-amber-500/80">📂</span>
               <h4 class="truncate text-[11px] font-semibold text-slate-300">
-                {{ cluster.title_ar }}
+                {{ cluster.title_ar || 'غير متوفر' }}
               </h4>
             </div>
             <div class="flex shrink-0 items-center gap-1.5">
@@ -67,7 +69,7 @@ const itemHref = (item: LibraryProjectionItem) =>
               <div class="flex items-center justify-between gap-2 px-1 py-0.5 text-[11px]">
                 <div class="flex min-w-0 items-center gap-1 font-medium text-cyan-300/90">
                   <span class="text-[10px] text-cyan-500">⚡</span>
-                  <h5 class="truncate">{{ capability.title_ar }}</h5>
+                  <h5 class="truncate">{{ capability.title_ar || 'غير متوفر' }}</h5>
                 </div>
                 <bdi dir="ltr" class="shrink-0 font-mono text-[9px] text-cyan-600/80">
                   {{ capability.id }}
@@ -98,7 +100,9 @@ const itemHref = (item: LibraryProjectionItem) =>
                       🛡️
                     </span>
                     <div class="min-w-0 flex-1">
-                      <span class="block leading-tight font-semibold">{{ item.title_ar }}</span>
+                      <span class="block leading-tight font-semibold">{{
+                        item.title_ar || 'غير متوفر'
+                      }}</span>
                       <bdi
                         dir="ltr"
                         class="mt-1 block font-mono text-[10px]"
@@ -151,7 +155,7 @@ const itemHref = (item: LibraryProjectionItem) =>
             >
               <span>🛡️</span>
               <div>
-                <span class="block font-medium">{{ item.title_ar }}</span>
+                <span class="block font-medium">{{ item.title_ar || 'غير متوفر' }}</span>
                 <bdi dir="ltr" class="block font-mono text-[10px] text-slate-500">
                   {{ item.canonical_ref.id }}
                 </bdi>
@@ -182,7 +186,7 @@ const itemHref = (item: LibraryProjectionItem) =>
           >
             <span>🛡️</span>
             <div>
-              <span class="block font-medium">{{ item.title_ar }}</span>
+              <span class="block font-medium">{{ item.title_ar || 'غير متوفر' }}</span>
               <bdi dir="ltr" class="block font-mono text-[10px] text-slate-500">
                 {{ item.canonical_ref.id }}
               </bdi>

@@ -29,11 +29,29 @@ final class LessonContentContractTest extends TestCase
         );
 
         self::assertSame(0, $content['blocks'][0]['depth']);
+        self::assertMatchesRegularExpression('/^legacy_[0-9A-Za-z_-]{17}$/', $content['blocks'][0]['id']);
         self::assertSame(['WIN-AUTH-001', 'KU-D03-0001-CLM-0001'], $content['citations']);
         self::assertMatchesRegularExpression(
             '/^[a-f0-9]{64}$/',
             $contract->contentDigest($content['blocks'], $content['citations']),
         );
+    }
+
+    #[Test]
+    public function legacy_block_identity_is_deterministic_and_explicit_v2_identity_is_preserved(): void
+    {
+        $contract = new LessonContentContract;
+        $legacy = [['type' => 'paragraph', 'body' => 'Legacy body', 'depth' => 0]];
+
+        $first = $contract->normalizeStoredBlocks($legacy);
+        $second = $contract->normalizeStoredBlocks($legacy);
+        self::assertSame($first[0]['id'], $second[0]['id']);
+
+        $explicitId = 'AbcdEFGHijklMNOPqrstUVWX';
+        $explicit = $contract->normalizeStoredBlocks([
+            ['id' => $explicitId, 'type' => 'paragraph', 'body' => 'V2 body', 'depth' => 0],
+        ]);
+        self::assertSame($explicitId, $explicit[0]['id']);
     }
 
     /** @return iterable<string, array{array<mixed>, array<mixed>}> */
