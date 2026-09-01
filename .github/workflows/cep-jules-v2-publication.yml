@@ -13,12 +13,12 @@ on:
         description: Delegated Controller identity
         required: true
         type: choice
-        options: [PARENT, A, B, C]
+        options: [PARENT, A, B, C, D, E]
       lane:
-        description: Governed CEP lane
+        description: Governed CEP workspace lane
         required: true
         type: choice
-        options: [PARENT, W01_W02, W03_W04, W05]
+        options: [PARENT, W01, W02, W03, W04, W05, W01_W02, W03_W04]
       logical_task:
         description: Existing logical task identifier
         required: true
