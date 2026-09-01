@@ -21,6 +21,7 @@ const promptForm = useForm({
 
 const aiImportForm = useForm<{ package: File | null }>({ package: null });
 const decisionRationales = reactive<Record<string, string>>({});
+const selectedProposalIds = reactive<Record<string, string>>({});
 
 const pick = (event: Event): File | null => (event.target as HTMLInputElement).files?.[0] ?? null;
 
@@ -43,13 +44,23 @@ const submitImport = () => {
   });
 };
 
-const decideAi = (resultId: string, decision: 'ACCEPT_AS_DRAFT' | 'REJECT') => {
+const decideAi = (
+  resultId: string,
+  decision: 'accept' | 'edit_into_new_draft' | 'reject' | 'defer' | 'request_evidence',
+) => {
   const rationale = (decisionRationales[resultId] ?? '').trim();
-  if (!rationale) return;
+  const proposalId = (selectedProposalIds[resultId] ?? '').trim();
+  if (!rationale || !proposalId) return;
   router.post(
     `/system/ai-bridge/results/${resultId}/decide`,
-    { decision, rationale },
-    { preserveScroll: true },
+    { proposal_id: proposalId, decision, rationale },
+    {
+      preserveScroll: true,
+      preserveState: true,
+      onSuccess: () => {
+        decisionRationales[resultId] = '';
+      },
+    },
   );
 };
 
@@ -169,11 +180,11 @@ const inspectResult = (res: AiResult) => {
 
         <form class="box-form" @submit.prevent="submitImport">
           <div class="form-group">
-            <label class="form-label">ملف حزمة النتيجة (SafePackage ZIP / JSON)</label>
+            <label class="form-label">ملف حزمة النتيجة (SafePackage ZIP)</label>
             <input
               type="file"
               class="form-file-input"
-              accept=".zip,.json"
+              accept=".zip,application/zip"
               aria-label="ملف حزمة نتيجة الذكاء الاصطناعي"
               @change="handlePackageSelect"
             />
@@ -251,6 +262,18 @@ const inspectResult = (res: AiResult) => {
 
               <!-- Human Decision Controls with Required Rationale -->
               <div class="decision-form">
+                <label :for="`proposal-id-${res.id}`" class="form-label">
+                  معرف المقترح المستهدف (Proposal ID):
+                </label>
+                <input
+                  type="text"
+                  :id="`proposal-id-${res.id}`"
+                  v-model="selectedProposalIds[res.id]"
+                  class="form-input"
+                  dir="ltr"
+                  placeholder="e.g. prop_01..."
+                />
+
                 <label :for="`rationale-${res.id}`" class="form-label">
                   مبرر القرار البشري (إلزامي للتوثيق والتدقيق):
                 </label>
@@ -259,25 +282,59 @@ const inspectResult = (res: AiResult) => {
                   v-model="decisionRationales[res.id]"
                   class="form-textarea"
                   rows="2"
-                  placeholder="اكتب مبرر قبول المقترح كمسودة أو رفضه..."
+                  placeholder="اكتب مبرر القرار..."
                 />
 
                 <div class="decision-buttons">
                   <button
                     type="button"
                     class="cep-text-button accept-button"
-                    :disabled="!decisionRationales[res.id]?.trim()"
-                    @click="decideAi(res.id, 'ACCEPT_AS_DRAFT')"
+                    :disabled="
+                      !decisionRationales[res.id]?.trim() || !selectedProposalIds[res.id]?.trim()
+                    "
+                    @click="decideAi(res.id, 'edit_into_new_draft')"
+                  >
+                    تعديل كمسودة جديدة
+                  </button>
+                  <button
+                    type="button"
+                    class="cep-text-button accept-button"
+                    :disabled="
+                      !decisionRationales[res.id]?.trim() || !selectedProposalIds[res.id]?.trim()
+                    "
+                    @click="decideAi(res.id, 'accept')"
                   >
                     قبول كمسودة
                   </button>
                   <button
                     type="button"
                     class="cep-text-button danger-button"
-                    :disabled="!decisionRationales[res.id]?.trim()"
-                    @click="decideAi(res.id, 'REJECT')"
+                    :disabled="
+                      !decisionRationales[res.id]?.trim() || !selectedProposalIds[res.id]?.trim()
+                    "
+                    @click="decideAi(res.id, 'reject')"
                   >
                     رفض
+                  </button>
+                  <button
+                    type="button"
+                    class="cep-text-button"
+                    :disabled="
+                      !decisionRationales[res.id]?.trim() || !selectedProposalIds[res.id]?.trim()
+                    "
+                    @click="decideAi(res.id, 'defer')"
+                  >
+                    تأجيل
+                  </button>
+                  <button
+                    type="button"
+                    class="cep-text-button"
+                    :disabled="
+                      !decisionRationales[res.id]?.trim() || !selectedProposalIds[res.id]?.trim()
+                    "
+                    @click="decideAi(res.id, 'request_evidence')"
+                  >
+                    طلب أدلة
                   </button>
                 </div>
               </div>
