@@ -234,7 +234,7 @@ final class KnowledgeLearningWorkspace
      * review state, claim support, and a safe source anchor without serializing
      * source metadata, digests, or unrelated claims into the Library page.
      *
-     * @param list<array<string, mixed>> $sources
+     * @param  list<array<string, mixed>>  $sources
      * @return list<array<string, mixed>>
      */
     private function librarySourceProjection(array $sources): array
