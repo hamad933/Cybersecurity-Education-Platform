@@ -72,7 +72,7 @@ class KnowledgeEditorCorrectionTest extends TestCase
         $this->actingAs($this->owner)
             ->patch("/knowledge/library/revisions/{$revision->id}", $payload)
             ->assertSessionHasErrors(['citations']);
-            
+
         // Prove no revision mutation/lock-version advance on rejected domain citation
         $this->assertSame(1, $revision->fresh()->lock_version);
     }
@@ -95,7 +95,7 @@ class KnowledgeEditorCorrectionTest extends TestCase
         $this->actingAs($this->owner)
             ->patch("/knowledge/library/revisions/{$revision->id}", $payload)
             ->assertSessionHasErrors(['blocks.0.type']);
-            
+
         $this->assertSame(1, $revision->fresh()->lock_version);
     }
 }
