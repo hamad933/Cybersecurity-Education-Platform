@@ -58,24 +58,50 @@ class FakeClient:
 
 
 class PublicationTests(unittest.TestCase):
-    def test_controller_lane_mapping_and_main_prohibition(self):
+    def _validate(self, controller_id: str, lane: str) -> None:
         validate_routing(
-            controller_id="B",
-            lane="W01_W02",
+            controller_id=controller_id,
+            lane=lane,
             request_id="req-1",
-            logical_task="CEP-EDITOR-CORR-01",
-            write_domain="W02_EDITOR",
-            target_branch="work/cep-editor-corr-01-r01",
+            logical_task="CEP-TOPOLOGY-CHECK-01",
+            write_domain="BOUNDED_DOMAIN",
+            target_branch="work/cep-topology-check-r01",
         )
-        with self.assertRaises(PublicationError):
-            validate_routing(
-                controller_id="B",
-                lane="W05",
-                request_id="req-1",
-                logical_task="CEP-EDITOR-CORR-01",
-                write_domain="W02_EDITOR",
-                target_branch="work/cep-editor-corr-01-r01",
-            )
+
+    def test_current_five_controller_lane_matrix(self):
+        for controller_id, lane in (
+            ("A", "W01"),
+            ("B", "W02"),
+            ("C", "W03"),
+            ("D", "W04"),
+            ("E", "W05"),
+        ):
+            with self.subTest(controller_id=controller_id, lane=lane):
+                self._validate(controller_id, lane)
+
+    def test_cross_workspace_and_legacy_child_routes_fail_closed(self):
+        invalid_pairs = (
+            ("A", "W02"),
+            ("B", "W01"),
+            ("C", "W04"),
+            ("D", "W03"),
+            ("E", "W01"),
+            ("A", "W01_W02"),
+            ("B", "W01_W02"),
+            ("C", "W03_W04"),
+            ("D", "W03_W04"),
+        )
+        for controller_id, lane in invalid_pairs:
+            with self.subTest(controller_id=controller_id, lane=lane):
+                with self.assertRaises(PublicationError):
+                    self._validate(controller_id, lane)
+
+    def test_parent_retains_current_and_legacy_fallback_routes(self):
+        for lane in ("PARENT", "W01", "W02", "W03", "W04", "W05", "W01_W02", "W03_W04"):
+            with self.subTest(lane=lane):
+                self._validate("PARENT", lane)
+
+    def test_main_target_is_prohibited(self):
         with self.assertRaises(PublicationError):
             validate_routing(
                 controller_id="PARENT",
