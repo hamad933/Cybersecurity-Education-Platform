@@ -249,6 +249,13 @@ describe('KnowledgeEditorCorrection', () => {
     firstCallbacks.onFinish();
     vi.advanceTimersByTime(1100);
     expect(vm.form.patch).toHaveBeenCalledTimes(2);
+
+    const secondCallbacks = vm.form.patch.mock.calls[1]?.[1];
+    expect(secondCallbacks).toBeTruthy();
+    secondCallbacks.onSuccess();
+    expect(vm.savedSnapshot.blocks[0]?.body).toBe('Edit B');
+    expect(window.localStorage.getItem('cep:knowledge-editor:rev-1')).toBeNull();
+
     vi.useRealTimers();
   });
 

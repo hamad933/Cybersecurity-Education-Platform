@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
   inlineLessonTokens,
   isTechnicalLessonBlock,
@@ -49,6 +49,32 @@ const toggleCollapse = (id: string) => {
   else next.add(id);
   collapsedSections.value = next;
 };
+
+const revealActiveBlock = (activeIndex: number | null | undefined) => {
+  if (activeIndex === null || activeIndex === undefined || activeIndex < 0) return;
+  if (activeIndex >= normalizedBlocks.value.length) return;
+
+  const next = new Set(collapsedSections.value);
+  let changed = false;
+  for (let headingIndex = 0; headingIndex < activeIndex; headingIndex += 1) {
+    const heading = normalizedBlocks.value[headingIndex];
+    if (
+      heading?.type === 'heading' &&
+      next.has(heading.id) &&
+      activeIndex < sectionBoundary(headingIndex)
+    ) {
+      next.delete(heading.id);
+      changed = true;
+    }
+  }
+  if (changed) collapsedSections.value = next;
+};
+
+watch(
+  () => [props.activeIndex, normalizedBlocks.value.map((block) => block.id).join('|')] as const,
+  ([activeIndex]) => revealActiveBlock(activeIndex),
+  { immediate: true },
+);
 </script>
 
 <template>

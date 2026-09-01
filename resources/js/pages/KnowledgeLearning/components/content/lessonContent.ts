@@ -225,40 +225,16 @@ export const compareLessonBlocks = (
     .map((block, index) => ({ block, index }))
     .filter(({ index }) => !matchedCompared.has(index));
 
-  // Legacy revisions have no shared persisted ID. Pair bounded unmatched rows
-  // by semantic type and nearest order before reporting additions/removals.
+  // Legacy revisions do not share a persisted identity across revisions.
+  // Never infer moved/modified identity by type, body, or order when IDs do not match.
   unmatchedCurrent.forEach(({ block, index }) => {
-    const candidateIndex = block.id.startsWith('legacy_')
-      ? unmatchedCompared.findIndex(
-          ({ block: candidate }) =>
-            candidate.id.startsWith('legacy_') && candidate.type === block.type,
-        )
-      : -1;
-    if (candidateIndex < 0) {
-      rows.push({
-        id: block.id,
-        current: block,
-        compared: null,
-        currentIndex: index,
-        comparedIndex: null,
-        state: 'added',
-      });
-      return;
-    }
-    const [match] = unmatchedCompared.splice(candidateIndex, 1);
-    if (!match) return;
     rows.push({
       id: block.id,
       current: block,
-      compared: match.block,
+      compared: null,
       currentIndex: index,
-      comparedIndex: match.index,
-      state:
-        block.body !== match.block.body || block.depth !== match.block.depth
-          ? 'modified'
-          : index !== match.index
-            ? 'moved'
-            : 'unchanged',
+      comparedIndex: null,
+      state: 'added',
     });
   });
 

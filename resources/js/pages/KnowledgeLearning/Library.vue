@@ -121,6 +121,46 @@ const setLens = (value: Lens) => {
 const searchQuery = ref('');
 const initialRightCollapsed = typeof window !== 'undefined' ? window.innerWidth < 1280 : false;
 
+const placementContext = computed(() => {
+  const capabilityIds = Array.from(
+    new Set(
+      props.context.placements.map((placement) => placement.capability_id).filter(Boolean),
+    ),
+  );
+
+  if (capabilityIds.length === 0) {
+    return {
+      label: 'موضع غير متاح',
+      detail: 'لا يوجد موضع منهجي موثوق متاح.',
+    };
+  }
+
+  if (capabilityIds.length > 1) {
+    return {
+      label: `مواضع منهجية متعددة (${capabilityIds.length})`,
+      detail: 'لم يُعتمد موضع أساسي؛ يجب اختيار السياق صراحةً قبل الاعتماد.',
+    };
+  }
+
+  const capabilityId = capabilityIds[0];
+  for (const domain of props.structure.domains) {
+    for (const cluster of domain.clusters) {
+      const capability = cluster.capabilities.find((item) => item.id === capabilityId);
+      if (capability) {
+        return {
+          label: capability.title_ar || capability.title_en || 'قدرة دون تسمية متاحة',
+          detail: `${domain.title_ar} ← ${cluster.title_ar}`,
+        };
+      }
+    }
+  }
+
+  return {
+    label: 'موضع منهجي مسجل',
+    detail: 'سياقه الهرمي البشري غير متاح في الإسقاط الحالي.',
+  };
+});
+
 const filterItems = (items: LibraryProjectionItem[], query: string) =>
   items.filter(
     (item) =>
@@ -1105,13 +1145,7 @@ const loadComparison = async () => {
           <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
             <nav aria-label="مسار الوحدة" class="flex min-w-0 items-center gap-1.5">
               <span>المعرفة</span><span aria-hidden="true">‹</span>
-              <bdi
-                v-if="context.placements[0]?.capability_id"
-                dir="ltr"
-                class="truncate font-mono text-cyan-400"
-                >{{ context.placements[0]?.capability_id }}</bdi
-              >
-              <span v-else>موضع غير متاح</span>
+              <span dir="auto" class="truncate text-cyan-300">{{ placementContext.label }}</span>
             </nav>
             <button
               type="button"
@@ -1437,13 +1471,10 @@ const loadComparison = async () => {
           </section>
           <section class="library-context-card">
             <h3>موضع المنهج</h3>
-            <bdi
-              v-if="context.placements[0]?.capability_id"
-              dir="ltr"
-              class="mt-2 block font-mono text-[10px] text-cyan-200"
-              >{{ context.placements[0]?.capability_id }}</bdi
-            >
-            <p v-else class="mt-2 text-slate-500">لا يوجد موضع منهجي موثوق متاح.</p>
+            <p dir="auto" class="mt-2 font-semibold text-cyan-200">{{ placementContext.label }}</p>
+            <p v-if="placementContext.detail" dir="auto" class="mt-1 text-[10px] text-slate-500">
+              {{ placementContext.detail }}
+            </p>
           </section>
           <section class="library-context-card">
             <h3>سلامة الاستشهادات</h3>

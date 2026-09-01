@@ -56,14 +56,45 @@ describe('W02 mixed-direction content', () => {
     expect(tokens.map((token) => token.text).join('')).toContain('KU-D05-0021');
   });
 
-  it('normalizes legacy identities deterministically and distinguishes a moved V2 block', () => {
+  it('keeps legacy comparison conservative while preserving exact V2 move identity', () => {
     const legacy = [{ type: 'paragraph', body: 'Legacy block', depth: 0 }];
     expect(normalizeLessonBlocks(legacy)[0]?.id).toBe(normalizeLessonBlocks(legacy)[0]?.id);
     expect(normalizeLessonBlocks(legacy)[0]?.id).toMatch(/^legacy_[0-9a-f]{17}$/);
+
+    const legacyRows = compareLessonBlocks(
+      [
+        { type: 'paragraph', body: 'Second legacy block', depth: 0 },
+        { type: 'paragraph', body: 'First legacy block', depth: 0 },
+      ],
+      [
+        { type: 'paragraph', body: 'First legacy block', depth: 0 },
+        { type: 'paragraph', body: 'Second legacy block', depth: 0 },
+      ],
+    );
+    expect(legacyRows.filter((row) => row.state === 'added')).toHaveLength(2);
+    expect(legacyRows.filter((row) => row.state === 'removed')).toHaveLength(2);
+    expect(legacyRows.some((row) => row.state === 'moved' || row.state === 'modified')).toBe(false);
 
     const first = { id: 'AAAAAAAAAAAAAAAAAAAAAAAA', type: 'paragraph', body: 'First', depth: 0 };
     const second = { id: 'BBBBBBBBBBBBBBBBBBBBBBBB', type: 'paragraph', body: 'Second', depth: 0 };
     const rows = compareLessonBlocks([second, first], [first, second]);
     expect(rows.map((row) => row.state)).toEqual(['moved', 'moved']);
+  });
+
+  it('reveals a focused block when its ancestor section was collapsed', async () => {
+    const blocks = [
+      { id: 'AAAAAAAAAAAAAAAAAAAAAAAA', type: 'heading', body: 'Parent', depth: 0 },
+      { id: 'BBBBBBBBBBBBBBBBBBBBBBBB', type: 'paragraph', body: 'Child', depth: 1 },
+      { id: 'CCCCCCCCCCCCCCCCCCCCCCCC', type: 'heading', body: 'Next', depth: 0 },
+    ];
+    const wrapper = mount(LessonContentRenderer, {
+      props: { blocks, contract: lessonContentContractFixture, activeIndex: 0 },
+    });
+
+    await wrapper.find('button[aria-label="طي القسم"]').trigger('click');
+    expect(wrapper.findAll('article')[1]?.attributes('style')).toContain('display: none');
+
+    await wrapper.setProps({ activeIndex: 1 });
+    expect(wrapper.findAll('article')[1]?.attributes('style') ?? '').not.toContain('display: none');
   });
 });
