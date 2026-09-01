@@ -52,7 +52,7 @@ composer_dependency_audit() {
 
 set -e
 run_gate composer-manifest-lock-validation composer validate --strict --no-check-publish
-run_gate php-format vendor/bin/pint --test
+run_gate php-format vendor/bin/pint --test --format=json
 run_gate php-static-analysis bash -o pipefail -c "vendor/bin/phpstan analyse --memory-limit=1G --error-format=json > '$EVIDENCE_DIR/phpstan.json'"
 run_gate frontend-manifest-contract verify_frontend_manifest
 run_gate fresh-migration php artisan migrate:fresh --seed --force
