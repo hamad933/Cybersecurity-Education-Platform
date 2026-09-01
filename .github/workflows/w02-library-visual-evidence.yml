@@ -1,0 +1,114 @@
+name: W02 Library Visual Evidence
+
+on:
+  push:
+    branches:
+      - 'build/w02-library-visual-evidence-*'
+
+permissions:
+  contents: read
+
+env:
+  APP_PORT: '8081'
+  RELEASE_IMAGE: cybersecurity-education-platform:w02-library-visual-${{ github.sha }}
+  W02_PRODUCT_SHA: '7fa8714dc6d0beec6ec77ba8a673140301b066cf'
+
+jobs:
+  library-visual-evidence:
+    name: Library 1440 and 1024 Chromium evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out evidence branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Generate ephemeral browser environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_KEY="base64:$(openssl rand -base64 32 | tr -d '\n')"
+          DB_PASSWORD="$(openssl rand -hex 32)"
+          BROWSER_PASSWORD="$(openssl rand -base64 36 | tr -d '\n')"
+          echo "::add-mask::${APP_KEY}"
+          echo "::add-mask::${DB_PASSWORD}"
+          echo "::add-mask::${BROWSER_PASSWORD}"
+          ENV_FILE="${RUNNER_TEMP}/cep-w02-library-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.env"
+          {
+            printf 'APP_KEY=%s\n' "$APP_KEY"
+            printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
+            printf 'APP_PORT=%s\n' "$APP_PORT"
+            printf 'RELEASE_IMAGE=%s\n' "$RELEASE_IMAGE"
+          } > "$ENV_FILE"
+          chmod 600 "$ENV_FILE"
+          echo "RELEASE_ENV_FILE=$ENV_FILE" >> "$GITHUB_ENV"
+          echo "BROWSER_PASSWORD=$BROWSER_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Start exact-candidate application runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/w02-library
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml up -d --build postgres app
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml up -d --no-deps queue
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml exec -T app php artisan migrate:fresh --seed --force
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml exec -T \
+            -e CEP_W02_LIBRARY_VISUAL_EVIDENCE=1 \
+            app php artisan db:seed --class='Database\Seeders\W02LibraryVisualEvidenceSeeder' --force
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml exec -T \
+            -e TASK010_BROWSER_PASSWORD="$BROWSER_PASSWORD" \
+            app php artisan platform:release-gate-owner > evidence/w02-library/owner-preparation.json
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8081/health/live > /dev/null; then
+              break
+            fi
+            [[ "$i" -lt 60 ]]
+            sleep 2
+          done
+
+      - name: Capture Library visual states in real Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/ci/w02_library_visual_evidence.mjs
+          docker run --rm --network host \
+            -v "$PWD:/repo" \
+            -w /repo \
+            -e BASE_URL=http://127.0.0.1:8081 \
+            -e BROWSER_EMAIL=task010-browser@example.test \
+            -e BROWSER_PASSWORD="$BROWSER_PASSWORD" \
+            -e EVIDENCE_DIR=evidence/w02-library \
+            -e W02_PRODUCT_SHA="$W02_PRODUCT_SHA" \
+            -e GITHUB_SHA="$GITHUB_SHA" \
+            mcr.microsoft.com/playwright:v1.55.0-noble \
+            bash -lc 'set -euo pipefail; CHROMIUM_PATH="$(find /ms-playwright -type f \( -name chrome -o -name chromium \) | head -n 1)"; test -x "$CHROMIUM_PATH"; export CHROMIUM_PATH; node scripts/ci/w02_library_visual_evidence.mjs'
+
+      - name: Capture sanitized runtime diagnostics
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p evidence/w02-library
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml ps --format json > evidence/w02-library/compose-ps.json 2>&1
+          docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml logs --no-color app queue postgres \
+            | sed -E 's/(password|token|secret|key)=([^[:space:]]+)/\1=[REDACTED]/Ig' \
+            > evidence/w02-library/runtime-sanitized.log 2>&1
+
+      - name: Upload W02 Library visual evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: W02-Library-Visual-Evidence-${{ env.W02_PRODUCT_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/w02-library
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Clean visual runtime
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          if [[ -n "${RELEASE_ENV_FILE:-}" && -f "$RELEASE_ENV_FILE" ]]; then
+            docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml down --volumes --remove-orphans
+            shred -u "$RELEASE_ENV_FILE" 2>/dev/null || rm -f "$RELEASE_ENV_FILE"
+          fi
+          docker image rm "$RELEASE_IMAGE" 2>/dev/null || true
