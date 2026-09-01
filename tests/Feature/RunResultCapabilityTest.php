@@ -28,16 +28,16 @@ final class RunResultCapabilityTest extends TestCase
     {
         parent::setUp();
         $this->capability = new RunResultCapability();
-        
+
         $this->enterpriseId = (string) Str::uuid();
         DB::table('simulation_enterprises')->insert(['id' => $this->enterpriseId, 'slug' => 'ent-1', 'name_ar' => 'Test', 'definition' => '{}']);
-        
+
         $this->twinId = (string) Str::uuid();
         DB::table('simulation_digital_twins')->insert(['id' => $this->twinId, 'enterprise_id' => $this->enterpriseId, 'slug' => 'twin-1', 'name_ar' => 'Test']);
-        
+
         $this->twinRevId = (string) Str::uuid();
         DB::table('simulation_digital_twin_revisions')->insert(['id' => $this->twinRevId, 'enterprise_id' => $this->enterpriseId, 'digital_twin_id' => $this->twinId, 'revision' => 1, 'status' => 'PUBLISHED', 'topology' => '{}', 'behavior_model' => '{}', 'digest' => 'test']);
-        
+
         $this->baselineId = (string) Str::uuid();
         DB::table('simulation_baselines')->insert(['id' => $this->baselineId, 'enterprise_id' => $this->enterpriseId, 'digital_twin_id' => $this->twinId, 'digital_twin_revision_id' => $this->twinRevId, 'revision' => 1, 'status' => 'PUBLISHED', 'state' => '{}', 'digest' => 'test']);
     }
@@ -45,12 +45,30 @@ final class RunResultCapabilityTest extends TestCase
     private function createCanonicalResultWithBaselineStructure(array $operationsList, array $timeline = [], float $score = null, string $runIdOverride = null): string
     {
         $runId = $runIdOverride ?? (string) Str::uuid();
+
+        $labId = (string) Str::uuid();
+        DB::table('simulation_lab_definitions')->insertOrIgnore([
+            'id' => $labId,
+            'enterprise_id' => $this->enterpriseId,
+            'baseline_id' => $this->baselineId,
+            'slug' => 'test-lab',
+            'title_ar' => 'Test Lab',
+            'revision' => 1,
+            'status' => 'PUBLISHED',
+            'configuration' => '{}',
+            'validation' => '{}',
+            'digest' => 'lab-digest',
+            'created_by' => 'tester',
+        ]);
+
         DB::table('simulation_runs')->insertOrIgnore([
             'id' => $runId,
             'enterprise_id' => $this->enterpriseId,
             'digital_twin_id' => $this->twinId,
             'digital_twin_revision_id' => $this->twinRevId,
             'baseline_id' => $this->baselineId,
+            'scenario_definition_id' => null,
+            'standalone_lab_definition_id' => $labId,
             'run_type' => 'Standalone Lab Run',
             'lifecycle' => 'COMPLETED',
             'execution_policies' => '{}',
@@ -64,13 +82,13 @@ final class RunResultCapabilityTest extends TestCase
 
         $payloadArray = ['operations' => $operationsList];
         $sealedPayload = json_encode($payloadArray, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        
+
         $outcome = 'ACHIEVED';
         $summaryAr = 'test summary';
         $revision = 1;
         $provenance = 'SIMULATED';
         $sourceFixture = false;
-        
+
         $compositePayload = [
             'runId' => $runId,
             'outcome' => $outcome,
@@ -104,7 +122,7 @@ final class RunResultCapabilityTest extends TestCase
             'sealed_by' => 'tester',
             'sealed_at' => now(),
         ]);
-        
+
         return $resultId;
     }
 
@@ -112,13 +130,13 @@ final class RunResultCapabilityTest extends TestCase
     {
         $op1Key = 'valid-op-key-01';
         $op2Key = 'valid-op-key-02';
-        
+
         $input1 = ['operation_key' => $op1Key, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true];
         $input2 = ['operation_key' => $op2Key, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => false];
-        
+
         $digest1 = hash('sha256', $this->capability->canonicalizeJson(json_encode($input1, JSON_THROW_ON_ERROR)));
         $digest2 = hash('sha256', $this->capability->canonicalizeJson(json_encode($input2, JSON_THROW_ON_ERROR)));
-        
+
         $operations = [
             [
                 'operation_key' => $op1Key,
@@ -139,7 +157,7 @@ final class RunResultCapabilityTest extends TestCase
                 'actor_id' => 'actor1'
             ]
         ];
-        
+
         $timeline = [
             [
                 'sequence' => 1,
@@ -170,39 +188,39 @@ final class RunResultCapabilityTest extends TestCase
                 ]
             ]
         ];
-        
+
         $resultId = $this->createCanonicalResultWithBaselineStructure($operations, $timeline);
-        
+
         $revisionId = $this->capability->createResultRevision($resultId, ['outcome' => 'PARTIAL', 'score' => 50.0]);
-        
+
         $replayState = $this->capability->projectReplayState($revisionId);
         $this->assertSame('REPLAY_SEMANTIC_PROJECTOR_DEPENDENCY_REQUIRED', $replayState);
-        
+
         $aarState = $this->capability->projectAarState($revisionId);
         $this->assertSame('REPLAY_SEMANTIC_PROJECTOR_DEPENDENCY_REQUIRED', $aarState['final_state']);
         $this->assertSame(2, $aarState['operation_count']);
-        
+
         $this->assertSame('PARTIAL', $aarState['outcome']);
         $this->assertSame('50', $aarState['score']);
     }
-    
+
     public function test_zero_operation_terminal_result_is_accepted_and_projected_truthfully(): void
     {
         // Pass empty operations and empty timeline exactly natively
         $resultId = $this->createCanonicalResultWithBaselineStructure([], [], 25.0);
         $revisionId = $this->capability->createResultRevision($resultId, []);
-        
+
         $replayState = $this->capability->projectReplayState($revisionId);
         $this->assertSame('REPLAY_SEMANTIC_PROJECTOR_DEPENDENCY_REQUIRED', $replayState);
-        
+
         $aarState = $this->capability->projectAarState($revisionId);
         $this->assertSame('REPLAY_SEMANTIC_PROJECTOR_DEPENDENCY_REQUIRED', $aarState['final_state']);
         $this->assertSame(0, $aarState['operation_count']); // Successfully derived exact 0 operations
-        
+
         $this->assertSame('ACHIEVED', $aarState['outcome']);
         $this->assertSame('25', $aarState['score']);
     }
-    
+
     public function test_tampered_zero_operation_terminal_result_with_applied_event_fails(): void
     {
         // Empty operations but timeline asserts an event occurred (inconsistent/tampered)
@@ -218,10 +236,10 @@ final class RunResultCapabilityTest extends TestCase
         ];
         $resultId = $this->createCanonicalResultWithBaselineStructure([], $timeline);
         $revisionId = $this->capability->createResultRevision($resultId, []);
-        
+
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Timeline references operations but operations list is empty.');
-        
+
         $this->capability->projectReplayState($revisionId);
     }
 
@@ -229,10 +247,10 @@ final class RunResultCapabilityTest extends TestCase
     {
         // 12-digit string
         $op1Key = '123456789012';
-        
+
         $input1 = ['operation_key' => $op1Key, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true];
         $digest1 = hash('sha256', $this->capability->canonicalizeJson(json_encode($input1, JSON_THROW_ON_ERROR)));
-        
+
         $operations = [
             [
                 'operation_key' => $op1Key,
@@ -244,7 +262,7 @@ final class RunResultCapabilityTest extends TestCase
                 'actor_id' => 'actor1'
             ]
         ];
-        
+
         $timeline = [
             [
                 'sequence' => 1,
@@ -261,21 +279,21 @@ final class RunResultCapabilityTest extends TestCase
                 ]
             ]
         ];
-        
+
         $resultId = $this->createCanonicalResultWithBaselineStructure($operations, $timeline);
         $revisionId = $this->capability->createResultRevision($resultId, []);
-        
+
         $replayState = $this->capability->projectReplayState($revisionId);
         $this->assertSame('REPLAY_SEMANTIC_PROJECTOR_DEPENDENCY_REQUIRED', $replayState);
     }
-    
+
     public function test_valid_120_character_operation_key_is_accepted(): void
     {
         $op1Key = str_repeat('A', 120);
-        
+
         $input1 = ['operation_key' => $op1Key, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true];
         $digest1 = hash('sha256', $this->capability->canonicalizeJson(json_encode($input1, JSON_THROW_ON_ERROR)));
-        
+
         $operations = [
             [
                 'operation_key' => $op1Key,
@@ -287,7 +305,7 @@ final class RunResultCapabilityTest extends TestCase
                 'actor_id' => 'actor1'
             ]
         ];
-        
+
         $timeline = [
             [
                 'sequence' => 1,
@@ -304,10 +322,10 @@ final class RunResultCapabilityTest extends TestCase
                 ]
             ]
         ];
-        
+
         $resultId = $this->createCanonicalResultWithBaselineStructure($operations, $timeline);
         $revisionId = $this->capability->createResultRevision($resultId, []);
-        
+
         $replayState = $this->capability->projectReplayState($revisionId);
         $this->assertSame('REPLAY_SEMANTIC_PROJECTOR_DEPENDENCY_REQUIRED', $replayState);
     }
@@ -315,12 +333,52 @@ final class RunResultCapabilityTest extends TestCase
     public function test_missing_canonical_history_throws_dependency_required(): void
     {
         $runId = (string) Str::uuid();
+        $labId = (string) Str::uuid();
+        DB::table('simulation_lab_definitions')->insertOrIgnore([
+            'id' => $labId,
+            'enterprise_id' => $this->enterpriseId,
+            'baseline_id' => $this->baselineId,
+            'slug' => 'test-lab-' . Str::random(6),
+            'title_ar' => 'Test Lab',
+            'revision' => 1,
+            'status' => 'PUBLISHED',
+            'configuration' => '{}',
+            'validation' => '{}',
+            'digest' => 'lab-digest-' . Str::random(6),
+            'created_by' => 'tester',
+        ]);
+
+        $scenarioId = (string) Str::uuid();
+        DB::table('simulation_scenario_definitions')->insertOrIgnore([
+            'id' => $scenarioId,
+            'slug' => 'test-scenario-' . Str::random(6),
+            'title_ar' => 'Test Scenario',
+            'revision' => 1,
+            'status' => 'PUBLISHED',
+            'environment_contract' => '{}',
+            'orchestration' => '{}',
+            'validation' => '{}',
+            'digest' => 'scenario-digest-' . Str::random(6),
+            'created_by' => 'tester',
+        ]);
+
+        DB::table('simulation_scenario_lab_references')->insertOrIgnore([
+            'id' => (string) Str::uuid(),
+            'scenario_definition_id' => null,
+            'lab_definition_id' => $labId,
+            'module_key' => 'test_module',
+            'ordinal' => 1,
+            'policy' => '{}',
+        ]);
+
         DB::table('simulation_runs')->insert([
             'id' => $runId,
             'enterprise_id' => $this->enterpriseId,
             'digital_twin_id' => $this->twinId,
             'digital_twin_revision_id' => $this->twinRevId,
             'baseline_id' => $this->baselineId,
+            'scenario_definition_id' => null,
+            'standalone_lab_definition_id' => $labId,
             'run_type' => 'Standalone Lab Run',
             'lifecycle' => 'COMPLETED',
             'execution_policies' => '{}',
@@ -347,21 +405,21 @@ final class RunResultCapabilityTest extends TestCase
             'sealed_by' => 'tester',
             'sealed_at' => now(),
         ]);
-        
+
         $revisionId = $this->capability->createResultRevision($resultId, []);
-        
+
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('DEPENDENCY_REQUIRED: Sealed canonical history not found.');
-        
+
         $this->capability->projectReplayState($revisionId);
     }
-    
+
     public function test_project_compare_runs_returns_rich_derivatives_across_distinct_runs(): void
     {
         $op1Key = 'valid-op-key-01';
         $input1 = ['operation_key' => $op1Key, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true];
         $digest1 = hash('sha256', $this->capability->canonicalizeJson(json_encode($input1, JSON_THROW_ON_ERROR)));
-        
+
         $op2Key = 'valid-op-key-02';
         $input2 = ['operation_key' => $op2Key, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true];
         $digest2 = hash('sha256', $this->capability->canonicalizeJson(json_encode($input2, JSON_THROW_ON_ERROR)));
@@ -372,28 +430,28 @@ final class RunResultCapabilityTest extends TestCase
             ],
             [['sequence' => 1, 'event_type' => 'SIMULATION_OPERATION_APPLIED', 'actor_id' => 'a1', 'payload' => ['operation_key' => $op1Key, 'grammar_version' => RunResultVocabulary::OPERATION_ENGINE_V1, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true, 'pre_state_digest' => 'pre', 'post_state_digest' => 'post']]]
         );
-        
+
         $res2 = $this->createCanonicalResultWithBaselineStructure(
             [
                 ['operation_key' => $op2Key, 'grammar_version' => RunResultVocabulary::OPERATION_ENGINE_V1, 'input' => $input2, 'input_digest' => $digest2, 'actor_id' => 'a1', 'pre_state_digest' => 'pre', 'post_state_digest' => 'post']
             ],
             [['sequence' => 1, 'event_type' => 'SIMULATION_OPERATION_APPLIED', 'actor_id' => 'a1', 'payload' => ['operation_key' => $op2Key, 'grammar_version' => RunResultVocabulary::OPERATION_ENGINE_V1, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true, 'pre_state_digest' => 'pre', 'post_state_digest' => 'post']]]
         );
-        
+
         $rev1 = $this->capability->createResultRevision($res1, ['outcome' => 'ACHIEVED']);
         $rev2 = $this->capability->createResultRevision($res2, ['outcome' => 'NOT_ACHIEVED', 'score' => 0.0]);
-        
+
         $comparisons = $this->capability->projectCompareRuns([$rev1, $rev2]);
-        
+
         $this->assertCount(2, $comparisons);
         $this->assertSame('REPLAY_SEMANTIC_PROJECTOR_DEPENDENCY_REQUIRED', $comparisons[$rev1]['final_state']);
         $this->assertSame('ACHIEVED', $comparisons[$rev1]['outcome']);
-        
+
         $this->assertSame('REPLAY_SEMANTIC_PROJECTOR_DEPENDENCY_REQUIRED', $comparisons[$rev2]['final_state']);
         $this->assertSame('NOT_ACHIEVED', $comparisons[$rev2]['outcome']);
         $this->assertSame('0', $comparisons[$rev2]['score']);
     }
-    
+
     public function test_project_compare_rejects_duplicates_and_requires_two_distinct_runs(): void
     {
         $op1Key = 'valid-op-key-01';
@@ -413,7 +471,7 @@ final class RunResultCapabilityTest extends TestCase
             null,
             $runIdA
         );
-        
+
         $resultIdA2 = $this->createCanonicalResultWithBaselineStructure(
             [
                 ['operation_key' => $op3Key, 'grammar_version' => RunResultVocabulary::OPERATION_ENGINE_V1, 'input' => $input3, 'input_digest' => $digest3, 'actor_id' => 'a1', 'pre_state_digest' => 'pre', 'post_state_digest' => 'post']
@@ -422,7 +480,7 @@ final class RunResultCapabilityTest extends TestCase
             null,
             $runIdA
         );
-        
+
         $runIdB = (string) Str::uuid();
         $resultIdB = $this->createCanonicalResultWithBaselineStructure(
             [
@@ -432,34 +490,34 @@ final class RunResultCapabilityTest extends TestCase
             null,
             $runIdB
         );
-        
+
         $revA1 = $this->capability->createResultRevision($resultIdA, ['outcome' => 'ACHIEVED']);
         $revA2 = $this->capability->createResultRevision($resultIdA, ['outcome' => 'PARTIAL'], null, $revA1, 'Corrected outcome');
         $revA_Alternative = $this->capability->createResultRevision($resultIdA2, ['outcome' => 'NOT_ACHIEVED']);
-        
+
         $revB1 = $this->capability->createResultRevision($resultIdB, ['outcome' => 'NOT_ACHIEVED']);
-        
+
         try {
             $this->capability->projectCompareRuns([$revA1]);
             $this->fail('Should reject single revision');
         } catch (InvalidArgumentException $e) {
-            $this->assertStringContainsString('Must compare two or more distinct canonical Results/Runs', $e->getMessage());
+            $this->assertStringContainsString('Must compare two or more distinct canonical Results/Runs.', $e->getMessage());
         }
-        
+
         try {
             $this->capability->projectCompareRuns([$revA1, $revA1]);
             $this->fail('Should reject duplicate revision');
         } catch (InvalidArgumentException $e) {
             $this->assertStringContainsString('Cannot compare duplicate Run Revisions.', $e->getMessage());
         }
-        
+
         try {
             $this->capability->projectCompareRuns([$revA1, $revA2]);
-            $this->fail('Should reject revisions of the same run');
+            $this->fail('Should reject revisions of the same run (and thus duplicate canonical result IDs)');
         } catch (InvalidArgumentException $e) {
-            $this->assertStringContainsString('Must compare two or more distinct canonical Results/Runs', $e->getMessage());
+            $this->assertStringContainsString('Cannot compare duplicate Run Revisions.', $e->getMessage());
         }
-        
+
         // Fails: distinct Results but SAME canonical Run ID A
         try {
             $this->capability->projectCompareRuns([$revA1, $revA_Alternative]);
@@ -467,7 +525,7 @@ final class RunResultCapabilityTest extends TestCase
         } catch (InvalidArgumentException $e) {
             $this->assertStringContainsString('Must compare two or more distinct canonical Results/Runs', $e->getMessage());
         }
-        
+
         // Fails: two revisions of Run A + one revision of Run B (duplicate canonical result A)
         try {
             $this->capability->projectCompareRuns([$revA1, $revA2, $revB1]);
@@ -475,7 +533,7 @@ final class RunResultCapabilityTest extends TestCase
         } catch (InvalidArgumentException $e) {
             $this->assertStringContainsString('Must compare two or more distinct canonical Results/Runs', $e->getMessage());
         }
-        
+
         $comparisons = $this->capability->projectCompareRuns([$revA2, $revB1]);
         $this->assertCount(2, $comparisons);
         $this->assertSame('PARTIAL', $comparisons[$revA2]['outcome']);
@@ -487,26 +545,73 @@ final class RunResultCapabilityTest extends TestCase
         $op1Key = 'valid-op-key-01';
         $input1 = ['operation_key' => $op1Key, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true];
         $digest1 = hash('sha256', $this->capability->canonicalizeJson(json_encode($input1, JSON_THROW_ON_ERROR)));
-        
+
         $resultId = $this->createCanonicalResultWithBaselineStructure(
             [
                 ['operation_key' => $op1Key, 'grammar_version' => RunResultVocabulary::OPERATION_ENGINE_V1, 'input' => $input1, 'input_digest' => $digest1, 'actor_id' => 'a1', 'pre_state_digest' => 'pre', 'post_state_digest' => 'post']
             ],
             [['sequence' => 1, 'event_type' => 'SIMULATION_OPERATION_APPLIED', 'actor_id' => 'a1', 'payload' => ['operation_key' => $op1Key, 'grammar_version' => RunResultVocabulary::OPERATION_ENGINE_V1, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true, 'pre_state_digest' => 'pre', 'post_state_digest' => 'post']]]
         );
-        
+
         $revisionId = $this->capability->createResultRevision($resultId, []);
-        
+
         $envelope = $this->capability->generateCandidateEvidenceHandoffEnvelope($revisionId, 'READY_FOR_INTAKE');
-        
+
         $this->assertSame($resultId, $envelope['result_id']);
         $this->assertSame(1, $envelope['source_result_revision']);
         $this->assertSame('SIMULATED', $envelope['provenance']);
         $this->assertFalse($envelope['source_fixture']);
         $this->assertSame('RESULTS_HANDOFF_EXISTING_WRITER_WIRING_REQUIRED', $envelope['_integration_contract']);
-        
+
+        $this->assertArrayHasKey('run_id', $envelope);
+        $this->assertArrayHasKey('effective_revision_id', $envelope);
+        $this->assertArrayHasKey('effective_revision_digest', $envelope);
+        $this->assertArrayHasKey('base_revision_id', $envelope);
+        $this->assertArrayHasKey('correction_reason', $envelope);
+        $this->assertArrayHasKey('material_context', $envelope);
+        $this->assertSame($this->enterpriseId, $envelope['material_context']['enterprise_id']);
+        $this->assertSame($this->twinId, $envelope['material_context']['digital_twin_id']);
+        $this->assertSame($this->twinRevId, $envelope['material_context']['digital_twin_revision_id']);
+        $this->assertSame($this->baselineId, $envelope['material_context']['baseline_id']);
+        $this->assertNull($envelope['material_context']['scenario_definition_id']);
+        $this->assertSame($labId, $envelope['material_context']['standalone_lab_definition_id']);
+        $this->assertContains($labId, $envelope['material_context']['lab_ids']);
+
         $this->assertArrayNotHasKey('submitter_identity', $envelope);
         $this->assertNull(DB::table('simulation_candidate_evidence_handoffs')->first());
+    }
+
+    public function test_tampered_revision_digest_in_handoff_fails_closed(): void
+    {
+        $resultId = $this->createCanonicalResultWithBaselineStructure([], []);
+        $revisionId = $this->capability->createResultRevision($resultId, []);
+
+        DB::table('simulation_run_result_revisions')->where('id', $revisionId)->update([
+            'revision_digest' => 'tampered_digest'
+        ]);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Effective revision digest mismatch or tamper detected.');
+
+        $this->capability->generateCandidateEvidenceHandoffEnvelope($revisionId, 'READY_FOR_INTAKE');
+    }
+
+    public function test_normalization_and_projection_of_decimal_scores_is_stable_and_semantic(): void
+    {
+        $resultId1 = $this->createCanonicalResultWithBaselineStructure([], [], 50.0);
+        $rev1 = $this->capability->createResultRevision($resultId1, []);
+        $aar1 = $this->capability->projectAarState($rev1);
+        $this->assertSame('50', $aar1['score']); // 50.0 -> 50
+
+        $resultId2 = $this->createCanonicalResultWithBaselineStructure([], [], 50.12);
+        $rev2 = $this->capability->createResultRevision($resultId2, []);
+        $aar2 = $this->capability->projectAarState($rev2);
+        $this->assertSame('50.12', $aar2['score']);
+
+        $resultId3 = $this->createCanonicalResultWithBaselineStructure([], [], null);
+        $rev3 = $this->capability->createResultRevision($resultId3, []);
+        $aar3 = $this->capability->projectAarState($rev3);
+        $this->assertNull($aar3['score']);
     }
 
     public function test_derived_revision_rejects_unsupported_keys_and_values(): void
@@ -514,21 +619,21 @@ final class RunResultCapabilityTest extends TestCase
         $op1Key = 'valid-op-key-01';
         $input1 = ['operation_key' => $op1Key, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true];
         $digest1 = hash('sha256', $this->capability->canonicalizeJson(json_encode($input1, JSON_THROW_ON_ERROR)));
-        
+
         $resultId = $this->createCanonicalResultWithBaselineStructure(
             [
                 ['operation_key' => $op1Key, 'grammar_version' => RunResultVocabulary::OPERATION_ENGINE_V1, 'input' => $input1, 'input_digest' => $digest1, 'actor_id' => 'a1', 'pre_state_digest' => 'pre', 'post_state_digest' => 'post']
             ],
             [['sequence' => 1, 'event_type' => 'SIMULATION_OPERATION_APPLIED', 'actor_id' => 'a1', 'payload' => ['operation_key' => $op1Key, 'grammar_version' => RunResultVocabulary::OPERATION_ENGINE_V1, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true, 'pre_state_digest' => 'pre', 'post_state_digest' => 'post']]]
         );
-        
+
         try {
             $this->capability->createResultRevision($resultId, ['fake_key' => 'val']);
             $this->fail('Should reject fake derived key');
         } catch (InvalidArgumentException $e) {
             $this->assertStringContainsString('Unsupported derived field key: fake_key', $e->getMessage());
         }
-        
+
         try {
             $this->capability->createResultRevision($resultId, ['outcome' => 'MAGIC']);
             $this->fail('Should reject fake outcome');
@@ -540,17 +645,17 @@ final class RunResultCapabilityTest extends TestCase
     public function test_operation_with_invalid_string_identities_rejected(): void
     {
         $validKey = 'valid_key-123';
-        
+
         $invalidInputs = [
             // Wrong verb and target constraints inherently independent checks
             ['operation_key' => $validKey, 'verb' => 'WRONG_VERB', 'target' => 'IDENTITY_MFA', 'value' => true],
             ['operation_key' => $validKey, 'verb' => 'SET_CONTROL_STATE', 'target' => 'WRONG_TARGET', 'value' => true],
-            
+
             // Length constraint checks precisely
             ['operation_key' => 'short123456', 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true], // 11 chars
             ['operation_key' => str_repeat('k', 121), 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true], // 121 chars
             ['operation_key' => 'invalid key spaces 12', 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true],
-            
+
             // Inner key missing or mismatched
             ['operation_key' => null, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true],
             ['operation_key' => '', 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true],
@@ -559,13 +664,13 @@ final class RunResultCapabilityTest extends TestCase
 
         foreach ($invalidInputs as $invalidInput) {
             $invalidKey = $invalidInput['operation_key'] ?? $validKey;
-            
+
             $exceptionThrown = false;
             try {
                 // If it fails to hash internally due to being non-canonical structure, it might throw earlier,
                 // but we primarily want to ensure that regardless of digestion success, validation rejects it.
                 $digest = hash('sha256', $this->capability->canonicalizeJson(json_encode($invalidInput, JSON_THROW_ON_ERROR)));
-                
+
                 $resultId = $this->createCanonicalResultWithBaselineStructure(
                     [
                         ['operation_key' => $invalidKey, 'grammar_version' => RunResultVocabulary::OPERATION_ENGINE_V1, 'input' => $invalidInput, 'input_digest' => $digest, 'actor_id' => 'a1']
@@ -584,7 +689,7 @@ final class RunResultCapabilityTest extends TestCase
             $this->assertTrue($exceptionThrown, 'Failed to reject invalid string constraint or verb/target mismatch.');
         }
     }
-    
+
     public function test_operation_with_invalid_value_type_is_rejected(): void
     {
         $validKey = 'valid_key-123';
@@ -654,7 +759,7 @@ final class RunResultCapabilityTest extends TestCase
         $op1Key = 'valid-op-key-01';
         $input1 = ['operation_key' => $op1Key, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true];
         $digest1 = hash('sha256', $this->capability->canonicalizeJson(json_encode($input1, JSON_THROW_ON_ERROR)));
-        
+
         // Canonical starts with outcome=ACHIEVED, score=100.0, summary_ar='test summary'
         $resultId = $this->createCanonicalResultWithBaselineStructure(
             [
@@ -663,18 +768,18 @@ final class RunResultCapabilityTest extends TestCase
             [['sequence' => 1, 'event_type' => 'SIMULATION_OPERATION_APPLIED', 'actor_id' => 'a1', 'payload' => ['operation_key' => $op1Key, 'grammar_version' => RunResultVocabulary::OPERATION_ENGINE_V1, 'verb' => 'SET_CONTROL_STATE', 'target' => 'IDENTITY_MFA', 'value' => true, 'pre_state_digest' => 'pre', 'post_state_digest' => 'post']]],
             100.0 // Set explicit canonical score
         );
-        
+
         // Revision 1 updates score to NULL
         $rev1 = $this->capability->createResultRevision($resultId, ['score' => null]);
-        
+
         $aar1 = $this->capability->projectAarState($rev1);
         $this->assertSame('ACHIEVED', $aar1['outcome']);
         $this->assertNull($aar1['score']); // Effectively null
         $this->assertSame('test summary', $aar1['summary_ar']);
-        
+
         // Revision 2 updates ONLY outcome to PARTIAL, using Rev1 as base. It MUST preserve score=null.
         $rev2 = $this->capability->createResultRevision($resultId, ['outcome' => 'PARTIAL'], null, $rev1, 'Corrected outcome');
-        
+
         $aar2 = $this->capability->projectAarState($rev2);
         $this->assertSame('PARTIAL', $aar2['outcome']);
         $this->assertNull($aar2['score'], 'Score resurrected from canonical data when it should be preserved as null effectively.');
