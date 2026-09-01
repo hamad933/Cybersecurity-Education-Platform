@@ -224,6 +224,7 @@ describe('KnowledgeEditorCorrection', () => {
       currentSnapshot: () => unknown;
       submitRevision: (mode: 'auto') => void;
     };
+    vm.form.patch = vi.fn();
 
     vm.form.blocks[0]!.body = 'Edit A';
     await nextTick();
