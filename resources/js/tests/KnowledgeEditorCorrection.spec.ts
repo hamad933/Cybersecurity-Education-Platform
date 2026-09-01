@@ -97,7 +97,7 @@ describe('KnowledgeEditorCorrection', () => {
   };
 
   beforeEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
     window.localStorage.clear();
     if (!window.performance.getEntriesByType) {
       window.performance.getEntriesByType = vi.fn(() => []);

@@ -108,22 +108,22 @@ describe('Knowledge & Learning Phase 1 Layouts & Governance (W02-C01 through W02
     expect(html).toContain('p1');
 
     // CENTER Lesson surface with truthful no-lesson state and clear Arabic strings (W02-C06)
-    expect(html).toContain('سطح الدرس والمحتوى التعليمي');
+    expect(html).toContain('سطح التعلّم');
     expect(html).toContain('الدرس غير متوفر');
     expect(html).toContain('لا يتوفر درس منشور لهذه الوحدة');
-    expect(html).toContain('NO_ASSESSMENT');
+    expect(html).not.toContain('NO_ASSESSMENT');
 
     // No fake SQL Injection or fabricated 28% completion data
     expect(html).not.toContain('28%');
     expect(html).not.toContain('3/7');
 
     // RIGHT Context & Lab Readiness
-    expect(html).toContain('سياق النشاط المحدد');
-    expect(html).toContain('مرجع المختبر (Lab Reference)');
-    expect(html).toContain('lab-1');
+    expect(html).toContain('سياق التعلّم');
+    expect(html).toContain('المختبرات');
+    expect(html).toContain('غير متاح');
 
     // KU != Lesson; Completion != Mastery
-    expect(html).toContain('حدود المعنى');
+    expect(html).toContain('لا يُصدر إكمال الدرس أو النشاط حكم إتقان رسميًا');
 
     // Center Gateways
     expect(wrapper.find('[data-testid="gateways"]').exists()).toBe(true);
@@ -285,19 +285,20 @@ describe('Knowledge & Learning Phase 1 Layouts & Governance (W02-C01 through W02
     // Right aside context
     expect(html).toContain('السياق');
 
-    // Bottom Trace / Compare (shelf header)
-    expect(html).toContain('المساحة السفلية للسياق والتشخيص');
-    expect(html).toContain('مقارنة المراجعات');
-    expect(html).toContain('تشخيص التزامن');
+    // First-class History / Compare / Recovery tasks
+    expect(html).toContain('السجل');
+    expect(html).toContain('المقارنة');
+    expect(html).toContain('الاسترداد');
 
-    // Expand bottom shelf and verify diagnostics / compare content
-    const toggleButton = wrapper.find('button[aria-label="طي أو توسيع المساحة السفلية"]');
-    expect(toggleButton.attributes('aria-expanded')).toBe('false');
-    await toggleButton.trigger('click');
-    expect(toggleButton.attributes('aria-expanded')).toBe('true');
+    const compareButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'المقارنة');
+    expect(compareButton).toBeTruthy();
+    await compareButton!.trigger('click');
 
     const expandedHtml = wrapper.html();
-    expect(expandedHtml).toContain('مقارنة مراجعتين دون تعديل السجل المنشور');
+    expect(expandedHtml).toContain('مقارنة بنيوية بالهوية المستقرة');
+    expect(expandedHtml).toContain('اختر مراجعة تاريخية لبدء المقارنة');
 
     // Center Gateways
     expect(wrapper.find('[data-testid="gateways"]').exists()).toBe(true);

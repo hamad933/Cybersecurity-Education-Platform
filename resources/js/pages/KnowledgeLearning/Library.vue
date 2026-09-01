@@ -123,9 +123,7 @@ const initialRightCollapsed = typeof window !== 'undefined' ? window.innerWidth 
 
 const placementContext = computed(() => {
   const capabilityIds = Array.from(
-    new Set(
-      props.context.placements.map((placement) => placement.capability_id).filter(Boolean),
-    ),
+    new Set(props.context.placements.map((placement) => placement.capability_id).filter(Boolean)),
   );
 
   if (capabilityIds.length === 0) {
@@ -778,7 +776,8 @@ const handleEditorShortcut = (event: KeyboardEvent) => {
     save();
   } else if (key === 'z') {
     event.preventDefault();
-    event.shiftKey ? redo() : undo();
+    if (event.shiftKey) redo();
+    else undo();
   } else if (key === 'y') {
     event.preventDefault();
     redo();
