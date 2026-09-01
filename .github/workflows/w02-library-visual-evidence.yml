@@ -53,7 +53,7 @@ jobs:
           docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml exec -T app php artisan migrate:fresh --seed --force
           docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml exec -T \
             -e CEP_W02_LIBRARY_VISUAL_EVIDENCE=1 \
-            app php artisan tinker --execute="require base_path('database/seeders/W02LibraryVisualEvidenceSeeder.php'); (new \\Database\\Seeders\\W02LibraryVisualEvidenceSeeder())->run();"
+            app php artisan tinker --execute="(new \\Database\\Seeders\\W02LibraryVisualEvidenceSeeder())->run();"
           docker compose --env-file "$RELEASE_ENV_FILE" -f compose.release.yaml exec -T \
             -e TASK010_BROWSER_PASSWORD="$BROWSER_PASSWORD" \
             app php artisan platform:release-gate-owner > evidence/w02-library/owner-preparation.json
