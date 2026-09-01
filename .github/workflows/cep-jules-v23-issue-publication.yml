@@ -56,10 +56,22 @@ jobs:
                   raise ValueError("expected_review_sha256 must be 64 hex")
               if not re.fullmatch(r"[0-9a-fA-F]{64}", data["expected_paths_sha256"]):
                   raise ValueError("expected_paths_sha256 must be 64 hex")
-              if data["controller_id"] not in {"PARENT", "A", "B", "C"}:
+
+              controller_lanes = {
+                  "PARENT": {"PARENT", "W01", "W02", "W03", "W04", "W05", "W01_W02", "W03_W04"},
+                  "A": {"W01"},
+                  "B": {"W02"},
+                  "C": {"W03"},
+                  "D": {"W04"},
+                  "E": {"W05"},
+              }
+              controller_id = data["controller_id"]
+              lane = data["lane"]
+              if controller_id not in controller_lanes:
                   raise ValueError("invalid controller_id")
-              if data["lane"] not in {"PARENT", "W01_W02", "W03_W04", "W05"}:
-                  raise ValueError("invalid lane")
+              if lane not in controller_lanes[controller_id]:
+                  raise ValueError("invalid controller_id/lane mapping")
+
               if data["expected_session_state"] not in {"COMPLETED", "AWAITING_USER_FEEDBACK"}:
                   raise ValueError("invalid expected_session_state")
               if not data["target_branch"].startswith(("work/", "fix/", "checkpoint/", "candidate/")):
