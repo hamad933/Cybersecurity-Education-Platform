@@ -16,10 +16,12 @@ _ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _BRANCH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,159}$")
 _ALLOWED_BRANCH_PREFIXES = ("work/", "fix/", "checkpoint/", "candidate/")
 _CONTROLLER_LANES = {
-    "PARENT": {"PARENT", "W01_W02", "W03_W04", "W05"},
-    "A": {"W03_W04"},
-    "B": {"W01_W02"},
-    "C": {"W05"},
+    "PARENT": {"PARENT", "W01", "W02", "W03", "W04", "W05", "W01_W02", "W03_W04"},
+    "A": {"W01"},
+    "B": {"W02"},
+    "C": {"W03"},
+    "D": {"W04"},
+    "E": {"W05"},
 }
 _FORBIDDEN_PATH_PREFIXES = (
     ".git/",
