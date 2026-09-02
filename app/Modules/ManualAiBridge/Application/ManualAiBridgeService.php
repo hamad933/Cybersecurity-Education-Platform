@@ -33,7 +33,7 @@ final class ManualAiBridgeService
             throw new InvalidArgumentException('Manual AI prompt purpose or input is invalid.');
         }
 
-        return DB::transaction(function () use ($actorId, $purpose, $scope, $input): array {
+        $exported = DB::transaction(function () use ($actorId, $purpose, $scope, $input): array {
             $prompt = PromptPackage::query()->create([
                 'actor_id' => $actorId,
                 'purpose' => $purpose,
@@ -81,11 +81,11 @@ final class ManualAiBridgeService
             $this->audit->append([
                 'actor_identifier' => $actorId,
                 'action' => 'manual_ai.prompt.exported',
-                'target_type' => 'prompt_package_revision',
-                'target_identifier' => (string) $revision->id,
-                'correlation_id' => (string) $prompt->id,
+                'target_type' => 'prompt_package',
+                'target_identifier' => (string) $prompt->id,
+                'correlation_id' => (string) $revision->id,
                 'outcome' => 'success',
-                'safe_metadata' => ['revision' => 1, 'input_digest' => $revision->input_digest, 'package_digest' => $package['manifest']['package_digest']],
+                'safe_metadata' => ['input_digest' => $inputDigest],
             ]);
 
             return [
@@ -95,6 +95,23 @@ final class ManualAiBridgeService
                 'package_digest' => $package['manifest']['package_digest'],
             ];
         });
+
+        DB::transaction(function () use ($exported, $actorId): void {
+            $prompt = PromptPackage::query()->lockForUpdate()->whereKey($exported['prompt']->id)->firstOrFail();
+            $prompt->status = 'awaiting_manual_processing';
+            $prompt->save();
+            
+            $this->audit->append([
+                'actor_identifier' => $actorId,
+                'action' => 'manual_ai.prompt.awaiting_processing',
+                'target_type' => 'prompt_package',
+                'target_identifier' => (string) $prompt->id,
+                'correlation_id' => (string) $exported['revision']->id,
+                'outcome' => 'success',
+            ]);
+        });
+
+        return $exported;
     }
 
     /** @param resource $stream */
@@ -109,71 +126,60 @@ final class ManualAiBridgeService
             throw new InvalidArgumentException('Failed to read AI result stream.');
         }
 
-        if (str_starts_with($content, "PK\x03\x04")) {
-            $zipStream = fopen('php://memory', 'r+');
-            if ($zipStream === false) {
-                throw new LogicException('Unable to open memory stream for package verification.');
-            }
-            fwrite($zipStream, $content);
-            rewind($zipStream);
-            try {
-                $verified = $this->packages->verifyStream($zipStream, ['manual-ai-result']);
-            } finally {
-                fclose($zipStream);
-            }
-
-            $scope = $verified->manifest['scope'] ?? null;
-            if (! is_array($scope) || ($verified->manifest['actor_id'] ?? null) !== $actorId) {
-                throw new InvalidArgumentException('AI result package actor or scope is invalid.');
-            }
-
-            try {
-                $result = json_decode($verified->files['result.json'] ?? '', true, 64, JSON_THROW_ON_ERROR);
-            } catch (\JsonException) {
-                throw new InvalidArgumentException('AI result payload is not valid JSON.');
-            }
-            if (! is_array($result)) {
-                throw new InvalidArgumentException('AI result payload must be a JSON object.');
-            }
-
-            $result['prompt_package_id'] ??= $scope['prompt_package_id'] ?? null;
-            $result['prompt_revision'] ??= $scope['prompt_revision'] ?? null;
-            $result['input_digest'] ??= $scope['input_digest'] ?? null;
-
-            $this->validateResult($result);
-
-            $promptId = $result['prompt_package_id'];
-            $revisionNumber = $result['prompt_revision'];
-            $inputDigest = $result['input_digest'];
-        } else {
-            try {
-                $result = json_decode($content, true, 64, JSON_THROW_ON_ERROR);
-            } catch (\JsonException) {
-                throw new InvalidArgumentException('AI result payload is not valid JSON.');
-            }
-            if (! is_array($result)) {
-                throw new InvalidArgumentException('AI result payload must be a JSON object.');
-            }
-
-            $this->validateResult($result);
-
-            $promptId = $result['prompt_package_id'] ?? null;
-            $revisionNumber = $result['prompt_revision'] ?? null;
-            $inputDigest = $result['input_digest'] ?? null;
-
-            $scope = [
-                'prompt_package_id' => $promptId,
-                'prompt_revision' => $revisionNumber,
-                'input_digest' => $inputDigest,
-            ];
+        if (!str_starts_with($content, "PK\x03\x04")) {
+            throw new \InvalidArgumentException('Manual AI Result import must use a ZIP SafePackage, raw JSON transport is rejected.');
         }
 
+        $zipStream = fopen('php://memory', 'r+');
+        if ($zipStream === false) {
+            throw new LogicException('Unable to open memory stream for package verification.');
+        }
+        fwrite($zipStream, $content);
+        rewind($zipStream);
+        try {
+            $verified = $this->packages->verifyStream($zipStream, ['manual-ai-result']);
+        } finally {
+            fclose($zipStream);
+        }
+
+        $scope = $verified->manifest['scope'] ?? null;
+        if (! is_array($scope) || ($verified->manifest['actor_id'] ?? null) !== $actorId) {
+            throw new InvalidArgumentException('AI result package actor or scope is invalid.');
+        }
+
+        try {
+            $result = json_decode($verified->files['result.json'] ?? '', true, 64, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            throw new InvalidArgumentException('AI result payload is not valid JSON.');
+        }
+        if (! is_array($result)) {
+            throw new InvalidArgumentException('AI result payload must be a JSON object.');
+        }
+
+        $this->validateResult($result);
+
+        $promptId = $scope['prompt_package_id'] ?? null;
+        $revisionNumber = $scope['prompt_revision'] ?? null;
+        $inputDigest = $scope['input_digest'] ?? null;
+
         if (! is_string($promptId) || ! is_int($revisionNumber) || ! is_string($inputDigest)) {
-            throw new InvalidArgumentException('AI result provenance fields are incomplete or invalid.');
+            throw new InvalidArgumentException('AI result provenance scope fields are incomplete or invalid.');
+        }
+
+        if ($result['prompt_package_id'] !== $promptId || $result['prompt_revision'] !== $revisionNumber || $result['input_digest'] !== $inputDigest) {
+            throw new InvalidArgumentException('AI returned provenance claims mismatch the verified package scope.');
+        }
+
+        $promptPackage = PromptPackage::query()
+            ->whereKey($promptId)
+            ->firstOrFail();
+
+        if ($promptPackage->actor_id !== $actorId) {
+            throw new InvalidArgumentException('Actor does not own the Prompt Package.');
         }
 
         $revision = PromptPackageRevision::query()
-            ->where('prompt_package_id', $promptId)
+            ->where('prompt_package_id', $promptPackage->id)
             ->where('revision', $revisionNumber)
             ->firstOrFail();
 
@@ -195,31 +201,29 @@ final class ManualAiBridgeService
             return $existing;
         }
 
-        if (isset($verified)) {
-            $mirror = $this->packages->create('manual-ai-result', 1, $actorId, $scope, $verified->files, ownerModule: 'MOD-AIB');
-        } else {
-            $mirror = $this->packages->create(
-                'manual-ai-result',
-                1,
-                $actorId,
-                $scope,
-                ['result.json' => CanonicalJson::encode($result)."\n"],
-                ownerModule: 'MOD-AIB'
-            );
-        }
+        $mirror = $this->packages->create('manual-ai-result', 1, $actorId, $scope, $verified->files, ownerModule: 'MOD-AIB');
 
-        return DB::transaction(function () use ($actorId, $revision, $result, $digest, $mirror): ImportedAiResult {
-            $import = ImportedAiResult::query()->firstOrCreate(
+        $import = DB::transaction(function () use ($actorId, $revision, $result, $digest, $mirror): ImportedAiResult {
+            $created = ImportedAiResult::query()->firstOrCreate(
                 ['prompt_package_revision_id' => $revision->id, 'result_digest' => $digest],
                 [
                     'actor_id' => $actorId,
                     'portable_package_id' => $mirror['record']->id,
                     'structured_result' => $result,
-                    'status' => 'pending_review',
+                    'status' => 'result_imported',
                     'imported_at' => now(),
                 ],
             );
+            
             PromptPackage::query()->whereKey($revision->prompt_package_id)->update(['status' => 'result_imported']);
+            
+            return $created;
+        });
+
+        return DB::transaction(function () use ($import, $actorId, $revision, $digest): ImportedAiResult {
+            $import->status = 'awaiting_human_review';
+            $import->save();
+            
             $this->audit->append([
                 'actor_identifier' => $actorId,
                 'action' => 'manual_ai.result.imported',
@@ -234,35 +238,127 @@ final class ManualAiBridgeService
         });
     }
 
-    public function decide(string $resultId, string $actorId, string $decision, string $rationale): AiProposalDecision
+    public function decide(string $resultId, string $proposalId, string $actorId, string $decision, string $rationale): AiProposalDecision
     {
-        if (! in_array($decision, ['ACCEPT_AS_DRAFT', 'REJECT'], true) || trim($rationale) === '' || mb_strlen($rationale) > 2000) {
+        if (! in_array($decision, ['accept', 'edit_into_new_draft', 'reject', 'defer', 'request_evidence'], true) || trim($rationale) === '' || mb_strlen($rationale) > 2000) {
             throw new InvalidArgumentException('AI review decision or rationale is invalid.');
         }
+        if (trim($proposalId) === '') {
+            throw new InvalidArgumentException('Proposal ID cannot be blank.');
+        }
 
-        return DB::transaction(function () use ($resultId, $actorId, $decision, $rationale): AiProposalDecision {
+        return DB::transaction(function () use ($resultId, $proposalId, $actorId, $decision, $rationale): AiProposalDecision {
             $result = ImportedAiResult::query()->lockForUpdate()->whereKey($resultId)->where('actor_id', $actorId)->firstOrFail();
-            if ($result->status !== 'pending_review') {
-                throw new LogicException('AI result already has a final decision.');
+            
+            if ($result->status === 'superseded') {
+                throw new LogicException('AI result is superseded and cannot be modified.');
             }
+
             $structuredResult = $result->getAttribute('structured_result');
             if (! is_array($structuredResult)) {
                 throw new LogicException('Imported AI result payload is malformed.');
             }
-            $lessonId = $decision === 'ACCEPT_AS_DRAFT' ? $this->drafts->create($structuredResult, $actorId) : null;
+            
+            $blocks = $structuredResult['proposed_blocks'] ?? [];
+            if (! is_array($blocks)) {
+                throw new LogicException('Imported AI result missing proposed blocks.');
+            }
+            
+            $selectedBlock = null;
+            foreach ($blocks as $block) {
+                if (($block['proposal_id'] ?? null) === $proposalId) {
+                    $selectedBlock = $block;
+                    break;
+                }
+            }
+            
+            if ($selectedBlock === null) {
+                throw new LogicException('Proposal ID not found in imported result blocks.');
+            }
+            
+            $existingDecisions = AiProposalDecision::query()
+                ->where('imported_ai_result_id', $result->id)
+                ->where('proposal_id', $proposalId)
+                ->orderBy('sequence', 'asc')
+                ->get();
+            
+            $nextSequence = 1;
+            if ($existingDecisions->isNotEmpty()) {
+                $latest = $existingDecisions->last();
+                
+                // Idempotent exact retry logic (returns safely even if result is globally accepted/rejected)
+                if ($latest->decision === $decision && $latest->rationale === trim($rationale)) {
+                    return $latest;
+                }
+                
+                // Terminality check on the proposal
+                if (in_array($latest->decision, ['accept', 'edit_into_new_draft', 'reject'], true)) {
+                    throw new LogicException('This proposal already has a terminal decision.');
+                }
+                
+                $nextSequence = $latest->sequence + 1;
+            }
+            
+            if (in_array($result->status, ['accepted', 'rejected'], true)) {
+                throw new LogicException('AI result already has a final overall decision.');
+            }
+
+            $lessonId = in_array($decision, ['accept', 'edit_into_new_draft'], true) ? $this->drafts->create($structuredResult, $proposalId, $actorId) : null;
+            
             $record = AiProposalDecision::query()->create([
                 'imported_ai_result_id' => $result->id,
+                'proposal_id' => $proposalId,
+                'sequence' => $nextSequence,
                 'actor_id' => $actorId,
                 'decision' => $decision,
                 'rationale' => trim($rationale),
                 'lesson_revision_id' => $lessonId,
                 'decided_at' => now(),
             ]);
-            $result->forceFill(['status' => $decision === 'ACCEPT_AS_DRAFT' ? 'accepted' : 'rejected'])->save();
+            
+            $allDecisions = AiProposalDecision::query()
+                ->where('imported_ai_result_id', $result->id)
+                ->orderBy('sequence', 'asc')
+                ->get();
+            
+            $allProposedIds = array_map(fn($b) => $b['proposal_id'] ?? '', $blocks);
+            
+            $latestDecisionPerProposal = [];
+            foreach ($allDecisions as $d) {
+                $latestDecisionPerProposal[$d->proposal_id] = $d->decision;
+            }
+            
+            $allTerminalReject = true;
+            $allTerminal = true;
+            $hasAcceptOrEdit = false;
+            
+            foreach ($allProposedIds as $pid) {
+                $dec = $latestDecisionPerProposal[$pid] ?? null;
+                
+                if ($dec === null || in_array($dec, ['defer', 'request_evidence'], true)) {
+                    $allTerminal = false;
+                    $allTerminalReject = false;
+                } else {
+                    if ($dec !== 'reject') {
+                        $allTerminalReject = false;
+                    }
+                    if (in_array($dec, ['accept', 'edit_into_new_draft'], true)) {
+                        $hasAcceptOrEdit = true;
+                    }
+                }
+            }
+            
+            $newStatus = 'awaiting_human_review';
+            if ($allTerminal) {
+                $newStatus = $allTerminalReject ? 'rejected' : 'accepted';
+            } elseif ($hasAcceptOrEdit) {
+                $newStatus = 'partially_accepted';
+            }
+            
+            $result->forceFill(['status' => $newStatus])->save();
+            
             PromptPackageRevision::query()->whereKey($result->prompt_package_revision_id)->firstOrFail();
-            PromptPackage::query()
-                ->whereKey(PromptPackageRevision::query()->findOrFail($result->prompt_package_revision_id)->prompt_package_id)
-                ->update(['status' => 'decided']);
+            
             $this->audit->append([
                 'actor_identifier' => $actorId,
                 'action' => 'manual_ai.result.decided',
@@ -270,14 +366,13 @@ final class ManualAiBridgeService
                 'target_identifier' => (string) $record->id,
                 'correlation_id' => (string) $result->id,
                 'outcome' => 'success',
-                'safe_metadata' => ['decision' => $decision, 'lesson_revision_created' => $lessonId !== null],
+                'safe_metadata' => ['decision' => $decision, 'proposal_id' => $proposalId, 'lesson_revision_created' => $lessonId !== null],
             ]);
 
             return $record;
         });
     }
-
-    private function validateResult(mixed $result): void
+private function validateResult(mixed $result): void
     {
         if (! is_array($result) || array_diff(array_keys($result), [
             'prompt_package_id', 'prompt_revision', 'input_digest',
@@ -295,6 +390,19 @@ final class ManualAiBridgeService
         if (! is_array($result['limitations'] ?? null) || ! is_string($result['confidence'] ?? null)) {
             throw new InvalidArgumentException('AI result limitations and confidence are required.');
         }
+        
+        $proposalIds = [];
+        foreach ($result['proposed_blocks'] as $block) {
+            $pid = $block['proposal_id'] ?? null;
+            if (! is_string($pid) || trim($pid) === '') {
+                throw new InvalidArgumentException('Proposal block missing valid proposal_id.');
+            }
+            if (in_array($pid, $proposalIds, true)) {
+                throw new InvalidArgumentException('Duplicate proposal_id found in proposed blocks.');
+            }
+            $proposalIds[] = $pid;
+        }
+
         $encoded = CanonicalJson::encode($result);
         if (strlen($encoded) > (int) config('platform.manual_ai_result_max_bytes', 262_144)) {
             throw new InvalidArgumentException('AI result exceeds the bounded size.');

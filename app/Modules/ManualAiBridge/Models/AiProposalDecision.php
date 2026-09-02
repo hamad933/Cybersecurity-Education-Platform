@@ -12,7 +12,7 @@ class AiProposalDecision extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['imported_ai_result_id', 'actor_id', 'decision', 'rationale', 'lesson_revision_id', 'decided_at'];
+    protected $fillable = ['imported_ai_result_id', 'proposal_id', 'sequence', 'actor_id', 'decision', 'rationale', 'lesson_revision_id', 'decided_at'];
 
     protected function casts(): array
     {
