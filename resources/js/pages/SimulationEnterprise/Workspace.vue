@@ -29,8 +29,12 @@ import type {
   JsonMap,
   LabItem,
   LabTaskItem,
+  ResultContextSelection,
   ResultItem,
+  ResultMode,
+  RunPreflightDefinition,
   RunItem,
+  RunWorkspaceMode,
   ScenarioItem,
   WorkspaceProps,
 } from './types';
@@ -48,6 +52,15 @@ const selectedContextKind = ref<string | null>(null);
 const pendingAction = ref<string | null>(null);
 const localError = ref<string | null>(null);
 const bottomOpen = ref(false);
+const resultsMode = ref<ResultMode>(props.results_workspace?.mode ?? 'overview');
+const resultsLoading = ref(false);
+const compareResultIds = ref<string[]>([...(props.results_workspace?.compare_result_ids ?? [])]);
+const resultContextSelection = ref<ResultContextSelection>({ kind: 'overview' });
+const runMode = ref<RunWorkspaceMode>(props.run_workspace?.mode ?? 'operations');
+const preflightType = ref<'scenario' | 'standalone-lab'>(
+  props.run_workspace?.preflight_type ?? 'scenario',
+);
+const preflightDefinitionId = ref<string | null>(props.run_workspace?.definition_id ?? null);
 
 const records = computed<RecordItem[]>(() => {
   if (props.section === 'enterprise') return props.enterprises;
@@ -60,8 +73,12 @@ const records = computed<RecordItem[]>(() => {
 watch(
   records,
   (items) => {
+    const governedSelection =
+      props.section === 'results' ? props.results_workspace?.selected_result_id : null;
     if (!items.length) {
       selectedId.value = null;
+    } else if (governedSelection && items.some((item) => item.id === governedSelection)) {
+      selectedId.value = governedSelection;
     } else if (!selectedId.value || !items.some((item) => item.id === selectedId.value)) {
       selectedId.value = items[0].id;
     }
@@ -73,7 +90,27 @@ watch(selectedId, () => {
   bottomOpen.value = false;
   selectedContextId.value = null;
   selectedContextKind.value = null;
+  resultContextSelection.value = { kind: 'overview' };
 });
+
+watch(
+  () => props.results_workspace,
+  (workspace) => {
+    if (!workspace) return;
+    resultsMode.value = workspace.mode;
+    compareResultIds.value = [...workspace.compare_result_ids];
+  },
+);
+
+watch(
+  () => props.run_workspace,
+  (workspace) => {
+    if (!workspace) return;
+    runMode.value = workspace.mode;
+    preflightType.value = workspace.preflight_type;
+    preflightDefinitionId.value = workspace.definition_id;
+  },
+);
 
 const selectedEnterprise = computed(() =>
   props.section === 'enterprise'
@@ -99,6 +136,29 @@ const selectedResult = computed(() =>
   props.section === 'results'
     ? (props.results.find((item) => item.id === selectedId.value) ?? null)
     : null,
+);
+
+const selectedPreflight = computed<RunPreflightDefinition | null>(() => {
+  const workspace = props.run_preflight;
+  if (!workspace) return null;
+  const definitions =
+    preflightType.value === 'scenario' ? workspace.scenario_definitions : workspace.lab_definitions;
+  return (
+    definitions.find((definition) => definition.definition_id === preflightDefinitionId.value) ??
+    definitions[0] ??
+    null
+  );
+});
+
+watch(
+  selectedPreflight,
+  (definition) => {
+    if (definition && definition.definition_id !== preflightDefinitionId.value) {
+      preflightDefinitionId.value = definition.definition_id;
+      selectedContextId.value = definition.definition_id;
+    }
+  },
+  { immediate: true },
 );
 
 const selectedTwinRevision = computed<DigitalTwinRevisionItem | null>(() => {
@@ -183,27 +243,29 @@ const pageTitle = computed(
     })[props.section],
 );
 
-const structureTitle = computed(
-  () =>
-    ({
-      enterprise: 'المؤسسات المنشورة',
-      scenarios: 'مكتبة السيناريوهات',
-      labs: 'تعريفات المختبرات',
-      runs: 'سجل التشغيلات',
-      results: 'الأرشيف التاريخي',
-    })[props.section],
-);
+const structureTitle = computed(() => {
+  if (props.section === 'runs' && runMode.value === 'preflight') return 'تعريفات Run Preflight';
+  return {
+    enterprise: 'المؤسسات المنشورة',
+    scenarios: 'مكتبة السيناريوهات',
+    labs: 'تعريفات المختبرات',
+    runs: 'سجل التشغيلات',
+    results: 'الأرشيف التاريخي',
+  }[props.section];
+});
 
-const structureDescription = computed(
-  () =>
-    ({
-      enterprise: 'اختر مؤسسة لاستكشاف Digital Twins ومراجعاتها.',
-      scenarios: 'اختر عقدًا بيئيًا محمولًا لتجهيزه.',
-      labs: 'اختر مختبرًا مستقلًا مثبت الهدف.',
-      runs: 'اختر تشغيلًا لإدارة دورة حياته.',
-      results: 'اختر نتيجة مختومة للقراءة وReplay.',
-    })[props.section],
-);
+const structureDescription = computed(() => {
+  if (props.section === 'runs' && runMode.value === 'preflight') {
+    return 'اختر Scenario أو Standalone Lab لعرض توافق الخادم قبل الإنشاء.';
+  }
+  return {
+    enterprise: 'اختر مؤسسة لاستكشاف Digital Twins ومراجعاتها.',
+    scenarios: 'اختر عقدًا بيئيًا محمولًا لتجهيزه.',
+    labs: 'اختر مختبرًا مستقلًا مثبت الهدف.',
+    runs: 'اختر تشغيلًا لإدارة دورة حياته.',
+    results: 'اختر نتيجة مختومة للقراءة وReplay.',
+  }[props.section];
+});
 
 const structureItems = computed(() =>
   records.value.map((item) => {
@@ -228,7 +290,7 @@ const structureItems = computed(() =>
         id: item.id,
         title: `Result · ${item.run_id.slice(0, 8)}`,
         subtitle: item.run_type,
-        state: item.outcome,
+        state: item.analytics.overview.effective?.outcome ?? item.analytics.overview.status,
       };
     }
     return {
@@ -358,6 +420,34 @@ const structureGroups = computed(() => {
       },
     ];
   }
+  if (props.section === 'runs' && runMode.value === 'preflight' && props.run_preflight) {
+    return [
+      {
+        label: 'Scenario Run',
+        kind: 'preflight-scenario',
+        items: props.run_preflight.scenario_definitions.map((definition) => ({
+          id: definition.definition_id,
+          label:
+            definition.definition_title_ar ??
+            definition.definition_slug ??
+            definition.definition_id,
+          meta: definition.status,
+        })),
+      },
+      {
+        label: 'Standalone Lab Run',
+        kind: 'preflight-standalone-lab',
+        items: props.run_preflight.lab_definitions.map((definition) => ({
+          id: definition.definition_id,
+          label:
+            definition.definition_title_ar ??
+            definition.definition_slug ??
+            definition.definition_id,
+          meta: definition.status,
+        })),
+      },
+    ];
+  }
   if (selectedRun.value) {
     return [
       {
@@ -441,14 +531,19 @@ function post(path: string, data: PostPayload | undefined, action: string): void
   });
 }
 
-function prepareScenario(payload: { baseline_id: string; seed: number; mode: string }): void {
-  if (!selectedScenario.value) return;
-  post(`/simulation/scenarios/${selectedScenario.value.id}/runs`, payload, 'prepare-scenario');
+function prepareScenario(payload: {
+  definition_id: string;
+  baseline_id: string;
+  seed: number;
+  mode: string;
+}): void {
+  const { definition_id: definitionId, ...request } = payload;
+  post(`/simulation/scenarios/${definitionId}/runs`, request, 'prepare-scenario');
 }
 
-function prepareLab(payload: { seed: number; mode: string }): void {
-  if (!selectedLab.value) return;
-  post(`/simulation/labs/${selectedLab.value.id}/runs`, payload, 'prepare-lab');
+function prepareLab(payload: { definition_id: string; seed: number; mode: string }): void {
+  const { definition_id: definitionId, ...request } = payload;
+  post(`/simulation/labs/${definitionId}/runs`, request, 'prepare-lab');
 }
 
 function definitionAction(target: 'lab' | 'digital-twin', action: string): void {
@@ -465,6 +560,10 @@ function definitionAction(target: 'lab' | 'digital-twin', action: string): void 
 }
 
 function selectContext(id: string, kind: string): void {
+  if (kind === 'preflight-scenario' || kind === 'preflight-standalone-lab') {
+    preflightType.value = kind === 'preflight-scenario' ? 'scenario' : 'standalone-lab';
+    preflightDefinitionId.value = id;
+  }
   selectedContextId.value = id;
   selectedContextKind.value = kind;
 }
@@ -493,24 +592,79 @@ function sealResult(payload: { outcome: string; summary_ar: string; score: numbe
   post(`/simulation/runs/${selectedRun.value.id}/result`, payload, 'seal-result');
 }
 
-function replayCompare(): void {
-  if (!selectedResult.value) return;
-  post(`/simulation/results/${selectedResult.value.id}/replay-compare`, undefined, 'replay');
+function navigateResults(
+  mode: ResultMode,
+  resultId: string | null = selectedId.value,
+  compare: string[] = compareResultIds.value,
+): void {
+  if (props.section !== 'results' || resultsLoading.value) return;
+  resultsLoading.value = true;
+  localError.value = null;
+  router.get(
+    '/simulation/results',
+    {
+      mode,
+      ...(resultId ? { result: resultId } : {}),
+      ...(compare.length ? { compare } : {}),
+    },
+    {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+      onError: () => {
+        localError.value = 'تعذر تحميل إسقاط Results المحكوم.';
+      },
+      onFinish: () => {
+        resultsLoading.value = false;
+      },
+    },
+  );
 }
 
-function createHandoff(claim: string): void {
-  if (!selectedResult.value) return;
-  post(
-    `/simulation/results/${selectedResult.value.id}/candidate-evidence-handoff`,
-    { claim_ar: claim, artifact_refs: [], intake_contract_ref: 'progress-evidence-intake:v1' },
-    'candidate-handoff',
+function selectRecord(id: string): void {
+  selectedId.value = id;
+  if (props.section === 'results') navigateResults(resultsMode.value, id);
+}
+
+function setResultsMode(mode: ResultMode): void {
+  if (resultsLoading.value || mode === resultsMode.value) return;
+  resultsMode.value = mode;
+  resultContextSelection.value =
+    mode === 'candidate-evidence' ? { kind: 'candidate-evidence' } : { kind: 'overview' };
+  if (mode === 'compare' && compareResultIds.value.length < 2) {
+    compareResultIds.value = props.results.slice(0, 2).map((item) => item.id);
+  }
+  navigateResults(mode);
+}
+
+function toggleCompareResult(id: string): void {
+  if (resultsLoading.value) return;
+  const current = [...compareResultIds.value];
+  const index = current.indexOf(id);
+  if (index >= 0) current.splice(index, 1);
+  else if (current.length < 4) current.push(id);
+  compareResultIds.value = current;
+  navigateResults('compare', selectedId.value, current);
+}
+
+function setRunMode(mode: RunWorkspaceMode): void {
+  if (pendingAction.value !== null) return;
+  runMode.value = mode;
+  bottomOpen.value = false;
+}
+
+function openRunPreflight(type: 'scenario' | 'standalone-lab', definitionId: string): void {
+  router.get(
+    '/simulation/runs',
+    { mode: 'preflight', preflight_type: type, definition: definitionId },
+    { preserveScroll: true },
   );
 }
 </script>
 
 <template>
   <Head :title="`CEP — ${pageTitle}`" />
-  <div class="workspace sim-workspace" :aria-busy="pendingAction !== null">
+  <div class="workspace sim-workspace" :aria-busy="pendingAction !== null || resultsLoading">
     <CepWorkspaceLayout
       active-destination="simulation"
       :temporary-workspace-open="bottomOpen"
@@ -530,12 +684,15 @@ function createHandoff(claim: string): void {
             :twin-revision="selectedTwinRevision"
             :run="selectedRun"
             :result="selectedResult"
+            :results-mode="resultsMode"
+            :results-loading="resultsLoading"
+            :run-mode="runMode"
             :pending="pendingAction !== null"
-            @prepare-scenario="prepareScenario"
-            @prepare-lab="prepareLab"
             @run-action="runAction"
             @definition-action="definitionAction"
-            @replay="replayCompare"
+            @set-results-mode="setResultsMode"
+            @set-run-mode="setRunMode"
+            @open-run-preflight="openRunPreflight"
             @open-bottom="bottomOpen = true"
           />
           <WorkspaceStatus :pending-action="pendingAction" :error="localError || serverError" />
@@ -550,7 +707,15 @@ function createHandoff(claim: string): void {
           :selected-id="selectedId"
           :selected-context-id="selectedContextId"
           :groups="structureGroups"
-          @select="selectedId = $event"
+          :multi-select="section === 'results' && resultsMode === 'compare'"
+          :selected-ids="compareResultIds"
+          :selection-hint="
+            section === 'results' && resultsMode === 'compare'
+              ? 'اختر نتيجتين على الأقل من تشغيلات متميزة.'
+              : undefined
+          "
+          @select="selectRecord"
+          @toggle="toggleCompareResult"
           @select-context="selectContext"
         />
       </template>
@@ -568,8 +733,26 @@ function createHandoff(claim: string): void {
         :selected-task-id="selectedContextKind === 'lab-step' ? selectedContextId : null"
         @select-task="selectContext($event, 'lab-step')"
       />
-      <RunSurface v-else-if="section === 'runs'" :run="selectedRun" />
-      <ResultSurface v-else :result="selectedResult" />
+      <RunSurface
+        v-else-if="section === 'runs'"
+        :run="selectedRun"
+        :mode="runMode"
+        :preflight-workspace="run_preflight"
+        :preflight="selectedPreflight"
+        :preflight-type="preflightType"
+        :pending="pendingAction !== null"
+        @select-preflight="selectContext($event.definitionId, `preflight-${$event.type}`)"
+        @prepare-scenario="prepareScenario"
+        @prepare-lab="prepareLab"
+      />
+      <ResultSurface
+        v-else
+        :result="selectedResult"
+        :mode="resultsMode"
+        :compare="results_workspace?.compare ?? null"
+        :loading="resultsLoading"
+        @select-context="resultContextSelection = $event"
+      />
 
       <template #right>
         <EnterpriseContext
@@ -586,6 +769,8 @@ function createHandoff(claim: string): void {
         <RunContext
           v-else-if="section === 'runs'"
           :run="selectedRun"
+          :mode="runMode"
+          :preflight="selectedPreflight"
           :pending="pendingAction !== null"
           :outcomes="outcomes"
           @operate="applyOperation"
@@ -594,8 +779,10 @@ function createHandoff(claim: string): void {
         <ResultContext
           v-else
           :result="selectedResult"
-          :pending="pendingAction !== null"
-          @create-handoff="createHandoff"
+          :mode="resultsMode"
+          :selection="resultContextSelection"
+          :compare="results_workspace?.compare ?? null"
+          :loading="resultsLoading"
         />
       </template>
 
@@ -603,8 +790,18 @@ function createHandoff(claim: string): void {
         <EnterpriseDeepDetail v-if="section === 'enterprise'" :enterprise="selectedEnterprise" />
         <ScenarioDeepDetail v-else-if="section === 'scenarios'" :scenario="selectedScenario" />
         <LabDeepDetail v-else-if="section === 'labs'" :lab="selectedLab" />
-        <RunDeepDetail v-else-if="section === 'runs'" :run="selectedRun" />
-        <ResultDeepDetail v-else :result="selectedResult" />
+        <RunDeepDetail
+          v-else-if="section === 'runs'"
+          :run="selectedRun"
+          :mode="runMode"
+          :preflight="selectedPreflight"
+        />
+        <ResultDeepDetail
+          v-else
+          :result="selectedResult"
+          :mode="resultsMode"
+          :compare="results_workspace?.compare ?? null"
+        />
       </template>
     </CepWorkspaceLayout>
   </div>

@@ -1,33 +1,39 @@
 <script setup lang="ts">
 import { jsonText } from '../formatters';
-import type { ResultItem } from '../types';
+import type { ResultCompareProjection, ResultItem, ResultMode } from '../types';
 
-defineProps<{ result: ResultItem | null }>();
+defineProps<{
+  result: ResultItem | null;
+  mode: ResultMode;
+  compare: ResultCompareProjection | null;
+}>();
 </script>
 
 <template>
   <div v-if="result" class="sim-deep-grid" data-testid="result-bottom">
     <section class="sim-deep-section">
-      <h3>Frozen Result Payload</h3>
+      <h3>Canonical sealed Result payload</h3>
+      <p class="sim-muted">حقيقة خام مختومة — ليست إسقاطًا تحليليًا.</p>
       <pre class="sim-json">{{ jsonText(result.sealed_payload) }}</pre>
     </section>
     <section class="sim-deep-section">
-      <h3>Artifacts</h3>
+      <h3>Canonical artifacts</h3>
       <pre class="sim-json">{{ jsonText(result.artifacts) }}</pre>
     </section>
-    <section v-if="result.replay_compare" class="sim-deep-section">
-      <h3>Replay Reconstruction</h3>
-      <pre class="sim-json">{{ jsonText(result.replay_compare.reconstruction) }}</pre>
+    <section class="sim-deep-section">
+      <h3>Typed analytical projection · {{ mode }}</h3>
+      <pre class="sim-json">{{ jsonText(result.analytics) }}</pre>
     </section>
-    <section v-else class="sim-deep-section">
-      <h3>Replay Reconstruction</h3>
-      <p class="sim-muted">لا توجد replay_compare محكومة لهذه النتيجة.</p>
+    <section v-if="mode === 'compare'" class="sim-deep-section">
+      <h3>Backend-owned Compare projection</h3>
+      <pre class="sim-json">{{ jsonText(compare) }}</pre>
     </section>
-    <section v-if="result.candidate_evidence_handoff" class="sim-deep-section">
-      <h3>Candidate Handoff Manifest</h3>
-      <pre class="sim-json">{{
-        jsonText(result.candidate_evidence_handoff.candidate_manifest)
-      }}</pre>
+    <section class="sim-deep-section sim-deep-section--wide">
+      <h3>Historical compatibility rows · read-only</h3>
+      <p class="sim-muted">
+        السجلات القديمة محفوظة للرجوع التاريخي فقط؛ ليست مصدر Compare أو Candidate Evidence الحالي.
+      </p>
+      <pre class="sim-json">{{ jsonText(result.legacy_history) }}</pre>
     </section>
   </div>
 </template>

@@ -1,12 +1,26 @@
 <script setup lang="ts">
 import { jsonText } from '../formatters';
-import type { RunItem } from '../types';
+import type { RunItem, RunPreflightDefinition, RunWorkspaceMode } from '../types';
 
-defineProps<{ run: RunItem | null }>();
+defineProps<{
+  run: RunItem | null;
+  mode: RunWorkspaceMode;
+  preflight: RunPreflightDefinition | null;
+}>();
 </script>
 
 <template>
-  <div v-if="run" class="sim-deep-grid" data-testid="run-bottom">
+  <div
+    v-if="mode === 'preflight' && preflight"
+    class="sim-deep-grid"
+    data-testid="preflight-bottom"
+  >
+    <section class="sim-deep-section">
+      <h3>Server-owned Preflight Projection</h3>
+      <pre class="sim-json">{{ jsonText(preflight) }}</pre>
+    </section>
+  </div>
+  <div v-else-if="run" class="sim-deep-grid" data-testid="run-bottom">
     <section class="sim-deep-section">
       <h3>Runtime Snapshots</h3>
       <article v-for="snapshot in run.snapshots" :key="snapshot.id" class="sim-deep-block">

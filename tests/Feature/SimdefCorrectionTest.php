@@ -186,6 +186,353 @@ final class SimdefCorrectionTest extends TestCase
         DB::table('simulation_lab_task_nodes')->where('id', $taskId)->update(['objective' => 'tampered']);
     }
 
+
+
+
+    #[Test]
+    public function mno_concurrency_and_schema_enforcement(): void
+    {
+        $this->seed(SimulationEnterpriseWave1Seeder::class);
+        $owner = $this->owner();
+        $enterpriseId = (string) DB::table('simulation_enterprises')->value('id');
+
+        $this->actingAs($owner)
+            ->post("/simulation/enterprise/{$enterpriseId}/entities", [
+                'entity_key' => 'TEST-ENTITY',
+                'entity_type' => 'APPLICATION',
+                'name_ar' => 'Test Entity',
+                'properties' => ['criticality' => 'HIGH']
+            ])
+            ->assertRedirect(route('cep.simulation.index'))
+            ->assertSessionHasNoErrors();
+
+        $entityId = (string) DB::table('simulation_enterprise_entities')->where('entity_key', 'TEST-ENTITY')->value('id');
+
+        $revs = DB::table('simulation_enterprise_entity_revisions')
+            ->where('enterprise_entity_id', $entityId)
+            ->get();
+
+        $this->assertCount(1, $revs);
+        $this->assertSame('PUBLISHED', $revs[0]->status);
+        $this->assertSame(1, $revs[0]->revision);
+
+        // Assert constraint is valid
+        try {
+            DB::table('simulation_enterprise_entity_revisions')->insert([
+                'id' => (string) \Illuminate\Support\Str::uuid7(),
+                'enterprise_id' => $enterpriseId,
+                'enterprise_entity_id' => $entityId,
+                'revision' => 1, // Duplicate revision
+                'status' => 'PUBLISHED',
+                'properties' => '{}',
+                'digest' => 'abc',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $this->fail('Expected unique constraint violation.');
+        } catch (QueryException $e) {
+            $this->assertSame('23505', $e->getCode());
+        }
+    }
+
+
+
+    #[Test]
+    public function twin_relationship_pin_enforcement_and_legacy_compatibility(): void
+    {
+        $this->seed(SimulationEnterpriseWave1Seeder::class);
+        $owner = $this->owner();
+
+        $enterpriseId = (string) DB::table('simulation_enterprises')->value('id');
+
+        // Setup proper valid entities and relationships
+        $this->actingAs($owner)->post("/simulation/enterprise/{$enterpriseId}/entities", [
+            'entity_key' => 'E1',
+            'entity_type' => 'APPLICATION',
+            'name_ar' => 'E1',
+            'properties' => ['criticality' => 'HIGH'],
+        ])->assertSessionHasNoErrors();
+        $this->actingAs($owner)->post("/simulation/enterprise/{$enterpriseId}/entities", [
+            'entity_key' => 'E2',
+            'entity_type' => 'APPLICATION',
+            'name_ar' => 'E2',
+            'properties' => ['criticality' => 'HIGH'],
+        ])->assertSessionHasNoErrors();
+        $e1Id = (string) DB::table('simulation_enterprise_entities')->where('entity_key', 'E1')->value('id');
+        $e2Id = (string) DB::table('simulation_enterprise_entities')->where('entity_key', 'E2')->value('id');
+
+        $this->actingAs($owner)->post("/simulation/enterprise/{$enterpriseId}/relationships", [
+            'source_entity_id' => $e1Id,
+            'target_entity_id' => $e2Id,
+            'relationship_type' => 'CONNECTS_TO',
+            'properties' => [],
+        ])->assertSessionHasNoErrors();
+        $rel1Id = (string) DB::table('simulation_enterprise_relationships')->where('source_entity_id', $e1Id)->value('id');
+        $rel1RevId = (string) DB::table('simulation_enterprise_relationship_revisions')->where('enterprise_relationship_id', $rel1Id)->value('id');
+
+        $this->actingAs($owner)->post("/simulation/enterprise/{$enterpriseId}/relationships", [
+            'source_entity_id' => $e2Id,
+            'target_entity_id' => $e1Id,
+            'relationship_type' => 'CONNECTS_TO',
+            'properties' => [],
+        ])->assertSessionHasNoErrors();
+        $rel2Id = (string) DB::table('simulation_enterprise_relationships')->where('source_entity_id', $e2Id)->value('id');
+        $rel2RevId = (string) DB::table('simulation_enterprise_relationship_revisions')->where('enterprise_relationship_id', $rel2Id)->value('id');
+
+        // Setup a different enterprise
+        $enterpriseId2 = (string) \Illuminate\Support\Str::uuid7();
+        DB::table('simulation_enterprises')->insert([
+            'id' => $enterpriseId2,
+            'slug' => 'ent-2',
+            'name_ar' => 'Ent 2',
+            'definition' => '{}',
+            'created_by' => 'actor',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $otherE1Id = (string) \Illuminate\Support\Str::uuid7();
+        DB::table('simulation_enterprise_entities')->insert([
+            'id' => $otherE1Id,
+            'enterprise_id' => $enterpriseId2,
+            'entity_key' => 'OE1',
+            'entity_type' => 'APPLICATION',
+            'name_ar' => 'OE1',
+            'created_by' => 'actor',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $otherRelId = (string) \Illuminate\Support\Str::uuid7();
+        DB::table('simulation_enterprise_relationships')->insert([
+            'id' => $otherRelId,
+            'enterprise_id' => $enterpriseId2,
+            'source_entity_id' => $otherE1Id,
+            'target_entity_id' => $otherE1Id,
+            'relationship_type' => 'CONNECTS_TO',
+            'created_by' => 'actor',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $otherRelRevId = (string) \Illuminate\Support\Str::uuid7();
+        DB::table('simulation_enterprise_relationship_revisions')->insert([
+            'id' => $otherRelRevId,
+            'enterprise_id' => $enterpriseId2,
+            'enterprise_relationship_id' => $otherRelId,
+            'revision' => 1,
+            'status' => 'PUBLISHED',
+            'properties' => '{}',
+            'digest' => 'abc',
+            'published_at' => now(),
+            'created_by' => 'actor',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Setup Twin Revision
+        $twinId = (string) \Illuminate\Support\Str::uuid7();
+        DB::table('simulation_digital_twins')->insert([
+            'id' => $twinId,
+            'enterprise_id' => $enterpriseId,
+            'slug' => 't1',
+            'name_ar' => 't1',
+            'created_by' => 'actor',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $twinRevId = (string) \Illuminate\Support\Str::uuid7();
+        DB::table('simulation_digital_twin_revisions')->insert([
+            'id' => $twinRevId,
+            'enterprise_id' => $enterpriseId,
+            'digital_twin_id' => $twinId,
+            'revision' => 1,
+            'status' => 'DRAFT',
+            'topology' => '{}',
+            'behavior_model' => '{}',
+            'digest' => 'def',
+            'created_by' => 'actor',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $sourceId = (string) \Illuminate\Support\Str::uuid7();
+        $targetId = (string) \Illuminate\Support\Str::uuid7();
+
+        // Components must exist for foreign key 'sim_twin_relationship_source_fk'
+        DB::table('simulation_digital_twin_components')->insert([
+            'id' => $sourceId,
+            'enterprise_id' => $enterpriseId,
+            'digital_twin_revision_id' => $twinRevId,
+            'component_key' => 'C1',
+            'ownership_scope' => 'SIMULATION_LOCAL',
+            'name_ar' => 'C1',
+            'simulation_definition' => '{}',
+            'created_by' => 'actor',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('simulation_digital_twin_components')->insert([
+            'id' => $targetId,
+            'enterprise_id' => $enterpriseId,
+            'digital_twin_revision_id' => $twinRevId,
+            'component_key' => 'C2',
+            'ownership_scope' => 'SIMULATION_LOCAL',
+            'name_ar' => 'C2',
+            'simulation_definition' => '{}',
+            'created_by' => 'actor',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // 1. Valid legacy (null/null) insert
+        DB::table('simulation_digital_twin_relationships')->insert([
+            'id' => (string) \Illuminate\Support\Str::uuid7(),
+            'enterprise_id' => $enterpriseId,
+            'digital_twin_revision_id' => $twinRevId,
+            'source_component_id' => $sourceId,
+            'target_component_id' => $targetId,
+            'relationship_type' => 'DEPENDS_ON', // Need a valid one per constraint
+            'enterprise_relationship_id' => null,
+            'enterprise_relationship_revision_id' => null,
+            'properties' => '{}',
+            'created_by' => 'actor',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // 2. Valid same-enterprise + same-relationship + matching published revision
+        DB::table('simulation_digital_twin_relationships')->insert([
+            'id' => (string) \Illuminate\Support\Str::uuid7(),
+            'enterprise_id' => $enterpriseId,
+            'digital_twin_revision_id' => $twinRevId,
+            'source_component_id' => $sourceId,
+            'target_component_id' => $targetId,
+            'relationship_type' => 'CONNECTS_TO',
+            'enterprise_relationship_id' => $rel1Id,
+            'enterprise_relationship_revision_id' => $rel1RevId,
+            'properties' => '{}',
+            'created_by' => 'actor',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $assertFails = function (array $data, string $expectedSqlState) {
+            DB::statement('SAVEPOINT test_savepoint');
+            try {
+                DB::table('simulation_digital_twin_relationships')->insert($data);
+                $this->fail('Expected unique/foreign key constraint violation.');
+            } catch (QueryException $e) {
+                DB::statement('ROLLBACK TO SAVEPOINT test_savepoint');
+                $this->assertSame($expectedSqlState, $e->getCode(), 'Expected SQLSTATE ' . $expectedSqlState);
+            }
+        };
+
+        // 3. Existing revision belonging to a different relationship is rejected.
+        $assertFails([
+            'id' => (string) \Illuminate\Support\Str::uuid7(),
+            'enterprise_id' => $enterpriseId,
+            'digital_twin_revision_id' => $twinRevId,
+            'source_component_id' => $sourceId,
+            'target_component_id' => $targetId,
+            'relationship_type' => 'HOSTS',
+            'enterprise_relationship_id' => $rel1Id,
+            'enterprise_relationship_revision_id' => $rel2RevId, // diff revision
+            'properties' => '{}',
+            'created_by' => 'actor',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], '23503');
+
+        // 4. Existing relationship/revision from a different enterprise is rejected.
+        $assertFails([
+            'id' => (string) \Illuminate\Support\Str::uuid7(),
+            'enterprise_id' => $enterpriseId, // our enterprise
+            'digital_twin_revision_id' => $twinRevId,
+            'source_component_id' => $sourceId,
+            'target_component_id' => $targetId,
+            'relationship_type' => 'ROUTES_TO',
+            'enterprise_relationship_id' => $otherRelId,
+            'enterprise_relationship_revision_id' => $otherRelRevId,
+            'properties' => '{}',
+            'created_by' => 'actor',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], '23503');
+
+        // 5. Mixed null/non-null remains rejected.
+        $assertFails([
+            'id' => (string) \Illuminate\Support\Str::uuid7(),
+            'enterprise_id' => $enterpriseId,
+            'digital_twin_revision_id' => $twinRevId,
+            'source_component_id' => $sourceId,
+            'target_component_id' => $targetId,
+            'relationship_type' => 'STORES',
+            'enterprise_relationship_id' => $rel1Id,
+            'enterprise_relationship_revision_id' => null, // mixed
+            'properties' => '{}',
+            'created_by' => 'actor',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], '23514');
+    }
+    #[Test]
+    public function r20_strict_facets_and_revision_2_lifecycle(): void
+    {
+        $this->seed(SimulationEnterpriseWave1Seeder::class);
+        $owner = $this->owner();
+
+        // Revision 2 Lifecycle test
+        $enterpriseId = (string) DB::table('simulation_enterprises')->value('id');
+        $this->actingAs($owner)->post("/simulation/enterprise/{$enterpriseId}/entities", [
+            'entity_key' => 'TEST-ENTITY',
+            'entity_type' => 'APPLICATION',
+            'name_ar' => 'Test Entity',
+            'properties' => ['criticality' => 'HIGH']
+        ])->assertSessionHasNoErrors();
+
+        // R20 Facets validation
+        $this->actingAs($owner)->post('/simulation/labs/drafts', [
+            'slug' => 'r20-test-lab',
+            'title_ar' => 'R20 Lab',
+            'environment_binding_mode' => 'LAB_LOCAL',
+            'enterprise_id' => null,
+            'baseline_id' => null,
+            'environment_contract' => [
+                'schema' => 'cep.simulation.lab-environment-contract.v1',
+                'execution_model' => 'CEP_INTERNAL_HIGH_FIDELITY_SIMULATION',
+                'required_capabilities' => ['HTTP_REQUEST', 'APPLICATION_LOGGING'],
+            ],
+            'configuration' => ['initial_state' => ['service' => 'UP']],
+            'validation' => ['result_schema' => 'cep.lab-result.v1'],
+        ])->assertSessionHasNoErrors();
+
+        $labDefinitionId = (string) DB::table('simulation_lab_definitions')->where('slug', 'r20-test-lab')->value('id');
+
+        // Validation should fail because R20 facets are empty
+        $this->actingAs($owner)->post("/simulation/labs/{$labDefinitionId}/validate");
+        $status = DB::table('simulation_lab_definitions')->where('id', $labDefinitionId)->value('status');
+        $this->assertSame('DRAFT', $status);
+
+        // Author facets
+        $this->actingAs($owner)->post("/simulation/labs/{$labDefinitionId}/facets", [
+            'knowledge_links' => ['link1'],
+            'simulation_capabilities' => ['cap1'],
+            'environment_profile' => ['profile1' => 'val'],
+            'initial_state' => ['state1' => 'val'],
+            'preconditions' => ['pre1'],
+            'roles' => ['role1'],
+            'tools' => ['tool1'],
+            'expected_signals' => ['signal1'],
+            'validation_rules' => ['rule1'],
+            'safety_reset' => ['reset1' => 'val'],
+            'result_schema' => ['schema1' => 'val'],
+            'completion_criteria' => ['crit1'],
+        ])->assertSessionHasNoErrors();
+
+        // Validation should now pass
+        $this->actingAs($owner)->post("/simulation/labs/{$labDefinitionId}/validate");
+        $status2 = DB::table('simulation_lab_definitions')->where('id', $labDefinitionId)->value('status');
+        $this->assertSame('VALIDATED', $status2);
+    }
+
     private function owner(): OwnerAccount
     {
         return app(CreateOwner::class)->execute(

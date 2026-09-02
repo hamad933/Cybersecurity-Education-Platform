@@ -3,9 +3,15 @@ import { ref } from 'vue';
 
 import LifecycleBadge from './LifecycleBadge.vue';
 import { shortDigest } from '../formatters';
-import type { RunItem } from '../types';
+import type { RunItem, RunPreflightDefinition, RunWorkspaceMode } from '../types';
 
-defineProps<{ run: RunItem | null; pending: boolean; outcomes: string[] }>();
+defineProps<{
+  run: RunItem | null;
+  mode: RunWorkspaceMode;
+  preflight: RunPreflightDefinition | null;
+  pending: boolean;
+  outcomes: string[];
+}>();
 const emit = defineEmits<{
   operate: [value: boolean];
   seal: [payload: { outcome: string; summary_ar: string; score: number | null }];
@@ -26,7 +32,41 @@ const resultScore = ref<number | null>(null);
       </div>
     </div>
 
-    <template v-if="run">
+    <template v-if="mode === 'preflight'">
+      <section v-if="preflight" class="sim-context-section" data-testid="preflight-right">
+        <div class="sim-card__topline">
+          <h3>قرار التوافق</h3>
+          <span class="sim-chip">{{ preflight.status }}</span>
+        </div>
+        <p class="sim-context-copy">
+          التوافق والسبب الحاجب صادران من خدمة Simulation في الخادم. لا تعيد Vue حساب القرار.
+        </p>
+        <dl class="sim-facts">
+          <div>
+            <dt>Run type</dt>
+            <dd class="sim-technical">{{ preflight.run_type }}</dd>
+          </div>
+          <div>
+            <dt>Definition status</dt>
+            <dd class="sim-technical">{{ preflight.definition_status ?? 'UNAVAILABLE' }}</dd>
+          </div>
+          <div>
+            <dt>Blocking reason</dt>
+            <dd class="sim-technical">{{ preflight.blocking_reason ?? 'NONE' }}</dd>
+          </div>
+          <div>
+            <dt>Provenance</dt>
+            <dd class="sim-technical">{{ preflight.provenance ?? 'UNAVAILABLE' }}</dd>
+          </div>
+        </dl>
+        <div v-if="preflight.source_fixture" class="sim-sealed-note">
+          SOURCE FIXTURE — يجب إبقاء هذا القيد ظاهرًا عند تفسير التشغيل.
+        </div>
+      </section>
+      <p v-else class="sim-muted">اختر تعريفًا لعرض قرار Preflight المحكوم.</p>
+    </template>
+
+    <template v-else-if="run">
       <LifecycleBadge :value="run.lifecycle" />
 
       <section class="sim-context-section" data-testid="run-interpretation">
@@ -102,6 +142,14 @@ const resultScore = ref<number | null>(null);
         <div>
           <dt>Provenance</dt>
           <dd class="sim-technical">{{ run.provenance }}</dd>
+        </div>
+        <div>
+          <dt>Definition digest</dt>
+          <dd class="sim-technical sim-wrap">{{ run.definition_digest }}</dd>
+        </div>
+        <div>
+          <dt>Input digest</dt>
+          <dd class="sim-technical sim-wrap">{{ run.input_digest }}</dd>
         </div>
       </dl>
     </template>

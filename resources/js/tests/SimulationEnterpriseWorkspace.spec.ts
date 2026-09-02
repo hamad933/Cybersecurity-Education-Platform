@@ -7,12 +7,20 @@ import Workspace from '../pages/SimulationEnterprise/Workspace.vue';
 import type {
   EnterpriseItem,
   LabItem,
+  ResultAnalyticsProjection,
+  ResultCompareProjection,
   ResultItem,
+  ResultMode,
+  ResultsWorkspaceProjection,
   RunItem,
+  RunPreflightWorkspace,
+  RunWorkspaceProjection,
   ScenarioItem,
   SimulationSection,
   WorkspaceProps,
 } from '../pages/SimulationEnterprise/types';
+
+Object.assign(router, { get: vi.fn() });
 
 const enterprise: EnterpriseItem = {
   id: '01900000-0000-7000-8000-000000000101',
@@ -100,6 +108,8 @@ const lab: LabItem = {
   slug: 'lab-auth-investigation',
   title_ar: 'مختبر تحليل المصادقة',
   revision: 3,
+  status: 'PUBLISHED',
+  environment_binding_mode: 'ENTERPRISE_BASELINE',
   baseline_id: '01900000-0000-7000-8000-000000000502',
   digest: 'e'.repeat(64),
   configuration: {
@@ -107,6 +117,7 @@ const lab: LabItem = {
     steps: ['observe', 'correlate', 'validate'],
   },
   validation: { requires_trace: true },
+  can_prepare: true,
   provenance: 'SIMULATED',
 };
 
@@ -128,8 +139,12 @@ const run: RunItem = {
     telemetry: { event_rate: 4, active_controls: 1 },
   },
   input_digest: 'a'.repeat(64),
+  definition_digest: 'f'.repeat(64),
   provenance: 'SIMULATED',
   source_fixture: false,
+  prepared_at: '2026-08-25T00:00:00Z',
+  ready_at: '2026-08-25T00:01:00Z',
+  started_at: '2026-08-25T00:02:00Z',
   available_actions: ['operate', 'pause', 'snapshot', 'complete'],
   events: [
     {
@@ -185,12 +200,149 @@ const run: RunItem = {
   result_id: null,
 };
 
+function analyticsFor(
+  resultId: string,
+  runId: string,
+  options: {
+    outcome?: string;
+    score?: string | null;
+    replayStatus?: ResultAnalyticsProjection['replay']['status'];
+  } = {},
+): ResultAnalyticsProjection {
+  const revisionId = resultId.slice(0, -3) + '801';
+  const outcome = options.outcome ?? 'ACHIEVED';
+  const score = options.score === undefined ? '94' : options.score;
+  const replayStatus = options.replayStatus ?? 'READY';
+  const events = run.events.map((event, index) => ({
+    ...event,
+    source_ref: 'timeline:sequence:' + event.sequence,
+    projection_status: replayStatus === 'READY' ? ('READY' as const) : ('UNAVAILABLE' as const),
+    state_at_point:
+      replayStatus === 'READY'
+        ? {
+            projection_scope: 'GOVERNED_OPERATION_CONTROLS_ONLY' as const,
+            controls: (index === 0 ? {} : { IDENTITY_MFA: false }) as Record<string, boolean>,
+          }
+        : null,
+    ...(index === 1 ? { operation_key: 'workspace-operation-001' } : {}),
+  }));
+
+  return {
+    status: replayStatus === 'READY' ? 'READY' : 'PARTIAL_ANALYTICS',
+    overview: {
+      status: 'READY',
+      canonical: {
+        result_id: resultId,
+        run_id: runId,
+        result_revision: 1,
+        result_digest: 'c'.repeat(64),
+        provenance: 'SIMULATED',
+        source_fixture: false,
+        sealed_by: 'actor-1',
+        sealed_at: '2026-08-25T01:00:00Z',
+        run_type: 'Scenario Run',
+        run_lifecycle: 'COMPLETED',
+      },
+      lineage: {
+        status: 'READY',
+        revision_count: 1,
+        root_revision_id: revisionId,
+        effective_revision_id: revisionId,
+        revisions: [
+          {
+            id: revisionId,
+            base_revision_id: null,
+            revision_digest: 'e'.repeat(64),
+            actor_identity: 'actor-1',
+            correction_reason: null,
+            created_at: '2026-08-25T01:01:00Z',
+          },
+        ],
+      },
+      effective: {
+        id: revisionId,
+        result_id: resultId,
+        revision_digest: 'e'.repeat(64),
+        base_revision_id: null,
+        correction_reason: null,
+        actor_identity: 'actor-1',
+        created_at: '2026-08-25T01:01:00Z',
+        outcome,
+        score,
+        summary_ar: 'تعليق Result مختوم وقابل للتتبع فقط.',
+      },
+    },
+    replay: {
+      status: replayStatus,
+      projector: {
+        availability: replayStatus,
+        grammar_version: 'CEP_INTERNAL_OPERATION_V1',
+        semantic_version:
+          replayStatus === 'READY' ? 'cep.results.replay.operation-engine-v1/v1' : null,
+      },
+      events,
+      operation_count: replayStatus === 'READY' ? 1 : null,
+      write_behavior: 'ZERO_WRITE_PROJECTION',
+    },
+    aar: {
+      status: 'READY',
+      facts: [
+        {
+          id: 'effective-outcome',
+          kind: 'EFFECTIVE_RESULT_FIELD',
+          label_ar: 'النتيجة الفعالة',
+          value: outcome,
+          source_ref: 'revision:' + revisionId + '/outcome',
+        },
+        ...run.events.map((event) => ({
+          id: 'timeline-' + event.sequence,
+          kind: 'SEALED_TIMELINE_EVENT',
+          label_ar: 'حدث مختوم',
+          value: event.event_type,
+          source_ref: 'timeline:sequence:' + event.sequence,
+          sequence: event.sequence,
+        })),
+      ],
+      operation_count: replayStatus === 'READY' ? 1 : null,
+      sealed_commentary: {
+        value: 'تعليق Result مختوم وقابل للتتبع فقط.',
+        source_ref: 'revision:' + revisionId + '/summary_ar',
+        classification: 'SEALED_RESULT_COMMENTARY',
+      },
+      unavailable_sections: [
+        { key: 'causal_factors', reason: 'UNAVAILABLE_FROM_SEALED_TRUTH' },
+        { key: 'lessons', reason: 'UNAVAILABLE_FROM_SEALED_TRUTH' },
+        { key: 'missed_detections', reason: 'UNAVAILABLE_FROM_SEALED_TRUTH' },
+        { key: 'derived_metrics', reason: 'UNAVAILABLE_FROM_SEALED_TRUTH' },
+      ],
+      source_policy: 'SEALED_HISTORY_AND_EFFECTIVE_REVISION_ONLY',
+      write_behavior: 'ZERO_WRITE_PROJECTION',
+    },
+    candidate_evidence: {
+      status: 'READY',
+      write_behavior: 'ZERO_WRITE_SOURCE_PREVIEW',
+      w04_state: 'NOT_CREATED_OR_CLAIMED',
+      envelope: {
+        result_id: resultId,
+        run_id: runId,
+        status: 'SOURCE_PREVIEW_ONLY',
+        effective_revision_id: revisionId,
+        effective_revision_digest: 'e'.repeat(64),
+        source_result_digest: 'c'.repeat(64),
+        provenance: 'SIMULATED',
+        source_fixture: false,
+        material_context: { enterprise_id: run.enterprise_id, lab_ids: ['lab-01'] },
+      },
+    },
+  };
+}
+
 const result: ResultItem = {
   id: '01900000-0000-7000-8000-000000000701',
   run_id: run.id,
   run_type: 'Scenario Run',
   run_lifecycle: 'COMPLETED',
-  outcome: 'SUCCEEDED',
+  outcome: 'PARTIAL',
   score: 94,
   summary_ar: 'أُكمل التشغيل وحُفظت الحقيقة التشغيلية.',
   sealed_payload: { runtime_state: { phase: 'COMPLETED' } },
@@ -202,11 +354,178 @@ const result: ResultItem = {
   source_fixture: false,
   sealed_by: 'actor-1',
   sealed_at: '2026-08-25T01:00:00Z',
-  replay_compare: null,
-  candidate_evidence_handoff: null,
+  analytics: analyticsFor('01900000-0000-7000-8000-000000000701', run.id),
+  legacy_history: {
+    replay_compare: null,
+    candidate_evidence_handoff: null,
+  },
 };
 
-function mountWorkspace(section: SimulationSection, overrides: Partial<WorkspaceProps> = {}) {
+const secondResult: ResultItem = {
+  ...result,
+  id: '01900000-0000-7000-8000-000000000702',
+  run_id: '01900000-0000-7000-8000-000000000612',
+  result_digest: 'd'.repeat(64),
+  analytics: analyticsFor(
+    '01900000-0000-7000-8000-000000000702',
+    '01900000-0000-7000-8000-000000000612',
+    { outcome: 'PARTIAL', score: null },
+  ),
+};
+
+function compareProjection(items: ResultItem[]): ResultCompareProjection {
+  const projectedItems = items.map((item) => ({
+    result_id: item.id,
+    run_id: item.run_id,
+    canonical_result_digest: item.result_digest,
+    effective_revision_id: item.analytics.overview.effective?.id ?? '',
+    effective_revision_digest: item.analytics.overview.effective?.revision_digest ?? '',
+  }));
+  const values = (
+    key: 'outcome' | 'score',
+  ): ResultCompareProjection['dimensions'][number]['values'] =>
+    items.map((item) => {
+      const value = item.analytics.overview.effective?.[key] ?? null;
+      return {
+        result_id: item.id,
+        run_id: item.run_id,
+        value,
+        display: value ?? 'N/A',
+        availability: value === null ? 'N/A' : 'READY',
+        source_ref: 'revision:' + item.analytics.overview.effective?.id + '/' + key,
+      };
+    });
+
+  return {
+    status: 'PARTIAL_ANALYTICS',
+    selection_valid: true,
+    selected_result_ids: items.map((item) => item.id),
+    selected_run_ids: items.map((item) => item.run_id),
+    items: projectedItems,
+    dimensions: [
+      {
+        key: 'outcome',
+        label_ar: 'النتيجة الفعالة',
+        value_type: 'categorical',
+        source: 'effective_revision',
+        status: 'READY',
+        compatible: true,
+        values: values('outcome'),
+      },
+      {
+        key: 'score',
+        label_ar: 'الدرجة الفعالة',
+        value_type: 'decimal',
+        source: 'effective_revision',
+        status: 'N/A',
+        compatible: false,
+        values: values('score'),
+      },
+    ],
+    comparison_semantics: 'cep.results.compare.registry/v1',
+    write_behavior: 'ZERO_WRITE_PROJECTION',
+  };
+}
+
+function resultsWorkspace(
+  mode: ResultMode,
+  results: ResultItem[],
+  compare: ResultCompareProjection | null = null,
+): ResultsWorkspaceProjection {
+  const selectedIds = compare?.selected_result_ids ?? [];
+  return {
+    status: results.length ? 'READY' : 'EMPTY',
+    mode,
+    available_modes: ['overview', 'replay', 'aar', 'compare', 'candidate-evidence'],
+    selected_result_id: results[0]?.id ?? null,
+    compare_result_ids: selectedIds,
+    compare:
+      compare ??
+      ({
+        status: 'EMPTY',
+        selection_valid: false,
+        selected_result_ids: [],
+        selected_run_ids: [],
+        items: [],
+        dimensions: [],
+        reason: 'COMPARE_MINIMUM_DISTINCT_RUNS_REQUIRED',
+        write_behavior: 'ZERO_WRITE_PROJECTION',
+      } satisfies ResultCompareProjection),
+  };
+}
+
+const runPreflight: RunPreflightWorkspace = {
+  status: 'READY',
+  execution_model: 'CEP_INTERNAL_HIGH_FIDELITY_SIMULATION',
+  default_seed: 20260814,
+  execution_modes: ['GUIDED', 'UNGUIDED'],
+  scenario_definitions: [
+    {
+      status: 'READY',
+      run_type: 'Scenario Run',
+      definition_id: scenario('11').id,
+      definition_slug: scenario('11').slug,
+      definition_title_ar: scenario('11').title_ar,
+      definition_revision: 1,
+      definition_status: 'PUBLISHED',
+      definition_digest: '1'.repeat(64),
+      environment_contract_digest: '2'.repeat(64),
+      execution_model: 'CEP_INTERNAL_HIGH_FIDELITY_SIMULATION',
+      required_capabilities: ['IDENTITY_POLICY', 'INTERNAL_TELEMETRY'],
+      targets: [
+        {
+          ...target('11'),
+          status: 'COMPATIBLE',
+          required_capabilities: ['IDENTITY_POLICY', 'INTERNAL_TELEMETRY'],
+          missing_capabilities: [],
+        },
+      ],
+      provenance: 'SIMULATED',
+      source_fixture: true,
+      blocking_reason: null,
+    },
+  ],
+  lab_definitions: [
+    {
+      status: 'INCOMPATIBLE',
+      run_type: 'Standalone Lab Run',
+      definition_id: lab.id,
+      definition_slug: lab.slug,
+      definition_title_ar: lab.title_ar,
+      definition_revision: lab.revision,
+      definition_status: 'PUBLISHED',
+      definition_digest: lab.digest,
+      environment_contract_digest: '3'.repeat(64),
+      environment_binding_mode: 'ENTERPRISE_BASELINE',
+      execution_model: 'CEP_INTERNAL_HIGH_FIDELITY_SIMULATION',
+      required_capabilities: ['IDENTITY_POLICY', 'MISSING_CAPABILITY'],
+      available_capabilities: ['IDENTITY_POLICY'],
+      missing_capabilities: ['MISSING_CAPABILITY'],
+      target: target('11'),
+      provenance: 'SIMULATED',
+      source_fixture: true,
+      blocking_reason: 'PINNED_BASELINE_MISSING_REQUIRED_CAPABILITIES',
+    },
+  ],
+};
+
+const runWorkspace = (
+  mode: RunWorkspaceProjection['mode'],
+  type: RunWorkspaceProjection['preflight_type'] = 'scenario',
+  definitionId: string | null = runPreflight.scenario_definitions[0].definition_id,
+): RunWorkspaceProjection => ({
+  status: 'READY',
+  mode,
+  available_modes: ['preflight', 'operations'],
+  preflight_type: type,
+  definition_id: definitionId,
+});
+
+function mountWorkspace(
+  section: SimulationSection,
+  overrides: Partial<WorkspaceProps> = {},
+  attachTo?: Element,
+) {
   const props: WorkspaceProps = {
     section,
     navigation: [],
@@ -215,15 +534,25 @@ function mountWorkspace(section: SimulationSection, overrides: Partial<Workspace
     labs: [],
     runs: [],
     results: [],
+    results_workspace: null,
+    run_preflight: null,
+    run_workspace: null,
     outcomes: ['NOT_EVALUATED', 'SUCCEEDED'],
     ...overrides,
   };
 
-  return mount(Workspace, { props });
+  if (section === 'results' && props.results_workspace === null) {
+    props.results_workspace = resultsWorkspace('overview', props.results);
+  }
+
+  return mount(Workspace, { props, ...(attachTo ? { attachTo } : {}) });
 }
 
 describe('Simulation Enterprise workspace assurance states', () => {
-  beforeEach(() => vi.mocked(router.post).mockReset());
+  beforeEach(() => {
+    vi.mocked(router.post).mockReset();
+    vi.mocked(router.get).mockReset();
+  });
 
   it('submits the bounded in-run grammar and exposes pending and bounded error states', async () => {
     let visitOptions: Parameters<typeof router.post>[2] | undefined;
@@ -254,15 +583,12 @@ describe('Simulation Enterprise workspace assurance states', () => {
     expect(wrapper.get('.workspace').attributes('aria-busy')).toBe('false');
   });
 
-  it('gates Scenario preparation to the selected definition and compatible target', async () => {
-    vi.mocked(router.post).mockImplementation((_url, _data, options) =>
-      options?.onFinish?.({} as never),
-    );
+  it('routes Scenario preparation into the focused server-owned Run Preflight', async () => {
     const scenarios = [scenario('11'), scenario('22')];
     const wrapper = mountWorkspace('scenarios', { scenarios });
     await nextTick();
 
-    expect(wrapper.findAll('[data-testid="scenario-prepare-controls"]')).toHaveLength(1);
+    expect(wrapper.findAll('[data-testid="scenario-preflight-entry"]')).toHaveLength(1);
     expect(wrapper.get('[data-testid="scenario-boundary-note"]').text()).toContain(
       'Environment Contract',
     );
@@ -275,23 +601,24 @@ describe('Simulation Enterprise workspace assurance states', () => {
     expect(wrapper.find('.sim-domain-mark').exists()).toBe(true);
     expect(wrapper.find('.sim-live-dot').exists()).toBe(false);
 
-    await wrapper.get('[data-testid="scenario-prepare-controls"]').trigger('submit');
-    expect(vi.mocked(router.post).mock.calls[0][0]).toBe(
-      `/simulation/scenarios/${scenarios[0].id}/runs`,
+    await wrapper.get('[data-testid="scenario-preflight-entry"] button').trigger('click');
+    expect(router.get).toHaveBeenCalledWith(
+      '/simulation/runs',
+      {
+        mode: 'preflight',
+        preflight_type: 'scenario',
+        definition: scenarios[0].id,
+      },
+      expect.objectContaining({ preserveScroll: true }),
     );
-    expect(vi.mocked(router.post).mock.calls[0][1]).toMatchObject({
-      baseline_id: scenarios[0].preparation_targets[0].baseline_id,
-    });
 
     await wrapper.findAll('[data-testid="structure-list"] button')[1].trigger('click');
     await nextTick();
-    await wrapper.get('[data-testid="scenario-prepare-controls"]').trigger('submit');
-    expect(vi.mocked(router.post).mock.calls[1][0]).toBe(
-      `/simulation/scenarios/${scenarios[1].id}/runs`,
-    );
-    expect(vi.mocked(router.post).mock.calls[1][1]).toMatchObject({
-      baseline_id: scenarios[1].preparation_targets[0].baseline_id,
+    await wrapper.get('[data-testid="scenario-preflight-entry"] button').trigger('click');
+    expect(vi.mocked(router.get).mock.calls[1][1]).toMatchObject({
+      definition: scenarios[1].id,
     });
+    expect(router.post).not.toHaveBeenCalled();
   });
 
   it('renders Enterprise topology nodes and links from the truthful CENTER payload', async () => {
@@ -423,35 +750,307 @@ describe('Simulation Enterprise workspace assurance states', () => {
     expect(bottom.text()).toContain('Prepared Checkpoints');
   });
 
-  it('renders Result replay history as immutable CENTER truth while BOTTOM stays raw and closed', async () => {
-    const wrapper = mountWorkspace('results', { results: [result] });
+  it('renders truthful Scenario and incompatible Standalone Lab preflight without client invention', async () => {
+    vi.mocked(router.post).mockImplementation((_url, _data, options) =>
+      options?.onFinish?.({} as never),
+    );
+    const wrapper = mountWorkspace('runs', {
+      runs: [run],
+      run_preflight: runPreflight,
+      run_workspace: runWorkspace('preflight'),
+    });
     await nextTick();
 
-    expect(wrapper.get('[data-testid="result-immutable-indicator"]').text()).toContain('IMMUTABLE');
-    const center = wrapper.get('[data-cep-region="center"] [data-testid="result-center"]');
-    expect(center.get('[data-testid="result-replay-timeline"]').text()).toContain('RUN_PREPARED');
-    expect(center.findAll('[data-testid="replay-event"]')).toHaveLength(
-      result.replay_timeline.length,
+    const center = wrapper.get('[data-testid="run-preflight"]');
+    expect(center.text()).toContain('CEP_INTERNAL_HIGH_FIDELITY_SIMULATION');
+    expect(center.text()).toContain('IDENTITY_POLICY');
+    expect(center.text()).toContain('AVAILABLE');
+    expect(center.text()).toContain('SOURCE FIXTURE');
+    expect(center.text()).toContain('UNAVAILABLE UNTIL RUN CREATION');
+    expect(center.text()).not.toContain('Docker');
+    expect(center.text()).not.toContain('SSH');
+    expect(wrapper.get('[data-testid="preflight-right"]').text()).toContain(
+      'لا تعيد Vue حساب القرار',
     );
-    expect(center.text()).toContain('NO RUN MUTATION');
-    expect(center.text()).not.toContain('Pause Replay');
-    expect(center.text()).not.toContain('Jump to Marker');
-    expect(center.text()).not.toContain('1x');
-    expect(
-      wrapper.get('[data-cep-region="left"] [data-structure-kind="result-history"]').text(),
-    ).toContain('Replay timeline');
-    expect(wrapper.find('[data-cep-region="bottom"]').exists()).toBe(false);
 
-    await wrapper.get('[data-testid="result-actions"] button:last-child').trigger('click');
-    const bottom = wrapper.get('[data-cep-region="bottom"] [data-testid="result-bottom"]');
-    expect(bottom.text()).toContain('Frozen Result Payload');
-    expect(bottom.text()).not.toContain('RUN_PREPARED');
-    expect(wrapper.text()).toContain('Result ≠ Evidence');
-    expect(wrapper.text()).toContain('Candidate Evidence Handoff');
-    expect(wrapper.text()).toContain('ليس قبولًا في Evidence canonical');
-    expect(wrapper.text()).not.toContain('detected and contained');
-    expect(wrapper.text()).not.toContain('fully verified against execution digest');
+    await wrapper.get('[data-testid="preflight-submit"]').trigger('submit');
+    expect(router.post).toHaveBeenCalledOnce();
+    expect(vi.mocked(router.post).mock.calls[0][0]).toBe(
+      `/simulation/scenarios/${runPreflight.scenario_definitions[0].definition_id}/runs`,
+    );
+    expect(vi.mocked(router.post).mock.calls[0][1]).toMatchObject({
+      baseline_id: runPreflight.scenario_definitions[0].targets?.[0].baseline_id,
+      seed: 20260814,
+      mode: 'GUIDED',
+    });
+
+    const labNode = wrapper.get('[data-structure-kind="preflight-standalone-lab"] button');
+    await labNode.trigger('click');
+    await nextTick();
+    expect(wrapper.get('[data-testid="preflight-blocking-reason"]').text()).toContain(
+      'PINNED_BASELINE_MISSING_REQUIRED_CAPABILITIES',
+    );
+    expect(wrapper.get('[data-testid="preflight-capabilities"]').text()).toContain(
+      'MISSING_CAPABILITY',
+    );
+    expect(wrapper.get('[data-testid="preflight-submit"] button').attributes()).toHaveProperty(
+      'disabled',
+    );
+  });
+
+  it('restores Overview from the governed workspace projection and shows the effective leaf', async () => {
+    const wrapper = mountWorkspace('results', {
+      results: [result],
+      results_workspace: resultsWorkspace('overview', [result]),
+    });
+    await nextTick();
+
+    const center = wrapper.get('[data-testid="result-overview"]');
+    expect(center.text()).toContain('ACHIEVED');
+    expect(center.text()).toContain('UNIQUE LEAF');
+    expect(center.text()).toContain('تعليق Result مختوم وقابل للتتبع فقط');
+    expect(center.text()).not.toContain('PARTIALنتيجة');
+    expect(wrapper.find('[data-cep-region="bottom"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="result-actions"]').findAll('[role="tab"]')).toHaveLength(5);
+  });
+
+  it('routes Results modes through the URL, exposes LOADING, and keeps legacy mutations unreachable', async () => {
+    vi.mocked(router.get).mockImplementation(() => undefined as never);
+    const wrapper = mountWorkspace('results', {
+      results: [result],
+      results_workspace: resultsWorkspace('overview', [result]),
+    });
+    await nextTick();
+
+    const replayTab = wrapper
+      .get('[data-testid="result-actions"]')
+      .findAll('[role="tab"]')
+      .find((tab) => tab.text() === 'Replay');
+    expect(replayTab).toBeDefined();
+    await replayTab!.trigger('click');
+    await nextTick();
+
+    expect(router.get).toHaveBeenCalledWith(
+      '/simulation/results',
+      expect.objectContaining({ mode: 'replay', result: result.id }),
+      expect.objectContaining({ preserveState: true, replace: true }),
+    );
+    expect(wrapper.get('[data-testid="result-center"]').attributes('aria-busy')).toBe('true');
+    expect(wrapper.get('[data-testid="result-center"] [role="status"]').text()).toContain(
+      'جارٍ تحميل الإسقاط المحكوم',
+    );
+    expect(wrapper.text()).not.toContain('إعادة البناء والمقارنة');
+    expect(wrapper.text()).not.toContain('إنشاء Candidate Handoff');
+    expect(router.post).not.toHaveBeenCalled();
+  });
+
+  it('moves real DOM focus across Results tabs and issues one request per native activation', async () => {
+    const visits: Array<Parameters<typeof router.get>[2]> = [];
+    vi.mocked(router.get).mockImplementation((_url, _data, options) => {
+      visits.push(options);
+    });
+    const wrapper = mountWorkspace(
+      'results',
+      {
+        results: [result],
+        results_workspace: resultsWorkspace('overview', [result]),
+      },
+      document.body,
+    );
+    await nextTick();
+
+    const tabs = wrapper.get('[data-testid="result-actions"]').findAll('[role="tab"]');
+    (tabs[0].element as HTMLElement).focus();
+    expect(document.activeElement).toBe(tabs[0].element);
+
+    await tabs[0].trigger('keydown', { key: 'ArrowLeft' });
+    expect(document.activeElement).toBe(tabs[1].element);
+    expect(router.get).toHaveBeenCalledTimes(1);
+
+    tabs[1].element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }),
+    );
+    (tabs[2].element as HTMLButtonElement).click();
+    expect(router.get).toHaveBeenCalledTimes(1);
+    expect(tabs.every((tab) => tab.attributes('disabled') !== undefined)).toBe(true);
+
+    visits[0]?.onFinish?.({} as never);
+    await nextTick();
+
+    const nativeActivate = (button: HTMLButtonElement, key: 'Enter' | ' '): void => {
+      const down = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+      button.dispatchEvent(down);
+      if (key === 'Enter' && !down.defaultPrevented) button.click();
+      const up = new KeyboardEvent('keyup', { key, bubbles: true, cancelable: true });
+      button.dispatchEvent(up);
+      if (key === ' ' && !down.defaultPrevented && !up.defaultPrevented) button.click();
+    };
+
+    nativeActivate(tabs[2].element as HTMLButtonElement, 'Enter');
+    expect(router.get).toHaveBeenCalledTimes(2);
+    visits[1]?.onFinish?.({} as never);
+    await nextTick();
+
+    nativeActivate(tabs[3].element as HTMLButtonElement, ' ');
+    expect(router.get).toHaveBeenCalledTimes(3);
+    visits[2]?.onFinish?.({} as never);
+    await nextTick();
+
+    await tabs[3].trigger('keydown', { key: 'End' });
+    expect(document.activeElement).toBe(tabs[4].element);
+    expect(router.get).toHaveBeenCalledTimes(4);
+    visits[3]?.onFinish?.({} as never);
+    await nextTick();
+
+    await tabs[4].trigger('keydown', { key: 'Home' });
+    expect(document.activeElement).toBe(tabs[0].element);
+    expect(router.get).toHaveBeenCalledTimes(5);
+    wrapper.unmount();
+  });
+
+  it('renders Replay from typed projector output and drives one RIGHT context source', async () => {
+    const wrapper = mountWorkspace('results', {
+      results: [result],
+      results_workspace: resultsWorkspace('replay', [result]),
+    });
+    await nextTick();
+
+    const center = wrapper.get('[data-testid="result-replay"]');
+    expect(center.text()).toContain('cep.results.replay.operation-engine-v1/v1');
+    expect(center.findAll('[data-testid="replay-event"]')).toHaveLength(run.events.length);
+    await center.findAll('[data-testid="replay-event"]')[1].trigger('click');
+    await nextTick();
+
+    expect(center.text()).toContain('GOVERNED_OPERATION_CONTROLS_ONLY');
+    expect(center.text()).toContain('IDENTITY_MFA');
+    const right = wrapper.get('[data-testid="result-right"]');
+    expect(right.text()).toContain('timeline:sequence:2');
+    expect(right.text()).toContain('workspace-operation-001');
+    expect(right.text()).toContain('ZERO WRITE');
+  });
+
+  it('renders sparse AAR as traceable facts and explicit absence without fabricated causality', async () => {
+    const wrapper = mountWorkspace('results', {
+      results: [result],
+      results_workspace: resultsWorkspace('aar', [result]),
+    });
+    await nextTick();
+
+    const center = wrapper.get('[data-testid="result-aar"]');
+    expect(center.text()).toContain('SEALED_HISTORY_AND_EFFECTIVE_REVISION_ONLY');
+    expect(center.text()).toContain('timeline:sequence:1');
+    expect(center.text()).toContain('UNAVAILABLE_FROM_SEALED_TRUTH');
+    expect(center.text()).not.toContain('أقوى عامل سببي');
+    expect(center.text()).not.toContain('فرصة مفقودة');
+
+    await center.findAll('.sim-aar-facts button')[1].trigger('click');
+    expect(wrapper.get('[data-testid="result-right"]').text()).toContain('SEALED_TIMELINE_EVENT');
+  });
+
+  it('compares distinct Runs from backend dimensions and renders incompatible values as N/A', async () => {
+    const comparison = compareProjection([result, secondResult]);
+    const wrapper = mountWorkspace('results', {
+      results: [result, secondResult],
+      results_workspace: resultsWorkspace('compare', [result, secondResult], comparison),
+    });
+    await nextTick();
+
+    const center = wrapper.get('[data-testid="result-compare"]');
+    expect(center.text()).toContain('cep.results.compare.registry/v1');
+    expect(center.text()).toContain('N/A');
+    expect(center.text()).not.toContain('زيادة 0');
+    expect(
+      wrapper.get('[data-testid="structure-list"]').findAll('.sim-structure-item--multi'),
+    ).toHaveLength(2);
+
+    await center.findAll('.sim-compare-matrix tbody button')[1].trigger('click');
+    const right = wrapper.get('[data-testid="result-right"]');
+    expect(right.text()).toContain('score');
+    expect(right.text()).toContain('N/A');
+    expect(right.text()).toContain('revision:');
+  });
+
+  it('previews Candidate Evidence without a form, W04 claim, legacy write, or current legacy truth', async () => {
+    const historical = {
+      ...result,
+      legacy_history: {
+        replay_compare: {
+          id: 'legacy-compare',
+          integrity_match: true,
+          sealed_result_digest: 'c'.repeat(64),
+          reconstructed_state_digest: 'd'.repeat(64),
+          reconstruction: { historical: true },
+          actor_id: 'legacy-actor',
+          compared_at: '2026-08-20T00:00:00Z',
+        },
+        candidate_evidence_handoff: null,
+      },
+    };
+    const wrapper = mountWorkspace('results', {
+      results: [historical],
+      results_workspace: resultsWorkspace('candidate-evidence', [historical]),
+    });
+    await nextTick();
+
+    const center = wrapper.get('[data-testid="result-candidate-evidence"]');
+    expect(center.text()).toContain('SOURCE_PREVIEW_ONLY');
+    expect(center.text()).toContain('W04 NOT CLAIMED');
+    expect(center.find('form').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('INTEGRITY_MATCH');
-    expect(bottom.text()).toContain('لا توجد replay_compare محكومة');
+    expect(router.post).not.toHaveBeenCalled();
+
+    await wrapper.get('[data-testid="result-actions"]').findAll('button').at(-1)!.trigger('click');
+    const bottom = wrapper.get('[data-testid="result-bottom"]');
+    expect(bottom.text()).toContain('Historical compatibility rows');
+    expect(bottom.text()).toContain('historical');
+  });
+
+  it('renders initial-revision and semantic-projector failure states without guessing', async () => {
+    const initialResult: ResultItem = {
+      ...result,
+      analytics: {
+        ...result.analytics,
+        status: 'INITIAL_REVISION_REQUIRED',
+        overview: {
+          ...result.analytics.overview,
+          status: 'INITIAL_REVISION_REQUIRED',
+          lineage: {
+            status: 'INITIAL_REVISION_REQUIRED',
+            revision_count: 0,
+            root_revision_id: null,
+            effective_revision_id: null,
+            revisions: [],
+          },
+          effective: null,
+        },
+        replay: { status: 'UNAVAILABLE', reason: 'INITIAL_REVISION_REQUIRED' },
+        aar: { status: 'UNAVAILABLE', reason: 'INITIAL_REVISION_REQUIRED' },
+        candidate_evidence: { status: 'UNAVAILABLE', reason: 'INITIAL_REVISION_REQUIRED' },
+      },
+    };
+    const initialWrapper = mountWorkspace('results', {
+      results: [initialResult],
+      results_workspace: resultsWorkspace('overview', [initialResult]),
+    });
+    await nextTick();
+    expect(initialWrapper.get('[data-testid="results-lineage-state"]').text()).toContain(
+      'يلزم إنشاء المراجعة الابتدائية',
+    );
+
+    const unavailable = {
+      ...result,
+      analytics: analyticsFor(result.id, result.run_id, {
+        replayStatus: 'SEMANTIC_PROJECTOR_UNAVAILABLE',
+      }),
+    };
+    const replayWrapper = mountWorkspace('results', {
+      results: [unavailable],
+      results_workspace: resultsWorkspace('replay', [unavailable]),
+    });
+    await nextTick();
+    expect(replayWrapper.get('[data-testid="semantic-projector-unavailable"]').text()).toContain(
+      'Semantic Projector غير متاح',
+    );
+    expect(replayWrapper.text()).not.toContain('GOVERNED_OPERATION_CONTROLS_ONLY');
   });
 });

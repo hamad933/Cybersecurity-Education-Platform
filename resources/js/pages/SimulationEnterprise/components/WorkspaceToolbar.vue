@@ -1,45 +1,47 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
 
 import type {
   DigitalTwinRevisionItem,
   LabItem,
   ResultItem,
+  ResultMode,
+  RunWorkspaceMode,
   RunItem,
   ScenarioItem,
   SimulationSection,
 } from '../types';
 
-const props = defineProps<{
-  section: SimulationSection;
-  scenario: ScenarioItem | null;
-  lab: LabItem | null;
-  twinRevision: DigitalTwinRevisionItem | null;
-  run: RunItem | null;
-  result: ResultItem | null;
-  pending: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    section: SimulationSection;
+    scenario: ScenarioItem | null;
+    lab: LabItem | null;
+    twinRevision: DigitalTwinRevisionItem | null;
+    run: RunItem | null;
+    result: ResultItem | null;
+    resultsMode?: ResultMode;
+    resultsLoading?: boolean;
+    runMode?: RunWorkspaceMode;
+    pending: boolean;
+  }>(),
+  {
+    resultsMode: 'overview',
+    resultsLoading: false,
+    runMode: 'operations',
+  },
+);
 
 const emit = defineEmits<{
-  prepareScenario: [payload: { baseline_id: string; seed: number; mode: string }];
-  prepareLab: [payload: { seed: number; mode: string }];
   runAction: [action: string];
   definitionAction: [target: 'lab' | 'digital-twin', action: string];
-  replay: [];
+  setResultsMode: [mode: ResultMode];
+  setRunMode: [mode: RunWorkspaceMode];
+  openRunPreflight: [type: 'scenario' | 'standalone-lab', definitionId: string];
   openBottom: [];
 }>();
 
-const seed = ref(20260814);
-const mode = ref('GUIDED');
-const baselineId = ref('');
-
-watch(
-  () => props.scenario,
-  (scenario) => {
-    baselineId.value = scenario?.preparation_targets[0]?.baseline_id ?? '';
-  },
-  { immediate: true },
-);
+const modeTabRefs = ref<HTMLButtonElement[]>([]);
 
 const actionLabels: Record<string, string> = {
   ready: 'اعتماد الجاهزية',
@@ -50,6 +52,40 @@ const actionLabels: Record<string, string> = {
   snapshot: 'حفظ Snapshot',
   stop: 'إيقاف',
 };
+
+const resultModes: Array<{ key: ResultMode; label: string }> = [
+  { key: 'overview', label: 'نظرة عامة' },
+  { key: 'replay', label: 'Replay' },
+  { key: 'aar', label: 'AAR' },
+  { key: 'compare', label: 'Compare' },
+  { key: 'candidate-evidence', label: 'Candidate Evidence' },
+];
+
+function setModeTabRef(element: unknown, index: number): void {
+  if (element instanceof HTMLButtonElement) {
+    modeTabRefs.value[index] = element;
+  }
+}
+
+function activateResultMode(mode: ResultMode): void {
+  if (props.resultsLoading || mode === props.resultsMode) return;
+  emit('setResultsMode', mode);
+}
+
+function moveResultMode(event: KeyboardEvent, index: number): void {
+  if (props.resultsLoading || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+    return;
+  }
+  event.preventDefault();
+  const next =
+    event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? resultModes.length - 1
+        : (index + (event.key === 'ArrowLeft' ? 1 : -1) + resultModes.length) % resultModes.length;
+  modeTabRefs.value[next]?.focus();
+  activateResultMode(resultModes[next].key);
+}
 </script>
 
 <template>
@@ -59,56 +95,27 @@ const actionLabels: Record<string, string> = {
       <div><small>Simulation &amp; Enterprise</small><strong>تنفيذ داخلي عالي الدقة</strong></div>
     </div>
 
-    <form
+    <div
       v-if="section === 'scenarios' && scenario"
       class="sim-toolbar__controls"
-      data-testid="scenario-prepare-controls"
-      @submit.prevent="emit('prepareScenario', { baseline_id: baselineId, seed, mode })"
+      data-testid="scenario-preflight-entry"
     >
-      <label
-        ><span>Execution target</span
-        ><select
-          v-model="baselineId"
-          required
-          :disabled="pending || !scenario.preparation_targets.length"
-        >
-          <option
-            v-for="target in scenario.preparation_targets"
-            :key="target.baseline_id"
-            :value="target.baseline_id"
-          >
-            {{ target.enterprise_name_ar }} / {{ target.digital_twin_name_ar }} · B{{
-              target.baseline_revision
-            }}
-          </option>
-        </select></label
+      <span class="sim-target-lock">
+        <small>Scenario Revision</small>
+        <code>REV {{ scenario.revision }} · {{ scenario.digest }}</code>
+      </span>
+      <button
+        type="button"
+        class="sim-button"
+        :disabled="pending || !scenario.preparation_targets.length"
+        @click="emit('openRunPreflight', 'scenario', scenario.id)"
       >
-      <label
-        ><span>Seed</span
-        ><input
-          v-model.number="seed"
-          class="sim-technical"
-          type="number"
-          min="0"
-          :disabled="pending"
-      /></label>
-      <label
-        ><span>Mode</span
-        ><select v-model="mode" :disabled="pending">
-          <option>GUIDED</option>
-          <option>UNGUIDED</option>
-          <option>SOLO</option>
-          <option>TEAM</option>
-          <option>ROLE_BASED</option>
-        </select></label
-      >
-      <button class="sim-button" type="submit" :disabled="pending || !baselineId">
-        تهيئة التشغيل المحدد
+        فتح Run Preflight
       </button>
       <button type="button" class="sim-button sim-button--quiet" @click="emit('openBottom')">
         العقد وOrchestration الخام
       </button>
-    </form>
+    </div>
 
     <form
       v-else-if="section === 'labs' && lab"
@@ -116,13 +123,13 @@ const actionLabels: Record<string, string> = {
       data-testid="lab-prepare-controls"
       @submit.prevent="
         lab.can_prepare !== false &&
-        (lab.status === undefined || lab.status === 'PUBLISHED') &&
-        emit('prepareLab', { seed, mode })
+        lab.status === 'PUBLISHED' &&
+        emit('openRunPreflight', 'standalone-lab', lab.id)
       "
     >
       <span class="sim-target-lock">
-        <small>{{ lab.environment_binding_mode ?? 'Baseline' }}</small>
-        <code>{{ lab.baseline_id ?? 'LAB-LOCAL PROFILE' }}</code>
+        <small>{{ lab.environment_binding_mode ?? 'Definition' }}</small>
+        <code>REV {{ lab.revision }} · {{ lab.status ?? 'LEGACY' }}</code>
       </span>
       <button
         v-if="lab.status === 'DRAFT'"
@@ -151,35 +158,12 @@ const actionLabels: Record<string, string> = {
       >
         Clone as new revision
       </button>
-      <label
-        ><span>Seed</span
-        ><input
-          v-model.number="seed"
-          class="sim-technical"
-          type="number"
-          min="0"
-          :disabled="pending"
-      /></label>
-      <label
-        ><span>Mode</span
-        ><select v-model="mode" :disabled="pending">
-          <option>GUIDED</option>
-          <option>UNGUIDED</option>
-          <option>SOLO</option>
-          <option>TEAM</option>
-          <option>ROLE_BASED</option>
-        </select></label
-      >
       <button
-        class="sim-button"
         type="submit"
-        :disabled="
-          pending ||
-          lab.can_prepare === false ||
-          (lab.status !== undefined && lab.status !== 'PUBLISHED')
-        "
+        class="sim-button"
+        :disabled="pending || lab.can_prepare === false || lab.status !== 'PUBLISHED'"
       >
-        تهيئة مختبر مستقل
+        فتح Standalone Lab Preflight
       </button>
       <button type="button" class="sim-button sim-button--quiet" @click="emit('openBottom')">
         الإعداد والتحقق الخام
@@ -187,42 +171,95 @@ const actionLabels: Record<string, string> = {
     </form>
 
     <div
-      v-else-if="section === 'runs' && run"
-      class="sim-toolbar__controls"
-      data-testid="run-actions"
+      v-else-if="section === 'runs'"
+      class="sim-runs-toolbar"
+      data-testid="run-workspace-toolbar"
     >
-      <button
-        v-for="action in run.available_actions.filter((item) => item !== 'operate')"
-        :key="action"
-        type="button"
-        class="sim-button"
-        :class="{
-          'sim-button--danger': action === 'stop',
-          'sim-button--quiet': action === 'snapshot',
-        }"
-        :disabled="pending"
-        @click="emit('runAction', action)"
+      <div class="sim-run-mode-tabs" role="tablist" aria-label="أوضاع مساحة التشغيل">
+        <button
+          type="button"
+          role="tab"
+          class="sim-results-mode-tab"
+          :class="{ 'is-active': runMode === 'preflight' }"
+          :aria-selected="runMode === 'preflight'"
+          :tabindex="runMode === 'preflight' ? 0 : -1"
+          :disabled="pending"
+          @click="emit('setRunMode', 'preflight')"
+        >
+          Run Preflight
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="sim-results-mode-tab"
+          :class="{ 'is-active': runMode === 'operations' }"
+          :aria-selected="runMode === 'operations'"
+          :tabindex="runMode === 'operations' ? 0 : -1"
+          :disabled="pending"
+          @click="emit('setRunMode', 'operations')"
+        >
+          Active Operations
+        </button>
+      </div>
+      <div
+        v-if="runMode === 'operations' && run"
+        class="sim-toolbar__controls"
+        data-testid="run-actions"
       >
-        {{ actionLabels[action] ?? action }}
-      </button>
-      <button type="button" class="sim-button sim-button--quiet" @click="emit('openBottom')">
-        السجل العميق
-      </button>
+        <button
+          v-for="action in run.available_actions.filter((item) => item !== 'operate')"
+          :key="action"
+          type="button"
+          class="sim-button"
+          :class="{
+            'sim-button--danger': action === 'stop',
+            'sim-button--quiet': action === 'snapshot',
+          }"
+          :disabled="pending"
+          @click="emit('runAction', action)"
+        >
+          {{ actionLabels[action] ?? action }}
+        </button>
+        <button type="button" class="sim-button sim-button--quiet" @click="emit('openBottom')">
+          السجل العميق
+        </button>
+      </div>
+      <span v-else-if="runMode === 'operations'" class="sim-toolbar__idle">
+        اختر تشغيلًا لإظهار الإجراءات المتاحة.
+      </span>
     </div>
 
     <div
       v-else-if="section === 'results' && result"
-      class="sim-toolbar__controls"
+      class="sim-results-toolbar"
       data-testid="result-actions"
     >
-      <span class="sim-target-lock"
-        ><small>SEALED RESULT</small><code>REV {{ result.result_revision }}</code></span
-      >
-      <button type="button" class="sim-button" :disabled="pending" @click="emit('replay')">
-        إعادة البناء والمقارنة
-      </button>
+      <div class="sim-results-mode-tabs" role="tablist" aria-label="أوضاع تحليل النتيجة">
+        <button
+          v-for="(item, index) in resultModes"
+          :key="item.key"
+          :ref="(element) => setModeTabRef(element, index)"
+          type="button"
+          role="tab"
+          class="sim-results-mode-tab"
+          :class="{ 'is-active': resultsMode === item.key }"
+          :aria-selected="resultsMode === item.key"
+          :tabindex="resultsMode === item.key ? 0 : -1"
+          :disabled="resultsLoading"
+          @click="activateResultMode(item.key)"
+          @keydown="moveResultMode($event, index)"
+        >
+          {{ item.label }}
+        </button>
+      </div>
+      <span class="sim-target-lock sim-results-revision-lock">
+        <small>EFFECTIVE REVISION</small>
+        <code>{{
+          result.analytics.overview.effective?.id ?? result.analytics.overview.status
+        }}</code>
+      </span>
       <button type="button" class="sim-button sim-button--quiet" @click="emit('openBottom')">
-        الحمولة الخام
+        الفحص الخام
       </button>
     </div>
 

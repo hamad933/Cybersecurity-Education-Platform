@@ -104,6 +104,171 @@ final class SimulationEnterpriseService
         return $targets;
     }
 
+    /** @return array<string, mixed> */
+    public function scenarioRunPreflight(string $scenarioDefinitionId): array
+    {
+        $scenario = DB::table('simulation_scenario_definitions')->where('id', $scenarioDefinitionId)->first();
+        if ($scenario === null) {
+            return [
+                'status' => 'UNAVAILABLE',
+                'run_type' => self::RUN_SCENARIO,
+                'definition_id' => $scenarioDefinitionId,
+                'blocking_reason' => 'SCENARIO_DEFINITION_NOT_FOUND',
+            ];
+        }
+
+        $environmentContract = $this->decodeJson($scenario->environment_contract);
+        $requiredCapabilities = array_values(array_filter(
+            $environmentContract['required_capabilities'] ?? [],
+            static fn (mixed $capability): bool => is_string($capability),
+        ));
+        $projection = [
+            'status' => 'INCOMPATIBLE',
+            'run_type' => self::RUN_SCENARIO,
+            'definition_id' => (string) $scenario->id,
+            'definition_slug' => (string) $scenario->slug,
+            'definition_title_ar' => (string) $scenario->title_ar,
+            'definition_revision' => (int) $scenario->revision,
+            'definition_status' => (string) $scenario->status,
+            'definition_digest' => (string) $scenario->digest,
+            'environment_contract_digest' => $this->digest($environmentContract),
+            'execution_model' => (string) ($environmentContract['execution_model'] ?? ''),
+            'required_capabilities' => $requiredCapabilities,
+            'targets' => [],
+            'provenance' => self::PROVENANCE_SIMULATED,
+            'source_fixture' => false,
+            'blocking_reason' => null,
+        ];
+
+        if ((string) $scenario->status !== 'PUBLISHED') {
+            $projection['blocking_reason'] = 'SCENARIO_DEFINITION_NOT_PUBLISHED';
+
+            return $projection;
+        }
+
+        try {
+            $targets = $this->compatiblePreparationTargets($environmentContract);
+        } catch (InvalidArgumentException) {
+            $projection['status'] = 'UNAVAILABLE';
+            $projection['blocking_reason'] = 'SCENARIO_ENVIRONMENT_CONTRACT_UNAVAILABLE';
+
+            return $projection;
+        }
+
+        $projection['targets'] = array_map(
+            static fn (array $target): array => [
+                ...$target,
+                'status' => 'COMPATIBLE',
+                'required_capabilities' => $requiredCapabilities,
+                'missing_capabilities' => [],
+            ],
+            $targets,
+        );
+        $projection['source_fixture'] = collect($targets)->contains(
+            static fn (array $target): bool => (bool) ($target['source_fixture'] ?? false),
+        );
+        $projection['status'] = $targets === [] ? 'INCOMPATIBLE' : 'READY';
+        $projection['blocking_reason'] = $targets === [] ? 'NO_COMPATIBLE_BASELINE_TARGET' : null;
+
+        return $projection;
+    }
+
+    /** @return array<string, mixed> */
+    public function standaloneLabRunPreflight(string $labDefinitionId): array
+    {
+        $lab = DB::table('simulation_lab_definitions')->where('id', $labDefinitionId)->first();
+        if ($lab === null) {
+            return [
+                'status' => 'UNAVAILABLE',
+                'run_type' => self::RUN_STANDALONE_LAB,
+                'definition_id' => $labDefinitionId,
+                'blocking_reason' => 'LAB_DEFINITION_NOT_FOUND',
+            ];
+        }
+
+        $environmentContract = $this->decodeJson($lab->environment_contract);
+        $requiredCapabilities = array_values(array_filter(
+            $environmentContract['required_capabilities'] ?? [],
+            static fn (mixed $capability): bool => is_string($capability),
+        ));
+        $projection = [
+            'status' => 'INCOMPATIBLE',
+            'run_type' => self::RUN_STANDALONE_LAB,
+            'definition_id' => (string) $lab->id,
+            'definition_slug' => (string) $lab->slug,
+            'definition_title_ar' => (string) $lab->title_ar,
+            'definition_revision' => (int) $lab->revision,
+            'definition_status' => (string) $lab->status,
+            'definition_digest' => (string) $lab->digest,
+            'environment_contract_digest' => $this->digest($environmentContract),
+            'environment_binding_mode' => (string) $lab->environment_binding_mode,
+            'execution_model' => (string) ($environmentContract['execution_model'] ?? ''),
+            'required_capabilities' => $requiredCapabilities,
+            'available_capabilities' => [],
+            'missing_capabilities' => $requiredCapabilities,
+            'target' => null,
+            'provenance' => self::PROVENANCE_SIMULATED,
+            'source_fixture' => false,
+            'blocking_reason' => null,
+        ];
+
+        if ((string) $lab->status !== 'PUBLISHED') {
+            $projection['blocking_reason'] = 'LAB_DEFINITION_NOT_PUBLISHED';
+
+            return $projection;
+        }
+        if ((string) $lab->environment_binding_mode !== SimulationDefinitionService::ENTERPRISE_BASELINE) {
+            $projection['blocking_reason'] = 'ENTERPRISE_BASELINE_BINDING_REQUIRED';
+
+            return $projection;
+        }
+
+        try {
+            $this->assertEnvironmentContract($environmentContract);
+            $state = $this->requirePublishedBaseline((string) $lab->enterprise_id, (string) $lab->baseline_id);
+            $lineage = $this->lineageFromState($state);
+        } catch (InvalidArgumentException) {
+            $projection['status'] = 'UNAVAILABLE';
+            $projection['blocking_reason'] = 'LAB_ENVIRONMENT_CONTRACT_UNAVAILABLE';
+
+            return $projection;
+        } catch (LogicException) {
+            $projection['status'] = 'UNAVAILABLE';
+            $projection['blocking_reason'] = 'PINNED_BASELINE_UNAVAILABLE';
+
+            return $projection;
+        }
+
+        $availableCapabilities = $this->capabilityList($lineage['baseline_state']);
+        $missingCapabilities = $this->missingEnvironmentCapabilities(
+            $environmentContract,
+            $lineage['baseline_state'],
+        );
+        $projection['available_capabilities'] = $availableCapabilities;
+        $projection['missing_capabilities'] = $missingCapabilities;
+        $projection['source_fixture'] = $lineage['source_fixture'];
+        $projection['target'] = [
+            'enterprise_id' => $lineage['enterprise_id'],
+            'enterprise_name_ar' => (string) ($state->enterprise['name_ar'] ?? ''),
+            'digital_twin_id' => $lineage['digital_twin_id'],
+            'digital_twin_name_ar' => (string) ($state->digitalTwin['name_ar'] ?? ''),
+            'digital_twin_revision_id' => $lineage['digital_twin_revision_id'],
+            'digital_twin_revision' => (int) ($state->digitalTwinRevision['revision'] ?? 0),
+            'baseline_id' => $lineage['baseline_id'],
+            'baseline_revision' => (int) ($state->baseline['revision'] ?? 0),
+            'baseline_digest' => (string) ($state->baseline['digest'] ?? ''),
+            'capabilities' => $availableCapabilities,
+            'provenance' => $lineage['provenance'],
+            'source_fixture' => $lineage['source_fixture'],
+        ];
+        $projection['status'] = $missingCapabilities === [] ? 'READY' : 'INCOMPATIBLE';
+        $projection['blocking_reason'] = $missingCapabilities === []
+            ? null
+            : 'PINNED_BASELINE_MISSING_REQUIRED_CAPABILITIES';
+
+        return $projection;
+    }
+
     /**
      * @param  array<string, mixed>  $environmentContract
      * @param  array<string, mixed>  $orchestration

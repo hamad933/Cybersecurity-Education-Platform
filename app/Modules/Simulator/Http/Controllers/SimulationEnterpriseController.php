@@ -7,6 +7,7 @@ use App\Modules\Enterprise\Application\EnterpriseDefinitionAuthoring;
 use App\Modules\Enterprise\Application\SimulationEnterpriseStateReader;
 use App\Modules\Simulator\Application\SimulationDefinitionService;
 use App\Modules\Simulator\Application\SimulationEnterpriseService;
+use App\Modules\Simulator\RunResult\RunResultCapability;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use LogicException;
 use stdClass;
+use Throwable;
 
 final class SimulationEnterpriseController extends Controller
 {
@@ -32,6 +34,7 @@ final class SimulationEnterpriseController extends Controller
         private readonly SimulationDefinitionService $definitions,
         private readonly EnterpriseDefinitionAuthoring $enterpriseDefinitions,
         private readonly SimulationEnterpriseStateReader $enterpriseState,
+        private readonly RunResultCapability $runResults,
     ) {}
 
     public function index(): Response
@@ -49,14 +52,14 @@ final class SimulationEnterpriseController extends Controller
         return $this->render('labs');
     }
 
-    public function runs(): Response
+    public function runs(Request $request): Response
     {
-        return $this->render('runs');
+        return $this->render('runs', $request);
     }
 
-    public function results(): Response
+    public function results(Request $request): Response
     {
-        return $this->render('results');
+        return $this->render('results', $request);
     }
 
     public function createEnterpriseEntity(Request $request, string $enterprise): RedirectResponse
@@ -460,8 +463,10 @@ public function updateLabDraftR20Facets(Request $request, string $lab): Redirect
         ], $validated['intake_contract_ref'] ?? null, $this->actorId()), 'cep.simulation.results');
     }
 
-    private function render(string $section): Response
+    private function render(string $section, ?Request $request = null): Response
     {
+        $results = $section === 'results' ? $this->resultsData() : [];
+
         return Inertia::render('SimulationEnterprise/Workspace', [
             'section' => $section,
             'navigation' => $this->navigation(),
@@ -469,7 +474,14 @@ public function updateLabDraftR20Facets(Request $request, string $lab): Redirect
             'scenarios' => $section === 'scenarios' ? $this->scenariosData() : [],
             'labs' => $section === 'labs' ? $this->labsData() : [],
             'runs' => $section === 'runs' ? $this->runsData() : [],
-            'results' => $section === 'results' ? $this->resultsData() : [],
+            'results' => $results,
+            'results_workspace' => $section === 'results'
+                ? $this->resultsWorkspaceData($request ?? request(), $results)
+                : null,
+            'run_preflight' => $section === 'runs' ? $this->runPreflightData() : null,
+            'run_workspace' => $section === 'runs'
+                ? $this->runWorkspaceData($request ?? request())
+                : null,
             'outcomes' => SimulationEnterpriseService::OUTCOMES,
         ]);
     }
@@ -597,6 +609,54 @@ public function updateLabDraftR20Facets(Request $request, string $lab): Redirect
             })->all();
     }
 
+    /** @return array<string, mixed> */
+    private function runPreflightData(): array
+    {
+        $scenarios = DB::table('simulation_scenario_definitions')
+            ->orderBy('slug')
+            ->orderByDesc('revision')
+            ->get(['id'])
+            ->map(fn (stdClass $scenario): array => $this->simulation->scenarioRunPreflight((string) $scenario->id))
+            ->all();
+        $labs = DB::table('simulation_lab_definitions')
+            ->orderBy('slug')
+            ->orderByDesc('revision')
+            ->get(['id'])
+            ->map(fn (stdClass $lab): array => $this->simulation->standaloneLabRunPreflight((string) $lab->id))
+            ->all();
+
+        return [
+            'status' => $scenarios === [] && $labs === [] ? 'EMPTY' : 'READY',
+            'execution_model' => 'CEP_INTERNAL_HIGH_FIDELITY_SIMULATION',
+            'default_seed' => 20260814,
+            'execution_modes' => ['GUIDED', 'UNGUIDED', 'SOLO', 'TEAM', 'ROLE_BASED'],
+            'scenario_definitions' => $scenarios,
+            'lab_definitions' => $labs,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function runWorkspaceData(Request $request): array
+    {
+        $mode = (string) $request->query('mode', 'operations');
+        if (! in_array($mode, ['preflight', 'operations'], true)) {
+            $mode = 'operations';
+        }
+        $preflightType = (string) $request->query('preflight_type', 'scenario');
+        if (! in_array($preflightType, ['scenario', 'standalone-lab'], true)) {
+            $preflightType = 'scenario';
+        }
+        $definitionId = $request->query('definition');
+
+        return [
+            'status' => 'READY',
+            'mode' => $mode,
+            'available_modes' => ['preflight', 'operations'],
+            'preflight_type' => $preflightType,
+            'definition_id' => is_string($definitionId) && $definitionId !== '' ? $definitionId : null,
+        ];
+    }
+
     /** @return list<array<string, mixed>> */
     private function runsData(): array
     {
@@ -657,8 +717,15 @@ public function updateLabDraftR20Facets(Request $request, string $lab): Redirect
                 'execution_policies' => $this->decode($run->execution_policies),
                 'runtime_state' => $this->decode($run->runtime_state),
                 'input_digest' => (string) $run->input_digest,
+                'definition_digest' => (string) $run->definition_digest,
                 'provenance' => (string) $run->provenance,
                 'source_fixture' => (bool) $run->source_fixture,
+                'prepared_at' => (string) $run->prepared_at,
+                'ready_at' => $run->ready_at === null ? null : (string) $run->ready_at,
+                'started_at' => $run->started_at === null ? null : (string) $run->started_at,
+                'completed_at' => $run->completed_at === null ? null : (string) $run->completed_at,
+                'stopped_at' => $run->stopped_at === null ? null : (string) $run->stopped_at,
+                'failed_at' => $run->failed_at === null ? null : (string) $run->failed_at,
                 'available_actions' => $this->simulation->availableActions((string) $run->lifecycle),
                 'events' => $events,
                 'operations' => $operations,
@@ -680,6 +747,34 @@ public function updateLabDraftR20Facets(Request $request, string $lab): Redirect
                 $handoff = DB::table('simulation_candidate_evidence_handoffs')->where('result_id', $result->id)->first();
                 $compare = DB::table(self::RESULT_REPLAY_COMPARES_TABLE)->where('result_id', $result->id)->orderByDesc('compared_at')->first();
                 $sealedPayload = $this->decode($result->sealed_payload);
+                try {
+                    $analytics = $this->runResults->projectResultAnalytics((string) $result->id);
+                } catch (Throwable $exception) {
+                    $analytics = [
+                        'status' => 'ERROR',
+                        'diagnostic_id' => substr(hash('sha256', $result->id.'|'.$exception::class.'|'.$exception->getMessage()), 0, 16),
+                        'overview' => [
+                            'status' => 'ERROR',
+                            'canonical' => [
+                                'result_id' => (string) $result->id,
+                                'run_id' => (string) $result->run_id,
+                                'result_revision' => (int) $result->result_revision,
+                                'result_digest' => (string) $result->result_digest,
+                                'provenance' => (string) $result->provenance,
+                                'source_fixture' => (bool) $result->source_fixture,
+                                'sealed_by' => (string) $result->sealed_by,
+                                'sealed_at' => (string) $result->sealed_at,
+                                'run_type' => (string) ($sealedPayload['run_type'] ?? ''),
+                                'run_lifecycle' => (string) ($sealedPayload['run_lifecycle'] ?? ''),
+                            ],
+                            'lineage' => ['status' => 'UNAVAILABLE'],
+                            'effective' => null,
+                        ],
+                        'replay' => ['status' => 'UNAVAILABLE', 'reason' => 'RESULT_PROJECTION_ERROR'],
+                        'aar' => ['status' => 'UNAVAILABLE', 'reason' => 'RESULT_PROJECTION_ERROR'],
+                        'candidate_evidence' => ['status' => 'UNAVAILABLE', 'reason' => 'RESULT_PROJECTION_ERROR'],
+                    ];
+                }
 
                 return [
                     'id' => (string) $result->id,
@@ -698,29 +793,101 @@ public function updateLabDraftR20Facets(Request $request, string $lab): Redirect
                     'source_fixture' => (bool) $result->source_fixture,
                     'sealed_by' => (string) $result->sealed_by,
                     'sealed_at' => (string) $result->sealed_at,
-                    'replay_compare' => $compare === null ? null : [
-                        'id' => (string) $compare->id,
-                        'integrity_match' => (bool) $compare->integrity_match,
-                        'sealed_result_digest' => (string) $compare->sealed_result_digest,
-                        'reconstructed_state_digest' => (string) $compare->reconstructed_state_digest,
-                        'reconstruction' => $this->decode($compare->reconstruction),
-                        'actor_id' => (string) $compare->actor_id,
-                        'compared_at' => (string) $compare->compared_at,
-                    ],
-                    'candidate_evidence_handoff' => $handoff === null ? null : [
-                        'id' => (string) $handoff->id,
-                        'status' => (string) $handoff->status,
-                        'candidate_manifest' => $this->decode($handoff->candidate_manifest),
-                        'source_result_revision' => (int) $handoff->source_result_revision,
-                        'source_result_digest' => (string) $handoff->source_result_digest,
-                        'provenance' => (string) $handoff->provenance,
-                        'source_fixture' => (bool) $handoff->source_fixture,
-                        'manifest_digest' => (string) $handoff->manifest_digest,
-                        'created_by' => (string) $handoff->created_by,
-                        'intake_contract_ref' => $handoff->intake_contract_ref,
+                    'analytics' => $analytics,
+                    'legacy_history' => [
+                        'replay_compare' => $compare === null ? null : [
+                            'id' => (string) $compare->id,
+                            'integrity_match' => (bool) $compare->integrity_match,
+                            'sealed_result_digest' => (string) $compare->sealed_result_digest,
+                            'reconstructed_state_digest' => (string) $compare->reconstructed_state_digest,
+                            'reconstruction' => $this->decode($compare->reconstruction),
+                            'actor_id' => (string) $compare->actor_id,
+                            'compared_at' => (string) $compare->compared_at,
+                        ],
+                        'candidate_evidence_handoff' => $handoff === null ? null : [
+                            'id' => (string) $handoff->id,
+                            'status' => (string) $handoff->status,
+                            'candidate_manifest' => $this->decode($handoff->candidate_manifest),
+                            'source_result_revision' => (int) $handoff->source_result_revision,
+                            'source_result_digest' => (string) $handoff->source_result_digest,
+                            'provenance' => (string) $handoff->provenance,
+                            'source_fixture' => (bool) $handoff->source_fixture,
+                            'manifest_digest' => (string) $handoff->manifest_digest,
+                            'created_by' => (string) $handoff->created_by,
+                            'intake_contract_ref' => $handoff->intake_contract_ref,
+                        ],
                     ],
                 ];
             })->all();
+    }
+
+    /**
+     * @param list<array<string, mixed>> $results
+     * @return array<string, mixed>
+     */
+    private function resultsWorkspaceData(Request $request, array $results): array
+    {
+        $availableModes = ['overview', 'replay', 'aar', 'compare', 'candidate-evidence'];
+        $mode = (string) $request->query('mode', 'overview');
+        if (! in_array($mode, $availableModes, true)) {
+            $mode = 'overview';
+        }
+
+        $availableResultIds = array_map(fn (array $result): string => (string) $result['id'], $results);
+        $requestedResult = (string) $request->query('result', '');
+        $selectedResultId = in_array($requestedResult, $availableResultIds, true)
+            ? $requestedResult
+            : ($availableResultIds[0] ?? null);
+
+        $compareQuery = $request->query('compare', []);
+        if (is_string($compareQuery)) {
+            $compareQuery = array_filter(explode(',', $compareQuery));
+        }
+        $compareResultIds = is_array($compareQuery)
+            ? array_slice(array_values(array_filter(
+                $compareQuery,
+                fn (mixed $id): bool => is_string($id) && in_array($id, $availableResultIds, true),
+            )), 0, 4)
+            : [];
+
+        $compare = [
+            'status' => 'EMPTY',
+            'selection_valid' => false,
+            'selected_result_ids' => $compareResultIds,
+            'selected_run_ids' => [],
+            'items' => [],
+            'dimensions' => [],
+            'reason' => 'COMPARE_MINIMUM_DISTINCT_RUNS_REQUIRED',
+            'write_behavior' => 'ZERO_WRITE_PROJECTION',
+        ];
+        if (count($compareResultIds) >= 2) {
+            try {
+                $compare = $this->runResults->projectResultComparison($compareResultIds);
+            } catch (Throwable $exception) {
+                $reason = str_starts_with($exception->getMessage(), 'COMPARE_')
+                    ? $exception->getMessage()
+                    : 'COMPARE_PROJECTION_UNAVAILABLE';
+                $compare = [
+                    'status' => 'UNAVAILABLE',
+                    'selection_valid' => false,
+                    'selected_result_ids' => $compareResultIds,
+                    'selected_run_ids' => [],
+                    'items' => [],
+                    'dimensions' => [],
+                    'reason' => $reason,
+                    'write_behavior' => 'ZERO_WRITE_PROJECTION',
+                ];
+            }
+        }
+
+        return [
+            'status' => $results === [] ? 'EMPTY' : 'READY',
+            'mode' => $mode,
+            'available_modes' => $availableModes,
+            'selected_result_id' => $selectedResultId,
+            'compare_result_ids' => $compareResultIds,
+            'compare' => $compare,
+        ];
     }
 
     /** @param callable():mixed $action */

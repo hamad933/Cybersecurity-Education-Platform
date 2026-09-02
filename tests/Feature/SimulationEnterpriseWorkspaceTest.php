@@ -4,12 +4,17 @@ namespace Tests\Feature;
 
 use App\Modules\IdentityAccess\Actions\CreateOwner;
 use App\Modules\IdentityAccess\Models\OwnerAccount;
+use App\Modules\Simulator\Application\SimulationEnterpriseService;
+use App\Modules\Simulator\RunResult\RunResultCapability;
 use Database\Seeders\SimulationEnterpriseWave1Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionMethod;
+use stdClass;
 use Tests\TestCase;
 
 final class SimulationEnterpriseWorkspaceTest extends TestCase
@@ -59,9 +64,16 @@ final class SimulationEnterpriseWorkspaceTest extends TestCase
             ->where('runs.0.lifecycle', 'COMPLETED')
             ->where('runs.0.provenance', 'SIMULATED')
             ->where('runs.0.source_fixture', true)
+            ->where('runs.0.definition_digest', fn (string $digest): bool => strlen($digest) === 64)
             ->has('runs.0.operations', 1)
             ->has('runs.0.events')
-            ->has('runs.0.snapshots'));
+            ->has('runs.0.snapshots')
+            ->where('run_preflight.status', 'READY')
+            ->where('run_preflight.execution_model', 'CEP_INTERNAL_HIGH_FIDELITY_SIMULATION')
+            ->where('run_preflight.scenario_definitions.0.status', 'READY')
+            ->where('run_preflight.scenario_definitions.0.targets.0.missing_capabilities', [])
+            ->where('run_preflight.lab_definitions.0.status', 'READY')
+            ->where('run_workspace.mode', 'operations'));
 
         $this->actingAs($owner)->get('/simulation/results')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('SimulationEnterprise/Workspace')
@@ -71,7 +83,10 @@ final class SimulationEnterpriseWorkspaceTest extends TestCase
             ->where('results.0.run_lifecycle', 'COMPLETED')
             ->where('results.0.provenance', 'SIMULATED')
             ->where('results.0.source_fixture', true)
-            ->where('results.0.candidate_evidence_handoff.status', 'READY_FOR_INTAKE'));
+            ->where('results.0.analytics.status', 'INITIAL_REVISION_REQUIRED')
+            ->where('results.0.analytics.overview.lineage.status', 'INITIAL_REVISION_REQUIRED')
+            ->where('results.0.legacy_history.candidate_evidence_handoff.status', 'READY_FOR_INTAKE')
+            ->where('results_workspace.mode', 'overview'));
     }
 
     #[Test]
@@ -112,21 +127,187 @@ final class SimulationEnterpriseWorkspaceTest extends TestCase
 
         $this->assertDatabaseHas('simulation_run_results', ['run_id' => $runId, 'outcome' => 'NOT_EVALUATED']);
         $resultId = (string) DB::table('simulation_run_results')->where('run_id', $runId)->value('id');
-        $this->actingAs($owner)->post("/simulation/results/{$resultId}/replay-compare")->assertRedirect(route('cep.simulation.results'));
-        $this->assertDatabaseHas('simulation_result_replay_compares', ['result_id' => $resultId, 'integrity_match' => true, 'actor_id' => $owner->id]);
-        $this->actingAs($owner)->from('/simulation/results')->post("/simulation/results/{$resultId}/candidate-evidence-handoff", [
-            'claim_ar' => 'مرشح لا يجوز أن يشير إلى أثر غير مختوم.',
-            'artifact_refs' => ['external://not-sealed'],
-            'intake_contract_ref' => 'progress-evidence-intake:v1',
-        ])->assertRedirect('/simulation/results')->assertSessionHasErrors('simulation');
+        $capability = app(RunResultCapability::class);
+        $revisionId = $capability->createResultRevision($resultId, []);
+        $candidateProjection = $capability->projectResultAnalytics($resultId)['candidate_evidence'];
+        $this->assertSame('ZERO_WRITE_SOURCE_PREVIEW', $candidateProjection['write_behavior']);
+        $this->assertSame('NOT_CREATED_OR_CLAIMED', $candidateProjection['w04_state']);
+        $this->assertSame($revisionId, $candidateProjection['envelope']['effective_revision_id']);
+        $legacyHandoffCount = DB::table('simulation_candidate_evidence_handoffs')->count();
+        $legacyCompareCount = DB::table('simulation_result_replay_compares')->count();
+        $evidenceCount = DB::table('evidence_records')->count();
+
+        $this->actingAs($owner)
+            ->get('/simulation/results?mode=candidate-evidence&result='.$resultId)
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('results_workspace.mode', 'candidate-evidence')
+                ->where('results_workspace.selected_result_id', $resultId));
+
+        $this->assertSame($legacyHandoffCount, DB::table('simulation_candidate_evidence_handoffs')->count());
+        $this->assertSame($legacyCompareCount, DB::table('simulation_result_replay_compares')->count());
+        $this->assertSame($evidenceCount, DB::table('evidence_records')->count());
         $this->assertDatabaseMissing('simulation_candidate_evidence_handoffs', ['result_id' => $resultId]);
-        $this->actingAs($owner)->post("/simulation/results/{$resultId}/candidate-evidence-handoff", [
-            'claim_ar' => 'مرشح دليل محاكاة يخضع لعملية الاستقبال المنفصلة.',
-            'artifact_refs' => [],
-            'intake_contract_ref' => 'progress-evidence-intake:v1',
-        ])->assertRedirect(route('cep.simulation.results'));
-        $this->assertDatabaseHas('simulation_candidate_evidence_handoffs', ['result_id' => $resultId, 'created_by' => $owner->id, 'provenance' => 'SIMULATED']);
-        $this->assertDatabaseCount('evidence_records', 0);
+    }
+
+    #[Test]
+    public function results_analytics_reads_are_zero_write_source_traceable_and_compare_distinct_runs(): void
+    {
+        $this->seed(SimulationEnterpriseWave1Seeder::class);
+        $owner = $this->owner();
+        $actor = (string) $owner->id;
+        $capability = app(RunResultCapability::class);
+        $simulation = app(SimulationEnterpriseService::class);
+
+        $firstResultId = (string) DB::table('simulation_run_results')->value('id');
+        $firstRevisionId = $capability->createResultRevision($firstResultId, []);
+
+        $scenarioId = (string) DB::table('simulation_scenario_definitions')->value('id');
+        $baselineId = (string) DB::table('simulation_baselines')->value('id');
+        $secondRun = $simulation->prepareScenarioRun($scenarioId, $baselineId, 808, ['mode' => 'GUIDED'], $actor);
+        $simulation->markReady((string) $secondRun['id'], $actor);
+        $simulation->start((string) $secondRun['id'], $actor);
+        $simulation->applyOperation((string) $secondRun['id'], [
+            'operation_key' => 'analytics-operation-808',
+            'verb' => 'SET_CONTROL_STATE',
+            'target' => 'IDENTITY_MFA',
+            'value' => true,
+        ], $actor);
+        $simulation->completeInternalSimulation((string) $secondRun['id'], $actor);
+        $secondResult = $simulation->sealResult(
+            (string) $secondRun['id'],
+            'INCONCLUSIVE',
+            'تعليق مختوم لا يُحوّل إلى سبب أو درس.',
+            null,
+            $actor,
+        );
+        $secondResultId = (string) $secondResult['id'];
+        $secondRevisionId = $capability->createResultRevision($secondResultId, []);
+        $firstAnalytics = $capability->projectResultAnalytics($firstResultId);
+        $this->assertSame('READY', $firstAnalytics['overview']['lineage']['status']);
+        $this->assertSame('READY', $firstAnalytics['replay']['status']);
+        $this->assertSame('ZERO_WRITE_PROJECTION', $firstAnalytics['replay']['write_behavior']);
+        $this->assertSame('SEALED_HISTORY_AND_EFFECTIVE_REVISION_ONLY', $firstAnalytics['aar']['source_policy']);
+        $this->assertSame('UNAVAILABLE_FROM_SEALED_TRUTH', $firstAnalytics['aar']['unavailable_sections'][0]['reason']);
+
+        $watchedTables = [
+            'simulation_run_result_revisions',
+            'simulation_result_replay_compares',
+            'simulation_candidate_evidence_handoffs',
+            'evidence_records',
+        ];
+        $before = collect($watchedTables)->mapWithKeys(fn (string $table): array => [
+            $table => DB::table($table)->count(),
+        ]);
+
+        $this->actingAs($owner)
+            ->get('/simulation/results?mode=replay&result='.$firstResultId)
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('results_workspace.mode', 'replay')
+                ->where('results_workspace.selected_result_id', $firstResultId)
+                ->has('results', 2));
+
+        $this->actingAs($owner)
+            ->get('/simulation/results?mode=aar&result='.$firstResultId)
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('results_workspace.mode', 'aar')
+                ->where('results_workspace.selected_result_id', $firstResultId)
+                ->has('results', 2));
+
+        $query = http_build_query([
+            'mode' => 'compare',
+            'compare' => [$firstResultId, $secondResultId],
+        ]);
+        $firstRunId = (string) DB::table('simulation_run_results')
+            ->where('id', $firstResultId)
+            ->value('run_id');
+        $this->actingAs($owner)
+            ->get('/simulation/results?'.$query)
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('results_workspace.mode', 'compare')
+                ->where('results_workspace.compare.selection_valid', true)
+                ->where('results_workspace.compare.selected_result_ids', [$firstResultId, $secondResultId])
+                ->where('results_workspace.compare.selected_run_ids.0', $firstRunId)
+                ->where('results_workspace.compare.selected_run_ids.1', (string) $secondRun['id'])
+                ->where('results_workspace.compare.dimensions.1.key', 'score')
+                ->where('results_workspace.compare.dimensions.1.values.1.display', 'N/A')
+                ->where('results_workspace.compare.write_behavior', 'ZERO_WRITE_PROJECTION'));
+
+        $duplicateQuery = http_build_query([
+            'mode' => 'compare',
+            'compare' => [$firstResultId, $firstResultId],
+        ]);
+        $this->actingAs($owner)
+            ->get('/simulation/results?'.$duplicateQuery)
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('results_workspace.compare.status', 'UNAVAILABLE')
+                ->where('results_workspace.compare.selection_valid', false)
+                ->where('results_workspace.compare.reason', 'COMPARE_DUPLICATE_CANONICAL_RESULT_LINEAGE'));
+
+        $this->assertNotSame($firstRevisionId, $secondRevisionId);
+        foreach ($watchedTables as $table) {
+            $this->assertSame($before[$table], DB::table($table)->count(), "{$table} changed during zero-write Results reads.");
+        }
+    }
+
+    #[Test]
+    public function result_projection_fails_closed_when_revision_lineage_forks(): void
+    {
+        $this->seed(SimulationEnterpriseWave1Seeder::class);
+        $owner = $this->owner();
+        $resultId = (string) DB::table('simulation_run_results')->value('id');
+        $capability = app(RunResultCapability::class);
+        $baseRevision = $capability->createResultRevision($resultId, []);
+        $capability->createResultRevision(
+            $resultId,
+            ['outcome' => 'ACHIEVED'],
+            'controller-c',
+            $baseRevision,
+            'تصحيح أول',
+        );
+        $capability->createResultRevision(
+            $resultId,
+            ['outcome' => 'NOT_ACHIEVED'],
+            'controller-c',
+            $baseRevision,
+            'تصحيح متعارض',
+        );
+        $revisionCount = DB::table('simulation_run_result_revisions')->count();
+
+        $this->actingAs($owner)
+            ->get('/simulation/results?mode=overview&result='.$resultId)
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('results.0.analytics.status', 'LINEAGE_RECONCILIATION_REQUIRED')
+                ->where('results.0.analytics.overview.lineage.status', 'LINEAGE_RECONCILIATION_REQUIRED')
+                ->where('results.0.analytics.overview.effective', null));
+
+        $this->assertSame($revisionCount, DB::table('simulation_run_result_revisions')->count());
+    }
+
+    #[Test]
+    public function zero_operation_replay_still_rejects_an_applied_operation_event(): void
+    {
+        $canonicalResult = new stdClass;
+        $canonicalResult->sealed_payload = json_encode(['operations' => []], JSON_THROW_ON_ERROR);
+        $canonicalResult->replay_timeline = json_encode([[
+            'sequence' => 1,
+            'event_type' => 'SIMULATION_OPERATION_APPLIED',
+            'payload' => ['operation_key' => 'zero-op-invalid-reference'],
+            'actor_id' => 'SYSTEM:TEST',
+            'occurred_at' => '2026-09-02T00:00:00Z',
+        ]], JSON_THROW_ON_ERROR);
+
+        $method = new ReflectionMethod(RunResultCapability::class, 'projectReplayAnalytics');
+        $method->setAccessible(true);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Timeline references operations but operations list is empty.');
+        $method->invoke(app(RunResultCapability::class), $canonicalResult);
     }
 
     #[Test]

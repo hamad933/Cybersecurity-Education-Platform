@@ -1,4 +1,16 @@
 export type SimulationSection = 'enterprise' | 'scenarios' | 'labs' | 'runs' | 'results';
+export type ResultMode = 'overview' | 'replay' | 'aar' | 'compare' | 'candidate-evidence';
+export type RunWorkspaceMode = 'preflight' | 'operations';
+export type ResultProjectionStatus =
+  | 'READY'
+  | 'LOADING'
+  | 'EMPTY'
+  | 'UNAVAILABLE'
+  | 'ERROR'
+  | 'INITIAL_REVISION_REQUIRED'
+  | 'LINEAGE_RECONCILIATION_REQUIRED'
+  | 'SEMANTIC_PROJECTOR_UNAVAILABLE'
+  | 'PARTIAL_ANALYTICS';
 
 export type NavigationItem = { key: SimulationSection; label: string; href: string };
 export type JsonMap = Record<string, unknown>;
@@ -254,6 +266,51 @@ export type LabTaskDependencyItem = {
   condition?: JsonMap | null;
 };
 
+export type RunPreflightTarget = PreparationTarget & {
+  status?: 'COMPATIBLE' | 'INCOMPATIBLE';
+  required_capabilities?: string[];
+  missing_capabilities?: string[];
+};
+
+export type RunPreflightDefinition = {
+  status: 'READY' | 'INCOMPATIBLE' | 'UNAVAILABLE' | 'ERROR';
+  run_type: 'Scenario Run' | 'Standalone Lab Run';
+  definition_id: string;
+  definition_slug?: string;
+  definition_title_ar?: string;
+  definition_revision?: number;
+  definition_status?: string;
+  definition_digest?: string;
+  environment_contract_digest?: string;
+  environment_binding_mode?: string;
+  execution_model?: string;
+  required_capabilities?: string[];
+  available_capabilities?: string[];
+  missing_capabilities?: string[];
+  targets?: RunPreflightTarget[];
+  target?: RunPreflightTarget | null;
+  provenance?: string;
+  source_fixture?: boolean;
+  blocking_reason?: string | null;
+};
+
+export type RunPreflightWorkspace = {
+  status: 'READY' | 'EMPTY' | 'UNAVAILABLE' | 'ERROR';
+  execution_model: 'CEP_INTERNAL_HIGH_FIDELITY_SIMULATION';
+  default_seed: number;
+  execution_modes: string[];
+  scenario_definitions: RunPreflightDefinition[];
+  lab_definitions: RunPreflightDefinition[];
+};
+
+export type RunWorkspaceProjection = {
+  status: 'READY' | 'EMPTY' | 'UNAVAILABLE' | 'ERROR';
+  mode: RunWorkspaceMode;
+  available_modes: RunWorkspaceMode[];
+  preflight_type: 'scenario' | 'standalone-lab';
+  definition_id: string | null;
+};
+
 export type RuntimeState = JsonMap & {
   engine?: string;
   trace_digest?: string;
@@ -276,8 +333,15 @@ export type RunItem = {
   execution_policies: JsonMap;
   runtime_state: RuntimeState;
   input_digest: string;
+  definition_digest: string;
   provenance: string;
   source_fixture: boolean;
+  prepared_at: string;
+  ready_at?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  stopped_at?: string | null;
+  failed_at?: string | null;
   available_actions: string[];
   events: EventItem[];
   operations: Array<{
@@ -292,6 +356,168 @@ export type RunItem = {
   snapshots: SnapshotItem[];
   checkpoints: CheckpointItem[];
   result_id?: string | null;
+};
+
+export type ResultRevisionProjection = {
+  id: string;
+  result_id: string;
+  revision_digest: string;
+  base_revision_id: string | null;
+  correction_reason?: string | null;
+  actor_identity?: string | null;
+  created_at: string;
+  outcome?: string | null;
+  score?: string | null;
+  summary_ar?: string | null;
+};
+
+export type ResultCanonicalProjection = {
+  result_id: string;
+  run_id: string;
+  result_revision: number;
+  result_digest: string;
+  provenance: string;
+  source_fixture: boolean;
+  sealed_by: string;
+  sealed_at: string;
+  run_type: string;
+  run_lifecycle: string;
+};
+
+export type ResultLineageProjection = {
+  status: ResultProjectionStatus;
+  revision_count?: number;
+  root_revision_id?: string | null;
+  effective_revision_id?: string | null;
+  revisions?: Array<{
+    id: string;
+    base_revision_id: string | null;
+    revision_digest: string;
+    actor_identity?: string | null;
+    correction_reason?: string | null;
+    created_at: string;
+  }>;
+};
+
+export type ReplayProjectionEvent = EventItem & {
+  source_ref: string;
+  projection_status: 'READY' | 'UNAVAILABLE';
+  operation_key?: string;
+  state_at_point: {
+    projection_scope: 'GOVERNED_OPERATION_CONTROLS_ONLY';
+    controls: Record<string, boolean>;
+  } | null;
+};
+
+export type ResultAnalyticsProjection = {
+  status: ResultProjectionStatus;
+  diagnostic_id?: string;
+  overview: {
+    status: ResultProjectionStatus;
+    canonical: ResultCanonicalProjection;
+    lineage: ResultLineageProjection;
+    effective: ResultRevisionProjection | null;
+  };
+  replay: {
+    status: ResultProjectionStatus;
+    reason?: string;
+    projector?: {
+      availability: string;
+      grammar_version: string | null;
+      semantic_version: string | null;
+      reason?: string;
+    };
+    events?: ReplayProjectionEvent[];
+    operation_count?: number | null;
+    write_behavior?: 'ZERO_WRITE_PROJECTION';
+  };
+  aar: {
+    status: ResultProjectionStatus;
+    reason?: string;
+    facts?: Array<{
+      id: string;
+      kind: string;
+      label_ar: string;
+      value: unknown;
+      source_ref: string;
+      sequence?: number;
+    }>;
+    operation_count?: number | null;
+    sealed_commentary?: {
+      value: string;
+      source_ref: string;
+      classification: 'SEALED_RESULT_COMMENTARY';
+    } | null;
+    unavailable_sections?: Array<{ key: string; reason: string }>;
+    source_policy?: string;
+    write_behavior?: 'ZERO_WRITE_PROJECTION';
+  };
+  candidate_evidence: {
+    status: ResultProjectionStatus;
+    reason?: string;
+    write_behavior?: 'ZERO_WRITE_SOURCE_PREVIEW';
+    w04_state?: 'NOT_CREATED_OR_CLAIMED';
+    envelope?: JsonMap;
+  };
+};
+
+export type ResultCompareProjection = {
+  status: ResultProjectionStatus;
+  selection_valid: boolean;
+  selected_result_ids: string[];
+  selected_run_ids: string[];
+  reason?: string;
+  comparison_semantics?: string;
+  write_behavior: 'ZERO_WRITE_PROJECTION';
+  items: Array<{
+    result_id: string;
+    run_id: string;
+    canonical_result_digest: string;
+    effective_revision_id: string;
+    effective_revision_digest: string;
+  }>;
+  dimensions: Array<{
+    key: string;
+    label_ar: string;
+    value_type: string;
+    source: string;
+    status: 'READY' | 'N/A';
+    compatible: boolean;
+    values: Array<{
+      result_id: string;
+      run_id: string;
+      value: string | number | boolean | null;
+      display: string;
+      availability: 'READY' | 'N/A';
+      source_ref: string;
+    }>;
+  }>;
+};
+
+export type ResultContextSelection =
+  | { kind: 'overview' }
+  | { kind: 'replay-event'; event: ReplayProjectionEvent }
+  | {
+      kind: 'aar-fact';
+      fact: {
+        id: string;
+        kind: string;
+        label_ar: string;
+        value: unknown;
+        source_ref: string;
+        sequence?: number;
+      };
+    }
+  | { kind: 'compare-dimension'; dimension: ResultCompareProjection['dimensions'][number] }
+  | { kind: 'candidate-evidence' };
+
+export type ResultsWorkspaceProjection = {
+  status: ResultProjectionStatus;
+  mode: ResultMode;
+  available_modes: ResultMode[];
+  selected_result_id: string | null;
+  compare_result_ids: string[];
+  compare: ResultCompareProjection;
 };
 
 export type ResultItem = {
@@ -311,27 +537,30 @@ export type ResultItem = {
   source_fixture: boolean;
   sealed_by: string;
   sealed_at: string;
-  replay_compare?: {
-    id: string;
-    integrity_match: boolean;
-    sealed_result_digest: string;
-    reconstructed_state_digest: string;
-    reconstruction: JsonMap;
-    actor_id: string;
-    compared_at: string;
-  } | null;
-  candidate_evidence_handoff?: {
-    id: string;
-    status: string;
-    candidate_manifest: JsonMap;
-    source_result_revision: number;
-    source_result_digest: string;
-    provenance: string;
-    source_fixture: boolean;
-    manifest_digest: string;
-    created_by: string;
-    intake_contract_ref?: string | null;
-  } | null;
+  analytics: ResultAnalyticsProjection;
+  legacy_history: {
+    replay_compare: {
+      id: string;
+      integrity_match: boolean;
+      sealed_result_digest: string;
+      reconstructed_state_digest: string;
+      reconstruction: JsonMap;
+      actor_id: string;
+      compared_at: string;
+    } | null;
+    candidate_evidence_handoff: {
+      id: string;
+      status: string;
+      candidate_manifest: JsonMap;
+      source_result_revision: number;
+      source_result_digest: string;
+      provenance: string;
+      source_fixture: boolean;
+      manifest_digest: string;
+      created_by: string;
+      intake_contract_ref?: string | null;
+    } | null;
+  };
 };
 
 export type WorkspaceProps = {
@@ -342,5 +571,8 @@ export type WorkspaceProps = {
   labs: LabItem[];
   runs: RunItem[];
   results: ResultItem[];
+  results_workspace: ResultsWorkspaceProjection | null;
+  run_preflight: RunPreflightWorkspace | null;
+  run_workspace: RunWorkspaceProjection | null;
   outcomes: string[];
 };

@@ -19,11 +19,15 @@ defineProps<{
   selectedId: string | null;
   selectedContextId: string | null;
   groups: StructureGroup[];
+  multiSelect?: boolean;
+  selectedIds?: string[];
+  selectionHint?: string;
 }>();
 
 const emit = defineEmits<{
   select: [id: string];
   selectContext: [id: string, kind: string];
+  toggle: [id: string];
 }>();
 </script>
 
@@ -33,6 +37,9 @@ const emit = defineEmits<{
       <p class="sim-kicker">LEFT · STRUCTURE</p>
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
+      <p v-if="multiSelect && selectionHint" class="sim-compare-selection-hint">
+        {{ selectionHint }}
+      </p>
     </div>
 
     <div v-if="items.length" class="sim-structure__items">
@@ -41,10 +48,18 @@ const emit = defineEmits<{
         :key="item.id"
         type="button"
         class="sim-structure-item"
-        :class="{ 'sim-structure-item--selected': item.id === selectedId }"
-        :aria-pressed="item.id === selectedId"
-        @click="emit('select', item.id)"
+        :class="{
+          'sim-structure-item--selected': multiSelect
+            ? selectedIds?.includes(item.id)
+            : item.id === selectedId,
+          'sim-structure-item--multi': multiSelect,
+        }"
+        :aria-pressed="multiSelect ? selectedIds?.includes(item.id) : item.id === selectedId"
+        @click="multiSelect ? emit('toggle', item.id) : emit('select', item.id)"
       >
+        <span v-if="multiSelect" class="sim-compare-check" aria-hidden="true">
+          {{ selectedIds?.includes(item.id) ? '✓' : '+' }}
+        </span>
         <span>{{ item.title }}</span>
         <small v-if="item.subtitle" class="sim-technical">{{ item.subtitle }}</small>
         <b v-if="item.state" class="sim-structure-item__state">{{ item.state }}</b>
