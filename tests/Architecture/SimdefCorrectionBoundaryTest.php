@@ -61,6 +61,7 @@ final class SimdefCorrectionBoundaryTest extends TestCase
     public function correction_schema_encodes_stable_identity_typed_ownership_lifecycle_and_immutable_children(): void
     {
         $migration = $this->source(database_path('migrations/2026_08_29_010000_cep_simdef_correction.php'));
+        $migration2 = $this->source(database_path('migrations/2026_08_30_010000_simdef_mno_correction.php'));
 
         foreach ([
             "Schema::create('simulation_enterprise_entities'",
@@ -72,7 +73,6 @@ final class SimdefCorrectionBoundaryTest extends TestCase
             "Schema::create('simulation_digital_twin_relationships'",
             "Schema::create('simulation_lab_task_nodes'",
             "Schema::create('simulation_lab_task_dependencies'",
-            'sim_baseline_revision_owner_fk',
             'sim_twin_component_scope_check',
             'sim_lab_environment_binding_check',
             'sim_lab_lifecycle_check',
@@ -80,6 +80,14 @@ final class SimdefCorrectionBoundaryTest extends TestCase
             'prevent_published_lab_child_mutation',
         ] as $required) {
             $this->assertStringContainsString($required, $migration);
+        }
+        
+        foreach ([
+            'sim_baseline_revision_owner_fk',
+            'sim_twin_revision_parent_fk',
+            'sim_twin_rel_ent_rel_pin_fk'
+        ] as $required) {
+            $this->assertStringContainsString($required, $migration2);
         }
     }
 
@@ -95,6 +103,7 @@ final class SimdefCorrectionBoundaryTest extends TestCase
             "Route::post('/device-template-revisions/{revision}/validate'",
             "Route::post('/digital-twin-revisions/{revision}/publish'",
             "Route::post('/digital-twin-revisions/{revision}/clone'",
+            "Route::post('/digital-twin-revisions/{revision}/baselines'",
             "Route::post('/labs/drafts'",
             "Route::post('/labs/{lab}/tasks'",
             "Route::post('/labs/{lab}/task-dependencies'",

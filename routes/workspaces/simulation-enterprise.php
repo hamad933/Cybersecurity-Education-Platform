@@ -24,8 +24,10 @@ Route::middleware('auth')
         Route::post('/digital-twin-revisions/{revision}/validate', [SimulationEnterpriseController::class, 'validateDigitalTwinRevision'])->whereUuid('revision')->name('digital-twin-revisions.validate');
         Route::post('/digital-twin-revisions/{revision}/publish', [SimulationEnterpriseController::class, 'publishDigitalTwinRevision'])->whereUuid('revision')->name('digital-twin-revisions.publish');
         Route::post('/digital-twin-revisions/{revision}/clone', [SimulationEnterpriseController::class, 'cloneDigitalTwinRevision'])->whereUuid('revision')->name('digital-twin-revisions.clone');
+        Route::post('/digital-twin-revisions/{revision}/baselines', [SimulationEnterpriseController::class, 'createBaseline'])->whereUuid('revision')->name('digital-twin-revisions.baselines.create');
 
         Route::post('/labs/drafts', [SimulationEnterpriseController::class, 'createLabDraft'])->name('labs.drafts.create');
+        Route::post('/labs/{lab}/facets', [SimulationEnterpriseController::class, 'updateLabDraftR20Facets'])->whereUuid('lab')->name('labs.facets.update');
         Route::post('/labs/{lab}/tasks', [SimulationEnterpriseController::class, 'addLabTask'])->whereUuid('lab')->name('labs.tasks.create');
         Route::post('/labs/{lab}/task-dependencies', [SimulationEnterpriseController::class, 'addLabTaskDependency'])->whereUuid('lab')->name('labs.task-dependencies.create');
         Route::post('/labs/{lab}/device-template-references', [SimulationEnterpriseController::class, 'addLabDeviceTemplateReference'])->whereUuid('lab')->name('labs.device-template-references.create');

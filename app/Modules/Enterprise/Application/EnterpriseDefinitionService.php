@@ -42,34 +42,71 @@ final class EnterpriseDefinitionService implements EnterpriseDefinitionAuthoring
     /** @param array<string, mixed> $attributes
      * @return array<string, mixed>
      */
-    public function createEntity(string $enterpriseId, array $attributes, string $actorId): array
+public function createEntity(string $enterpriseId, array $attributes, string $actorId): array
     {
         $this->assertActor($actorId);
         $this->requireRow('simulation_enterprises', $enterpriseId);
         $id = (string) Str::uuid7();
         $now = now();
+        $revId = (string) Str::uuid7();
 
-        DB::table(self::ENTITIES)->insert([
-            'id' => $id,
-            'enterprise_id' => $enterpriseId,
-            'entity_key' => $this->requiredString($attributes, 'entity_key'),
-            'entity_type' => $this->requiredString($attributes, 'entity_type'),
-            'name_ar' => $this->requiredString($attributes, 'name_ar'),
-            'name_en' => $this->nullableString($attributes['name_en'] ?? null),
-            'lifecycle_state' => $this->nullableString($attributes['lifecycle_state'] ?? null) ?? 'ACTIVE',
-            'properties' => $this->json($this->arrayValue($attributes['properties'] ?? [])),
-            'created_by' => $actorId,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        return DB::transaction(function () use ($enterpriseId, $attributes, $actorId, $id, $revId, $now) {
+            DB::table(self::ENTITIES)->insert([
+                'id' => $id,
+                'enterprise_id' => $enterpriseId,
+                'entity_key' => $this->requiredString($attributes, 'entity_key'),
+                'entity_type' => $this->requiredString($attributes, 'entity_type'),
+                'name_ar' => $this->requiredString($attributes, 'name_ar'),
+                'name_en' => $this->nullableString($attributes['name_en'] ?? null),
+                'created_by' => $actorId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            
+            $payload = [
+                'enterprise_id' => $enterpriseId,
+                'enterprise_entity_id' => $id,
+                'lifecycle_state' => $this->nullableString($attributes['lifecycle_state'] ?? null) ?? 'ACTIVE',
+                'properties' => $this->arrayValue($attributes['properties'] ?? [])
+            ];
+            
+            $hashPayload = $payload;
+            $sort = function (&$array) use (&$sort) {
+                if (is_array($array)) {
+                    ksort($array);
+                    foreach ($array as &$value) {
+                        if (is_array($value)) {
+                            $sort($value);
+                        }
+                    }
+                }
+            };
+            $sort($hashPayload);
+            $digest = hash('sha256', json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-        return $this->row(self::ENTITIES, $id);
+            DB::table('simulation_enterprise_entity_revisions')->insert([
+                'id' => $revId,
+                'enterprise_id' => $enterpriseId,
+                'enterprise_entity_id' => $id,
+                'revision' => 1,
+                'status' => 'PUBLISHED',
+                'based_on_revision_id' => null,
+                'lifecycle_state' => $payload['lifecycle_state'],
+                'properties' => $this->json($payload['properties']),
+                'digest' => $digest,
+                'published_at' => $now,
+                'created_by' => $actorId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            return $this->row(self::ENTITIES, $id);
+        });
     }
-
     /** @param array<string, mixed> $attributes
      * @return array<string, mixed>
      */
-    public function createRelationship(string $enterpriseId, array $attributes, string $actorId): array
+public function createRelationship(string $enterpriseId, array $attributes, string $actorId): array
     {
         $this->assertActor($actorId);
         $sourceId = $this->requiredString($attributes, 'source_entity_id');
@@ -84,24 +121,239 @@ final class EnterpriseDefinitionService implements EnterpriseDefinitionAuthoring
 
         $id = (string) Str::uuid7();
         $now = now();
-        DB::table(self::ENTERPRISE_RELATIONSHIPS)->insert([
-            'id' => $id,
-            'enterprise_id' => $enterpriseId,
-            'source_entity_id' => $sourceId,
-            'target_entity_id' => $targetId,
-            'relationship_type' => $relationshipType,
-            'properties' => $this->json($this->arrayValue($attributes['properties'] ?? [])),
-            'created_by' => $actorId,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        $revId = (string) Str::uuid7();
+        
+        return DB::transaction(function () use ($enterpriseId, $sourceId, $targetId, $relationshipType, $attributes, $actorId, $id, $revId, $now) {
+            DB::table(self::ENTERPRISE_RELATIONSHIPS)->insert([
+                'id' => $id,
+                'enterprise_id' => $enterpriseId,
+                'source_entity_id' => $sourceId,
+                'target_entity_id' => $targetId,
+                'relationship_type' => $relationshipType,
+                'created_by' => $actorId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            
+            $payload = [
+                'enterprise_id' => $enterpriseId,
+                'enterprise_relationship_id' => $id,
+                'properties' => $this->arrayValue($attributes['properties'] ?? [])
+            ];
+            $hashPayload = $payload;
+            $sort = function (&$array) use (&$sort) {
+                if (is_array($array)) {
+                    ksort($array);
+                    foreach ($array as &$value) {
+                        if (is_array($value)) {
+                            $sort($value);
+                        }
+                    }
+                }
+            };
+            $sort($hashPayload);
+            $digest = hash('sha256', json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-        return $this->row(self::ENTERPRISE_RELATIONSHIPS, $id);
+            DB::table('simulation_enterprise_relationship_revisions')->insert([
+                'id' => $revId,
+                'enterprise_id' => $enterpriseId,
+                'enterprise_relationship_id' => $id,
+                'revision' => 1,
+                'status' => 'PUBLISHED',
+                'based_on_revision_id' => null,
+                'properties' => $this->json($payload['properties']),
+                'digest' => $digest,
+                'published_at' => $now,
+                'created_by' => $actorId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            return $this->row(self::ENTERPRISE_RELATIONSHIPS, $id);
+        });
     }
-
     /** @param array<string, mixed> $definition
      * @return array<string, mixed>
      */
+public function createEntityDraft(string $enterpriseId, string $entityId, array $attributes, string $actorId): array
+    {
+        $this->assertActor($actorId);
+        $this->requireOwnedEntity($enterpriseId, $entityId);
+
+        return DB::transaction(function () use ($enterpriseId, $entityId, $attributes, $actorId): array {
+            DB::table(self::ENTITIES)->where('id', $entityId)->lockForUpdate()->first();
+            
+            $hasDraft = DB::table('simulation_enterprise_entity_revisions')
+                ->where('enterprise_entity_id', $entityId)
+                ->where('status', 'DRAFT')
+                ->exists();
+            if ($hasDraft) {
+                throw new LogicException('Entity already has an open revision.');
+            }
+
+            $previous = DB::table('simulation_enterprise_entity_revisions')
+                ->where('enterprise_entity_id', $entityId)
+                ->where('status', 'PUBLISHED')
+                ->orderByDesc('revision')
+                ->first();
+                
+            $revision = (int) DB::table('simulation_enterprise_entity_revisions')
+                ->where('enterprise_entity_id', $entityId)
+                ->max('revision') + 1;
+
+            $revId = (string) Str::uuid7();
+            $now = now();
+            
+            $payload = [
+                'enterprise_id' => $enterpriseId,
+                'enterprise_entity_id' => $entityId,
+                'lifecycle_state' => $this->nullableString($attributes['lifecycle_state'] ?? null) ?? ($previous->lifecycle_state ?? 'ACTIVE'),
+                'properties' => $this->arrayValue($attributes['properties'] ?? [])
+            ];
+            $hashPayload = $payload;
+            $sort = function (&$array) use (&$sort) {
+                if (is_array($array)) {
+                    ksort($array);
+                    foreach ($array as &$value) {
+                        if (is_array($value)) {
+                            $sort($value);
+                        }
+                    }
+                }
+            };
+            $sort($hashPayload);
+            $digest = hash('sha256', json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            DB::table('simulation_enterprise_entity_revisions')->insert([
+                'id' => $revId,
+                'enterprise_id' => $enterpriseId,
+                'enterprise_entity_id' => $entityId,
+                'revision' => $revision,
+                'status' => 'DRAFT',
+                'based_on_revision_id' => $previous?->id,
+                'lifecycle_state' => $payload['lifecycle_state'],
+                'properties' => $this->json($payload['properties']),
+                'digest' => $digest,
+                'created_by' => $actorId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            return $this->row('simulation_enterprise_entity_revisions', $revId);
+        });
+    }
+
+    public function publishEntityRevision(string $revisionId, string $actorId): array
+    {
+        $this->assertActor($actorId);
+
+        return DB::transaction(function () use ($revisionId, $actorId): array {
+            $revision = DB::table('simulation_enterprise_entity_revisions')->where('id', $revisionId)->where('status', 'DRAFT')->first();
+            if ($revision === null) {
+                throw new LogicException('Only a DRAFT entity revision can be published.');
+            }
+            DB::table(self::ENTITIES)->where('id', $revision->enterprise_entity_id)->lockForUpdate()->first();
+
+            DB::table('simulation_enterprise_entity_revisions')->where('id', $revisionId)->update([
+                'status' => 'PUBLISHED',
+                'published_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return $this->row('simulation_enterprise_entity_revisions', $revisionId);
+        });
+    }
+
+    public function createRelationshipDraft(string $enterpriseId, string $relationshipId, array $attributes, string $actorId): array
+    {
+        $this->assertActor($actorId);
+        $rel = DB::table(self::ENTERPRISE_RELATIONSHIPS)->where('id', $relationshipId)->where('enterprise_id', $enterpriseId)->first();
+        if ($rel === null) {
+            throw new DomainException('Relationship not found.');
+        }
+
+        return DB::transaction(function () use ($enterpriseId, $relationshipId, $attributes, $actorId): array {
+            DB::table(self::ENTERPRISE_RELATIONSHIPS)->where('id', $relationshipId)->lockForUpdate()->first();
+            
+            $hasDraft = DB::table('simulation_enterprise_relationship_revisions')
+                ->where('enterprise_relationship_id', $relationshipId)
+                ->where('status', 'DRAFT')
+                ->exists();
+            if ($hasDraft) {
+                throw new LogicException('Relationship already has an open revision.');
+            }
+
+            $previous = DB::table('simulation_enterprise_relationship_revisions')
+                ->where('enterprise_relationship_id', $relationshipId)
+                ->where('status', 'PUBLISHED')
+                ->orderByDesc('revision')
+                ->first();
+                
+            $revision = (int) DB::table('simulation_enterprise_relationship_revisions')
+                ->where('enterprise_relationship_id', $relationshipId)
+                ->max('revision') + 1;
+
+            $revId = (string) Str::uuid7();
+            $now = now();
+            
+            $payload = [
+                'enterprise_id' => $enterpriseId,
+                'enterprise_relationship_id' => $relationshipId,
+                'properties' => $this->arrayValue($attributes['properties'] ?? [])
+            ];
+            $hashPayload = $payload;
+            $sort = function (&$array) use (&$sort) {
+                if (is_array($array)) {
+                    ksort($array);
+                    foreach ($array as &$value) {
+                        if (is_array($value)) {
+                            $sort($value);
+                        }
+                    }
+                }
+            };
+            $sort($hashPayload);
+            $digest = hash('sha256', json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            DB::table('simulation_enterprise_relationship_revisions')->insert([
+                'id' => $revId,
+                'enterprise_id' => $enterpriseId,
+                'enterprise_relationship_id' => $relationshipId,
+                'revision' => $revision,
+                'status' => 'DRAFT',
+                'based_on_revision_id' => $previous?->id,
+                'properties' => $this->json($payload['properties']),
+                'digest' => $digest,
+                'created_by' => $actorId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            return $this->row('simulation_enterprise_relationship_revisions', $revId);
+        });
+    }
+
+    public function publishRelationshipRevision(string $revisionId, string $actorId): array
+    {
+        $this->assertActor($actorId);
+
+        return DB::transaction(function () use ($revisionId, $actorId): array {
+            $revision = DB::table('simulation_enterprise_relationship_revisions')->where('id', $revisionId)->where('status', 'DRAFT')->first();
+            if ($revision === null) {
+                throw new LogicException('Only a DRAFT relationship revision can be published.');
+            }
+            DB::table(self::ENTERPRISE_RELATIONSHIPS)->where('id', $revision->enterprise_relationship_id)->lockForUpdate()->first();
+
+            DB::table('simulation_enterprise_relationship_revisions')->where('id', $revisionId)->update([
+                'status' => 'PUBLISHED',
+                'published_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return $this->row('simulation_enterprise_relationship_revisions', $revisionId);
+        });
+    }
+
     public function createDeviceTemplateDraft(
         string $enterpriseId,
         string $templateKey,
@@ -311,34 +563,34 @@ final class EnterpriseDefinitionService implements EnterpriseDefinitionAuthoring
         $revision = $this->requireDefinitionRevision(self::TWIN_REVISIONS, $revisionId, ['DRAFT']);
         $scope = $this->requiredString($component, 'ownership_scope');
         $entityId = $this->nullableString($component['enterprise_entity_id'] ?? null);
+        $entityRevisionId = $this->nullableString($component['enterprise_entity_revision_id'] ?? null);
         $templateRevisionId = $this->nullableString($component['device_template_revision_id'] ?? null);
 
         if ($scope === 'ENTERPRISE_ENTITY') {
-            if ($entityId === null) {
-                throw new DomainException('Enterprise-backed Twin components require an Enterprise Entity ID.');
+            if ($entityId === null || $entityRevisionId === null) {
+                throw new DomainException('Enterprise-backed Twin components require both Enterprise Entity ID and Revision ID.');
             }
-            $this->requireOwnedEntity((string) $revision->enterprise_id, $entityId);
+            $entity = $this->requireOwnedEntity((string) $revision->enterprise_id, $entityId);
+            $entityRev = DB::table('simulation_enterprise_entity_revisions')
+                ->where('id', $entityRevisionId)
+                ->where('enterprise_entity_id', $entityId)
+                ->where('enterprise_id', $revision->enterprise_id)
+                ->where('status', 'PUBLISHED')
+                ->first();
+            if ($entityRev === null) {
+                throw new DomainException('Invalid or non-PUBLISHED Enterprise Entity Revision pinned.');
+            }
         } elseif ($scope === 'SIMULATION_LOCAL') {
-            if ($entityId !== null) {
+            if ($entityId !== null || $entityRevisionId !== null) {
                 throw new DomainException('Simulation-local Twin components cannot claim Enterprise Entity ownership.');
             }
         } else {
             throw new DomainException('Digital Twin component ownership scope is invalid.');
         }
 
-        if ($templateRevisionId !== null) {
-            $template = DB::table(self::DEVICE_REVISIONS)
-                ->where('id', $templateRevisionId)
-                ->where('enterprise_id', $revision->enterprise_id)
-                ->where('status', 'PUBLISHED')
-                ->first();
-            if ($template === null) {
-                throw new DomainException('Digital Twin components may reference only a published Device Template Revision owned by the same Enterprise.');
-            }
-        }
-
         $id = (string) Str::uuid7();
         $now = now();
+
         DB::table(self::TWIN_COMPONENTS)->insert([
             'id' => $id,
             'enterprise_id' => $revision->enterprise_id,
@@ -346,6 +598,7 @@ final class EnterpriseDefinitionService implements EnterpriseDefinitionAuthoring
             'component_key' => $this->requiredString($component, 'component_key'),
             'ownership_scope' => $scope,
             'enterprise_entity_id' => $entityId,
+            'enterprise_entity_revision_id' => $entityRevisionId,
             'device_template_revision_id' => $templateRevisionId,
             'name_ar' => $this->requiredString($component, 'name_ar'),
             'simulation_definition' => $this->json($this->arrayValue($component['simulation_definition'] ?? [])),
@@ -364,24 +617,60 @@ final class EnterpriseDefinitionService implements EnterpriseDefinitionAuthoring
     public function addDigitalTwinRelationship(string $revisionId, array $relationship, string $actorId): array
     {
         $this->assertActor($actorId);
-        $this->requireDefinitionRevision(self::TWIN_REVISIONS, $revisionId, ['DRAFT']);
+
+        $revision = $this->requireMutableTwinRevision($revisionId);
+
         $sourceId = $this->requiredString($relationship, 'source_component_id');
         $targetId = $this->requiredString($relationship, 'target_component_id');
-        $relationshipType = $this->requiredString($relationship, 'relationship_type');
+
+$relationshipType = $this->requiredString($relationship, 'relationship_type');
         if (! in_array($relationshipType, self::RELATIONSHIP_TYPES, true)) {
             throw new DomainException('Unsupported Digital Twin relationship type.');
         }
-        $this->requireTwinComponent($revisionId, $sourceId);
-        $this->requireTwinComponent($revisionId, $targetId);
+        $source = $this->requireTwinComponent($revisionId, $sourceId);
+        $target = $this->requireTwinComponent($revisionId, $targetId);
+        
+        $entRelId = $this->nullableString($relationship['enterprise_relationship_id'] ?? null);
+        $entRelRevId = $this->nullableString($relationship['enterprise_relationship_revision_id'] ?? null);
+        
+        if (($entRelId === null) !== ($entRelRevId === null)) {
+            throw new DomainException('Relationship bindings must have both ID and Revision ID null, or both non-null.');
+        }
+        
+        if ($entRelId !== null) {
+            $entRelRev = DB::table('simulation_enterprise_relationship_revisions')
+                ->where('id', $entRelRevId)
+                ->where('enterprise_relationship_id', $entRelId)
+                ->where('enterprise_id', $revision->enterprise_id)
+                ->where('status', 'PUBLISHED')
+                ->first();
+                
+            if ($entRelRev === null) {
+                throw new DomainException('Invalid or non-PUBLISHED Enterprise Relationship Revision pinned.');
+            }
+            
+            $entRel = DB::table('simulation_enterprise_relationships')
+                ->where('id', $entRelId)
+                ->first();
+                
+            if ($entRel->source_entity_id !== $source->enterprise_entity_id || $entRel->target_entity_id !== $target->enterprise_entity_id) {
+                throw new DomainException('Pinned Relationship endpoints do not match the Twin component endpoints.');
+            }
+        }
 
         $id = (string) Str::uuid7();
         $now = now();
-        DB::table(self::TWIN_RELATIONSHIPS)->insert([
+
+DB::table(self::TWIN_RELATIONSHIPS)->insert([
             'id' => $id,
+            'enterprise_id' => $revision->enterprise_id,
             'digital_twin_revision_id' => $revisionId,
+
             'source_component_id' => $sourceId,
             'target_component_id' => $targetId,
-            'relationship_type' => $relationshipType,
+            'enterprise_relationship_id' => $entRelId,
+            'enterprise_relationship_revision_id' => $entRelRevId,
+            'relationship_type' => $this->requiredString($relationship, 'relationship_type'),
             'properties' => $this->json($this->arrayValue($relationship['properties'] ?? [])),
             'created_by' => $actorId,
             'created_at' => $now,
@@ -389,8 +678,11 @@ final class EnterpriseDefinitionService implements EnterpriseDefinitionAuthoring
         ]);
         $this->refreshTwinDraftDigest($revisionId);
 
+
         return $this->row(self::TWIN_RELATIONSHIPS, $id);
     }
+
+        
 
     /** @return array<string, mixed> */
     public function validateDigitalTwinRevision(string $revisionId, string $actorId): array
@@ -497,6 +789,7 @@ final class EnterpriseDefinitionService implements EnterpriseDefinitionAuthoring
                     'component_key' => $component->component_key,
                     'ownership_scope' => $component->ownership_scope,
                     'enterprise_entity_id' => $component->enterprise_entity_id,
+                    'enterprise_entity_revision_id' => $component->enterprise_entity_revision_id ?? null,
                     'device_template_revision_id' => $component->device_template_revision_id,
                     'name_ar' => $component->name_ar,
                     'simulation_definition' => $component->simulation_definition,
@@ -549,6 +842,7 @@ final class EnterpriseDefinitionService implements EnterpriseDefinitionAuthoring
                 'component_key' => (string) $component->component_key,
                 'ownership_scope' => (string) $component->ownership_scope,
                 'enterprise_entity_id' => $component->enterprise_entity_id === null ? null : (string) $component->enterprise_entity_id,
+                'enterprise_entity_revision_id' => ($component->enterprise_entity_revision_id ?? null) === null ? null : (string) $component->enterprise_entity_revision_id,
                 'device_template_revision_id' => $component->device_template_revision_id === null ? null : (string) $component->device_template_revision_id,
                 'name_ar' => (string) $component->name_ar,
                 'simulation_definition' => $this->decode($component->simulation_definition),
@@ -573,6 +867,7 @@ final class EnterpriseDefinitionService implements EnterpriseDefinitionAuthoring
                 'kind' => $component['ownership_scope'],
                 'ownership_scope' => $component['ownership_scope'],
                 'enterprise_entity_id' => $component['enterprise_entity_id'],
+                'enterprise_entity_revision_id' => $component['enterprise_entity_revision_id'] ?? null,
                 'device_template_revision_id' => $component['device_template_revision_id'],
                 'simulation_definition' => $component['simulation_definition'],
             ], $components),
@@ -580,6 +875,8 @@ final class EnterpriseDefinitionService implements EnterpriseDefinitionAuthoring
                 'id' => $relationship['id'],
                 'from' => $relationship['from'],
                 'to' => $relationship['to'],
+                'enterprise_relationship_id' => $relationship['enterprise_relationship_id'] ?? null,
+                'enterprise_relationship_revision_id' => $relationship['enterprise_relationship_revision_id'] ?? null,
                 'type' => $relationship['relationship_type'],
                 'properties' => $relationship['properties'],
             ], $relationships),
@@ -796,4 +1093,101 @@ final class EnterpriseDefinitionService implements EnterpriseDefinitionAuthoring
 
         return array_map(fn (mixed $item): mixed => $this->canonicalize($item), $value);
     }
+
+    /**
+     * @param string $revisionId
+     * @param string $actorId
+     * @return array<string, mixed>
+     */
+    public function createBaseline(string $revisionId, string $actorId): array
+    {
+        $this->assertActor($actorId);
+
+        return DB::transaction(function () use ($revisionId, $actorId): array {
+            $revision = DB::table(self::TWIN_REVISIONS)
+                ->where('id', $revisionId)
+                ->where('status', 'PUBLISHED')
+                ->first();
+
+            if ($revision === null) {
+                throw new LogicException('Digital Twin revision must be published to create a baseline.');
+            }
+            
+            // Lock the stable twin identity to ensure race-safe monotonic revision across any twin revisions
+            DB::table(self::DIGITAL_TWINS)
+                ->where('id', $revision->digital_twin_id)
+                ->lockForUpdate()
+                ->first();
+            
+            $baselineId = (string) Str::uuid7();
+            $now = now();
+            
+            $nextRevision = (int) DB::table('simulation_baselines')
+                ->where('digital_twin_id', $revision->digital_twin_id)
+                ->max('revision') + 1;
+                
+            $payload = $this->twinRevisionPayload($revision);
+            
+            $capabilities = [];
+            $components = [];
+            foreach ($this->arrayValue($payload['components']) as $component) {
+                $componentCap = [];
+                if (isset($component['device_template_revision_id']) && $component['device_template_revision_id'] !== null) {
+                    $templateRev = DB::table(self::DEVICE_REVISIONS)
+                        ->where('id', $component['device_template_revision_id'])
+                        ->where('enterprise_id', $revision->enterprise_id)
+                        ->where('status', 'PUBLISHED')
+                        ->first();
+                        
+                    if ($templateRev === null) {
+                         throw new LogicException('Missing or non-PUBLISHED pinned device template revision.');
+                    }
+                    if (isset($templateRev->capabilities)) {
+                        $caps = $this->decode($templateRev->capabilities);
+                        if (is_array($caps)) {
+                            $componentCap = $caps;
+                            $capabilities = array_merge($capabilities, $caps);
+                        }
+                    }
+                }
+                $compCopy = $component;
+                $compCopy['resolved_capabilities'] = $componentCap;
+                // Remove device_template if any to prevent non-existent nested assumptions
+                unset($compCopy['device_template']);
+                $components[] = $compCopy;
+            }
+            $capabilities = array_values(array_unique($capabilities));
+            sort($capabilities);
+
+            $state = [
+                'enterprise_id' => $revision->enterprise_id,
+                'digital_twin_id' => $revision->digital_twin_id,
+                'digital_twin_revision_id' => $revision->id,
+                'digital_twin_revision' => $revision->revision,
+                'components' => $components,
+                'relationships' => $this->arrayValue($payload['relationships']),
+                'capabilities' => $capabilities,
+            ];
+            
+            $digest = $this->digest($state);
+            
+            DB::table('simulation_baselines')->insert([
+                'id' => $baselineId,
+                'enterprise_id' => $revision->enterprise_id,
+                'digital_twin_id' => $revision->digital_twin_id,
+                'digital_twin_revision_id' => $revision->id,
+                'revision' => $nextRevision,
+                'status' => 'PUBLISHED',
+                'digest' => $digest,
+                'state' => $this->json($state),
+                'published_at' => $now,
+                'created_by' => $actorId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            
+            return $this->row('simulation_baselines', $baselineId);
+        });
+    }
+
 }

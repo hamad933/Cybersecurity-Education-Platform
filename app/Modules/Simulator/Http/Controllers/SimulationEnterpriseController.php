@@ -241,6 +241,29 @@ final class SimulationEnterpriseController extends Controller
         ), 'cep.simulation.labs');
     }
 
+public function updateLabDraftR20Facets(Request $request, string $lab): RedirectResponse
+    {
+        $validated = $request->validate([
+            'knowledge_links' => ['nullable', 'array'],
+            'simulation_capabilities' => ['nullable', 'array'],
+            'environment_profile' => ['nullable', 'array'],
+            'initial_state' => ['nullable', 'array'],
+            'preconditions' => ['nullable', 'array'],
+            'roles' => ['nullable', 'array'],
+            'tools' => ['nullable', 'array'],
+            'expected_signals' => ['nullable', 'array'],
+            'validation_rules' => ['nullable', 'array'],
+            'safety_reset' => ['nullable', 'array'],
+            'result_schema' => ['nullable', 'array'],
+            'completion_criteria' => ['nullable', 'array'],
+        ]);
+
+        return $this->mutate(
+            fn () => $this->definitions->updateLabDraftR20Facets($lab, $validated, $this->actorId()),
+            'cep.simulation.labs',
+        );
+    }
+
     public function addLabTask(Request $request, string $lab): RedirectResponse
     {
         $validated = $request->validate([
@@ -750,5 +773,14 @@ final class SimulationEnterpriseController extends Controller
         $decoded = $this->decode($value);
 
         return array_is_list($decoded) ? $decoded : [];
+    }
+
+    public function createBaseline(Request $request, string $revision): RedirectResponse
+    {
+        $actorId = $request->user()->id;
+
+        $this->enterpriseDefinitionAuthoring->createBaseline($revision, $actorId);
+
+        return redirect()->back();
     }
 }

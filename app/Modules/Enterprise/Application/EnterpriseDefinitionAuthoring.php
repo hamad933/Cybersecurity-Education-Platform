@@ -14,6 +14,23 @@ interface EnterpriseDefinitionAuthoring
      */
     public function createRelationship(string $enterpriseId, array $attributes, string $actorId): array;
 
+    /** @param array<string, mixed> $attributes
+     * @return array<string, mixed>
+     */
+    public function createEntityDraft(string $enterpriseId, string $entityId, array $attributes, string $actorId): array;
+
+    /** @return array<string, mixed> */
+    public function publishEntityRevision(string $revisionId, string $actorId): array;
+
+    /** @param array<string, mixed> $attributes
+     * @return array<string, mixed>
+     */
+    public function createRelationshipDraft(string $enterpriseId, string $relationshipId, array $attributes, string $actorId): array;
+
+    /** @return array<string, mixed> */
+    public function publishRelationshipRevision(string $revisionId, string $actorId): array;
+
+
     /** @param array<string, mixed> $definition
      * @return array<string, mixed>
      */
@@ -61,4 +78,11 @@ interface EnterpriseDefinitionAuthoring
 
     /** @return array<string, mixed> */
     public function cloneDigitalTwinRevision(string $revisionId, string $actorId): array;
+
+    /**
+     * @param string $revisionId
+     * @param string $actorId
+     * @return array<string, mixed>
+     */
+    public function createBaseline(string $revisionId, string $actorId): array;
 }

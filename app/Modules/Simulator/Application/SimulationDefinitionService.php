@@ -90,6 +90,18 @@ final class SimulationDefinitionService
                 'environment_contract' => $environmentContract,
                 'configuration' => $configuration,
                 'validation' => $validation,
+                'knowledge_links' => null,
+                'simulation_capabilities' => null,
+                'environment_profile' => null,
+                'initial_state' => null,
+                'preconditions' => null,
+                'roles' => null,
+                'tools' => null,
+                'expected_signals' => null,
+                'validation_rules' => null,
+                'safety_reset' => null,
+                'result_schema' => null,
+                'completion_criteria' => null,
                 'tasks' => [],
                 'dependencies' => [],
                 'device_template_references' => [],
@@ -110,6 +122,19 @@ final class SimulationDefinitionService
                 'environment_contract' => $this->json($environmentContract),
                 'configuration' => $this->json($configuration),
                 'validation' => $this->json($validation),
+                'schema_version' => 'R20',
+                'knowledge_links' => null,
+                'simulation_capabilities' => null,
+                'environment_profile' => null,
+                'initial_state' => null,
+                'preconditions' => null,
+                'roles' => null,
+                'tools' => null,
+                'expected_signals' => null,
+                'validation_rules' => null,
+                'safety_reset' => null,
+                'result_schema' => null,
+                'completion_criteria' => null,
                 'validation_report' => null,
                 'digest' => $this->digest($definition),
                 'validated_at' => null,
@@ -200,6 +225,35 @@ final class SimulationDefinitionService
     /** @param array<string, mixed> $attributes
      * @return array<string, mixed>
      */
+public function updateLabDraftR20Facets(string $labDefinitionId, array $facets, string $actorId): array
+    {
+        $this->assertActor($actorId);
+        $definition = $this->requireDefinition($labDefinitionId, ['DRAFT']);
+        if (($definition->schema_version ?? 'LEGACY_V1') !== 'R20') {
+            throw new LogicException('Can only author R20 facets on an R20 draft.');
+        }
+        
+        return DB::transaction(function () use ($labDefinitionId, $facets): array {
+            $update = [];
+            $facetKeys = [
+                'knowledge_links', 'simulation_capabilities', 'environment_profile',
+                'initial_state', 'preconditions', 'roles', 'tools', 'expected_signals',
+                'validation_rules', 'safety_reset', 'result_schema', 'completion_criteria'
+            ];
+            
+            foreach ($facetKeys as $key) {
+                if (array_key_exists($key, $facets)) {
+                    $update[$key] = $this->json($this->arrayValue($facets[$key]));
+                }
+            }
+            if ($update !== []) {
+                DB::table(self::LAB_DEFINITIONS)->where('id', $labDefinitionId)->update($update);
+                $this->refreshDraftDigest($labDefinitionId);
+            }
+            return $this->row(self::LAB_DEFINITIONS, $labDefinitionId);
+        });
+    }
+
     public function addLabTask(string $labDefinitionId, array $attributes, string $actorId): array
     {
         $this->assertActor($actorId);
@@ -305,7 +359,36 @@ final class SimulationDefinitionService
     {
         $this->assertActor($actorId);
         $definition = $this->requireDefinition($labDefinitionId, ['DRAFT', 'VALIDATED']);
-        $payload = $this->definitionPayload($definition);
+        
+$schemaVersion = $definition->schema_version ?? 'LEGACY_V1';
+            if ($schemaVersion === 'R20') {
+                $required = [
+                    'knowledge_links', 'simulation_capabilities', 'environment_profile',
+                    'initial_state', 'preconditions', 'roles', 'tools', 'expected_signals',
+                    'validation_rules', 'safety_reset', 'result_schema', 'completion_criteria'
+                ];
+                foreach ($required as $field) {
+                    $val = $definition->{$field};
+                    if ($val === null) {
+                        throw new LogicException("Cannot validate R20 lab definition without full non-empty contract (missing $field).");
+                    }
+                    if (is_string($val)) {
+                        $decoded = json_decode($val, true);
+                        if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
+                            throw new LogicException("Cannot validate R20 lab definition without full non-empty contract (invalid $field).");
+                        }
+                        if (empty($decoded) && $decoded !== '0' && $decoded !== 0 && $decoded !== false) {
+                            throw new LogicException("Cannot validate R20 lab definition without full non-empty contract (empty $field).");
+                        }
+                    } elseif (empty($val) && $val !== '0' && $val !== 0 && $val !== false) {
+                        throw new LogicException("Cannot validate R20 lab definition without full non-empty contract (empty $field).");
+                    }
+                }
+            } else {
+                throw new LogicException('Cannot validate legacy lab definition. Clone and upgrade to R20 schema first.');
+            }
+            
+            $payload = $this->definitionPayload($definition);
         $tasks = $this->listValue($payload['tasks']);
         $dependencies = $this->listValue($payload['dependencies']);
         $errors = [];
@@ -379,6 +462,24 @@ final class SimulationDefinitionService
             if ($definition === null || (string) $definition->status !== 'VALIDATED') {
                 throw new LogicException('Lab publication requires a validated draft.');
             }
+            
+            
+            $schemaVersion = $definition->schema_version ?? 'LEGACY_V1';
+            if ($schemaVersion === 'R20') {
+                $required = [
+                    'knowledge_links', 'simulation_capabilities', 'environment_profile',
+                    'initial_state', 'preconditions', 'roles', 'tools', 'expected_signals',
+                    'validation_rules', 'safety_reset', 'result_schema', 'completion_criteria'
+                ];
+                foreach ($required as $field) {
+                    if ($definition->{$field} === null) {
+                        throw new LogicException("Cannot publish R20 lab definition without full contract (missing $field).");
+                    }
+                }
+            } else {
+                throw new LogicException('Cannot publish legacy lab definition. Clone and upgrade to R20 schema first.');
+            }
+    
             $digest = $this->digest($this->definitionPayload($definition));
             $report = $this->decode($definition->validation_report);
             if (($report['valid'] ?? false) !== true || ! is_string($report['validated_digest'] ?? null) || ! hash_equals($report['validated_digest'], $digest)) {
@@ -428,6 +529,19 @@ final class SimulationDefinitionService
                 'environment_contract' => $source->environment_contract,
                 'configuration' => $source->configuration,
                 'validation' => $source->validation,
+                'schema_version' => $source->schema_version ?? 'LEGACY_V1',
+                'knowledge_links' => $source->knowledge_links,
+                'simulation_capabilities' => $source->simulation_capabilities,
+                'environment_profile' => $source->environment_profile,
+                'initial_state' => $source->initial_state,
+                'preconditions' => $source->preconditions,
+                'roles' => $source->roles,
+                'tools' => $source->tools,
+                'expected_signals' => $source->expected_signals,
+                'validation_rules' => $source->validation_rules,
+                'safety_reset' => $source->safety_reset,
+                'result_schema' => $source->result_schema,
+                'completion_criteria' => $source->completion_criteria,
                 'validation_report' => null,
                 'digest' => $source->digest,
                 'validated_at' => null,
@@ -606,6 +720,7 @@ final class SimulationDefinitionService
             ])->all();
 
         return [
+            'schema_version' => $definition->schema_version ?? 'LEGACY_V1',
             'lab_id' => (string) $definition->lab_id,
             'revision' => (int) $definition->revision,
             'environment_binding_mode' => (string) $definition->environment_binding_mode,
@@ -614,6 +729,18 @@ final class SimulationDefinitionService
             'environment_contract' => $this->decode($definition->environment_contract),
             'configuration' => $this->decode($definition->configuration),
             'validation' => $this->decode($definition->validation),
+            'knowledge_links' => $definition->knowledge_links === null ? null : $this->decode($definition->knowledge_links),
+            'simulation_capabilities' => $definition->simulation_capabilities === null ? null : $this->decode($definition->simulation_capabilities),
+            'environment_profile' => $definition->environment_profile === null ? null : $this->decode($definition->environment_profile),
+            'initial_state' => $definition->initial_state === null ? null : $this->decode($definition->initial_state),
+            'preconditions' => $definition->preconditions === null ? null : $this->decode($definition->preconditions),
+            'roles' => $definition->roles === null ? null : $this->decode($definition->roles),
+            'tools' => $definition->tools === null ? null : $this->decode($definition->tools),
+            'expected_signals' => $definition->expected_signals === null ? null : $this->decode($definition->expected_signals),
+            'validation_rules' => $definition->validation_rules === null ? null : $this->decode($definition->validation_rules),
+            'safety_reset' => $definition->safety_reset === null ? null : $this->decode($definition->safety_reset),
+            'result_schema' => $definition->result_schema === null ? null : $this->decode($definition->result_schema),
+            'completion_criteria' => $definition->completion_criteria === null ? null : $this->decode($definition->completion_criteria),
             'tasks' => $tasks,
             'dependencies' => $dependencies,
             'device_template_references' => $templateReferences,

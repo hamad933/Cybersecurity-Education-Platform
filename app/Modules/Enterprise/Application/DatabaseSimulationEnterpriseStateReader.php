@@ -120,14 +120,32 @@ final class DatabaseSimulationEnterpriseStateReader implements SimulationEnterpr
                     ->where('enterprise_id', $enterprise->id)
                     ->orderBy('entity_key')
                     ->get()
-                    ->map(fn (stdClass $entity): array => $this->entityArray($entity))
+                    ->map(function (stdClass $entity): array {
+                        $revisions = DB::table('simulation_enterprise_entity_revisions')
+                            ->where('enterprise_entity_id', $entity->id)
+                            ->where('status', 'PUBLISHED')
+                            ->orderByDesc('revision')
+                            ->get()
+                            ->map(fn (stdClass $rev): array => $this->entityRevisionArray($rev))
+                            ->all();
+                        return $this->entityArray($entity) + ['revisions' => $revisions];
+                    })
                     ->all();
                 $relationships = DB::table(self::ENTERPRISE_RELATIONSHIPS_TABLE)
                     ->where('enterprise_id', $enterprise->id)
                     ->orderBy('relationship_type')
                     ->orderBy('id')
                     ->get()
-                    ->map(fn (stdClass $relationship): array => $this->enterpriseRelationshipArray($relationship))
+                    ->map(function (stdClass $relationship): array {
+                        $revisions = DB::table('simulation_enterprise_relationship_revisions')
+                            ->where('enterprise_relationship_id', $relationship->id)
+                            ->where('status', 'PUBLISHED')
+                            ->orderByDesc('revision')
+                            ->get()
+                            ->map(fn (stdClass $rev): array => $this->enterpriseRelationshipRevisionArray($rev))
+                            ->all();
+                        return $this->enterpriseRelationshipArray($relationship) + ['revisions' => $revisions];
+                    })
                     ->all();
                 $deviceTemplates = DB::table(self::DEVICE_TEMPLATES_TABLE)
                     ->where('enterprise_id', $enterprise->id)
@@ -277,7 +295,46 @@ final class DatabaseSimulationEnterpriseStateReader implements SimulationEnterpr
     }
 
     /** @return array<string, mixed> */
-    private function entityArray(stdClass $entity): array
+        /** @return array<string, mixed> */
+    private function entityRevisionArray(stdClass $rev): array
+    {
+        return [
+            'id' => (string) $rev->id,
+            'enterprise_id' => (string) $rev->enterprise_id,
+            'enterprise_entity_id' => (string) $rev->enterprise_entity_id,
+            'revision' => (int) $rev->revision,
+            'status' => (string) $rev->status,
+            'based_on_revision_id' => $rev->based_on_revision_id === null ? null : (string) $rev->based_on_revision_id,
+            'lifecycle_state' => (string) $rev->lifecycle_state,
+            'properties' => $this->decodeJson($rev->properties),
+            'digest' => (string) $rev->digest,
+            'published_at' => $rev->published_at === null ? null : (string) $rev->published_at,
+            'created_by' => $rev->created_by === null ? null : (string) $rev->created_by,
+            'created_at' => (string) $rev->created_at,
+            'updated_at' => (string) $rev->updated_at,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function enterpriseRelationshipRevisionArray(stdClass $rev): array
+    {
+        return [
+            'id' => (string) $rev->id,
+            'enterprise_id' => (string) $rev->enterprise_id,
+            'enterprise_relationship_id' => (string) $rev->enterprise_relationship_id,
+            'revision' => (int) $rev->revision,
+            'status' => (string) $rev->status,
+            'based_on_revision_id' => $rev->based_on_revision_id === null ? null : (string) $rev->based_on_revision_id,
+            'properties' => $this->decodeJson($rev->properties),
+            'digest' => (string) $rev->digest,
+            'published_at' => $rev->published_at === null ? null : (string) $rev->published_at,
+            'created_by' => $rev->created_by === null ? null : (string) $rev->created_by,
+            'created_at' => (string) $rev->created_at,
+            'updated_at' => (string) $rev->updated_at,
+        ];
+    }
+    
+private function entityArray(stdClass $entity): array
     {
         return [
             'id' => (string) $entity->id,
@@ -286,10 +343,7 @@ final class DatabaseSimulationEnterpriseStateReader implements SimulationEnterpr
             'entity_type' => (string) $entity->entity_type,
             'name_ar' => (string) $entity->name_ar,
             'name_en' => $entity->name_en === null ? null : (string) $entity->name_en,
-            'lifecycle_state' => (string) $entity->lifecycle_state,
-            'properties' => $this->decodeJson($entity->properties),
-        ];
-    }
+        ];    }
 
     /** @return array<string, mixed> */
     private function enterpriseRelationshipArray(stdClass $relationship): array
@@ -300,9 +354,7 @@ final class DatabaseSimulationEnterpriseStateReader implements SimulationEnterpr
             'source_entity_id' => (string) $relationship->source_entity_id,
             'target_entity_id' => (string) $relationship->target_entity_id,
             'relationship_type' => (string) $relationship->relationship_type,
-            'properties' => $this->decodeJson($relationship->properties),
-        ];
-    }
+        ];    }
 
     /** @return array<string, mixed> */
     private function deviceTemplateRevisionArray(stdClass $revision): array
@@ -339,6 +391,7 @@ final class DatabaseSimulationEnterpriseStateReader implements SimulationEnterpr
             'component_key' => (string) $component->component_key,
             'ownership_scope' => (string) $component->ownership_scope,
             'enterprise_entity_id' => $component->enterprise_entity_id === null ? null : (string) $component->enterprise_entity_id,
+            'enterprise_entity_revision_id' => ($component->enterprise_entity_revision_id ?? null) === null ? null : (string) $component->enterprise_entity_revision_id,
             'device_template_revision_id' => $component->device_template_revision_id === null ? null : (string) $component->device_template_revision_id,
             'name_ar' => (string) $component->name_ar,
             'simulation_definition' => $this->decodeJson($component->simulation_definition),
@@ -352,6 +405,8 @@ final class DatabaseSimulationEnterpriseStateReader implements SimulationEnterpr
             'id' => (string) $relationship->id,
             'source_component_id' => (string) $relationship->source_component_id,
             'target_component_id' => (string) $relationship->target_component_id,
+            'enterprise_relationship_id' => ($relationship->enterprise_relationship_id ?? null) === null ? null : (string) $relationship->enterprise_relationship_id,
+            'enterprise_relationship_revision_id' => ($relationship->enterprise_relationship_revision_id ?? null) === null ? null : (string) $relationship->enterprise_relationship_revision_id,
             'relationship_type' => (string) $relationship->relationship_type,
             'properties' => $this->decodeJson($relationship->properties),
         ];
