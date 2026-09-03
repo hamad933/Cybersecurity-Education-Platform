@@ -183,6 +183,11 @@ const copyReconciliationNote = async (claimId: string) => {
               class="focus-ring rounded-lg border border-slate-700 px-2.5 py-1 text-[10px] font-bold text-slate-300 hover:bg-slate-800 disabled:opacity-40"
               :disabled="!reconciliationNotes[conflict.claim_id]?.trim()"
               @click="copyReconciliationNote(conflict.claim_id)"
+              :aria-label="
+                copiedClaimId === conflict.claim_id
+                  ? `نُسخت مذكرة التعارض للادعاء ${conflict.claim_id}`
+                  : `نسخ المذكرة المؤقتة للادعاء ${conflict.claim_id}`
+              "
             >
               {{ copiedClaimId === conflict.claim_id ? 'نُسخت المذكرة' : 'نسخ المذكرة المؤقتة' }}
             </button>

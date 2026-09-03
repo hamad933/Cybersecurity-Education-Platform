@@ -263,6 +263,37 @@ const isEditorBlockVisible = (index: number): boolean => {
   }
   return true;
 };
+
+watch(activeBlockIndex, (index) => {
+  for (let headingIndex = index - 1; headingIndex >= 0; headingIndex -= 1) {
+    const heading = form.blocks[headingIndex];
+    if (heading?.type === 'heading') {
+      if (collapsedEditorSections.value.has(heading.id) && index < editorSectionBoundary(headingIndex)) {
+        // Auto-expand the section containing the focused block
+        const next = new Set(collapsedEditorSections.value);
+        next.delete(heading.id);
+        collapsedEditorSections.value = next;
+      }
+      break;
+    }
+  }
+});
+
+
+watch(activeBlockIndex, (index) => {
+  for (let headingIndex = index - 1; headingIndex >= 0; headingIndex -= 1) {
+    const heading = form.blocks[headingIndex];
+    if (heading?.type === 'heading') {
+      if (collapsedEditorSections.value.has(heading.id) && index < editorSectionBoundary(headingIndex)) {
+        const next = new Set(collapsedEditorSections.value);
+        next.delete(heading.id);
+        collapsedEditorSections.value = next;
+      }
+      break;
+    }
+  }
+});
+
 const toggleEditorSection = (index: number) => {
   const heading = form.blocks[index];
   if (!heading || heading.type !== 'heading') return;
@@ -1488,7 +1519,21 @@ const loadComparison = async () => {
             </p>
           </section>
         </div>
+
+
         <div v-else class="mt-4 space-y-2">
+          <div v-if="context.navigation.research_quality" class="mb-3 text-left">
+             <Link :href="context.navigation.research_quality" class="library-command text-cyan-300">
+               ⬀ جودة البحث للمصادر
+             </Link>
+          </div>
+
+          <div v-if="context.navigation.research_quality" class="mb-3 text-left">
+             <Link :href="context.navigation.research_quality" class="library-command text-cyan-300">
+               ⬀ جودة البحث للمصادر
+             </Link>
+          </div>
+
           <article v-for="source in context.sources" :key="source.id" class="library-source-card">
             <div class="flex items-start justify-between gap-2">
               <div class="min-w-0">

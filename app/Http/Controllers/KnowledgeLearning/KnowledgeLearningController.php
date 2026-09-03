@@ -35,6 +35,13 @@ final class KnowledgeLearningController extends Controller
     {
         return Inertia::render('KnowledgeLearning/Visualize', $workspace->visualize(
             $this->queryValue($request, 'object'),
+            [
+                'map' => $this->queryValue($request, 'map'),
+                'view' => $this->queryValue($request, 'view'),
+                'overlay' => $this->queryValue($request, 'overlay'),
+                'filter' => $this->queryValue($request, 'filter'),
+                'selection' => $this->queryValue($request, 'selection'),
+            ],
         ));
     }
 

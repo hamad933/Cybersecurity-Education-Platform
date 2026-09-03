@@ -65,7 +65,29 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
     >
       <div class="w-full px-0 py-3 sm:px-4 xl:px-6">
         <div
-          v-if="
+          v-if="['LOADING', 'INITIALIZING'].includes(quality.source_selection.state)"
+          role="status"
+          aria-live="polite"
+          class="mb-3 rounded-xl border border-blue-700/60 bg-blue-950/40 px-4 py-2.5 text-xs text-blue-200"
+        >
+          جاري تحميل بيانات المصدر وتوليد سجلات المنشأ...
+        </div>
+        <div
+          v-else-if="['ERROR', 'UNAVAILABLE'].includes(quality.source_selection.state)"
+          role="alert"
+          class="mb-3 rounded-xl border border-rose-700/60 bg-rose-950/40 px-4 py-2.5 text-xs text-rose-200"
+        >
+          حدث خطأ أثناء تحميل بيانات المصدر، أو أن المصدر غير متاح حالياً.
+        </div>
+        <div
+          v-else-if="quality.source_selection.state === 'EMPTY'"
+          role="status"
+          class="mb-3 rounded-xl border border-slate-700/60 bg-slate-900/40 px-4 py-2.5 text-xs text-slate-300"
+        >
+          لا توجد مصادر جودة محفوظة لهذا الكائن.
+        </div>
+        <div
+          v-else-if="
             selection.state === 'REQUESTED_UNIT_NOT_FOUND_FALLBACK' ||
             quality.source_selection.state === 'REQUESTED_SOURCE_NOT_FOUND_FALLBACK'
           "
@@ -177,13 +199,30 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
                   مراجعة جودة معرفة — ليست <bdi dir="ltr">Evidence Review</bdi>
                 </p>
                 <h1 class="mt-2 text-2xl font-black tracking-tight text-slate-100 sm:text-3xl">
-                  {{
-                    quality.active_source?.title ??
-                    active?.title_ar ??
-                    'لا يوجد عمل جودة معرفة حالي'
-                  }}
+                  <span v-if="quality.source_selection.state === 'LOADING'" class="animate-pulse"
+                    >جاري التحميل...</span
+                  >
+                  <span v-else-if="quality.source_selection.state === 'ERROR'">خطأ في النظام</span>
+                  <span v-else>
+                    {{
+                      quality.active_source?.title ??
+                      active?.title_ar ??
+                      'لا يوجد عمل جودة معرفة حالي'
+                    }}
+                  </span>
                 </h1>
-                <bdi v-if="active" dir="ltr" class="mt-1.5 block font-mono text-xs text-slate-400">
+                <bdi
+                  v-if="active && quality.active_source"
+                  dir="ltr"
+                  class="mt-1.5 block font-mono text-xs text-slate-400"
+                >
+                  {{ quality.active_source.id }}
+                </bdi>
+                <bdi
+                  v-else-if="active"
+                  dir="ltr"
+                  class="mt-1.5 block font-mono text-xs text-slate-400"
+                >
                   {{ active.id }}
                 </bdi>
               </div>

@@ -3,6 +3,7 @@
 namespace App\Application\KnowledgeLearning;
 
 use App\Modules\Curriculum\Application\CurriculumKnowledgeService;
+use App\Modules\Curriculum\Application\Visualize\VisualizeRouteState;
 use App\Modules\Knowledge\Application\KnowledgeLibraryService;
 use App\Modules\Learning\Application\KnowledgeJourneyService;
 use App\Modules\SourceGovernance\Application\KnowledgeQualityService;
@@ -118,14 +119,18 @@ final class KnowledgeLearningWorkspace
         ];
     }
 
-    /** @return array<string, mixed> */
-    public function visualize(?string $requestedUnitId): array
+    /**
+     * @param  array<string, string|null>  $requestedState
+     * @return array<string, mixed>
+     */
+    public function visualize(?string $requestedUnitId, array $requestedState = []): array
     {
         $catalog = $this->knowledge->catalog();
         $activeUnitId = $this->knowledge->resolveUnitId($requestedUnitId);
         $active = $this->knowledge->unit($activeUnitId);
 
-        $visualization = $this->curriculum->visualization($active, [], null);
+        $visualization = $this->curriculum->visualization($active, [], null, $catalog);
+        $state = (new VisualizeRouteState)->normalize($requestedState, $visualization);
 
         return [
             'catalog' => $catalog,
@@ -138,6 +143,7 @@ final class KnowledgeLearningWorkspace
             'view' => $visualization['view'],
             'overlay' => $visualization['overlay'],
             'graph' => $visualization['graph'],
+            'state' => $state,
         ];
     }
 

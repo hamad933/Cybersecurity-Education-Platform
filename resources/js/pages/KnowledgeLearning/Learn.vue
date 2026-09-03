@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import ProgressIndicator from './components/learn/ProgressIndicator.vue';
+
+import LearningPathNode from './components/learn/LearningPathNode.vue';
+
 import CepWorkspaceLayout from '../../layouts/CepWorkspaceLayout.vue';
 import KnowledgeTabs from './components/KnowledgeTabs.vue';
 import LessonContentRenderer from './components/content/LessonContentRenderer.vue';
@@ -312,6 +316,21 @@ const activityLabel = (state: string) =>
                   <p id="lesson-outline-heading" class="text-[10px] font-bold text-slate-500">
                     أقسام الدرس
                   </p>
+                  <div class="mt-4 flex flex-col gap-2" role="list">
+                    <LearningPathNode
+                      v-for="(block, index) in lessonOutline"
+                      :key="block.index"
+                      :title="block.label ?? 'قسم بدون عنوان'"
+                      :state="
+                        index < selectedBlockIndex
+                          ? 'completed'
+                          : index === selectedBlockIndex
+                            ? 'available'
+                            : 'locked'
+                      "
+                      :active="index === selectedBlockIndex"
+                    />
+                  </div>
                   <span class="font-mono text-[9px] text-slate-500">
                     {{ activeOutlinePosition }}/{{ lessonOutline.length }}
                   </span>
@@ -492,10 +511,22 @@ const activityLabel = (state: string) =>
                       class="h-2 w-2 rounded-full"
                       :class="lessonAvailable ? 'bg-emerald-400' : 'bg-amber-400'"
                     ></span>
-                    <span v-if="lessonAvailable">
-                      موضع القراءة {{ selectedBlockIndex + 1 }} من {{ lessonBlocks.length }}
-                      <template v-if="resumeRestored">· استُعيد محليًا على هذا الجهاز</template>
-                    </span>
+                    <div v-if="lessonAvailable" class="flex w-full max-w-sm flex-col gap-2">
+                      <div class="flex items-center gap-2">
+                        <span
+                          >موضع القراءة {{ selectedBlockIndex + 1 }} من
+                          {{ lessonBlocks.length }}</span
+                        >
+                        <template v-if="resumeRestored"
+                          ><span class="text-emerald-400">· استُعيد محليًا</span></template
+                        >
+                      </div>
+                      <ProgressIndicator
+                        :total="lessonBlocks.length"
+                        :current="selectedBlockIndex + 1"
+                        :rtl="true"
+                      />
+                    </div>
                     <span v-else>{{ lesson.unavailable_reason }}</span>
                   </div>
                 </div>

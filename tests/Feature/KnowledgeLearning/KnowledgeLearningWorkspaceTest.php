@@ -349,13 +349,98 @@ final class KnowledgeLearningWorkspaceTest extends TestCase
                 ->where('map.state', 'UNSAVED_PROJECTION')
                 ->where('view.implemented', ['Tree', 'Path', 'Graph', 'Canvas'])
                 ->where('view.not_implemented', [])
-                ->where('graph.source', 'canonical_curriculum_projection')
+                ->where('graph.source', 'canonical_curriculum_typed_projection')
                 ->has('graph.nodes', 2)
                 ->has('graph.edges', 1)
-                ->where('graph.edges.0.type', 'canonical_placement')
+                ->where('graph.edges.0.type', 'contains')
+                ->where('graph.edges.0.semantic', 'containment')
                 ->where('graph.edges.0.revision', 3)
                 ->where('graph.edges.0.from', 'capability:CAP-W02-VIS')
-                ->where('graph.edges.0.to', "ku:{$unit->id}"));
+                ->where('graph.edges.0.to', "ku:{$unit->id}")
+                ->where('state.view', 'Tree')
+                ->where('state.filter', 'all'));
+    }
+
+    #[Test]
+    public function visualize_projects_real_prerequisites_with_typed_overlay_and_returnable_state(): void
+    {
+        $prerequisite = KnowledgeUnit::query()->create([
+            'id' => 'KU-W02-PREREQUISITE',
+            'title_ar' => 'أساسيات الشبكات',
+            'title_en' => 'Network Basics',
+        ]);
+        $unit = $this->knowledgeUnit();
+        CurriculumPlacement::query()->create([
+            'capability_id' => 'CAP-W02-VIS',
+            'knowledge_unit_id' => $prerequisite->id,
+            'revision' => 1,
+            'lifecycle' => [
+                'state' => 'active',
+                'pathway' => ['id' => 'PATH-W02', 'title' => 'مسار دفاع التطبيقات'],
+                'prerequisite_ku_ids' => [],
+            ],
+        ]);
+        CurriculumPlacement::query()->create([
+            'capability_id' => 'CAP-W02-VIS',
+            'knowledge_unit_id' => $unit->id,
+            'revision' => 2,
+            'lifecycle' => [
+                'state' => 'active',
+                'pathway' => ['id' => 'PATH-W02', 'title' => 'مسار دفاع التطبيقات'],
+                'prerequisite_ku_ids' => [$prerequisite->id],
+            ],
+        ]);
+        $edgeId = 'relation:prerequisite:'.substr(
+            hash('sha256', "ku:{$prerequisite->id}|ku:{$unit->id}"),
+            0,
+            16,
+        );
+
+        $this->actingAs($this->owner)->get('/knowledge/visualize?'.http_build_query([
+            'object' => $unit->id,
+            'view' => 'Graph',
+            'overlay' => 'prerequisite',
+            'selection' => 'edge:'.$edgeId,
+        ]))->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('map.saved', false)
+                ->where('map.world.recipe', 'bounded_curriculum_neighborhood_v1')
+                ->has('map.world.membership', 3)
+                ->has('graph.nodes', 3)
+                ->has('graph.edges', 3)
+                ->where('overlay.available', ['prerequisite'])
+                ->where('overlay.layers.prerequisite.available', true)
+                ->where('overlay.layers.prerequisite.observations.0.target.kind', 'edge')
+                ->where('overlay.layers.prerequisite.observations.0.target.id', $edgeId)
+                ->where('state.view', 'Graph')
+                ->where('state.overlay', 'prerequisite')
+                ->where('state.selection.kind', 'edge')
+                ->where('state.selection.id', $edgeId));
+    }
+
+    #[Test]
+    public function visualize_does_not_restore_an_older_placement_after_the_current_revision_is_retired(): void
+    {
+        $unit = $this->knowledgeUnit();
+        CurriculumPlacement::query()->create([
+            'capability_id' => 'CAP-W02-RETIRED',
+            'knowledge_unit_id' => $unit->id,
+            'revision' => 1,
+            'lifecycle' => ['state' => 'active'],
+        ]);
+        CurriculumPlacement::query()->create([
+            'capability_id' => 'CAP-W02-RETIRED',
+            'knowledge_unit_id' => $unit->id,
+            'revision' => 2,
+            'lifecycle' => ['state' => 'retired'],
+        ]);
+
+        $this->actingAs($this->owner)->get("/knowledge/visualize?object={$unit->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('graph.nodes', 1)
+                ->has('graph.edges', 0)
+                ->where('graph.nodes.0.id', "ku:{$unit->id}"));
     }
 
     #[Test]
