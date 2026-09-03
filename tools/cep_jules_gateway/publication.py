@@ -229,7 +229,7 @@ def fetch_publication_candidate(
     if update_time != expected_session_update_time:
         raise PublicationError("Jules session update identity drifted since Controller review")
 
-    result = client.list_activities(session_id, page_size=100, max_pages=20, max_items=2_000)
+    result = client.list_activities(session_id, page_size=25, max_pages=80, max_items=2_000)
     info = getattr(result, "info", None)
     if info is not None and getattr(info, "complete", True) is not True:
         raise PublicationError("provider activity pagination is incomplete; latest changeSet cannot be proven")
