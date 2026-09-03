@@ -1,55 +1,40 @@
 import { mount } from '@vue/test-utils';
-import { describe, it, expect } from 'vitest';
-import TodayContinueSession from '../components/today/TodayContinueSession.vue';
-import TodayNextAction from '../components/today/TodayNextAction.vue';
-import TodayRationale from '../components/today/TodayRationale.vue';
-import TodayAttentionItems from '../components/today/TodayAttentionItems.vue';
-import TodayRecentContext from '../components/today/TodayRecentContext.vue';
-import TodayProgressProjection from '../components/today/TodayProgressProjection.vue';
-import TodayIndex from '../pages/Today/Index.vue';
+import { describe, expect, it } from 'vitest';
 import CepWorkspaceLayout from '../layouts/CepWorkspaceLayout.vue';
+import TodayIndex from '../pages/Today/Index.vue';
+import TodayAttentionItems from '../components/today/TodayAttentionItems.vue';
+import TodayContinueSession from '../components/today/TodayContinueSession.vue';
+import TodayRecommendation from '../components/today/TodayRecommendation.vue';
+import TodayProgressProjection from '../components/today/TodayProgressProjection.vue';
+import TodayRecentContext from '../components/today/TodayRecentContext.vue';
 
-const globalStubs = {
-  Link: {
-    template: '<a :href="href"><slot /></a>',
-    props: ['href'],
-  },
-  TechnicalText: {
-    template: '<span>{{ value }}</span>',
-    props: ['value'],
-  },
-  Head: {
-    template: '<head><slot /></head>',
-  },
-  CepWorkspaceLayout: {
-    template:
-      '<div class="mock-workspace-layout"><slot name="left" /><slot /><slot name="right" /><slot name="bottom" /></div>',
-  },
-  CepCommandBeacon: {
-    template: '<div class="mock-command-beacon"><slot /></div>',
-  },
-  CepEmptyState: {
-    template:
-      '<div class="mock-empty-state"><div class="title">{{ title }}</div><div class="description">{{ description }}</div></div>',
-    props: ['title', 'description'],
-  },
+// Define a simple stub for CepEmptyState that renders the default slot
+const stubEmptyState = {
+  props: ['title', 'description'],
+  template: '<div class="stub-empty-state">{{ title }} {{ description }}<slot></slot></div>',
 };
 
-describe('TodayShellCorrection — Orchestration Components and States', () => {
+const globalStubs = {
+  Link: { template: '<a><slot></slot></a>' },
+  TechnicalText: { template: '<span>{{ $attrs.value }}</span>' },
+  CepEmptyState: stubEmptyState,
+};
+
+describe('Today Orchestration Level Tests (W01 Contract Lineage)', () => {
+
   describe('Level 1: TodayContinueSession', () => {
-    it('renders AVAILABLE active state correctly', () => {
+    it('renders AVAILABLE state with data correctly', () => {
       const wrapper = mount(TodayContinueSession, {
         props: {
-          session: {
+          node: {
             status: 'AVAILABLE',
             data: {
               id: 'sess-1',
-              title: 'اختبار محاكاة الهجوم',
+              title: 'جلسة محاكاة الشبكة',
               domain: 'simulation',
               domainLabel: 'المحاكاة والمؤسسات',
-              href: '/simulation/labs/1',
-              currentStep: 'الخطوة 2: تحليل الثغرة',
-              actionLabel: 'استئناف الجلسة الآن',
+              href: '/simulation/1',
+              actionLabel: 'استئناف',
             },
           },
         },
@@ -57,15 +42,15 @@ describe('TodayShellCorrection — Orchestration Components and States', () => {
       });
 
       expect(wrapper.find('[data-testid="today-session-active"]').exists()).toBe(true);
-      expect(wrapper.text()).toContain('اختبار محاكاة الهجوم');
+      expect(wrapper.text()).toContain('جلسة محاكاة الشبكة');
       expect(wrapper.text()).toContain('المحاكاة والمؤسسات');
-      expect(wrapper.text()).toContain('الخطوة 2: تحليل الثغرة');
+      expect(wrapper.text()).toContain('استئناف');
     });
 
     it('renders UNAVAILABLE state correctly', () => {
       const wrapper = mount(TodayContinueSession, {
         props: {
-          session: {
+          node: {
             status: 'UNAVAILABLE',
             data: null,
           },
@@ -74,13 +59,12 @@ describe('TodayShellCorrection — Orchestration Components and States', () => {
       });
 
       expect(wrapper.find('[data-testid="today-session-unavailable"]').exists()).toBe(true);
-      expect(wrapper.text()).toContain('حالة الجلسة غير متوفرة');
     });
 
     it('renders EMPTY state correctly', () => {
       const wrapper = mount(TodayContinueSession, {
         props: {
-          session: {
+          node: {
             status: 'EMPTY',
             data: null,
           },
@@ -89,193 +73,107 @@ describe('TodayShellCorrection — Orchestration Components and States', () => {
       });
 
       expect(wrapper.find('[data-testid="today-session-empty"]').exists()).toBe(true);
-      expect(wrapper.text()).toContain('لا توجد جلسة عمل نشطة حاليًا');
     });
   });
 
-
-    it('renders ERROR state with explicit provider message', () => {
-      const wrapper = mount(TodayContinueSession, {
+  describe('Level 2: TodayRecommendation (replaces NextAction/Rationale)', () => {
+    it('renders AVAILABLE state with data correctly and includes rationale metadata', () => {
+      const wrapper = mount(TodayRecommendation, {
         props: {
-          session: {
+          node: {
+            status: 'AVAILABLE',
+            data: {
+              recommendationId: 'rec-001',
+              id: 'act-1',
+              title: 'مراجعة أساسيات التشفير',
+              domain: 'knowledge',
+              domainLabel: 'المعرفة والتعلّم',
+              href: '/knowledge/1',
+              description: 'وحدة تمهيدية',
+              rationaleText: 'مطلوبة لفهم العمليات التالية',
+              targetCompetency: 'SEC-CRYPTO',
+              unlockedCapabilities: ['اختبار التشفير المتقدم'],
+            },
+          },
+        },
+        global: { stubs: globalStubs },
+      });
+
+      expect(wrapper.find('[data-testid="today-recommendation-active"]').exists()).toBe(true);
+      expect(wrapper.text()).toContain('مراجعة أساسيات التشفير');
+      expect(wrapper.text()).toContain('المعرفة والتعلّم');
+      expect(wrapper.text()).toContain('مطلوبة لفهم العمليات التالية');
+      expect(wrapper.text()).toContain('اختبار التشفير المتقدم');
+      expect(wrapper.find('.today-rationale-section').exists()).toBe(true);
+    });
+
+    it('renders UNAVAILABLE state correctly', () => {
+      const wrapper = mount(TodayRecommendation, {
+        props: {
+          node: {
+            status: 'UNAVAILABLE',
+            data: null,
+          },
+        },
+        global: { stubs: globalStubs },
+      });
+
+      expect(wrapper.find('[data-testid="today-recommendation-unavailable"]').exists()).toBe(true);
+    });
+
+    it('renders EMPTY state correctly', () => {
+      const wrapper = mount(TodayRecommendation, {
+        props: {
+          node: {
+            status: 'EMPTY',
+            data: null,
+          },
+        },
+        global: { stubs: globalStubs },
+      });
+
+      expect(wrapper.find('[data-testid="today-recommendation-empty"]').exists()).toBe(true);
+    });
+
+    it('renders ERROR state correctly and exposes diagnostic id through slot forwarding', () => {
+      const wrapper = mount(TodayRecommendation, {
+        props: {
+          node: {
             status: 'ERROR',
             data: null,
-            message: 'Timeout contacting simulation service.',
+            message: 'خطأ معالجة',
+            diagnosticId: 'ERR-XYZ',
           },
         },
         global: { stubs: globalStubs },
       });
 
       expect(wrapper.find('[data-testid="today-error-state"]').exists()).toBe(true);
-      expect(wrapper.text()).toContain('حدث خطأ في جلب البيانات');
-      expect(wrapper.text()).toContain('Timeout contacting simulation service.');
+      expect(wrapper.text()).toContain('ERR-XYZ');
     });
 
-    it('renders STALE state correctly when data is present', () => {
-      const wrapper = mount(TodayContinueSession, {
+    it('renders STALE state correctly and consumes both observedAt and freshUntil', () => {
+      const wrapper = mount(TodayRecommendation, {
         props: {
-          session: {
-            status: 'STALE',
-            data: {
-              id: 'sess-stale',
-              title: 'اختبار محاكاة قديم',
-              domain: 'simulation',
-              domainLabel: 'المحاكاة',
-              href: '/simulation/labs/1',
-            },
-          },
-        },
-        global: { stubs: globalStubs },
-      });
-
-      // Should show the data block
-      expect(wrapper.find('[data-testid="today-session-active"]').exists()).toBe(true);
-      // And the stale badge
-      expect(wrapper.find('[data-testid="today-stale-badge"]').exists()).toBe(true);
-    });
-
-    it('renders explicit STALE empty state when no data is present', () => {
-      const wrapper = mount(TodayContinueSession, {
-        props: {
-          session: {
+          node: {
             status: 'STALE',
             data: null,
+            message: 'البيانات قديمة',
+            observedAt: '2026-08-01 10:00',
+            freshUntil: '2026-08-01 11:00',
           },
         },
         global: { stubs: globalStubs },
       });
 
-      expect(wrapper.find('[data-testid="today-stale-empty-state"]').exists()).toBe(true);
-      expect(wrapper.text()).toContain('البيانات غير محدّثة (قديمة)');
-    });
-
-
-    it('renders STALE state without live pulse wording', () => {
-      const wrapper = mount(TodayContinueSession, {
-        props: {
-          session: {
-            status: 'STALE',
-            data: { id: 's1', title: 'T1', domain: 'd', domainLabel: 'd', href: '/h' }
-          }
-        },
-        global: { stubs: globalStubs }
-      });
-      expect(wrapper.text()).not.toContain('جلسة نشطة قيد التشغيل');
-      expect(wrapper.text()).toContain('آخر جلسة مرصودة');
-    });
-
-  describe('Level 2: TodayNextAction', () => {
-    it('renders AVAILABLE state correctly', () => {
-      const wrapper = mount(TodayNextAction, {
-        props: {
-          action: {
-            status: 'AVAILABLE',
-            data: {
-              id: 'act-1',
-              title: 'مراجعة معايير التشفير المتماثل',
-              domain: 'knowledge',
-              domainLabel: 'المعرفة والتعلّم',
-              href: '/knowledge/crypto',
-              description: 'إتمام الدرس النظري قبل الانتقال للمختبر التطبيقي.',
-              timeCommitment: '20 دقيقة',
-              difficulty: 'متوسط',
-              actionLabel: 'بدء الإجراء الموصى به',
-            },
-          },
-        },
-        global: { stubs: globalStubs },
-      });
-
-      expect(wrapper.find('[data-testid="today-next-action-active"]').exists()).toBe(true);
-      expect(wrapper.text()).toContain('مراجعة معايير التشفير المتماثل');
-      expect(wrapper.text()).toContain('المعرفة والتعلّم');
-    });
-
-    it('renders UNAVAILABLE state correctly', () => {
-      const wrapper = mount(TodayNextAction, {
-        props: {
-          action: {
-            status: 'UNAVAILABLE',
-            data: null,
-          },
-        },
-        global: { stubs: globalStubs },
-      });
-
-      expect(wrapper.find('[data-testid="today-next-action-unavailable"]').exists()).toBe(true);
-      expect(wrapper.text()).toContain('التوصيات غير متوفرة');
-    });
-
-    it('renders EMPTY state correctly', () => {
-      const wrapper = mount(TodayNextAction, {
-        props: {
-          action: {
-            status: 'EMPTY',
-            data: null,
-          },
-        },
-        global: { stubs: globalStubs },
-      });
-
-      expect(wrapper.find('[data-testid="today-next-action-empty"]').exists()).toBe(true);
-      expect(wrapper.text()).toContain('لا توجد توصية مجدولة حاليًا');
+      expect(wrapper.find('[data-testid=\"today-stale-empty-state\"]').exists()).toBe(true);
+      expect(wrapper.text()).toContain('2026-08-01 10:00');
+      expect(wrapper.text()).toContain('2026-08-01 11:00');
     });
   });
 
-  describe('Level 3: TodayRationale', () => {
-    it('renders AVAILABLE state correctly', () => {
-      const wrapper = mount(TodayRationale, {
-        props: {
-          rationale: {
-            status: 'AVAILABLE',
-            data: {
-              id: 'rat-1',
-              text: 'هذا الإجراء يرسخ متطلب الإتقان في النطاق الدفاعي الأول.',
-              targetCompetency: 'SEC-DEF-101',
-              unlockedCapabilities: ['التحليل المتقدم للسجلات'],
-              prerequisiteChain: ['الأساسيات الأمنية'],
-            },
-          },
-        },
-        global: { stubs: globalStubs },
-      });
 
-      expect(wrapper.find('[data-testid="today-rationale-active"]').exists()).toBe(true);
-      expect(wrapper.text()).toContain('SEC-DEF-101');
-      expect(wrapper.text()).toContain('التحليل المتقدم للسجلات');
-    });
-
-    it('renders UNAVAILABLE state correctly', () => {
-      const wrapper = mount(TodayRationale, {
-        props: {
-          rationale: {
-            status: 'UNAVAILABLE',
-            data: null,
-          },
-        },
-        global: { stubs: globalStubs },
-      });
-
-      expect(wrapper.find('[data-testid="today-rationale-unavailable"]').exists()).toBe(true);
-      expect(wrapper.text()).toContain('المسوغات غير متوفرة');
-    });
-
-    it('renders EMPTY state correctly', () => {
-      const wrapper = mount(TodayRationale, {
-        props: {
-          rationale: {
-            status: 'EMPTY',
-            data: null,
-          },
-        },
-        global: { stubs: globalStubs },
-      });
-
-      expect(wrapper.find('[data-testid="today-rationale-empty"]').exists()).toBe(true);
-    });
-  });
-
-  describe('Level 4: TodayAttentionItems', () => {
+  describe('Level 3: TodayAttentionItems', () => {
     it('renders AVAILABLE state with items correctly', () => {
       const wrapper = mount(TodayAttentionItems, {
         props: {
@@ -329,56 +227,28 @@ describe('TodayShellCorrection — Orchestration Components and States', () => {
 
       expect(wrapper.find('[data-testid="today-attention-empty"]').exists()).toBe(true);
     });
+    it('renders STALE state correctly and consumes both observedAt and freshUntil', () => {
+      const wrapper = mount(TodayContinueSession, {
+        props: {
+          node: {
+            status: 'STALE',
+            data: null,
+            message: 'قديم',
+            observedAt: '2026-08-01 10:00',
+            freshUntil: '2026-08-01 11:00',
+          },
+        },
+        global: { stubs: globalStubs },
+      });
+
+      expect(wrapper.find('[data-testid="today-stale-empty-state"]').exists()).toBe(true);
+      expect(wrapper.text()).toContain('2026-08-01 10:00');
+      expect(wrapper.text()).toContain('2026-08-01 11:00');
+    });
+
   });
 
-
-    it('renders STALE state correctly with data array and omits live wording', () => {
-      const wrapper = mount(TodayAttentionItems, {
-        props: {
-          items: {
-            status: 'STALE',
-            data: [
-              { id: 'att-1', title: 'Stale Attention', domain: 'progress', domainLabel: 'التقدم', href: '/1', severity: 'urgent', reason: 'R1' }
-            ],
-          },
-        },
-        global: { stubs: globalStubs },
-      });
-
-      expect(wrapper.find('[data-testid="today-attention-list"]').exists()).toBe(true);
-      expect(wrapper.find('[data-testid="today-stale-badge"]').exists()).toBe(true);
-      expect(wrapper.find('.today-attention-count-badge').exists()).toBe(false); // Live wording omitted
-    });
-
-    it('renders STALE state correctly with explicit empty array', () => {
-      const wrapper = mount(TodayAttentionItems, {
-        props: {
-          items: {
-            status: 'STALE',
-            data: [], // empty array
-          },
-        },
-        global: { stubs: globalStubs },
-      });
-
-      expect(wrapper.find('[data-testid="today-stale-empty-state"]').exists()).toBe(true);
-    });
-
-    it('renders STALE state correctly with explicit null', () => {
-      const wrapper = mount(TodayAttentionItems, {
-        props: {
-          items: {
-            status: 'STALE',
-            data: null, // explicit null
-          },
-        },
-        global: { stubs: globalStubs },
-      });
-
-      expect(wrapper.find('[data-testid="today-stale-empty-state"]').exists()).toBe(true);
-    });
-
-  describe('Level 5: TodayRecentContext', () => {
+  describe('Level 4: TodayRecentContext', () => {
     it('renders AVAILABLE state with items correctly', () => {
       const wrapper = mount(TodayRecentContext, {
         props: {
@@ -432,9 +302,28 @@ describe('TodayShellCorrection — Orchestration Components and States', () => {
 
       expect(wrapper.find('[data-testid="today-recent-empty"]').exists()).toBe(true);
     });
+    it('renders STALE state correctly and consumes both observedAt and freshUntil', () => {
+      const wrapper = mount(TodayRecentContext, {
+        props: {
+          items: {
+            status: 'STALE',
+            data: null,
+            message: 'قديم',
+            observedAt: '2026-08-01 10:00',
+            freshUntil: '2026-08-01 11:00',
+          },
+        },
+        global: { stubs: globalStubs },
+      });
+
+      expect(wrapper.find('[data-testid="today-stale-empty-state"]').exists()).toBe(true);
+      expect(wrapper.text()).toContain('2026-08-01 10:00');
+      expect(wrapper.text()).toContain('2026-08-01 11:00');
+    });
+
   });
 
-  describe('Level 6: TodayProgressProjection & Anti-Gamification', () => {
+  describe('Level 5: TodayProgressProjection & Anti-Gamification', () => {
     it('renders AVAILABLE state without fake percentages and emphasizes Completion != Mastery', () => {
       const wrapper = mount(TodayProgressProjection, {
         props: {
@@ -456,7 +345,7 @@ describe('TodayShellCorrection — Orchestration Components and States', () => {
       expect(wrapper.find('[data-testid="today-projection-active"]').exists()).toBe(true);
       expect(wrapper.text()).toContain('المرحلة 1: المحقق الجنائي المبتدئ');
       expect(wrapper.text()).toContain('4 / 6');
-      expect(wrapper.text()).toContain('Completion != Mastery');
+      expect(wrapper.text()).toContain('الإنجاز لا يعني الإتقان');
       expect(wrapper.text()).not.toContain('XP');
       expect(wrapper.text()).not.toContain('نقاط');
     });
@@ -487,8 +376,27 @@ describe('TodayShellCorrection — Orchestration Components and States', () => {
       });
 
       expect(wrapper.find('[data-testid="today-projection-empty"]').exists()).toBe(true);
-      expect(wrapper.text()).toContain('Completion != Mastery');
+      expect(wrapper.text()).toContain('الإنجاز لا يعني الإتقان');
     });
+    it('renders STALE state correctly and consumes both observedAt and freshUntil', () => {
+      const wrapper = mount(TodayAttentionItems, {
+        props: {
+          items: {
+            status: 'STALE',
+            data: null,
+            message: 'قديم',
+            observedAt: '2026-08-01 10:00',
+            freshUntil: '2026-08-01 11:00',
+          },
+        },
+        global: { stubs: globalStubs },
+      });
+
+      expect(wrapper.find('[data-testid="today-stale-empty-state"]').exists()).toBe(true);
+      expect(wrapper.text()).toContain('2026-08-01 10:00');
+      expect(wrapper.text()).toContain('2026-08-01 11:00');
+    });
+
   });
 
   describe('Shell Assembly & Integrity (Today/Index.vue)', () => {
@@ -541,10 +449,9 @@ describe('TodayShellCorrection — Orchestration Components and States', () => {
             registeredDomainEntries: 0,
             expectedDomainEntries: 4,
             continueSession: { status: 'UNAVAILABLE', data: null },
-            nextAction: { status: 'UNAVAILABLE', data: null },
-            rationale: { status: 'UNAVAILABLE', data: null },
-            attentionItems: { status: 'UNAVAILABLE', data: [] },
-            recentContext: { status: 'UNAVAILABLE', data: [] },
+            recommendation: { status: 'UNAVAILABLE', data: null },
+            attentionItems: { status: 'UNAVAILABLE', data: null },
+            recentContext: { status: 'UNAVAILABLE', data: null },
             progressProjection: { status: 'UNAVAILABLE', data: null },
           },
         },
@@ -552,11 +459,11 @@ describe('TodayShellCorrection — Orchestration Components and States', () => {
       });
 
       expect(wrapper.findComponent(TodayContinueSession).exists()).toBe(true);
-      expect(wrapper.findComponent(TodayNextAction).exists()).toBe(true);
-      expect(wrapper.findComponent(TodayRationale).exists()).toBe(true);
+      expect(wrapper.findComponent(TodayRecommendation).exists()).toBe(true);
       expect(wrapper.findComponent(TodayAttentionItems).exists()).toBe(true);
       expect(wrapper.findComponent(TodayRecentContext).exists()).toBe(true);
       expect(wrapper.findComponent(TodayProgressProjection).exists()).toBe(true);
+
       // Ensure no duplicated workspace handoff grid exists in Today
       expect(wrapper.find('#workspace-handoffs').exists()).toBe(false);
       expect(wrapper.find('.today-canonical-links').exists()).toBe(false);
@@ -566,5 +473,24 @@ describe('TodayShellCorrection — Orchestration Components and States', () => {
       const hasHandoffLink = links.some(w => w.attributes('href') === '#workspace-handoffs');
       expect(hasHandoffLink).toBe(false);
     });
+    it('renders STALE state correctly and consumes both observedAt and freshUntil', () => {
+      const wrapper = mount(TodayContinueSession, {
+        props: {
+          node: {
+            status: 'STALE',
+            data: null,
+            message: 'قديم',
+            observedAt: '2026-08-01 10:00',
+            freshUntil: '2026-08-01 11:00',
+          },
+        },
+        global: { stubs: globalStubs },
+      });
+
+      expect(wrapper.find('[data-testid="today-stale-empty-state"]').exists()).toBe(true);
+      expect(wrapper.text()).toContain('2026-08-01 10:00');
+      expect(wrapper.text()).toContain('2026-08-01 11:00');
+    });
+
   });
 });

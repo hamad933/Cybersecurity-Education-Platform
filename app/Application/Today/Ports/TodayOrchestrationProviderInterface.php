@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\Today\Ports;
 
+use App\Application\Today\Values\OrchestrationNode;
+
 /**
  * Port used by Today surface to obtain cross-domain orchestration state.
  * Expected to be implemented in a shared/infrastructure layer since Today cannot directly query foreign domains.
@@ -11,32 +13,27 @@ namespace App\Application\Today\Ports;
 interface TodayOrchestrationProviderInterface
 {
     /**
-     * @return array{status: string, data: array|null, message?: string}
+     * @return OrchestrationNode
      */
-    public function getContinueSession(): array;
+    public function getContinueSession(): OrchestrationNode;
 
     /**
-     * @return array{status: string, data: array|null, message?: string}
+     * @return OrchestrationNode
      */
-    public function getNextAction(): array;
+    public function getRecommendation(): OrchestrationNode;
 
     /**
-     * @return array{status: string, data: array|null, message?: string}
+     * @return OrchestrationNode
      */
-    public function getRationale(): array;
+    public function getAttentionItems(): OrchestrationNode;
 
     /**
-     * @return array{status: string, data: array, message?: string}
+     * @return OrchestrationNode
      */
-    public function getAttentionItems(): array;
+    public function getRecentContext(): OrchestrationNode;
 
     /**
-     * @return array{status: string, data: array, message?: string}
+     * @return OrchestrationNode
      */
-    public function getRecentContext(): array;
-
-    /**
-     * @return array{status: string, data: array|null, message?: string}
-     */
-    public function getProgressProjection(): array;
+    public function getProgressProjection(): OrchestrationNode;
 }

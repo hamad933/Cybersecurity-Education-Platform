@@ -1,125 +1,44 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
-
 import CepEmptyState from '../shared/CepEmptyState.vue';
-import TechnicalText from '../shared/TechnicalText.vue';
-import type { TodayRecentContextItem, OrchestrationNode, OrchestrationStatus } from './types';
+import type { OrchestrationNode, TodayRecentContextItem } from './types';
 
-const props = defineProps<{
-  items?: OrchestrationNode<TodayRecentContextItem[]> | TodayRecentContextItem[] | null;
+defineProps<{
+  items: OrchestrationNode<TodayRecentContextItem[]>;
 }>();
-
-const node = computed<OrchestrationNode<TodayRecentContextItem[]>>(() => {
-  const it = props.items;
-  if (!it) return { status: 'EMPTY', data: [] };
-  if (typeof it === 'object' && !Array.isArray(it) && 'status' in it) {
-    return it as OrchestrationNode<TodayRecentContextItem[]>;
-  }
-  if (Array.isArray(it)) {
-    return {
-      status: (it.length > 0 ? 'AVAILABLE' : 'EMPTY') as OrchestrationStatus,
-      data: it as TodayRecentContextItem[],
-    };
-  }
-  return { status: 'EMPTY', data: [] };
-});
 </script>
 
 <template>
-  <section
-    id="recent-context"
-    class="cep-section today-section"
-    aria-labelledby="recent-context-title"
-    data-today-level="5"
-  >
+  <section class="today-section" aria-labelledby="today-recent-title">
     <div class="today-section-header">
       <div>
-        <p class="cep-kicker">السجل والنشاط</p>
-        <h2 id="recent-context-title" class="cep-section-title">السياق والنشاط الحديث</h2>
+        <h2 id="today-recent-title" class="cep-section__title" data-today-level="4">
+          السياق الأخير
+        </h2>
+        <p class="cep-section__desc">أحدث التطورات أو التحديثات في مساحات عملك.</p>
       </div>
-      <span v-if="node.status === 'STALE'" class="today-stale-badge" data-testid="today-stale-badge">
-        <svg class="today-stale-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-        </svg>
-        بيانات غير محدثة
-      </span>
-
-      <span
-        v-if="node.status === 'AVAILABLE' && node.data && node.data.length > 0"
-        class="today-recent-badge"
-      >
-        <svg class="today-recent-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-          <path
-            fill-rule="evenodd"
-            d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z"
-            clip-rule="evenodd"
-          />
-        </svg>
-        سجل الأحداث الأخيرة
-      </span>
     </div>
 
-    <div
-      v-if="(node.status === 'AVAILABLE' || node.status === 'STALE') && node.data && node.data.length > 0"
-      class="today-recent-stack"
+    <ul
+      v-if="items.status === 'AVAILABLE' && items.data && items.data.length > 0"
+      class="today-recent-list"
       data-testid="today-recent-list"
     >
-      <div class="today-timeline-rail">
-        <article v-for="item in node.data" :key="item.id" class="today-recent-card">
-          <div class="today-timeline-dot" aria-hidden="true" />
+      <li v-for="item in items.data" :key="item.id" class="today-recent-item">
+        <div class="today-recent-item__header">
+          <span class="today-recent-domain">{{ item.domainLabel }}</span>
+          <span class="today-recent-time" dir="ltr">{{ item.timestamp }}</span>
+        </div>
+        <h3 class="today-recent-item__title">
+          <Link :href="item.href" class="today-recent-item__link focus-ring">
+            {{ item.title }}
+          </Link>
+        </h3>
+        <p class="today-recent-item__summary">{{ item.summary }}</p>
+      </li>
+    </ul>
 
-          <div class="today-recent-card__inner">
-            <div class="today-recent-card__meta">
-              <span class="today-recent-domain">
-                <svg
-                  class="today-domain-mini-icon"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M2 4.75C2 3.784 2.784 3 3.75 3h12.5c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0116.25 17H3.75A1.75 1.75 0 012 15.25V4.75zm1.75-.25a.25.25 0 00-.25.25v10.5c0 .138.112.25.25.25h12.5a.25.25 0 00.25-.25V4.75a.25.25 0 00-.25-.25H3.75z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-                {{ item.domainLabel }}
-              </span>
-              <span class="today-recent-time">
-                <svg
-                  class="today-time-mini-icon"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-                <TechnicalText :value="item.timestamp" />
-              </span>
-            </div>
-
-            <div class="today-recent-card__body">
-              <h3 class="today-recent-card__title">{{ item.title }}</h3>
-              <p class="today-recent-card__summary">{{ item.summary }}</p>
-            </div>
-
-            <div class="today-recent-card__footer">
-              <Link :href="item.href" class="today-recent-link focus-ring">
-                <span>عرض التفاصيل في مساحة العمل</span>
-                <span class="today-link-arrow" aria-hidden="true">◀</span>
-              </Link>
-            </div>
-          </div>
-        </article>
-      </div>
-    </div>
-
-    <div v-else-if="node.status === 'UNAVAILABLE'" class="today-empty-wrapper">
+    <div v-else-if="items.status === 'UNAVAILABLE'" class="today-empty-wrapper">
       <div class="today-empty-icon-box" aria-hidden="true">
         <svg
           viewBox="0 0 24 24"
@@ -137,14 +56,13 @@ const node = computed<OrchestrationNode<TodayRecentContextItem[]>>(() => {
       </div>
       <CepEmptyState
         class="cep-section__body today-empty-content"
-        title="السجل الحديث غير متوفر"
-        description="تعذر الاتصال بالمجال لمعرفة النشاط الحديث."
+        title="السياق الأخير غير متوفر"
+        description="تعذر الاتصال بالمجال لمعرفة أحدث التطورات."
         data-testid="today-recent-unavailable"
       />
     </div>
 
-    
-    <div v-else-if="node.status === 'ERROR'" class="today-empty-wrapper">
+    <div v-else-if="items.status === 'ERROR'" class="today-empty-wrapper">
       <div class="today-empty-icon-box" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.05);" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="today-empty-svg">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -153,12 +71,16 @@ const node = computed<OrchestrationNode<TodayRecentContextItem[]>>(() => {
       <CepEmptyState
         class="cep-section__body today-empty-content"
         title="حدث خطأ في جلب البيانات"
-        :description="node.message || 'تعذر تحميل هذه البيانات بسبب خطأ غير معروف.'"
+        :description="items.message || 'تعذر تحميل هذه البيانات بسبب خطأ غير معروف.'"
         data-testid="today-error-state"
-      />
+      >
+        <template v-if="items.diagnosticId">
+            <span class="today-diagnostic-id" dir="ltr">{{ items.diagnosticId }}</span>
+        </template>
+      </CepEmptyState>
     </div>
 
-    <div v-else-if="node.status === 'STALE' && (!node.data || node.data.length === 0)" class="today-empty-wrapper">
+    <div v-else-if="items.status === 'STALE'" class="today-empty-wrapper">
       <div class="today-empty-icon-box" style="color: #f59e0b; border-color: rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.05);" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="today-empty-svg">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -167,9 +89,14 @@ const node = computed<OrchestrationNode<TodayRecentContextItem[]>>(() => {
       <CepEmptyState
         class="cep-section__body today-empty-content"
         title="البيانات غير محدّثة (قديمة)"
-        :description="node.message || 'هذه البيانات قديمة ولم نتمكن من تحديثها الآن ولا توجد نسخة محفوظة صالحة للعرض.'"
+        :description="items.message || 'هذه البيانات قديمة ولم نتمكن من تحديثها الآن ولا توجد نسخة محفوظة صالحة للعرض.'"
         data-testid="today-stale-empty-state"
-      />
+      >
+        <template v-if="items.observedAt">
+            <span class="today-stale-time" dir="ltr">{{ items.observedAt }}</span>
+            <span v-if="items.freshUntil" class="today-stale-time today-stale-time--until" dir="ltr" style="margin-right: 0.5rem; color: #9ca3af;">until: {{ items.freshUntil }}</span>
+        </template>
+      </CepEmptyState>
     </div>
 
     <div v-else class="today-empty-wrapper">
@@ -190,8 +117,8 @@ const node = computed<OrchestrationNode<TodayRecentContextItem[]>>(() => {
       </div>
       <CepEmptyState
         class="cep-section__body today-empty-content"
-        title="لا يوجد سجل نشاط حديث مسجل"
-        description="لا يتلقى هذا السطح حاليًا أحداثًا مسجلة من مساحات العمل. ستظهر هنا السجلات والأنشطة فور توثيقها من المجالات الأساسية."
+        title="لا توجد أحداث سياقية حديثة"
+        description="لم يتم رصد أحداث أو تغييرات حديثة في مساحات عملك حتى الآن."
         data-testid="today-recent-empty"
       />
     </div>
@@ -211,161 +138,82 @@ const node = computed<OrchestrationNode<TodayRecentContextItem[]>>(() => {
   gap: 0.75rem;
 }
 
-.today-recent-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  border: 1px solid var(--cep-border-strong);
-  border-radius: var(--cep-radius-sm);
-  background: var(--cep-bg-panel-strong);
-  padding: 0.22rem 0.55rem;
-  color: var(--cep-text-muted);
-  font-size: 0.74rem;
-  font-weight: 700;
-}
-
-.today-recent-icon {
-  width: 0.85rem;
-  height: 0.85rem;
-  color: var(--cep-accent);
-}
-
-.today-recent-stack {
-  margin-top: 0.9rem;
-}
-
-.today-timeline-rail {
-  position: relative;
+.today-recent-list {
   display: grid;
-  gap: 0.85rem;
-  padding-inline-start: 1rem;
+  gap: 0.75rem;
+  margin: 0.9rem 0 0;
+  padding: 0;
+  list-style: none;
 }
 
-.today-timeline-rail::before {
-  content: '';
-  position: absolute;
-  top: 0.75rem;
-  bottom: 0.75rem;
-  inset-inline-start: 0.25rem;
-  width: 2px;
-  background: var(--cep-border-strong);
-}
-
-.today-recent-card {
+.today-recent-item {
   position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-}
-
-.today-timeline-dot {
-  position: absolute;
-  top: 1.25rem;
-  inset-inline-start: -1rem;
-  width: 0.6rem;
-  height: 0.6rem;
-  border-radius: 50%;
-  border: 2px solid var(--cep-bg-panel);
-  background: var(--cep-accent);
-  box-shadow: 0 0 6px var(--cep-accent);
-}
-
-.today-recent-card__inner {
-  flex: 1;
-  display: grid;
-  gap: 0.65rem;
-  border: 1px solid var(--cep-border-strong);
+  flex-direction: column;
+  gap: 0.4rem;
+  border: 1px solid var(--cep-border);
   border-radius: var(--cep-radius-md);
-  background: var(--cep-bg-panel-strong);
-  padding: 1.15rem;
-  box-shadow: var(--cep-shadow);
+  background: var(--cep-bg-panel);
+  padding: 1rem;
   transition:
-    transform 150ms ease,
-    border-color 150ms ease;
+    border-color 150ms ease,
+    background-color 150ms ease;
 }
 
-.today-recent-card__inner:hover {
-  border-color: rgba(34, 211, 238, 0.3);
-  transform: translateY(-1px);
+.today-recent-item:hover {
+  border-color: var(--cep-border-strong);
+  background: var(--cep-bg-panel-strong);
 }
 
-.today-recent-card__meta {
+.today-recent-item__header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .today-recent-domain {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  border: 1px solid rgba(34, 211, 238, 0.25);
-  border-radius: var(--cep-radius-sm);
-  background: var(--cep-accent-soft);
-  padding: 0.18rem 0.5rem;
   color: var(--cep-accent);
   font-size: 0.76rem;
   font-weight: 750;
 }
 
-.today-domain-mini-icon,
-.today-time-mini-icon {
-  width: 0.75rem;
-  height: 0.75rem;
-}
-
 .today-recent-time {
   color: var(--cep-text-muted);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
 }
 
-.today-recent-card__title {
+.today-recent-item__title {
   margin: 0;
-  color: var(--cep-text);
   font-size: 1rem;
-  font-weight: 780;
-  line-height: 1.35;
-}
-
-.today-recent-card__summary {
-  margin: 0.3rem 0 0;
-  color: var(--cep-text-muted);
-  font-size: 0.86rem;
-  line-height: 1.75;
-}
-
-.today-recent-card__footer {
-  margin-top: 0.35rem;
-  padding-top: 0.55rem;
-  border-top: 1px solid var(--cep-border);
-}
-
-.today-recent-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  color: var(--cep-accent);
-  font-size: 0.82rem;
   font-weight: 750;
+  line-height: 1.4;
+}
+
+.today-recent-item__link {
+  color: var(--cep-text);
   text-decoration: none;
-  transition:
-    color 150ms ease,
-    transform 150ms ease;
 }
 
-.today-recent-link:hover {
-  color: var(--cep-accent-hover);
+.today-recent-item__link:hover {
+  text-decoration: underline;
 }
 
-.today-link-arrow {
-  display: inline-block;
-  transition: transform 150ms ease;
+.today-recent-item__link::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
-.today-recent-link:hover .today-link-arrow {
-  transform: translateX(-3px);
+.today-recent-item__summary {
+  margin: 0.2rem 0 0;
+  color: var(--cep-text-muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
 }
 
 .today-empty-wrapper {
@@ -404,35 +252,24 @@ const node = computed<OrchestrationNode<TodayRecentContextItem[]>>(() => {
   padding: 0 !important;
 }
 
+.today-diagnostic-id {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #ef4444;
+}
+
+.today-stale-time {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #f59e0b;
+}
+
 @media (max-width: 48rem) {
-  .today-timeline-rail {
-    padding-inline-start: 0;
-  }
-
-  .today-timeline-rail::before,
-  .today-timeline-dot {
-    display: none;
-  }
-
   .today-empty-wrapper {
     flex-direction: column;
   }
-}
-
-.today-stale-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  border-radius: var(--cep-radius-sm);
-  background: rgba(245, 158, 11, 0.08);
-  padding: 0.22rem 0.55rem;
-  color: #f59e0b;
-  font-size: 0.74rem;
-  font-weight: 700;
-}
-.today-stale-icon {
-  width: 0.85rem;
-  height: 0.85rem;
 }
 </style>

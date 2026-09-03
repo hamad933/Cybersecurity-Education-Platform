@@ -12,8 +12,9 @@ export interface TodaySessionItem {
   actionLabel?: string;
 }
 
-export interface TodayNextActionItem {
-  id: string;
+export interface RecommendationData {
+  recommendationId: string;
+  id: string; // The identity of the recommendation (action)
   title: string;
   domain: string;
   domainLabel: string;
@@ -22,14 +23,15 @@ export interface TodayNextActionItem {
   timeCommitment?: string;
   difficulty?: string;
   actionLabel?: string;
-}
-
-export interface TodayRationaleItem {
-  id: string;
-  text: string;
+  rationaleText: string;
+  targetCompetency?: string;
   unlockedCapabilities?: string[];
   prerequisiteChain?: string[];
-  targetCompetency?: string;
+  selectionRuleId?: string;
+  selectedAt?: string;
+  observedAt?: string;
+  freshUntil?: string;
+  target?: string;
 }
 
 export interface TodayAttentionItem {
@@ -68,15 +70,17 @@ export interface OrchestrationNode<T> {
   status: OrchestrationStatus;
   data: T | null;
   message?: string;
+  diagnosticId?: string;
+  observedAt?: string;
+  freshUntil?: string;
 }
 
 export interface TodayOrchestrationPayload {
   registeredDomainEntries: number;
   expectedDomainEntries: number;
-  continueSession?: OrchestrationNode<TodaySessionItem> | TodaySessionItem | null;
-  nextAction?: OrchestrationNode<TodayNextActionItem> | TodayNextActionItem | null;
-  rationale?: OrchestrationNode<TodayRationaleItem> | TodayRationaleItem | null;
-  attentionItems?: OrchestrationNode<TodayAttentionItem[]> | TodayAttentionItem[] | null;
-  recentContext?: OrchestrationNode<TodayRecentContextItem[]> | TodayRecentContextItem[] | null;
-  progressProjection?: OrchestrationNode<TodayProgressProjection> | TodayProgressProjection | null;
+  continueSession: OrchestrationNode<TodaySessionItem>;
+  recommendation: OrchestrationNode<RecommendationData>;
+  attentionItems: OrchestrationNode<TodayAttentionItem[]>;
+  recentContext: OrchestrationNode<TodayRecentContextItem[]>;
+  progressProjection: OrchestrationNode<TodayProgressProjection>;
 }

@@ -1,56 +1,33 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
-
 import CepEmptyState from '../shared/CepEmptyState.vue';
-import TechnicalText from '../shared/TechnicalText.vue';
-import type { TodaySessionItem, OrchestrationNode } from './types';
+import type { OrchestrationNode, TodaySessionItem } from './types';
 
 const props = defineProps<{
-  session?: OrchestrationNode<TodaySessionItem> | TodaySessionItem | null;
+  node?: OrchestrationNode<TodaySessionItem>;
 }>();
 
-const node = computed<OrchestrationNode<TodaySessionItem>>(() => {
-  const s = props.session;
-  if (!s) return { status: 'EMPTY', data: null };
-  if (typeof s === 'object' && 'status' in s) {
-    return s as OrchestrationNode<TodaySessionItem>;
-  }
-  return { status: 'AVAILABLE', data: s as TodaySessionItem };
-});
+const nodeValue = props.node || { status: 'UNAVAILABLE', data: null };
 </script>
 
 <template>
-  <section
-    id="continue-session"
-    class="cep-section today-section"
-    aria-labelledby="continue-session-title"
-    data-today-level="1"
-  >
+  <section class="today-section" aria-labelledby="today-session-title">
     <div class="today-section-header">
       <div>
-        <p class="cep-kicker">الأولوية التشغيلية القصوى</p>
-        <h2 id="continue-session-title" class="cep-section-title">متابعة الجلسة الحالية</h2>
+        <h2 id="today-session-title" class="cep-section__title" data-today-level="1">
+          استئناف الجلسة
+        </h2>
+        <p class="cep-section__desc">متابعة مسارك الحالي من النقطة التي توقفت عندها.</p>
       </div>
-      <span v-if="node.status === 'STALE'" class="today-stale-badge" data-testid="today-stale-badge">
-        <svg class="today-stale-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-        </svg>
-        بيانات غير محدثة
-      </span>
-
-      <span v-if="node.status === 'AVAILABLE' && node.data" class="today-live-pulse-badge">
-        <span class="today-live-pulse-dot" />
-        جلسة نشطة قيد التشغيل
-      </span>
-      <span v-else-if="node.status === 'STALE' && node.data" class="today-stale-pulse-badge">
-        آخر جلسة مرصودة — البيانات غير محدثة
-      </span>
+      <div v-if="nodeValue.status === 'AVAILABLE' && nodeValue.data" class="today-live-pulse-badge">
+        <span class="today-live-pulse-dot" aria-hidden="true" />
+        قيد التقدم
+      </div>
     </div>
 
     <div
-      v-if="(node.status === 'AVAILABLE' || node.status === 'STALE') && node.data"
-      class="today-session-card today-session-card--active"
+      v-if="nodeValue.status === 'AVAILABLE' && nodeValue.data"
+      class="today-session-card"
       data-testid="today-session-active"
     >
       <div class="today-session-card__header">
@@ -63,49 +40,41 @@ const node = computed<OrchestrationNode<TodaySessionItem>>(() => {
               aria-hidden="true"
             >
               <path
-                fill-rule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z"
-                clip-rule="evenodd"
+                d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z"
               />
             </svg>
-            {{ node.data.domainLabel }}
+            {{ nodeValue.data.domainLabel }}
           </span>
-          <span v-if="node.data.moduleName" class="today-code-pill">
-            <span class="today-code-pill__prefix">الوحدة:</span>
-            <TechnicalText :value="node.data.moduleName" />
+          <span v-if="nodeValue.data.moduleName" class="today-code-pill" dir="ltr">
+            <span class="today-code-pill__prefix">#</span>{{ nodeValue.data.moduleName }}
           </span>
         </div>
-
-        <span v-if="node.data.lastActivityAt" class="today-meta-time">
+        <div v-if="nodeValue.data.lastActivityAt" class="today-meta-time">
           <svg class="today-time-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path
               fill-rule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z"
               clip-rule="evenodd"
             />
           </svg>
-          آخر نشاط: <TechnicalText :value="node.data.lastActivityAt" />
-        </span>
+          آخر نشاط: {{ nodeValue.data.lastActivityAt }}
+        </div>
       </div>
 
-      <div class="today-session-card__body">
-        <h3 class="today-session-card__title">{{ node.data.title }}</h3>
+      <h3 class="today-session-card__title">{{ nodeValue.data.title }}</h3>
 
-        <div v-if="node.data.currentStep" class="today-session-card__step-row">
-          <span class="today-step-label">الخطوة الحالية في المسار:</span>
-          <span class="today-step-value">
-            <TechnicalText :value="node.data.currentStep" />
-          </span>
-        </div>
+      <div v-if="nodeValue.data.currentStep" class="today-session-card__step-row">
+        <span class="today-step-label">المرحلة الحالية:</span>
+        <span class="today-step-value">{{ nodeValue.data.currentStep }}</span>
       </div>
 
       <div class="today-session-card__actions">
         <Link
-          :href="node.data.href"
+          :href="nodeValue.data.href"
           class="today-hero-button focus-ring"
           data-testid="today-session-resume"
         >
-          <span>{{ node.data.actionLabel || 'استئناف الجلسة الآن' }}</span>
+          <span>{{ nodeValue.data.actionLabel || 'استئناف الجلسة الآن' }}</span>
           <span class="today-hero-btn-arrow" aria-hidden="true">◀</span>
         </Link>
         <span class="today-hero-subnote"
@@ -114,7 +83,7 @@ const node = computed<OrchestrationNode<TodaySessionItem>>(() => {
       </div>
     </div>
 
-    <div v-else-if="node.status === 'UNAVAILABLE'" class="today-empty-wrapper">
+    <div v-else-if="nodeValue.status === 'UNAVAILABLE'" class="today-empty-wrapper">
       <div class="today-empty-icon-box" aria-hidden="true">
         <svg
           viewBox="0 0 24 24"
@@ -139,7 +108,7 @@ const node = computed<OrchestrationNode<TodaySessionItem>>(() => {
     </div>
 
     
-    <div v-else-if="node.status === 'ERROR'" class="today-empty-wrapper">
+    <div v-else-if="nodeValue.status === 'ERROR'" class="today-empty-wrapper">
       <div class="today-empty-icon-box" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.05);" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="today-empty-svg">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -148,12 +117,16 @@ const node = computed<OrchestrationNode<TodaySessionItem>>(() => {
       <CepEmptyState
         class="cep-section__body today-empty-content"
         title="حدث خطأ في جلب البيانات"
-        :description="node.message || 'تعذر تحميل هذه البيانات بسبب خطأ غير معروف.'"
+        :description="nodeValue.message || 'تعذر تحميل هذه البيانات بسبب خطأ داخلي.'"
         data-testid="today-error-state"
-      />
+      >
+        <template v-if="nodeValue.diagnosticId">
+            <span class="today-diagnostic-id" dir="ltr">{{ nodeValue.diagnosticId }}</span>
+        </template>
+      </CepEmptyState>
     </div>
 
-    <div v-else-if="node.status === 'STALE' && !node.data" class="today-empty-wrapper">
+    <div v-else-if="nodeValue.status === 'STALE'" class="today-empty-wrapper">
       <div class="today-empty-icon-box" style="color: #f59e0b; border-color: rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.05);" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="today-empty-svg">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -162,9 +135,14 @@ const node = computed<OrchestrationNode<TodaySessionItem>>(() => {
       <CepEmptyState
         class="cep-section__body today-empty-content"
         title="البيانات غير محدّثة (قديمة)"
-        :description="node.message || 'هذه البيانات قديمة ولم نتمكن من تحديثها الآن ولا توجد نسخة محفوظة صالحة للعرض.'"
+        :description="nodeValue.message || 'هذه البيانات قديمة ولم نتمكن من تحديثها الآن ولا توجد نسخة محفوظة صالحة للعرض.'"
         data-testid="today-stale-empty-state"
-      />
+      >
+        <template v-if="nodeValue.observedAt">
+            <span class="today-stale-time" dir="ltr">{{ nodeValue.observedAt }}</span>
+            <span v-if="nodeValue.freshUntil" class="today-stale-time today-stale-time--until" dir="ltr" style="margin-right: 0.5rem; color: #9ca3af;">until: {{ nodeValue.freshUntil }}</span>
+        </template>
+      </CepEmptyState>
     </div>
 
     <div v-else class="today-empty-wrapper">
@@ -444,6 +422,21 @@ const node = computed<OrchestrationNode<TodaySessionItem>>(() => {
   padding: 0 !important;
 }
 
+.today-diagnostic-id {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #ef4444;
+}
+
+.today-stale-time {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #f59e0b;
+}
+
 @media (max-width: 48rem) {
   .today-session-card__actions {
     flex-direction: column;
@@ -457,37 +450,5 @@ const node = computed<OrchestrationNode<TodaySessionItem>>(() => {
   .today-empty-wrapper {
     flex-direction: column;
   }
-}
-
-.today-stale-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  border-radius: var(--cep-radius-sm);
-  background: rgba(245, 158, 11, 0.08);
-  padding: 0.22rem 0.55rem;
-  color: #f59e0b;
-  font-size: 0.74rem;
-  font-weight: 700;
-}
-.today-stale-icon {
-  width: 0.85rem;
-  height: 0.85rem;
-}
-</style>
-
-<style scoped>
-.today-stale-pulse-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  border-radius: var(--cep-radius-sm);
-  background: rgba(245, 158, 11, 0.08);
-  padding: 0.25rem 0.6rem;
-  color: #f59e0b;
-  font-size: 0.76rem;
-  font-weight: 700;
 }
 </style>

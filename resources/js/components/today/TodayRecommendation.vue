@@ -1,65 +1,50 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
-
 import CepEmptyState from '../shared/CepEmptyState.vue';
 import TechnicalText from '../shared/TechnicalText.vue';
-import type { TodayNextActionItem, OrchestrationNode } from './types';
+import type { OrchestrationNode, RecommendationData } from './types';
 
-const props = defineProps<{
-  action?: OrchestrationNode<TodayNextActionItem> | TodayNextActionItem | null;
+defineProps<{
+  node: OrchestrationNode<RecommendationData>;
 }>();
-
-const node = computed<OrchestrationNode<TodayNextActionItem>>(() => {
-  const a = props.action;
-  if (!a) return { status: 'EMPTY', data: null };
-  if (typeof a === 'object' && 'status' in a) {
-    return a as OrchestrationNode<TodayNextActionItem>;
-  }
-  return { status: 'AVAILABLE', data: a as TodayNextActionItem };
-});
 </script>
 
 <template>
-  <section
-    id="next-action"
-    class="cep-section today-section"
-    aria-labelledby="next-action-title"
-    data-today-level="2"
-  >
+  <section id="recommendation" class="today-section" aria-labelledby="today-recommendation-title">
     <div class="today-section-header">
       <div>
-        <p class="cep-kicker">التوصية الموجهة</p>
-        <h2 id="next-action-title" class="cep-section-title">الإجراء التالي الموصى به</h2>
+        <h2 id="today-recommendation-title" class="cep-section__title" data-today-level="2">
+          التوصية
+        </h2>
+        <p class="cep-section__desc">الإجراء المعرفي أو المهاري الموصى به بناءً على متطلباتك.</p>
       </div>
-      <span v-if="node.status === 'STALE'" class="today-stale-badge" data-testid="today-stale-badge">
-        <svg class="today-stale-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-        </svg>
-        بيانات غير محدثة
-      </span>
-
-      <span v-if="node.status === 'AVAILABLE' && node.data" class="today-recommendation-rank">
-        <svg class="today-rank-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <div v-if="node.status === 'AVAILABLE' && node.data" class="today-recommendation-rank">
+        <svg
+          class="today-rank-icon"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          aria-hidden="true"
+        >
           <path
             fill-rule="evenodd"
-            d="M10 1a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 1zm0 15a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 16zm9-6a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 0119 10zM5 10a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 015 10zm11.364-5.364a.75.75 0 010 1.06l-1.06 1.06a.75.75 0 01-1.06-1.06l1.06-1.06a.75.75 0 011.06 0zM6.757 13.243a.75.75 0 010 1.06l-1.06 1.06a.75.75 0 11-1.06-1.06l1.06-1.06a.75.75 0 011.06 0zm0-7.486a.75.75 0 011.06 0l1.06 1.06a.75.75 0 11-1.06 1.06l-1.06-1.06a.75.75 0 010-1.06zm7.486 7.486a.75.75 0 011.06 0l1.06 1.06a.75.75 0 01-1.06 1.06l-1.06-1.06a.75.75 0 010-1.06z"
+            d="M10 2l2.5 5 5.5.5-4 4 1 5.5-5-2.5-5 2.5 1-5.5-4-4 5.5-.5z"
             clip-rule="evenodd"
           />
         </svg>
-        أولوية المسار الحالي
-      </span>
+        توصية النظام
+      </div>
     </div>
 
-    <div
-      v-if="(node.status === 'AVAILABLE' || node.status === 'STALE') && node.data"
-      class="today-action-card"
-      data-testid="today-next-action-active"
-    >
+    <div v-if="node.status === 'AVAILABLE' && node.data" class="today-action-card" data-testid="today-recommendation-active">
       <div class="today-action-card__header">
-        <div class="today-action-card__domain-group">
+        <div class="today-action-card__tags">
           <span class="today-domain-tag">
-            <svg class="today-tag-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <svg
+              class="today-tag-icon"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
+            >
               <path
                 d="M10 2a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 2zM4.75 4a.75.75 0 000 1.5h10.5a.75.75 0 000-1.5H4.75zM3 8a2 2 0 012-2h10a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm2 0v7h10V8H5z"
               />
@@ -95,13 +80,22 @@ const node = computed<OrchestrationNode<TodayNextActionItem>>(() => {
       <div class="today-action-card__body">
         <h3 class="today-action-card__title">{{ node.data.title }}</h3>
         <p class="today-action-card__desc">{{ node.data.description }}</p>
+
+        <div class="today-rationale-section">
+          <h4 class="today-rationale-heading">المسوغ المعرفي:</h4>
+          <p class="today-rationale-text">{{ node.data.rationaleText }}</p>
+          <ul v-if="node.data.targetCompetency || (node.data.unlockedCapabilities && node.data.unlockedCapabilities.length)" class="today-rationale-meta-list">
+             <li v-if="node.data.targetCompetency">الكفاءة المستهدفة: <TechnicalText :value="node.data.targetCompetency" /></li>
+             <li v-for="cap in node.data.unlockedCapabilities" :key="cap">قدرة تُفتح: <TechnicalText :value="cap" /></li>
+          </ul>
+        </div>
       </div>
 
       <div class="today-action-card__footer">
         <Link
           :href="node.data.href"
           class="cep-text-button today-action-button focus-ring"
-          data-testid="today-next-action-link"
+          data-testid="today-recommendation-link"
         >
           <span>{{ node.data.actionLabel || 'بدء الإجراء الموصى به' }}</span>
           <span class="today-action-btn-arrow" aria-hidden="true">◀</span>
@@ -129,11 +123,10 @@ const node = computed<OrchestrationNode<TodayNextActionItem>>(() => {
         class="cep-section__body today-empty-content"
         title="التوصيات غير متوفرة"
         description="تعذر الاتصال بالمجال لمعرفة الإجراء التالي."
-        data-testid="today-next-action-unavailable"
+        data-testid="today-recommendation-unavailable"
       />
     </div>
 
-    
     <div v-else-if="node.status === 'ERROR'" class="today-empty-wrapper">
       <div class="today-empty-icon-box" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.05);" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="today-empty-svg">
@@ -142,13 +135,17 @@ const node = computed<OrchestrationNode<TodayNextActionItem>>(() => {
       </div>
       <CepEmptyState
         class="cep-section__body today-empty-content"
-        title="حدث خطأ في جلب البيانات"
-        :description="node.message || 'تعذر تحميل هذه البيانات بسبب خطأ غير معروف.'"
+        title="حدث خطأ في جلب التوصية"
+        :description="node.message || 'تعذر تحميل هذه البيانات بسبب خطأ داخلي.'"
         data-testid="today-error-state"
-      />
+      >
+        <template v-if="node.diagnosticId">
+            <span class="today-diagnostic-id" dir="ltr">{{ node.diagnosticId }}</span>
+        </template>
+      </CepEmptyState>
     </div>
 
-    <div v-else-if="node.status === 'STALE' && !node.data" class="today-empty-wrapper">
+    <div v-else-if="node.status === 'STALE'" class="today-empty-wrapper">
       <div class="today-empty-icon-box" style="color: #f59e0b; border-color: rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.05);" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="today-empty-svg">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -156,10 +153,15 @@ const node = computed<OrchestrationNode<TodayNextActionItem>>(() => {
       </div>
       <CepEmptyState
         class="cep-section__body today-empty-content"
-        title="البيانات غير محدّثة (قديمة)"
-        :description="node.message || 'هذه البيانات قديمة ولم نتمكن من تحديثها الآن ولا توجد نسخة محفوظة صالحة للعرض.'"
+        title="التوصية غير محدّثة (قديمة)"
+        :description="node.message || 'بيانات التوصية قديمة.'"
         data-testid="today-stale-empty-state"
-      />
+      >
+        <template v-if="node.observedAt">
+            <span class="today-stale-time" dir="ltr">{{ node.observedAt }}</span>
+            <span v-if="node.freshUntil" class="today-stale-time today-stale-time--until" dir="ltr" style="margin-right: 0.5rem; color: #9ca3af;">until: {{ node.freshUntil }}</span>
+        </template>
+      </CepEmptyState>
     </div>
 
     <div v-else class="today-empty-wrapper">
@@ -182,7 +184,7 @@ const node = computed<OrchestrationNode<TodayNextActionItem>>(() => {
         class="cep-section__body today-empty-content"
         title="لا توجد توصية مجدولة حاليًا"
         description="لا يتوفر إجراء تالٍ موصى به في الوقت الراهن. تتاح التوصيات فور استيفاء متطلبات المسار المعرفي والتقييمات."
-        data-testid="today-next-action-empty"
+        data-testid="today-recommendation-empty"
       />
     </div>
   </section>
@@ -305,6 +307,37 @@ const node = computed<OrchestrationNode<TodayNextActionItem>>(() => {
   line-height: 1.75;
 }
 
+.today-rationale-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--cep-border-strong);
+}
+
+.today-rationale-heading {
+  margin: 0;
+  color: var(--cep-text);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.today-rationale-text {
+  margin: 0.35rem 0 0;
+  color: var(--cep-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.today-rationale-meta-list {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--cep-text-muted);
+}
+
 .today-action-card__footer {
   display: flex;
   align-items: center;
@@ -380,6 +413,21 @@ const node = computed<OrchestrationNode<TodayNextActionItem>>(() => {
   padding: 0 !important;
 }
 
+.today-diagnostic-id {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #ef4444;
+}
+
+.today-stale-time {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #f59e0b;
+}
+
 @media (max-width: 48rem) {
   .today-action-card__header {
     flex-direction: column;
@@ -394,22 +442,5 @@ const node = computed<OrchestrationNode<TodayNextActionItem>>(() => {
   .today-empty-wrapper {
     flex-direction: column;
   }
-}
-
-.today-stale-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  border-radius: var(--cep-radius-sm);
-  background: rgba(245, 158, 11, 0.08);
-  padding: 0.22rem 0.55rem;
-  color: #f59e0b;
-  font-size: 0.74rem;
-  font-weight: 700;
-}
-.today-stale-icon {
-  width: 0.85rem;
-  height: 0.85rem;
 }
 </style>
