@@ -25,19 +25,37 @@ index 1111111..2222222 100644
 
 
 class FakeClient:
-    def __init__(self, patch: str = PATCH):
+    def __init__(
+        self,
+        patch: str = PATCH,
+        *,
+        activities: list[dict] | None = None,
+        complete: bool = True,
+        max_safe_page_size: int | None = None,
+    ):
         self.patch = patch
+        self.activities = activities
+        self.complete = complete
+        self.max_safe_page_size = max_safe_page_size
+        self.list_calls: list[tuple[int, int, int]] = []
 
     def get_session(self, session_id: str):
         return {"id": session_id, "state": "COMPLETED", "updateTime": "2026-08-29T20:00:00Z"}
 
     def list_activities(self, session_id: str, *, page_size: int, max_pages: int, max_items: int = 2_000):
-        item = {
-            "name": f"sessions/{session_id}/activities/a1",
-            "createTime": "2026-08-29T19:59:00Z",
-            "artifacts": [{"changeSet": {}}],
-        }
-        return SimpleNamespace(items=[item], info=SimpleNamespace(complete=True))
+        self.list_calls.append((page_size, max_pages, max_items))
+        if self.max_safe_page_size is not None and page_size > self.max_safe_page_size:
+            raise RuntimeError("simulated provider response-size overflow")
+        items = self.activities
+        if items is None:
+            items = [
+                {
+                    "name": f"sessions/{session_id}/activities/a1",
+                    "createTime": "2026-08-29T19:59:00Z",
+                    "artifacts": [{"changeSet": {}}],
+                }
+            ]
+        return SimpleNamespace(items=items, info=SimpleNamespace(complete=self.complete))
 
     def get_activity(self, activity_name: str):
         return {
@@ -143,6 +161,59 @@ class PublicationTests(unittest.TestCase):
         )
         self.assertEqual(candidate.base_commit_id, "a" * 40)
         self.assertEqual(candidate.changed_paths, paths)
+
+    def test_large_session_uses_response_safe_pagination_and_selects_latest_changeset(self):
+        session_id = "123456"
+        activities = [
+            {
+                "name": f"sessions/{session_id}/activities/noop-{index:03d}",
+                "createTime": "2026-08-29T19:00:00Z",
+                "artifacts": [],
+            }
+            for index in range(400)
+        ]
+        activities.extend(
+            [
+                {
+                    "name": f"sessions/{session_id}/activities/prior",
+                    "createTime": "2026-08-29T19:58:00Z",
+                    "artifacts": [{"changeSet": {}}],
+                },
+                {
+                    "name": f"sessions/{session_id}/activities/latest",
+                    "createTime": "2026-08-29T19:59:00Z",
+                    "artifacts": [{"changeSet": {}}],
+                },
+            ]
+        )
+        client = FakeClient(activities=activities, max_safe_page_size=25)
+        paths = canonical_patch_paths(PATCH)
+        candidate = fetch_publication_candidate(
+            client,
+            repository="hamad933/Cybersecurity-Education-Platform",
+            session_id=session_id,
+            expected_session_state="COMPLETED",
+            expected_session_update_time="2026-08-29T20:00:00Z",
+            expected_base_sha="a" * 40,
+            expected_review_sha256=sha256_text(PATCH),
+            expected_paths_sha256=paths_sha256(paths),
+        )
+        self.assertEqual([(25, 80, 2_000)], client.list_calls)
+        self.assertEqual(f"sessions/{session_id}/activities/latest", candidate.activity_name)
+
+    def test_incomplete_large_session_scan_fails_closed(self):
+        paths = canonical_patch_paths(PATCH)
+        with self.assertRaises(PublicationError):
+            fetch_publication_candidate(
+                FakeClient(complete=False),
+                repository="hamad933/Cybersecurity-Education-Platform",
+                session_id="123456",
+                expected_session_state="COMPLETED",
+                expected_session_update_time="2026-08-29T20:00:00Z",
+                expected_base_sha="a" * 40,
+                expected_review_sha256=sha256_text(PATCH),
+                expected_paths_sha256=paths_sha256(paths),
+            )
 
     def test_session_update_drift_fails_closed(self):
         paths = canonical_patch_paths(PATCH)
