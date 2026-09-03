@@ -21,6 +21,6 @@ class ImportedAiResult extends Model
 
     protected function wasFinalBeforeUpdate(): bool
     {
-        return in_array($this->getOriginal('status'), ['accepted', 'rejected'], true);
+        return in_array($this->getOriginal('status'), ['accepted', 'rejected', 'superseded'], true);
     }
 }
