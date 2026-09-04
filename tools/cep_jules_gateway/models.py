@@ -73,6 +73,7 @@ class PaginationInfo:
     start_page_token: str | None = None
     requested_page_size: int | None = None
     effective_page_size: int | None = None
+    activity_create_time_filter: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {key: value for key, value in asdict(self).items() if value is not None}
