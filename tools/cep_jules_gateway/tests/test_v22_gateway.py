@@ -26,8 +26,8 @@ def mutation_payload(**overrides):
     value = {
         "schema_version": "2.2",
         "request_id": "REQ-V22-1",
-        "controller_id": "A",
-        "lane": "W03_W04",
+        "controller_id": "C",
+        "lane": "W03",
         "logical_task_id": "CEP-W03-TASK",
         "action": "send_message",
         "write_domain": "W03/simulator",
@@ -144,9 +144,20 @@ class V22GatewayTests(unittest.TestCase):
         with self.assertRaises(GatewayError):
             parse_v22(json.dumps(bad))
 
+    def test_current_five_controller_lane_matrix(self):
+        for controller, lane in (("A", "W01"), ("B", "W02"), ("C", "W03"), ("D", "W04"), ("E", "W05")):
+            env = parse_v22(json.dumps(mutation_payload(controller_id=controller, lane=lane)))
+            self.assertEqual((controller, lane), (env.controller_id, env.lane))
+
     def test_controller_lane_mapping_remains_fail_closed(self):
-        with self.assertRaises(GatewayError):
-            parse_v22(json.dumps(mutation_payload(controller_id="A", lane="W05")))
+        for controller, lane in (("A", "W05"), ("A", "W03_W04"), ("B", "W01_W02"), ("C", "W05"), ("D", "W03"), ("E", "W04")):
+            with self.assertRaises(GatewayError):
+                parse_v22(json.dumps(mutation_payload(controller_id=controller, lane=lane)))
+
+    def test_parent_retains_individual_and_legacy_fallback_lanes(self):
+        for lane in ("PARENT", "W01", "W02", "W03", "W04", "W05", "W01_W02", "W03_W04"):
+            env = parse_v22(json.dumps(mutation_payload(controller_id="PARENT", lane=lane)))
+            self.assertEqual(lane, env.lane)
 
     def test_bridge_contains_reference_not_instruction_body(self):
         env = parse_v22(json.dumps(mutation_payload()))
@@ -157,7 +168,7 @@ class V22GatewayTests(unittest.TestCase):
 
     def test_same_session_serializes_and_independent_sessions_parallelize(self):
         a = parse_v22(json.dumps(mutation_payload(request_id="A", session_id="123")))
-        b = parse_v22(json.dumps(mutation_payload(request_id="B", session_id="123", controller_id="B", lane="W01_W02", logical_task_id="W02-TASK", write_domain="W02/editor")))
+        b = parse_v22(json.dumps(mutation_payload(request_id="B", session_id="123", controller_id="B", lane="W02", logical_task_id="W02-TASK", write_domain="W02/editor")))
         c = parse_v22(json.dumps(mutation_payload(request_id="C", session_id="456")))
         self.assertEqual(effect_key(a), effect_key(b))
         self.assertNotEqual(effect_key(a), effect_key(c))
