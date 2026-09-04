@@ -11,6 +11,16 @@ on:
         description: Exact 40-character candidate SHA
         required: true
         type: string
+  workflow_call:
+    inputs:
+      target_ref:
+        description: Existing isolated W04 branch/ref to assure
+        required: true
+        type: string
+      expected_sha:
+        description: Exact 40-character candidate SHA
+        required: true
+        type: string
 
 permissions:
   contents: read
