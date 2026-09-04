@@ -23,14 +23,17 @@ def paginate(
     *,
     max_pages: int,
     max_items: int | None = None,
+    start_page_token: str | None = None,
 ) -> PaginationResult:
     if max_pages < 1:
         raise ValueError("max_pages must be >= 1")
     if max_items is not None and max_items < 1:
         raise ValueError("max_items must be >= 1")
+    if start_page_token is not None and (not isinstance(start_page_token, str) or not start_page_token or len(start_page_token) > 4_096):
+        raise ValueError("start_page_token must be a non-empty bounded string when supplied")
 
     items: list[dict[str, Any]] = []
-    token: str | None = None
+    token: str | None = start_page_token
     seen_tokens: set[str] = set()
 
     for page_number in range(1, max_pages + 1):
@@ -50,7 +53,10 @@ def paginate(
         items.extend(page.items)
         next_token = (page.next_page_token or "").strip() or None
         if next_token is None:
-            return PaginationResult(items, PaginationInfo(page_number, len(items), True, max_pages, max_items))
+            return PaginationResult(
+                items,
+                PaginationInfo(page_number, len(items), True, max_pages, max_items, start_page_token=start_page_token),
+            )
         if next_token in seen_tokens or next_token == token:
             raise GatewayError(
                 ErrorClassification.PROVIDER_READ_FAILED,
@@ -68,14 +74,13 @@ def paginate(
                     max_items,
                     next_page_token=next_token,
                     stop_reason="TOTAL_ITEM_BOUND_REACHED",
+                    start_page_token=start_page_token,
                 ),
             )
         seen_tokens.add(next_token)
         token = next_token
 
     if max_items is None:
-        # Preserve the Foundation v2.0 fail-closed contract for callers that
-        # did not opt into explicit continuation metadata.
         raise GatewayError(
             ErrorClassification.PAGINATION_LIMIT_EXCEEDED,
             "provider pagination exceeded the configured safety bound",
@@ -91,5 +96,6 @@ def paginate(
             max_items,
             next_page_token=token,
             stop_reason="TOTAL_PAGE_BOUND_REACHED",
+            start_page_token=start_page_token,
         ),
     )
