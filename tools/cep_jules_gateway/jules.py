@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import re
 import urllib.parse
+from dataclasses import replace
 from typing import Any
 
 from .http import JsonTransport, UrllibJsonTransport, classify_response, retry_metadata
@@ -8,6 +10,10 @@ from .models import ErrorClassification, GatewayError, ProviderObservation
 from .pagination import Page, PaginationResult, paginate
 
 DEFAULT_API_BASE = "https://jules.googleapis.com/v1alpha"
+_MAX_PROVIDER_PAGE_SIZE = 100
+_MIN_ADAPTIVE_ACTIVITY_PAGE_SIZE = 1
+_MAX_ACTIVITY_SIZE_FALLBACKS = 5
+_CREATE_TIME_RE = re.compile(r"[0-9TtZz:+.\-]{1,96}\Z")
 
 
 class JulesClient:
@@ -160,6 +166,36 @@ class JulesClient:
             raise GatewayError(ErrorClassification.PROVIDER_PROTOCOL_FAILED, "provider returned an invalid nextPageToken")
         return value
 
+    @staticmethod
+    def _bounded_page_size(value: int) -> int:
+        if isinstance(value, bool):
+            raise ValueError("page_size must be an integer between 1 and 100")
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("page_size must be an integer between 1 and 100") from exc
+        if parsed < 1 or parsed > _MAX_PROVIDER_PAGE_SIZE:
+            raise ValueError("page_size must be an integer between 1 and 100")
+        return parsed
+
+    @staticmethod
+    def _bounded_create_time(value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError("create_time must be a bounded RFC3339-like provider filter string")
+        value = value.strip()
+        if not _CREATE_TIME_RE.fullmatch(value):
+            raise ValueError("create_time must be a bounded RFC3339-like provider filter string")
+        return value
+
+    @staticmethod
+    def _is_safe_response_size_failure(exc: GatewayError) -> bool:
+        return (
+            exc.classification == ErrorClassification.PROVIDER_PROTOCOL_FAILED
+            and exc.details.get("protocol_error") == "PROVIDER_RESPONSE_TOO_LARGE"
+        )
+
     def get_session(self, session_id: str) -> dict[str, Any]:
         payload = self._get("get_session", f"/sessions/{urllib.parse.quote(session_id, safe='')}")
         actual = self._valid_session_id(payload.get("id"))
@@ -198,29 +234,86 @@ class JulesClient:
         page_size: int,
         max_pages: int,
         max_items: int = 2_000,
+        start_page_token: str | None = None,
+        create_time: str | None = None,
     ) -> PaginationResult:
         sid = urllib.parse.quote(session_id, safe="")
+        requested_page_size = self._bounded_page_size(page_size)
+        create_time_filter = self._bounded_create_time(create_time)
+        active_page_size = requested_page_size
 
         def fetch(token: str | None) -> Page:
-            query: dict[str, str | int] = {"pageSize": page_size}
-            if token:
-                query["pageToken"] = token
-            payload = self._get("list_activities", f"/sessions/{sid}/activities?{urllib.parse.urlencode(query)}")
-            raw_items = payload.get("activities")
+            nonlocal active_page_size
+            size_fallbacks = 0
+            while True:
+                query: dict[str, str | int] = {"pageSize": active_page_size}
+                if token:
+                    query["pageToken"] = token
+                if create_time_filter is not None:
+                    query["createTime"] = create_time_filter
+                try:
+                    payload = self._get(
+                        "list_activities",
+                        f"/sessions/{sid}/activities?{urllib.parse.urlencode(query)}",
+                    )
+                    break
+                except GatewayError as exc:
+                    if not self._is_safe_response_size_failure(exc):
+                        raise
+                    if active_page_size <= _MIN_ADAPTIVE_ACTIVITY_PAGE_SIZE or size_fallbacks >= _MAX_ACTIVITY_SIZE_FALLBACKS:
+                        raise
+                    next_size = max(_MIN_ADAPTIVE_ACTIVITY_PAGE_SIZE, active_page_size // 2)
+                    if next_size == active_page_size:
+                        raise
+                    active_page_size = next_size
+                    size_fallbacks += 1
+
+            next_token = self._next_token(payload)
+            if "activities" not in payload:
+                if next_token is None:
+                    # Google list methods can surface a successful empty object at a
+                    # terminal boundary. Treat only an unambiguous no-continuation
+                    # response as the empty terminal page; never suppress evidence
+                    # when the provider says another page exists.
+                    return Page([], None)
+                raise GatewayError(
+                    ErrorClassification.PROVIDER_PROTOCOL_FAILED,
+                    "Jules activity collection omitted activities while advertising continuation",
+                    details={"collection": "activities", "has_continuation": True},
+                )
+            raw_items = payload["activities"]
             if not isinstance(raw_items, list):
                 raise GatewayError(
                     ErrorClassification.PROVIDER_PROTOCOL_FAILED,
-                    "Jules activity collection response omitted the mandatory activities array",
+                    "Jules activity collection activities field is not an array",
+                    details={"collection": "activities", "has_continuation": next_token is not None},
                 )
             items: list[dict[str, Any]] = []
             for item in raw_items:
                 if not isinstance(item, dict):
-                    raise GatewayError(ErrorClassification.PROVIDER_PROTOCOL_FAILED, "Jules activity collection contains a non-object item")
+                    raise GatewayError(
+                        ErrorClassification.PROVIDER_PROTOCOL_FAILED,
+                        "Jules activity collection contains a non-object item",
+                    )
                 self._activity_name_for_session(item.get("name"), session_id)
                 items.append(item)
-            return Page(items, self._next_token(payload))
+            return Page(items, next_token)
 
-        return paginate(fetch, max_pages=max_pages, max_items=max_items)
+        result = paginate(
+            fetch,
+            max_pages=max_pages,
+            max_items=max_items,
+            start_page_token=start_page_token,
+        )
+        return PaginationResult(
+            result.items,
+            replace(
+                result.info,
+                requested_page_size=requested_page_size,
+                effective_page_size=active_page_size,
+                activity_create_time_filter=create_time_filter,
+            ),
+        )
 
     def list_sessions(
         self,
@@ -228,17 +321,27 @@ class JulesClient:
         page_size: int = 100,
         max_pages: int = 20,
         max_items: int = 2_000,
+        start_page_token: str | None = None,
     ) -> PaginationResult:
+        bounded_page_size = self._bounded_page_size(page_size)
+
         def fetch(token: str | None) -> Page:
-            query: dict[str, str | int] = {"pageSize": page_size}
+            query: dict[str, str | int] = {"pageSize": bounded_page_size}
             if token:
                 query["pageToken"] = token
             payload = self._get("list_sessions", f"/sessions?{urllib.parse.urlencode(query)}")
-            raw_items = payload.get("sessions")
-            if not isinstance(raw_items, list):
+            next_token = self._next_token(payload)
+            if "sessions" not in payload:
                 raise GatewayError(
                     ErrorClassification.PROVIDER_PROTOCOL_FAILED,
                     "Jules session collection response omitted the mandatory sessions array",
+                    details={"collection": "sessions", "has_continuation": next_token is not None},
+                )
+            raw_items = payload["sessions"]
+            if not isinstance(raw_items, list):
+                raise GatewayError(
+                    ErrorClassification.PROVIDER_PROTOCOL_FAILED,
+                    "Jules session collection sessions field is not an array",
                 )
             items: list[dict[str, Any]] = []
             for item in raw_items:
@@ -246,9 +349,17 @@ class JulesClient:
                     raise GatewayError(ErrorClassification.PROVIDER_PROTOCOL_FAILED, "Jules session collection contains a non-object item")
                 self._valid_session_id(item.get("id"))
                 items.append(item)
-            return Page(items, self._next_token(payload))
+            return Page(items, next_token)
 
-        return paginate(fetch, max_pages=max_pages, max_items=max_items)
+        result = paginate(fetch, max_pages=max_pages, max_items=max_items, start_page_token=start_page_token)
+        return PaginationResult(
+            result.items,
+            replace(
+                result.info,
+                requested_page_size=bounded_page_size,
+                effective_page_size=bounded_page_size,
+            ),
+        )
 
     def list_sources(self) -> list[dict[str, Any]]:
         payload = self._get("list_sources", "/sources")
