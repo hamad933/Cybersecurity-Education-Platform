@@ -7,7 +7,7 @@ on:
       - ".github/workflows/cep-jules-v2*.yml"
       - ".github/workflows/cep-jules-control.yml"
       - ".github/workflows/cep-jules-inspect.yml"
-      - ".github/workflows/cep-w04-exact-sha-assurance.yml"
+      - ".github/workflows/cep-w04-*.yml"
       - "tools/cep_jules_gateway/**"
 
 permissions:
@@ -26,7 +26,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ruby -e 'require "yaml"; paths = Dir[".github/workflows/cep-jules-v2*.yml"] + [".github/workflows/cep-jules-control.yml", ".github/workflows/cep-jules-inspect.yml", ".github/workflows/cep-w04-exact-sha-assurance.yml"]; paths.uniq.sort.each { |path| YAML.load_file(path, aliases: true); puts "YAML_OK=#{path}" }'
+          ruby -e 'require "yaml"; paths = Dir[".github/workflows/cep-jules-v2*.yml"] + Dir[".github/workflows/cep-w04-*.yml"] + [".github/workflows/cep-jules-control.yml", ".github/workflows/cep-jules-inspect.yml"]; paths.uniq.sort.each { |path| YAML.load_file(path, aliases: true); puts "YAML_OK=#{path}" }'
       - name: Compile gateway modules
         run: python -m compileall -q tools/cep_jules_gateway
       - name: Run foundation and safety tests
