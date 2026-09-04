@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from tools.cep_jules_gateway.legacy_inspect_gateway import inspect_envelope
 from tools.cep_jules_gateway.legacy_issue_gateway import run_control
 from tools.cep_jules_gateway.models import ErrorClassification, GatewayError, PaginationInfo
 from tools.cep_jules_gateway.pagination import PaginationResult
@@ -122,13 +123,26 @@ class LegacyIssueGatewayTests(unittest.TestCase):
         self.assertEqual(1, jules.send_calls)
         self.assertIn("verification=EXACT_NEW_USER_MESSAGED_ACTIVITY", "\n".join(gh.comments))
 
+    def test_legacy_inspect_adapter_uses_only_authoritative_option_ranges(self):
+        for action in ("get_plan", "get_agent_messages", "get_changeset_index", "get_latest_changeset", "get_bash_outputs"):
+            env_obj = inspect_envelope("REQ-INSPECT-" + action.replace("_", "-"), "123", action)
+            self.assertLessEqual(env_obj.options.max_activity_pages, 50)
+            self.assertLessEqual(env_obj.options.max_provider_reads, 200)
+            self.assertLessEqual(env_obj.options.max_exact_text_chars, 500_000)
+            self.assertLessEqual(env_obj.options.max_total_exact_text_bytes, 2_000_000)
+            self.assertLessEqual(env_obj.options.recent_agent_messages, 50)
+            self.assertLessEqual(env_obj.options.recent_bash_outputs, 20)
+
     def test_legacy_workflows_are_thin_and_share_packaged_gateway(self):
         control = (ROOT / ".github/workflows/cep-jules-control.yml").read_text(encoding="utf-8")
         inspect = (ROOT / ".github/workflows/cep-jules-inspect.yml").read_text(encoding="utf-8")
-        for text, mode in ((control, "control"), (inspect, "inspect")):
-            self.assertIn("actions/checkout@v4", text)
-            self.assertIn("actions/setup-python@v5", text)
-            self.assertIn(f"python -m tools.cep_jules_gateway.legacy_issue_gateway {mode}", text)
+        self.assertIn("actions/checkout@v4", control)
+        self.assertIn("actions/setup-python@v5", control)
+        self.assertIn("python -m tools.cep_jules_gateway.legacy_issue_gateway control", control)
+        self.assertIn("actions/checkout@v4", inspect)
+        self.assertIn("actions/setup-python@v5", inspect)
+        self.assertIn("python -m tools.cep_jules_gateway.legacy_inspect_gateway", inspect)
+        for text in (control, inspect):
             self.assertNotIn("urllib.request", text)
             self.assertNotIn("pageSize=100", text)
 
