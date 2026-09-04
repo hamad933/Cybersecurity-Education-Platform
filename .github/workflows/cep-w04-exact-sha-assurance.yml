@@ -1,0 +1,232 @@
+name: CEP W04 Exact-SHA Assurance
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_ref:
+        description: Existing isolated W04 branch/ref to assure
+        required: true
+        type: string
+      expected_sha:
+        description: Exact 40-character candidate SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cep-w04-exact-sha-assurance-${{ inputs.expected_sha }}
+  cancel-in-progress: false
+
+jobs:
+  assure:
+    if: github.actor == github.repository_owner && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18.4-bookworm
+        env:
+          POSTGRES_DB: cyber_platform_test
+          POSTGRES_USER: task006_test
+          POSTGRES_PASSWORD: testpass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U task006_test -d cyber_platform_test"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+
+    steps:
+      - name: Validate public inputs
+        shell: bash
+        env:
+          TARGET_REF: ${{ inputs.target_ref }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TARGET_REF" =~ ^(work|fix|candidate|checkpoint)/[A-Za-z0-9._/-]+$ ]]
+          test "$TARGET_REF" != main
+
+      - name: Checkout exact product candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_ref }}
+          path: candidate
+          fetch-depth: 1
+          persist-credentials: false
+
+      - id: identity
+        name: Verify exact candidate identity
+        shell: bash
+        working-directory: candidate
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "actual_sha=$ACTUAL_SHA" >> "$GITHUB_OUTPUT"
+          echo "tree_sha=$(git rev-parse HEAD^{tree})" >> "$GITHUB_OUTPUT"
+
+      - id: build
+        name: Build project-declared PHP 8.5 assurance runtime
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --target php-development -t cep-w04-assurance:${{ inputs.expected_sha }} candidate
+
+      - id: bootstrap
+        name: Install locked PHP dependencies and verify real PostgreSQL
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="cep-w04-assurance:${{ inputs.expected_sha }}"
+          RUN=(docker run --rm --network host -v "$PWD/candidate:/app" -w /app \
+            -e APP_ENV=testing \
+            -e APP_PROFILE=test \
+            -e APP_KEY=base64:QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE= \
+            -e DB_CONNECTION=pgsql \
+            -e DB_HOST=127.0.0.1 \
+            -e DB_PORT=5432 \
+            -e DB_DATABASE=cyber_platform_test \
+            -e DB_USERNAME=task006_test \
+            -e DB_PASSWORD=testpass \
+            -e TEST_DATABASE_ALLOWED_CONNECTIONS=pgsql \
+            -e TEST_DATABASE_ALLOWED_HOSTS=127.0.0.1,localhost,postgres \
+            "$IMAGE")
+          "${RUN[@]}" composer install --no-interaction --no-progress --prefer-dist
+          "${RUN[@]}" php -r '$pdo=new PDO("pgsql:host=127.0.0.1;port=5432;dbname=cyber_platform_test","task006_test","testpass"); $r=$pdo->query("select version() as version, current_database() as db, pg_backend_pid() as pid")->fetch(PDO::FETCH_ASSOC); echo json_encode(["php"=>PHP_VERSION,"pdo_drivers"=>PDO::getAvailableDrivers(),"postgres"=>$r], JSON_UNESCAPED_SLASHES).PHP_EOL;' | tee db-runtime.json
+
+      - id: fresh
+        name: Fresh-schema migration on exact SHA
+        if: steps.bootstrap.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="cep-w04-assurance:${{ inputs.expected_sha }}"
+          docker run --rm --network host -v "$PWD/candidate:/app" -w /app \
+            -e APP_ENV=testing -e APP_PROFILE=test -e APP_KEY=base64:QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE= \
+            -e DB_CONNECTION=pgsql -e DB_HOST=127.0.0.1 -e DB_PORT=5432 -e DB_DATABASE=cyber_platform_test \
+            -e DB_USERNAME=task006_test -e DB_PASSWORD=testpass \
+            -e TEST_DATABASE_ALLOWED_CONNECTIONS=pgsql -e TEST_DATABASE_ALLOWED_HOSTS=127.0.0.1,localhost,postgres \
+            "$IMAGE" php artisan migrate:fresh --force
+
+      - id: feature
+        name: Run W04 Evidence Intake feature tests
+        if: steps.bootstrap.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="cep-w04-assurance:${{ inputs.expected_sha }}"
+          docker run --rm --network host -v "$PWD/candidate:/app" -w /app \
+            -e APP_ENV=testing -e APP_PROFILE=test -e APP_KEY=base64:QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE= \
+            -e DB_CONNECTION=pgsql -e DB_HOST=127.0.0.1 -e DB_PORT=5432 -e DB_DATABASE=cyber_platform_test \
+            -e DB_USERNAME=task006_test -e DB_PASSWORD=testpass \
+            -e TEST_DATABASE_ALLOWED_CONNECTIONS=pgsql -e TEST_DATABASE_ALLOWED_HOSTS=127.0.0.1,localhost,postgres \
+            "$IMAGE" php artisan test tests/Feature/IntakeReview/EvidenceIntakeFeatureTest.php
+
+      - id: migration
+        name: Run rollback-reapply-backfill and immutability tests
+        if: steps.bootstrap.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="cep-w04-assurance:${{ inputs.expected_sha }}"
+          docker run --rm --network host -v "$PWD/candidate:/app" -w /app \
+            -e APP_ENV=testing -e APP_PROFILE=test -e APP_KEY=base64:QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE= \
+            -e DB_CONNECTION=pgsql -e DB_HOST=127.0.0.1 -e DB_PORT=5432 -e DB_DATABASE=cyber_platform_test \
+            -e DB_USERNAME=task006_test -e DB_PASSWORD=testpass \
+            -e TEST_DATABASE_ALLOWED_CONNECTIONS=pgsql -e TEST_DATABASE_ALLOWED_HOSTS=127.0.0.1,localhost,postgres \
+            "$IMAGE" php artisan test tests/Integration/Evidence/EvidenceIntakeMigrationTest.php
+
+      - id: concurrency
+        name: Run true multi-process PostgreSQL concurrency tests
+        if: steps.bootstrap.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="cep-w04-assurance:${{ inputs.expected_sha }}"
+          docker run --rm --network host -v "$PWD/candidate:/app" -w /app \
+            -e APP_ENV=testing -e APP_PROFILE=test -e APP_KEY=base64:QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE= \
+            -e DB_CONNECTION=pgsql -e DB_HOST=127.0.0.1 -e DB_PORT=5432 -e DB_DATABASE=cyber_platform_test \
+            -e DB_USERNAME=task006_test -e DB_PASSWORD=testpass \
+            -e TEST_DATABASE_ALLOWED_CONNECTIONS=pgsql -e TEST_DATABASE_ALLOWED_HOSTS=127.0.0.1,localhost,postgres \
+            "$IMAGE" php artisan test tests/Integration/Evidence/EvidenceIntakeConcurrencyTest.php
+
+      - name: Write exact-SHA assurance receipt
+        if: always()
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          TARGET_REF: ${{ inputs.target_ref }}
+          ACTUAL_SHA: ${{ steps.identity.outputs.actual_sha }}
+          TREE_SHA: ${{ steps.identity.outputs.tree_sha }}
+          BUILD: ${{ steps.build.outcome }}
+          BOOTSTRAP: ${{ steps.bootstrap.outcome }}
+          FRESH: ${{ steps.fresh.outcome }}
+          FEATURE: ${{ steps.feature.outcome }}
+          MIGRATION: ${{ steps.migration.outcome }}
+          CONCURRENCY: ${{ steps.concurrency.outcome }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib
+          db = None
+          p = pathlib.Path('db-runtime.json')
+          if p.exists():
+              try: db = json.loads(p.read_text())
+              except Exception: db = {"parse_error": True}
+          outcomes = {k.lower(): os.environ.get(k, "") for k in ["BUILD","BOOTSTRAP","FRESH","FEATURE","MIGRATION","CONCURRENCY"]}
+          receipt = {
+              "schema_version": "cep.w04.exact_sha_assurance/v1",
+              "target_ref": os.environ["TARGET_REF"],
+              "expected_sha": os.environ["EXPECTED_SHA"],
+              "actual_sha": os.environ.get("ACTUAL_SHA"),
+              "tree_sha": os.environ.get("TREE_SHA"),
+              "runtime": db,
+              "checks": outcomes,
+              "all_required_passed": all(outcomes[k] == "success" for k in outcomes),
+              "repository_mutation_performed": False,
+          }
+          pathlib.Path('w04-assurance-receipt.json').write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
+          print(json.dumps(receipt, sort_keys=True))
+          PY
+
+      - name: Upload assurance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cep-w04-exact-sha-assurance-${{ inputs.expected_sha }}
+          path: |
+            w04-assurance-receipt.json
+            db-runtime.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Enforce assurance gate
+        if: always()
+        shell: bash
+        env:
+          BUILD: ${{ steps.build.outcome }}
+          BOOTSTRAP: ${{ steps.bootstrap.outcome }}
+          FRESH: ${{ steps.fresh.outcome }}
+          FEATURE: ${{ steps.feature.outcome }}
+          MIGRATION: ${{ steps.migration.outcome }}
+          CONCURRENCY: ${{ steps.concurrency.outcome }}
+        run: |
+          set -euo pipefail
+          for v in BUILD BOOTSTRAP FRESH FEATURE MIGRATION CONCURRENCY; do
+            test "${!v}" = success || { echo "ASSURANCE_FAILED $v=${!v}" >&2; exit 1; }
+          done
+          echo "W04_EXACT_SHA_ASSURANCE=PASS"
