@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import inspect
+from pathlib import Path
 from typing import Any, Protocol
 
 from .budget import ExactTextBudget, HydrationPool
 from .digest import sha256_text
 from .envelope import MUTATION_SCHEMA_VERSION, RequestEnvelope
+from .media import collect_media_evidence
 from .models import Completeness, ErrorClassification, GatewayError, ProviderOutcome
 from .plan_identity import plan_identity_from_activities
 from .sanitize import sanitize_obj, sanitize_text
@@ -295,7 +297,12 @@ def _error_record(stage: str, exc: GatewayError, **extra: Any) -> dict[str, Any]
     return result
 
 
-def build_inspect_bundle(envelope: RequestEnvelope, client: InspectClient) -> dict[str, Any]:
+def build_inspect_bundle(
+    envelope: RequestEnvelope,
+    client: InspectClient,
+    *,
+    media_output_dir: Path | None = None,
+) -> dict[str, Any]:
     if envelope.action != "inspect_bundle" or envelope.session_id is None:
         raise GatewayError(ErrorClassification.INVALID_REQUEST, "build_inspect_bundle requires inspect_bundle with session_id")
 
@@ -358,10 +365,20 @@ def build_inspect_bundle(envelope: RequestEnvelope, client: InspectClient) -> di
         text_budget=text_budget,
         errors=errors,
     )
+    media_evidence = collect_media_evidence(
+        activities,
+        envelope.session_id,
+        output_dir=media_output_dir,
+    )
 
     pagination_complete = bool(getattr(activities_result.info, "complete", True))
     output_partial = text_budget.exhausted or bool(latest_patch.get("text_omitted_reason"))
-    completeness = Completeness.PARTIAL if errors or not bash_hydration_complete or not pagination_complete or output_partial else Completeness.COMPLETE
+    media_complete = media_evidence.get("status") != "PARTIAL"
+    completeness = (
+        Completeness.PARTIAL
+        if errors or not bash_hydration_complete or not pagination_complete or output_partial or not media_complete
+        else Completeness.COMPLETE
+    )
 
     provider_reads = getattr(client, "provider_reads", None)
     provider_read_limit = getattr(client, "max_provider_reads", None)
@@ -394,6 +411,7 @@ def build_inspect_bundle(envelope: RequestEnvelope, client: InspectClient) -> di
             "recent_exact": bash_evidence,
             "hydration_complete_for_selector": bash_hydration_complete,
         },
+        "media_evidence": media_evidence,
         "budgets": {
             "hydration_reads": pool.reads,
             "hydration_cache_hits": pool.cache_hits,
@@ -404,6 +422,9 @@ def build_inspect_bundle(envelope: RequestEnvelope, client: InspectClient) -> di
             "exact_text_bytes": text_budget.used_bytes,
             "max_total_exact_text_bytes": text_budget.limit_bytes,
             "output_omissions": text_budget.omissions,
+            "media_decoded_bytes": media_evidence.get("total_decoded_bytes"),
+            "max_media_item_bytes": media_evidence.get("max_item_bytes"),
+            "max_media_total_bytes": media_evidence.get("max_total_bytes"),
         },
         "provider": {
             "outcome": ProviderOutcome.FOUND.value,
