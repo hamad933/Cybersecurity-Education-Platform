@@ -48,4 +48,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m tools.cep_jules_gateway.legacy_issue_gateway inspect
+          python -m tools.cep_jules_gateway.legacy_inspect_gateway
