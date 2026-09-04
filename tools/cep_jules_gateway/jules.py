@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import urllib.parse
 from dataclasses import replace
 from typing import Any
@@ -12,6 +13,7 @@ DEFAULT_API_BASE = "https://jules.googleapis.com/v1alpha"
 _MAX_PROVIDER_PAGE_SIZE = 100
 _MIN_ADAPTIVE_ACTIVITY_PAGE_SIZE = 1
 _MAX_ACTIVITY_SIZE_FALLBACKS = 5
+_CREATE_TIME_RE = re.compile(r"[0-9TtZz:+.\-]{1,96}\Z")
 
 
 class JulesClient:
@@ -177,6 +179,17 @@ class JulesClient:
         return parsed
 
     @staticmethod
+    def _bounded_create_time(value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError("create_time must be a bounded RFC3339-like provider filter string")
+        value = value.strip()
+        if not _CREATE_TIME_RE.fullmatch(value):
+            raise ValueError("create_time must be a bounded RFC3339-like provider filter string")
+        return value
+
+    @staticmethod
     def _is_safe_response_size_failure(exc: GatewayError) -> bool:
         return (
             exc.classification == ErrorClassification.PROVIDER_PROTOCOL_FAILED
@@ -222,9 +235,11 @@ class JulesClient:
         max_pages: int,
         max_items: int = 2_000,
         start_page_token: str | None = None,
+        create_time: str | None = None,
     ) -> PaginationResult:
         sid = urllib.parse.quote(session_id, safe="")
         requested_page_size = self._bounded_page_size(page_size)
+        create_time_filter = self._bounded_create_time(create_time)
         active_page_size = requested_page_size
 
         def fetch(token: str | None) -> Page:
@@ -234,6 +249,8 @@ class JulesClient:
                 query: dict[str, str | int] = {"pageSize": active_page_size}
                 if token:
                     query["pageToken"] = token
+                if create_time_filter is not None:
+                    query["createTime"] = create_time_filter
                 try:
                     payload = self._get(
                         "list_activities",
@@ -294,6 +311,7 @@ class JulesClient:
                 result.info,
                 requested_page_size=requested_page_size,
                 effective_page_size=active_page_size,
+                activity_create_time_filter=create_time_filter,
             ),
         )
 
