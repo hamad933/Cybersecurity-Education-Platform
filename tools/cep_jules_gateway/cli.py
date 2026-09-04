@@ -27,9 +27,14 @@ def _pagination_completeness(info: Any) -> str:
     return Completeness.COMPLETE.value if bool(info.complete) else Completeness.PARTIAL.value
 
 
-def _run_read_action(envelope: RequestEnvelope, client: JulesClient) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+def _run_read_action(
+    envelope: RequestEnvelope,
+    client: JulesClient,
+    *,
+    media_output_dir: Path | None = None,
+) -> tuple[dict[str, Any] | None, dict[str, Any]]:
     if envelope.action == "inspect_bundle":
-        bundle = build_inspect_bundle(envelope, client)
+        bundle = build_inspect_bundle(envelope, client, media_output_dir=media_output_dir)
         return bundle, receipt_from_bundle(envelope, bundle)
     if envelope.action == "get_session":
         session = sanitize_obj(client.get_session(envelope.session_id or ""))
@@ -140,7 +145,11 @@ def main(argv: list[str] | None = None) -> int:
             api_base=os.environ.get("JULES_API_BASE", "https://jules.googleapis.com/v1alpha"),
             max_provider_reads=envelope.options.max_provider_reads,
         )
-        payload, receipt = _run_read_action(envelope, client)
+        payload, receipt = _run_read_action(
+            envelope,
+            client,
+            media_output_dir=(out_dir / "media") if envelope.action == "inspect_bundle" else None,
+        )
         if github_precondition is not None:
             receipt["github_precondition"] = sanitize_obj(github_precondition)
             if payload is not None:
