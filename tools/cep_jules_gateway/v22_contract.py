@@ -11,10 +11,12 @@ SCHEMA_VERSION = "2.2"
 MAX_REQUEST_BYTES = 16_384
 
 CONTROLLER_LANES = {
-    "PARENT": {"PARENT", "W01_W02", "W03_W04", "W05"},
-    "A": {"W03_W04"},
-    "B": {"W01_W02"},
-    "C": {"W05"},
+    "PARENT": {"PARENT", "W01", "W02", "W03", "W04", "W05", "W01_W02", "W03_W04"},
+    "A": {"W01"},
+    "B": {"W02"},
+    "C": {"W03"},
+    "D": {"W04"},
+    "E": {"W05"},
 }
 MUTATIONS = {"create_session", "send_message", "approve_plan"}
 RECONCILIATIONS = {
