@@ -32,10 +32,26 @@ class EnvelopeTests(unittest.TestCase):
         self.assertIsNone(envelope.expected_sha)
         self.assertIsNone(envelope.starting_branch)
 
-    def test_controller_lane_mapping(self):
-        for controller, lane in (("A", "W03_W04"), ("B", "W01_W02"), ("C", "W05")):
+    def test_controller_lane_mapping_matches_current_five_controller_topology(self):
+        for controller, lane in (("A", "W01"), ("B", "W02"), ("C", "W03"), ("D", "W04"), ("E", "W05")):
             envelope = parse_envelope(json.dumps(base(controller_id=controller, lane=lane)))
             self.assertEqual(envelope.lane, lane)
+
+    def test_legacy_aggregate_routes_are_parent_only(self):
+        for lane in ("W01_W02", "W03_W04"):
+            envelope = parse_envelope(json.dumps(base(controller_id="PARENT", lane=lane)))
+            self.assertEqual(envelope.lane, lane)
+        for controller, lane in (("A", "W03_W04"), ("B", "W01_W02"), ("C", "W05"), ("D", "W03_W04"), ("E", "W01_W02")):
+            with self.assertRaises(GatewayError) as ctx:
+                parse_envelope(json.dumps(base(controller_id=controller, lane=lane)))
+            self.assertEqual(ctx.exception.classification, ErrorClassification.INVALID_REQUEST)
+
+    def test_parent_can_route_current_individual_lanes(self):
+        for lane in ("PARENT", "W01", "W02", "W03", "W04", "W05"):
+            envelope = parse_envelope(json.dumps(base(controller_id="PARENT", lane=lane)))
+            self.assertEqual(envelope.lane, lane)
+
+    def test_cross_workspace_child_route_fails_closed(self):
         with self.assertRaises(GatewayError) as ctx:
             parse_envelope(json.dumps(base(controller_id="A", lane="W05")))
         self.assertEqual(ctx.exception.classification, ErrorClassification.INVALID_REQUEST)
