@@ -1,58 +1,104 @@
-# CEP Jules Gateway v2 — Shadow Safety Layer
+# CEP Jules Gateway v2 — Controller Safety and Evidence Layer
 
-This package is **Controller infrastructure**, not product authority. v1 remains present and unchanged. v2 does not grant acceptance, merge, release, deployment, publication, cutover, or product-scope authority.
+This package is **Controller infrastructure**, not product authority. It does not grant acceptance, merge, release, deployment, publication, cutover, or product-scope authority.
 
 ## Transport split
 
-- `.github/workflows/cep-jules-v2.yml` remains the explicit **read-only shadow** transport using schema `2.0`.
-- `.github/workflows/cep-jules-v2-mutation.yml` is a separate, manual `workflow_dispatch` **mutation canary** using schema `2.1`.
-- The mutation canary does not subscribe to Issue traffic and does not replace the active v1 workflows.
-- `execution_mode=MUTATION_CANARY` is mandatory for every v2.1 provider mutation.
-- The reusable mutation worker receives only the explicitly required `JULES_API_KEY`; the caller does not use `secrets: inherit`.
+- `.github/workflows/cep-jules-v2.yml` is the explicit **read-only shadow** transport using schema `2.0`.
+- `.github/workflows/cep-jules-v2-mutation.yml` is the separate, manual `workflow_dispatch` **mutation canary**. Its current public transport is v2.2 reference-only metadata; private task bodies stay behind governed references.
+- `.github/workflows/cep-jules-v2-publication.yml` plus the v2.3 issue bridge are the trusted candidate-publication transport already present on `main`.
+- Mutation transports do not subscribe to arbitrary Issue traffic and do not replace product acceptance authority.
+- Reusable mutation workers receive only explicitly required secrets; callers do not use `secrets: inherit`.
 
-A future cutover, if separately authorized, can follow:
+A future default-transport cutover, if separately authorized, still follows a governed sequence rather than being implied by code availability.
 
-`SHADOW -> READ PARITY -> MUTATION CANARY -> PARENT REVIEW -> DEFAULT SWITCH -> V1 FALLBACK RETENTION -> LATER RETIREMENT`
+## Current Controller / lane topology
 
-This candidate stops before `DEFAULT SWITCH`.
+All packaged Gateway contracts now share one current structural mapping:
 
-## Authority envelope
+- `PARENT -> PARENT | W01 | W02 | W03 | W04 | W05 | W01_W02 | W03_W04`
+- `A -> W01`
+- `B -> W02`
+- `C -> W03`
+- `D -> W04`
+- `E -> W05`
 
-The structural controller/lane mapping is:
+`W01_W02` and `W03_W04` are retained only as Parent legacy aggregate fallbacks. Child Controllers cannot use those legacy aggregate routes.
 
-- `PARENT -> PARENT | W01_W02 | W03_W04 | W05`
-- `A -> W03_W04`
-- `B -> W01_W02`
-- `C -> W05`
+This mapping catches inconsistent transport requests. It does **not** replace Drive authority. `authority_event` and `authority_ref` remain bounded references, not self-authenticating grants.
 
-This mapping catches obviously inconsistent transport requests. It does **not** replace Drive authority. `authority_event` and `authority_ref` are bounded references, not self-authenticating grants.
+Schema `2.0` keeps the read contract: `inspect_bundle`, `get_session`, `list_sessions`, and `list_activities`.
 
-Schema `2.0` keeps the Foundation read contract: `inspect_bundle`, `get_session`, `list_sessions`, and `list_activities`.
+Mutation schemas permit bounded `create_session`, `send_message`, and `approve_plan` only through explicit mutation transports. Secrets/private Drive material are prohibited in public envelopes.
 
-Schema `2.1` additionally permits explicit-canary `create_session`, `send_message`, and `approve_plan`. Mutation prompts/titles are bounded public-safe runtime inputs; they are excluded from `public_dict`, routing output, intent receipts, and mutation receipts. Secrets/private Drive material are prohibited in the request envelope.
+## Provider collection robustness
+
+A successful HTTP response is not sufficient evidence by itself. Expected JSON reads fail closed on wrong top-level types, malformed items, cross-session activity identities, invalid continuation tokens, repeated pagination tokens, or ambiguous collection shapes.
+
+For Jules activities specifically:
+
+- a successful response that omits `activities` is accepted as an empty **terminal** page only when no `nextPageToken` exists;
+- omitting `activities` while advertising continuation fails closed;
+- a non-array `activities` field fails closed;
+- activity identities must remain inside the requested session;
+- the total page/item/provider-read budgets remain enforced.
+
+This closes the observed long-session failure mode where a quiescent session with hundreds of activities could be enumerated by one reader but rejected by another at a terminal collection boundary.
+
+### Response-size adaptation
+
+The shared HTTP transport keeps its 8 MiB provider-response bound. `list_activities` may adaptively reduce `pageSize` only when a **read-only GET** fails specifically with `PROVIDER_RESPONSE_TOO_LARGE`. The fallback is bounded and never converts into a mutation retry.
+
+All provider mutations still follow the one-write rule. HTTP 429, transport ambiguity, 5xx, malformed successful mutation responses, or inconclusive post-reads remain `UNKNOWN_WRITE_OUTCOME`; blind retry stays prohibited.
+
+### Incremental activity-read primitives
+
+`list_activities` supports two optional bounded read primitives:
+
+- an opaque `start_page_token` for continuation inside the provider pagination contract;
+- a `create_time` filter passed as Jules `createTime` for bounded delta-style scans.
+
+The applied filter and requested/effective page sizes are emitted in pagination metadata. These primitives do **not** claim that a provider page token is a durable long-term checkpoint, and no persistent cache/cutover guarantee is inferred from them.
+
+## Media evidence
+
+Jules activities may contain `media` artifacts in addition to changeSets and Bash output. The inspect bundle no longer silently ignores them.
+
+Media handling is bounded and evidence-oriented:
+
+- `mimeType` is structurally validated;
+- `data` is strict base64-decoded;
+- per-item decoded size is limited to 5 MiB;
+- total decoded media is limited to 20 MiB;
+- at most 50 media artifacts are admitted per inspect bundle;
+- decoded bytes are SHA-256 hashed;
+- result JSON contains only metadata (`activity_name`, `artifact_index`, MIME type, decoded size, digest, output file), never raw base64;
+- when the CLI has an output directory, decoded media is externalized under `media/*.bin` so Actions artifact upload can preserve it without Issue/log inflation.
+
+Malformed or over-budget media is explicit `PARTIAL` evidence with a reason; it is never silently discarded.
 
 ## Effect concurrency
 
-v2 uses two nested non-cancelling serialization scopes:
+Mutation execution uses two nested non-cancelling serialization scopes:
 
-1. `request_id` lock: serializes duplicate transport invocations of the same logical request for the whole reusable worker lifetime.
+1. `request_id` lock: serializes duplicate transport invocations of the same logical request for the worker lifetime.
 2. mutation effect lock:
    - existing session: hash of exact `session_id`;
    - pre-session create: hash of `logical_task_id + write_domain + starting_branch`.
 
 `cancel-in-progress` is always `false`.
 
-Therefore two Controllers cannot concurrently mutate the same session through v2, while independent sessions retain different effect keys and remain parallel. There is no global lock.
+Therefore two Controllers cannot concurrently mutate the same session through the same governed v2 transport, while independent sessions retain different effect keys and can remain parallel. There is no global mutation lock.
 
 For `create_session`, a durable create-effect intent marker is written inside the effect lock before the provider write. A later request with a different `request_id` but the same pre-session logical effect is blocked rather than creating a second Jules session blindly.
 
-For existing sessions, the first v2 mutation also persists a generic session-binding marker and a binding-specific marker derived from `logical_task_id + write_domain`. Later v2 mutations of that session must reproduce the same binding. A mismatched task/domain or a partially persisted binding fails closed with `RECONCILIATION_REQUIRED`. A verified `create_session` persists the same binding pair for the newly created session. This is a deterministic collision guard, not a claim of a perfect distributed lock.
+For existing sessions, the first governed mutation persists a session-binding marker plus a binding-specific marker derived from `logical_task_id + write_domain`. Later mutations of that session must reproduce the same binding. A mismatched task/domain or partially persisted binding fails closed with `RECONCILIATION_REQUIRED`.
 
 ## Repository-wide idempotency
 
-v2 uses bounded GitHub Actions artifacts as the smallest CEP-specific durable reconciliation store. Marker names contain a hash of `request_id`, not request content.
+Bounded GitHub Actions artifacts are used as the smallest CEP-specific durable reconciliation store. Marker names contain hashes/identities rather than private request bodies.
 
-States:
+States include:
 
 - `NOT_SEEN`
 - `INTENT_RECORDED`
@@ -60,93 +106,63 @@ States:
 - `UNKNOWN_WRITE_OUTCOME`
 - `RECONCILIATION_REQUIRED`
 
-Before any provider write, v2 publishes an `INTENT_RECORDED` artifact. A verified or deterministically rejected request receives a `COMPLETED` marker. An ambiguous write receives `UNKNOWN_WRITE_OUTCOME`. A later invocation that sees `INTENT_RECORDED` or `UNKNOWN_WRITE_OUTCOME` returns reconciliation-required and never replays the mutation blindly.
+Before a provider write, the mutation transport persists intent. A verified or deterministically rejected request receives terminal state; an ambiguous write receives `UNKNOWN_WRITE_OUTCOME`. Later invocations reconcile rather than replay blindly.
 
-Durable idempotency/effect/session-binding artifacts use 90-day retention; short diagnostic evidence uses 14 days. This intentionally bounds state growth. The resulting limitation is that request/effect/session-binding deduplication is retention-window bounded, so very old identifiers must not be recycled.
+Durable idempotency/effect/session-binding artifacts are retention-window bounded. Old request/effect identifiers therefore must not be recycled as if state were permanent.
 
 ## Exact plan approval binding
 
-The Foundation `plan_digest` remains for display/backward-compatible read evidence. It is computed from sanitized normalized steps.
+The Foundation `plan_digest` remains display/backward-compatible read evidence. A separate `provider_identity_digest` is computed from canonical provider identity material before sanitization and includes the exact session, plan activity identity, provider plan object and stable plan ID when available.
 
-A separate `provider_identity_digest` is computed **in memory before sanitization** from canonical provider material containing:
+`approve_plan` requires exact reviewed plan/session identities. Immediately before the single POST, the worker reconstructs the provider identity again and fails closed on drift. After approval, `VERIFIED` requires a newly observed `planApproved` activity whose `planId` exactly matches the reviewed plan.
 
-- exact session identity;
-- exact plan-generating activity identity;
-- activity creation/update metadata;
-- the complete provider `planGenerated` object, including the provider `plan.id` when present.
-
-Only the digest and bounded provider identity metadata are emitted. Original provider material is never logged or persisted by the digest path.
-
-`approve_plan` requires all of:
-
-- `session_id`;
-- `expected_state=AWAITING_PLAN_APPROVAL`;
-- `expected_plan_digest` equal to the reviewed `provider_identity_digest`;
-- `expected_plan_activity_name`;
-- `expected_plan_create_time`;
-- `expected_session_update_time`.
-
-The worker performs a final direct session/activity read after durable intent, reconstructs the exact identity again, then re-reads the session to verify that state/update identity did not change while activities were collected. It compares that result with the reviewed values and recorded preflight before calling `approvePlan` at most once. Any mismatch returns `PLAN_CHANGED_SINCE_REVIEW__REAPPROVAL_REQUIRED` or a deterministic state rejection with no provider write.
-
-The current Jules activity contract exposes `Plan.id` and a `planApproved.planId` event. v2 requires the reviewed provider plan to contain that stable ID. After `approvePlan`, `VERIFIED` requires a newly observed `planApproved` activity whose `planId` exactly matches the reviewed plan. A state/update transition without that matching activity is `UNKNOWN_WRITE_OUTCOME`, not success.
-
-### Residual approval race
-
-The observed Jules interface exposes session-scoped `approvePlan` but no atomic plan revision/precondition token that can be supplied with that mutation. Therefore a narrow TOCTOU remains between the final provider read and the `approvePlan` request. v2 does not claim to eliminate this provider-level race. It fails closed whenever the reviewed identity cannot be reconstructed or differs before the write, and post-write verification is tied to the exact provider `planId`.
-
-## Provider protocol and deterministic selection
-
-HTTP 2xx alone is not success evidence. Expected JSON reads fail closed when the response is non-JSON, has the wrong top-level type, omits a mandatory collection/session field, contains malformed items, or returns an activity identity outside the requested session.
-
-Latest plan/changeSet selection is based on provider timestamp plus exact activity identity rather than list order. An ambiguous highest-timestamp tie for a single latest selection fails closed. Recent collections use deterministic timestamp/activity ordering and reject ambiguous cutoffs where implemented.
+The Jules API still exposes session-scoped `approvePlan` without an atomic plan-revision conditional token, so the narrow provider-level TOCTOU is documented rather than hidden.
 
 ## Shared read and output budgets
 
-`inspect_bundle` uses one request-scoped provider-read budget and one shared activity hydration pool. A hydrated activity, including a recorded hydration failure, is reused across changeSet and Bash evidence selectors.
+`inspect_bundle` uses one request-scoped provider-read budget and one shared activity hydration pool. A hydrated activity, including a recorded hydration failure, is reused across changeSet and Bash selectors.
 
-Bounds include:
+Bounds cover:
 
 - total provider reads;
-- total activity pages;
-- total items;
+- total activity pages and items;
 - shared hydration reads;
-- per-item exact-text characters;
-- total exact-text bytes;
-- total serialized result bytes.
+- per-item and total exact-text bytes;
+- total serialized JSON bytes;
+- media item count, per-item bytes, and total decoded media bytes.
 
-Bounds never silently truncate exact text. If text cannot be included safely, the digest/length metadata is retained and an explicit omission/budget reason is emitted. Pagination with explicit total bounds returns `PARTIAL` plus continuation metadata when the provider token contract permits it.
+Bounds never silently truncate exact text or silently drop media. Exact text that cannot be emitted keeps digest/length metadata plus an omission reason. Media that cannot be admitted produces explicit partial evidence.
 
 ## Mutation transition contract
 
-Every mutation follows:
+Every governed mutation follows:
 
 `AUTHORITATIVE PRE-READ -> VALIDATE -> DURABLE INTENT -> FINAL AUTHORITATIVE PRE-READ -> ONE WRITE -> AUTHORITATIVE POST-READ -> DURABLE FINAL STATE`
 
-No provider mutation has an automatic retry. HTTP 429, transport ambiguity, 5xx, malformed successful mutation response, or inconclusive post-read is classified as `UNKNOWN_WRITE_OUTCOME`. The receipt includes `blind_retry=false` and the exact safe next read (`list_sessions` for create, `inspect_bundle` for session mutations).
+No provider mutation has an automatic retry.
 
-`send_message` is fail-closed to the explicitly known compatible states `IN_PROGRESS`, `AWAITING_USER_FEEDBACK`, and `AWAITING_PLAN_APPROVAL`, in addition to the caller's exact `expected_state` guard. Unknown and terminal states are rejected before the provider write.
+`send_message` is fail-closed to known compatible session states plus the caller's exact `expected_state`. Unknown and terminal states are rejected before the provider write.
 
 ## Performance and parallelism
 
-- `inspect_bundle` removes duplicate patch/Bash hydration reads by sharing one activity cache.
-- One global provider-read budget covers the combined inspection request rather than independently budgeting selectors.
-- Combined inspection evidence reduces Controller read round trips for session + plan + messages + changesets + Bash output.
-- Request-level serialization affects only the same `request_id`; effect serialization affects only the same session or pre-session write effect.
-- Independent sessions and unrelated logical effects remain parallel across Controllers A/B/C.
-- There is no global mutation lock and no busy-poll loop.
-- Unknown mutation outcomes convert to reconciliation reads rather than retry churn or duplicate provider writes.
+- long activity histories use response-safe page sizing plus bounded read-only adaptive fallback;
+- callers can opt into `createTime` delta-style activity scans instead of always rescanning immutable history;
+- `inspect_bundle` shares one hydration cache for patch/Bash evidence;
+- media bytes are externalized instead of inflating result JSON or Issue comments;
+- request serialization affects only the same request identity;
+- effect serialization affects only the same session/pre-session write effect;
+- independent sessions and unrelated logical effects remain parallel across Controllers A–E;
+- unknown mutation outcomes convert to reconciliation reads rather than retry churn.
 
-## Rate limits and waiting
-
-Safe provider retry metadata is preserved for reads. This candidate deliberately does **not** implement `wait_for_state`: avoiding a polling loop keeps the P0 mutation-safety work smaller and reduces rate-limit/429 exposure. Controllers can make bounded explicit reads until a separately reviewed wait primitive is justified.
+There is no global busy-poll loop.
 
 ## v1 coexistence limitation
 
-v1 is byte-for-byte retained and therefore does not participate in the new v2 effect lock. During shadow/canary operation, the same Jules session must not be concurrently mutated through v1 and v2. Removing this limitation would require an explicitly reviewed v1/cutover change and is outside this candidate.
+Legacy transports do not automatically participate in every newer v2 effect lock. During coexistence, the same Jules session must not be concurrently mutated through independent legacy and v2 write paths. Removing that limitation requires an explicitly reviewed cutover, not an implicit code assumption.
 
 ## Validation
 
-The scoped test suite is synthetic and secret-free:
+The scoped CI is synthetic and secret-free:
 
 ```bash
 ruby -e 'require "yaml"; Dir[".github/workflows/cep-jules-v2*.yml"].sort.each { |path| YAML.load_file(path, aliases: true); puts "YAML_OK=#{path}" }'
@@ -154,6 +170,6 @@ python -m compileall -q tools/cep_jules_gateway
 python -m unittest discover -s tools/cep_jules_gateway/tests -p 'test_*.py' -v
 ```
 
-It covers the Foundation tests plus malformed 2xx protocol responses, provider/session identity, shared budgets/cache, total result bounds, deterministic selection, request/effect concurrency keys, durable request idempotency, pre-session create-effect collision protection, session task/domain binding, exact plan binding and exact post-approval `planId`, state drift, one-write semantics, ambiguous write outcomes, shadow compatibility, v1 blob identity, least-privilege secret forwarding, and shell/secret handling.
+Coverage includes malformed 2xx protocol responses, long-session/terminal-page activity pagination, provider response-size fallback, pagination loops/bounds, provider/session identity, W04-shaped publication preflight through the real `JulesClient`, current A–E topology convergence, shared budgets/cache, exact result bounds, request/effect concurrency, durable idempotency, session binding, exact plan approval binding, one-write semantics, ambiguous outcomes, v2.2 reconciliation, media extraction/digests/bounds, and secret handling.
 
-Hosted CI for this candidate is not live Jules acceptance evidence; the test workflow intentionally does not call Jules with a secret or perform a provider mutation.
+Hosted CI is not live Jules mutation acceptance evidence. The test workflow intentionally records when no live provider mutation was executed.
