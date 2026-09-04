@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[3]
 class W04AssuranceWorkflowTests(unittest.TestCase):
     def setUp(self):
         self.text = (ROOT / ".github/workflows/cep-w04-exact-sha-assurance.yml").read_text(encoding="utf-8")
+        self.bridge = (ROOT / ".github/workflows/cep-w04-assurance-issue.yml").read_text(encoding="utf-8")
 
     def test_owner_main_and_exact_sha_gates_exist(self):
         self.assertIn("github.actor == github.repository_owner", self.text)
@@ -16,6 +17,7 @@ class W04AssuranceWorkflowTests(unittest.TestCase):
         self.assertIn('test "$ACTUAL_SHA" = "$EXPECTED_SHA"', self.text)
         self.assertIn("persist-credentials: false", self.text)
         self.assertIn("permissions:\n  contents: read", self.text)
+        self.assertIn("workflow_call:", self.text)
 
     def test_project_declared_runtime_versions_are_used(self):
         self.assertIn("postgres:18.4-bookworm", self.text)
@@ -41,6 +43,15 @@ class W04AssuranceWorkflowTests(unittest.TestCase):
         self.assertIn("actions/upload-artifact@v4", self.text)
         self.assertIn("if: always()", self.text)
         self.assertIn("W04_EXACT_SHA_ASSURANCE=PASS", self.text)
+
+    def test_issue_bridge_is_owner_only_exact_packet_and_reuses_assurance(self):
+        self.assertIn("types: [opened]", self.bridge)
+        self.assertIn("github.actor == github.repository_owner", self.bridge)
+        self.assertIn("github.event.issue.author_association == 'OWNER'", self.bridge)
+        self.assertIn("startsWith(github.event.issue.title, '[CEP-W04-ASSURE]')", self.bridge)
+        self.assertIn("set(obj) != {'target_ref', 'expected_sha'}", self.bridge)
+        self.assertIn("uses: ./.github/workflows/cep-w04-exact-sha-assurance.yml", self.bridge)
+        self.assertNotIn("issues: write", self.bridge)
 
 
 if __name__ == "__main__":

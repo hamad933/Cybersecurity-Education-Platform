@@ -1,0 +1,52 @@
+name: CEP W04 Assurance Issue Transport
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+
+jobs:
+  normalize:
+    if: >-
+      github.actor == github.repository_owner &&
+      github.event.issue.user.login == github.repository_owner &&
+      github.event.issue.author_association == 'OWNER' &&
+      startsWith(github.event.issue.title, '[CEP-W04-ASSURE]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      target_ref: ${{ steps.packet.outputs.target_ref }}
+      expected_sha: ${{ steps.packet.outputs.expected_sha }}
+    env:
+      ISSUE_BODY: ${{ github.event.issue.body }}
+    steps:
+      - id: packet
+        name: Validate exact public assurance packet
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re
+          body = os.environ.get('ISSUE_BODY') or ''
+          obj = json.loads(body)
+          if not isinstance(obj, dict) or set(obj) != {'target_ref', 'expected_sha'}:
+              raise SystemExit('packet must contain exactly target_ref and expected_sha')
+          ref = str(obj['target_ref']).strip()
+          sha = str(obj['expected_sha']).strip().lower()
+          if not re.fullmatch(r'(work|fix|candidate|checkpoint)/[A-Za-z0-9._/-]+', ref):
+              raise SystemExit('invalid target_ref')
+          if not re.fullmatch(r'[0-9a-f]{40}', sha):
+              raise SystemExit('invalid expected_sha')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
+              out.write(f'target_ref={ref}\n')
+              out.write(f'expected_sha={sha}\n')
+          PY
+
+  assure:
+    needs: normalize
+    uses: ./.github/workflows/cep-w04-exact-sha-assurance.yml
+    with:
+      target_ref: ${{ needs.normalize.outputs.target_ref }}
+      expected_sha: ${{ needs.normalize.outputs.expected_sha }}
