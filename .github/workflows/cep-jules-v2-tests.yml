@@ -5,6 +5,8 @@ on:
   pull_request:
     paths:
       - ".github/workflows/cep-jules-v2*.yml"
+      - ".github/workflows/cep-jules-control.yml"
+      - ".github/workflows/cep-jules-inspect.yml"
       - "tools/cep_jules_gateway/**"
 
 permissions:
@@ -19,11 +21,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Validate v2 workflow YAML
+      - name: Validate Gateway workflow YAML
         shell: bash
         run: |
           set -euo pipefail
-          ruby -e 'require "yaml"; Dir[".github/workflows/cep-jules-v2*.yml"].sort.each { |path| YAML.load_file(path, aliases: true); puts "YAML_OK=#{path}" }'
+          ruby -e 'require "yaml"; paths = Dir[".github/workflows/cep-jules-v2*.yml"] + [".github/workflows/cep-jules-control.yml", ".github/workflows/cep-jules-inspect.yml"]; paths.uniq.sort.each { |path| YAML.load_file(path, aliases: true); puts "YAML_OK=#{path}" }'
       - name: Compile gateway modules
         run: python -m compileall -q tools/cep_jules_gateway
       - name: Run foundation and safety tests
