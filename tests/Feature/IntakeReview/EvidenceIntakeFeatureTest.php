@@ -14,389 +14,227 @@ class EvidenceIntakeFeatureTest extends TestCase
 {
     use DatabaseMigrations;
 
-    public function test_bounds_and_validations()
+    public function test_receive_uses_verified_receipt_facts_and_metadata_not_payload_overrides(): void
     {
         $actorId = (string) Str::uuid7();
-        $receiptId = (string) Str::uuid7();
-        
-        DB::table('evidence_source_handoff_receipts')->insert([
-            'id' => $receiptId, 'subject_actor_id' => $actorId, 'registered_by' => $actorId, 'source_type' => 'test_type', 'source_id' => 'test_source_id', 'source_revision' => '1', 'source_digest' => str_repeat('a', 64), 'selected_material_refs' => '[]', 'capability_id' => (string) Str::uuid7(), 'facts' => '{}', 'metadata' => '{}', 'receipt_digest' => str_repeat('b', 64), 'registered_at' => now(), 'created_at' => now(), 'updated_at' => now(),
-        ]);
+        $receiptId = $this->insertReceipt($actorId, facts: '{"trusted":true,"nested":{"b":2,"a":1}}', metadata: '{"source":"verified","rank":1}');
+        $candidate = $this->service()->receive($actorId, $actorId, $this->payload($receiptId, [
+            'facts' => '{"trusted":false,"injected":true}',
+            'metadata' => '{"source":"payload"}',
+        ]));
 
-        $service = $this->app->make(EvidenceIntakeService::class);
-        
-        $json = str_pad('{"a":"', 65534, 'a') . '"}';
-        $candidate = $service->receive($actorId, $actorId, [
-            'handoff_receipt_id' => $receiptId,
-            'evidence_claim' => 'concurrent claim',
-            'governed_purpose' => 'GOVERNED_PROVENANCE_ATTESTATION',
-            'title' => 'Title',
-            'summary' => 'Summary',
-            'facts' => $json,
-        ]);
-        
-        $this->assertNotNull($candidate['id']);
-        
-        $json2 = str_pad('{"a":"', 65535, 'a') . '"}';
-        $thrown = false;
+        $this->assertSame(['nested' => ['a' => 1, 'b' => 2], 'trusted' => true], $candidate['proposed_facts']);
+        $this->assertSame(['rank' => 1, 'source' => 'verified'], $candidate['metadata']);
+        $revision = DB::table('evidence_candidate_revisions')->where('candidate_id', $candidate['id'])->firstOrFail();
+        $this->assertSame('{"nested":{"a":1,"b":2},"trusted":true}', $revision->proposed_facts);
+        $this->assertSame('{"rank":1,"source":"verified"}', $revision->metadata);
+    }
+
+    public function test_receive_rejects_oversize_or_invalid_receipt_json(): void
+    {
+        $actorId = (string) Str::uuid7();
+        $oversizeReceiptId = $this->insertReceipt($actorId, facts: '{"a":"'.str_repeat('x', 65536).'"}', sourceId: 'oversize');
         try {
-            $service->receive($actorId, $actorId, [
-                'handoff_receipt_id' => $receiptId,
-                'evidence_claim' => 'claim 2',
-                'governed_purpose' => 'GOVERNED_PROVENANCE_ATTESTATION',
-                'title' => 'Title',
-                'summary' => 'Summary',
-                'facts' => $json2,
-            ]);
-        } catch (\Exception $e) {
-            if ($e instanceof IntakeReviewException && strpos($e->getMessage(), '64KiB') !== false) {
-                $thrown = true;
-            }
+            $this->service()->receive($actorId, $actorId, $this->payload($oversizeReceiptId));
+            $this->fail('Oversize verified receipt facts must fail closed.');
+        } catch (IntakeReviewException $exception) {
+            $this->assertStringContainsString('64KiB', $exception->getMessage());
         }
-        $this->assertTrue($thrown, 'Must reject facts > 65536 bytes.');
-    }
-    
-    public function test_same_content_noop_on_amend()
-    {
-        $actorId = (string) Str::uuid7();
-        $receiptId = (string) Str::uuid7();
-        
-        DB::table('evidence_source_handoff_receipts')->insert([
-            'id' => $receiptId, 'subject_actor_id' => $actorId, 'registered_by' => $actorId, 'source_type' => 'test_type', 'source_id' => 'test_source_id', 'source_revision' => '1', 'source_digest' => str_repeat('a', 64), 'selected_material_refs' => '[]', 'capability_id' => (string) Str::uuid7(), 'facts' => '{}', 'metadata' => '{}', 'receipt_digest' => str_repeat('b', 64), 'registered_at' => now(), 'created_at' => now(), 'updated_at' => now(),
-        ]);
 
-        $service = $this->app->make(EvidenceIntakeService::class);
-        $candidate = $service->receive($actorId, $actorId, [
-            'handoff_receipt_id' => $receiptId,
-            'evidence_claim' => 'claim',
-            'governed_purpose' => 'GOVERNED_PROVENANCE_ATTESTATION',
-            'title' => 'Title',
-            'summary' => 'Summary',
-            'facts' => '{"some":"fact"}',
-            'metadata' => '{}',
-        ]);
-        
-        $cId = $candidate['id'];
-        $revs1 = DB::table('evidence_candidate_revisions')->where('candidate_id', $cId)->count();
-        $this->assertEquals(1, $revs1);
-        
-        $service->amendCandidate($cId, $actorId, [
-            'title' => 'Title',
-            'summary' => 'Summary',
-            'facts' => '{"some": "fact"}',
-            'metadata' => '{}',
-        ]);
-        
-        $revs2 = DB::table('evidence_candidate_revisions')->where('candidate_id', $cId)->count();
-        $this->assertEquals(1, $revs2, 'Identical content amend must be a no-op.');
-        
-        $service->amendCandidate($cId, $actorId, [
-            'title' => 'Title',
-            'summary' => 'Summary Changed',
-            'facts' => '{"some": "fact"}',
-            'metadata' => '{}',
-        ]);
-        
-        $revs3 = DB::table('evidence_candidate_revisions')->where('candidate_id', $cId)->count();
-        $this->assertEquals(2, $revs3, 'Different content amend must create a new revision.');
-    }
-    
-    public function test_invalid_json_types_fail()
-    {
-        $actorId = (string) Str::uuid7();
-        $receiptId = (string) Str::uuid7();
-        
-        DB::table('evidence_source_handoff_receipts')->insert([
-            'id' => $receiptId, 'subject_actor_id' => $actorId, 'registered_by' => $actorId, 'source_type' => 'type', 'source_id' => 'id', 'source_revision' => '1', 'source_digest' => str_repeat('a', 64), 'selected_material_refs' => '[]', 'capability_id' => (string) Str::uuid7(), 'facts' => '{}', 'metadata' => '{}', 'receipt_digest' => str_repeat('b', 64), 'registered_at' => now(), 'created_at' => now(), 'updated_at' => now(),
-        ]);
-
-        $service = $this->app->make(EvidenceIntakeService::class);
-        $thrown = false;
+        $invalidReceiptId = $this->insertReceipt($actorId, facts: '"scalar"', sourceId: 'invalid');
         try {
-            $service->receive($actorId, $actorId, [
-                'handoff_receipt_id' => $receiptId,
-                'evidence_claim' => 'claim',
-                'governed_purpose' => 'GOVERNED_PROVENANCE_ATTESTATION',
-                'title' => 'Title',
-                'summary' => 'Summary',
-                'facts' => '"invalid_scalar"',
-            ]);
-        } catch (\Exception $e) {
-            if ($e instanceof IntakeReviewException && strpos($e->getMessage(), 'Invalid or non-associative JSON.') !== false) {
-                $thrown = true;
-            }
+            $this->service()->receive($actorId, $actorId, $this->payload($invalidReceiptId));
+            $this->fail('Scalar receipt JSON must fail closed.');
+        } catch (IntakeReviewException $exception) {
+            $this->assertStringContainsString('Invalid or non-associative JSON', $exception->getMessage());
         }
-        $this->assertTrue($thrown, 'Must fail on invalid JSON.');
     }
 
-    public function test_target_pair_requires_both()
+    public function test_receive_payload_json_is_bounded_but_never_authoritative(): void
     {
         $actorId = (string) Str::uuid7();
-        $receiptId = (string) Str::uuid7();
-        
-        DB::table('evidence_source_handoff_receipts')->insert([
-            'id' => $receiptId, 'subject_actor_id' => $actorId, 'registered_by' => $actorId, 'source_type' => 'test', 'source_id' => 'test', 'source_revision' => '1', 'source_digest' => str_repeat('a', 64), 'selected_material_refs' => '[]', 'capability_id' => (string) Str::uuid7(), 'facts' => '{}', 'metadata' => '{}', 'receipt_digest' => str_repeat('b', 64), 'registered_at' => now(), 'created_at' => now(), 'updated_at' => now(),
-        ]);
-
-        $service = $this->app->make(EvidenceIntakeService::class);
-        $thrown = false;
+        $receiptId = $this->insertReceipt($actorId, facts: '{"trusted":1}');
         try {
-            $service->receive($actorId, $actorId, [
-                'handoff_receipt_id' => $receiptId,
-                'evidence_claim' => 'claim',
-                'governed_purpose' => 'GOVERNED_PROVENANCE_ATTESTATION',
-                'title' => 'Title',
-                'summary' => 'Summary',
-                'target_evidence_id' => (string) Str::uuid7(),
-            ]);
-        } catch (IntakeReviewException $e) {
-            $thrown = true;
-            $this->assertStringContainsString('Target evidence ID and revision ID must be provided together.', $e->getMessage());
+            $this->service()->receive($actorId, $actorId, $this->payload($receiptId, ['facts' => '{"a":"'.str_repeat('x', 65536).'"}']));
+            $this->fail('Oversize compatibility payload must fail closed.');
+        } catch (IntakeReviewException $exception) {
+            $this->assertStringContainsString('64KiB', $exception->getMessage());
         }
-        $this->assertTrue($thrown);
     }
-    
-    public function test_lifecycle_transition_noop()
+
+    public function test_same_content_noop_on_amend_is_json_key_order_independent(): void
     {
         $actorId = (string) Str::uuid7();
-        $receiptId = (string) Str::uuid7();
-        
-        DB::table('evidence_source_handoff_receipts')->insert([
-            'id' => $receiptId, 'subject_actor_id' => $actorId, 'registered_by' => $actorId, 'source_type' => 'test', 'source_id' => 'test', 'source_revision' => '1', 'source_digest' => str_repeat('a', 64), 'selected_material_refs' => '[]', 'capability_id' => (string) Str::uuid7(), 'facts' => '{}', 'metadata' => '{}', 'receipt_digest' => str_repeat('b', 64), 'registered_at' => now(), 'created_at' => now(), 'updated_at' => now(),
-        ]);
+        $receiptId = $this->insertReceipt($actorId, facts: '{"b":2,"a":1,"list":[3,2,1]}', metadata: '{"z":9,"a":1}');
+        $service = $this->service();
+        $candidate = $service->receive($actorId, $actorId, $this->payload($receiptId));
+        $this->assertSame(1, DB::table('evidence_candidate_revisions')->where('candidate_id', $candidate['id'])->count());
 
-        $service = $this->app->make(EvidenceIntakeService::class);
-        $candidate = $service->receive($actorId, $actorId, [
-            'handoff_receipt_id' => $receiptId,
-            'evidence_claim' => 'claim',
-            'governed_purpose' => 'GOVERNED_PROVENANCE_ATTESTATION',
+        $service->amendCandidate($candidate['id'], $actorId, [
             'title' => 'Title',
             'summary' => 'Summary',
+            'facts' => '{"list":[3,2,1],"a":1,"b":2}',
+            'metadata' => '{"a":1,"z":9}',
         ]);
-        
-        $cId = $candidate['id'];
-        
-        $events = DB::table('evidence_candidate_intake_events')->where('candidate_id', $cId)->count();
-        $this->assertEquals(1, $events);
-        
-        $service->transitionCandidate($cId, $actorId, CandidateEvidenceState::RECEIVED->value);
-        
-        $events2 = DB::table('evidence_candidate_intake_events')->where('candidate_id', $cId)->count();
-        $this->assertEquals(1, $events2, 'Same state transition must be a no-op.');
-        
-        $thrown = false;
-        try {
-            $service->transitionCandidate($cId, $actorId, CandidateEvidenceState::ADMITTED->value);
-        } catch (IntakeReviewException $e) {
-            $thrown = true;
-            $this->assertStringContainsString('Admission must use the governed admitCandidate operation', $e->getMessage());
-        }
-        $this->assertTrue($thrown);
+        $this->assertSame(1, DB::table('evidence_candidate_revisions')->where('candidate_id', $candidate['id'])->count());
     }
 
-    public function test_bounds_metadata()
+    public function test_partial_amend_preserves_omitted_facts_and_metadata(): void
     {
         $actorId = (string) Str::uuid7();
-        $receiptId = (string) Str::uuid7();
-        
-        DB::table('evidence_source_handoff_receipts')->insert([
-            'id' => $receiptId, 'subject_actor_id' => $actorId, 'registered_by' => $actorId, 'source_type' => 'test', 'source_id' => 'test', 'source_revision' => '1', 'source_digest' => str_repeat('a', 64), 'selected_material_refs' => '[]', 'capability_id' => (string) Str::uuid7(), 'facts' => '{}', 'metadata' => '{}', 'receipt_digest' => str_repeat('b', 64), 'registered_at' => now(), 'created_at' => now(), 'updated_at' => now(),
-        ]);
-
-        $service = $this->app->make(EvidenceIntakeService::class);
-        
-        $json = str_pad('{"a":"', 65534, 'a') . '"}';
-        $candidate = $service->receive($actorId, $actorId, [
-            'handoff_receipt_id' => $receiptId,
-            'evidence_claim' => 'claim',
-            'governed_purpose' => 'GOVERNED_PROVENANCE_ATTESTATION',
-            'title' => 'Title',
-            'summary' => 'Summary',
-            'metadata' => $json,
-        ]);
-        
-        $this->assertNotNull($candidate['id']);
-        
-        $json2 = str_pad('{"a":"', 65535, 'a') . '"}';
-        $thrown = false;
-        try {
-            $service->receive($actorId, $actorId, [
-                'handoff_receipt_id' => $receiptId,
-                'evidence_claim' => 'claim 2',
-                'governed_purpose' => 'GOVERNED_PROVENANCE_ATTESTATION',
-                'title' => 'Title',
-                'summary' => 'Summary',
-                'metadata' => $json2,
-            ]);
-        } catch (IntakeReviewException $e) {
-            $thrown = true;
-            $this->assertStringContainsString('64KiB', $e->getMessage());
-        }
-        $this->assertTrue($thrown);
+        $receiptId = $this->insertReceipt($actorId, facts: '{"fact":"trusted"}', metadata: '{"meta":"trusted"}');
+        $service = $this->service();
+        $candidate = $service->receive($actorId, $actorId, $this->payload($receiptId));
+        $amended = $service->amendCandidate($candidate['id'], $actorId, ['title' => 'Title', 'summary' => 'Changed summary']);
+        $this->assertSame(['fact' => 'trusted'], $amended['proposed_facts']);
+        $this->assertSame(['meta' => 'trusted'], $amended['metadata']);
+        $this->assertSame(2, $amended['preparation_revision']);
     }
 
-    public function test_target_pair_valid_append()
+    public function test_invalid_or_oversize_amend_json_fails(): void
     {
         $actorId = (string) Str::uuid7();
-        $receiptId = (string) Str::uuid7();
-        
-        DB::table('evidence_source_handoff_receipts')->insert([
-            'id' => $receiptId, 'subject_actor_id' => $actorId, 'registered_by' => $actorId, 'source_type' => 'test', 'source_id' => 'test', 'source_revision' => '1', 'source_digest' => str_repeat('a', 64), 'selected_material_refs' => '[]', 'capability_id' => (string) Str::uuid7(), 'facts' => '{}', 'metadata' => '{}', 'receipt_digest' => str_repeat('b', 64), 'registered_at' => now(), 'created_at' => now(), 'updated_at' => now(),
-        ]);
+        $receiptId = $this->insertReceipt($actorId);
+        $service = $this->service();
+        $candidate = $service->receive($actorId, $actorId, $this->payload($receiptId));
+        try {
+            $service->amendCandidate($candidate['id'], $actorId, ['title' => 'Title', 'summary' => 'Summary', 'facts' => '"scalar"']);
+            $this->fail('Scalar amend JSON must fail.');
+        } catch (IntakeReviewException $exception) {
+            $this->assertStringContainsString('Invalid or non-associative JSON', $exception->getMessage());
+        }
+        try {
+            $service->amendCandidate($candidate['id'], $actorId, ['title' => 'Title', 'summary' => 'Summary', 'metadata' => '{"a":"'.str_repeat('x', 65536).'"}']);
+            $this->fail('Oversize amend JSON must fail.');
+        } catch (IntakeReviewException $exception) {
+            $this->assertStringContainsString('64KiB', $exception->getMessage());
+        }
+    }
 
-        $service = $this->app->make(EvidenceIntakeService::class);
-        $base = $service->receive($actorId, $actorId, [
-            'handoff_receipt_id' => $receiptId,
-            'evidence_claim' => 'base',
-            'governed_purpose' => 'GOVERNED_PROVENANCE_ATTESTATION',
-            'title' => 'Title',
-            'summary' => 'Summary',
-        ]);
-        
+    public function test_target_pair_requires_both(): void
+    {
+        $actorId = (string) Str::uuid7();
+        $receiptId = $this->insertReceipt($actorId);
+        try {
+            $this->service()->receive($actorId, $actorId, $this->payload($receiptId, ['target_evidence_id' => (string) Str::uuid7()]));
+            $this->fail('Incomplete target pair must fail.');
+        } catch (IntakeReviewException $exception) {
+            $this->assertStringContainsString('Target evidence ID and revision ID must be provided together.', $exception->getMessage());
+        }
+    }
+
+    public function test_lifecycle_transition_noop_and_direct_admitted_transition_rejected(): void
+    {
+        $actorId = (string) Str::uuid7();
+        $receiptId = $this->insertReceipt($actorId);
+        $service = $this->service();
+        $candidate = $service->receive($actorId, $actorId, $this->payload($receiptId));
+        $events = DB::table('evidence_candidate_intake_events')->where('candidate_id', $candidate['id'])->count();
+        $service->transitionCandidate($candidate['id'], $actorId, CandidateEvidenceState::RECEIVED->value);
+        $this->assertSame($events, DB::table('evidence_candidate_intake_events')->where('candidate_id', $candidate['id'])->count());
+        try {
+            $service->transitionCandidate($candidate['id'], $actorId, CandidateEvidenceState::ADMITTED->value);
+            $this->fail('Admission must require admitCandidate.');
+        } catch (IntakeReviewException $exception) {
+            $this->assertStringContainsString('Admission must use the governed admitCandidate operation', $exception->getMessage());
+        }
+    }
+
+    public function test_target_pair_valid_append_has_explicit_revision_reason(): void
+    {
+        $actorId = (string) Str::uuid7();
+        $receiptId1 = $this->insertReceipt($actorId, facts: '{"v":1}', sourceId: 'base', sourceDigest: str_repeat('a', 64));
+        $receiptId2 = $this->insertReceipt($actorId, facts: '{"v":2}', sourceId: 'append', sourceDigest: str_repeat('c', 64));
+        $service = $this->service();
+        $base = $service->receive($actorId, $actorId, $this->payload($receiptId1, ['evidence_claim' => 'base']));
         $service->transitionCandidate($base['id'], $actorId, CandidateEvidenceState::PREPARED->value);
         $service->transitionCandidate($base['id'], $actorId, CandidateEvidenceState::SUBMITTED_FOR_INTAKE->value);
         $admittedBase = $service->admitCandidate($base['id'], $actorId);
-        
-        $canonicalEvidenceId = $admittedBase['evidence']['id'];
-        $canonicalEvidenceRevisionId = $admittedBase['revision']['id'];
-        
-        $n1 = $service->receive($actorId, $actorId, [
-            'handoff_receipt_id' => $receiptId,
-            'evidence_claim' => 'n1',
-            'governed_purpose' => 'GOVERNED_PROVENANCE_ATTESTATION',
-            'title' => 'Title N1',
-            'summary' => 'Summary N1',
-            'target_evidence_id' => $canonicalEvidenceId,
-            'target_evidence_revision_id' => $canonicalEvidenceRevisionId,
-        ]);
-        
-        $this->assertEquals($canonicalEvidenceId, $n1['target_evidence_id']);
-        $this->assertEquals($canonicalEvidenceRevisionId, $n1['target_evidence_revision_id']);
-        
-        $service->transitionCandidate($n1['id'], $actorId, CandidateEvidenceState::PREPARED->value);
-        $service->transitionCandidate($n1['id'], $actorId, CandidateEvidenceState::SUBMITTED_FOR_INTAKE->value);
-        $admittedN1 = $service->admitCandidate($n1['id'], $actorId);
-        
-        $this->assertEquals(2, $admittedN1['evidence']['current_revision_number']);
-        $this->assertEquals($canonicalEvidenceRevisionId, $admittedN1['revision']['previous_revision_id']);
-        
-        // Clean up N+1 admission to allow rollback
-        DB::statement('ALTER TABLE evidence_admission_records DISABLE TRIGGER evidence_admission_records_immutable');
-        DB::statement('ALTER TABLE evidence_admission_candidate_revisions DISABLE TRIGGER trg_evidence_admission_candidate_revisions_immutable');
-        DB::table('evidence_admission_candidate_revisions')->where('admission_id', $admittedN1['admission']['id'])->delete();
-        DB::table('evidence_admission_records')->where('id', $admittedN1['admission']['id'])->delete();
-        DB::statement('ALTER TABLE evidence_admission_candidate_revisions ENABLE TRIGGER trg_evidence_admission_candidate_revisions_immutable');
-        DB::statement('ALTER TABLE evidence_admission_records ENABLE TRIGGER evidence_admission_records_immutable');
+        $this->assertSame('INITIAL_ADMISSION', $admittedBase['revision']['revision_reason']);
+
+        $append = $service->receive($actorId, $actorId, $this->payload($receiptId2, [
+            'evidence_claim' => 'append',
+            'target_evidence_id' => $admittedBase['evidence']['id'],
+            'target_evidence_revision_id' => $admittedBase['revision']['id'],
+        ]));
+        $service->transitionCandidate($append['id'], $actorId, CandidateEvidenceState::PREPARED->value);
+        $service->transitionCandidate($append['id'], $actorId, CandidateEvidenceState::SUBMITTED_FOR_INTAKE->value);
+        $admittedAppend = $service->admitCandidate($append['id'], $actorId);
+        $this->assertSame(2, (int) $admittedAppend['evidence']['current_revision_number']);
+        $this->assertSame($admittedBase['revision']['id'], $admittedAppend['revision']['previous_revision_id']);
+        $this->assertSame('APPEND_ADMISSION', $admittedAppend['revision']['revision_reason']);
+        $this->cleanupAppendAdmission($admittedAppend['admission']['id']);
     }
 
-    public function test_bounds_amend()
+    public function test_target_pair_stale_rejection(): void
     {
         $actorId = (string) Str::uuid7();
-        $receiptId = (string) Str::uuid7();
-        
-        DB::table('evidence_source_handoff_receipts')->insert([
-            'id' => $receiptId, 'subject_actor_id' => $actorId, 'registered_by' => $actorId, 'source_type' => 'test', 'source_id' => 'test', 'source_revision' => '1', 'source_digest' => str_repeat('a', 64), 'selected_material_refs' => '[]', 'capability_id' => (string) Str::uuid7(), 'facts' => '{}', 'metadata' => '{}', 'receipt_digest' => str_repeat('b', 64), 'registered_at' => now(), 'created_at' => now(), 'updated_at' => now(),
-        ]);
+        $receiptId1 = $this->insertReceipt($actorId, sourceId: 's1', sourceDigest: str_repeat('a', 64));
+        $receiptId2 = $this->insertReceipt($actorId, sourceId: 's2', sourceDigest: str_repeat('c', 64));
+        $receiptId3 = $this->insertReceipt($actorId, sourceId: 's3', sourceDigest: str_repeat('e', 64));
+        $service = $this->service();
+        $base = $service->receive($actorId, $actorId, $this->payload($receiptId1, ['evidence_claim' => 'base']));
+        $service->transitionCandidate($base['id'], $actorId, CandidateEvidenceState::PREPARED->value);
+        $service->transitionCandidate($base['id'], $actorId, CandidateEvidenceState::SUBMITTED_FOR_INTAKE->value);
+        $admittedBase = $service->admitCandidate($base['id'], $actorId);
 
-        $service = $this->app->make(EvidenceIntakeService::class);
-        $candidate = $service->receive($actorId, $actorId, [
+        $append = $service->receive($actorId, $actorId, $this->payload($receiptId2, [
+            'evidence_claim' => 'append', 'target_evidence_id' => $admittedBase['evidence']['id'], 'target_evidence_revision_id' => $admittedBase['revision']['id'],
+        ]));
+        $service->transitionCandidate($append['id'], $actorId, CandidateEvidenceState::PREPARED->value);
+        $service->transitionCandidate($append['id'], $actorId, CandidateEvidenceState::SUBMITTED_FOR_INTAKE->value);
+        $admittedAppend = $service->admitCandidate($append['id'], $actorId);
+
+        $stale = $service->receive($actorId, $actorId, $this->payload($receiptId3, [
+            'evidence_claim' => 'stale', 'target_evidence_id' => $admittedBase['evidence']['id'], 'target_evidence_revision_id' => $admittedBase['revision']['id'],
+        ]));
+        $service->transitionCandidate($stale['id'], $actorId, CandidateEvidenceState::PREPARED->value);
+        $service->transitionCandidate($stale['id'], $actorId, CandidateEvidenceState::SUBMITTED_FOR_INTAKE->value);
+        try {
+            $service->admitCandidate($stale['id'], $actorId);
+            $this->fail('Stale target must be rejected.');
+        } catch (IntakeReviewException $exception) {
+            $this->assertStringContainsString('does not match candidate target revision', $exception->getMessage());
+        }
+        $this->cleanupAppendAdmission($admittedAppend['admission']['id']);
+    }
+
+    private function service(): EvidenceIntakeService
+    {
+        return $this->app->make(EvidenceIntakeService::class);
+    }
+
+    /** @param array<string,mixed> $overrides */
+    private function payload(string $receiptId, array $overrides = []): array
+    {
+        return array_merge([
             'handoff_receipt_id' => $receiptId,
             'evidence_claim' => 'claim',
             'governed_purpose' => 'GOVERNED_PROVENANCE_ATTESTATION',
             'title' => 'Title',
             'summary' => 'Summary',
-        ]);
-        
-        $json = str_pad('{"a":"', 65534, 'a') . '"}';
-        $amended = $service->amendCandidate($candidate['id'], $actorId, [
-            'title' => 'Title',
-            'summary' => 'Summary',
-            'facts' => $json,
-        ]);
-        $this->assertNotNull($amended['id']);
-        
-        $json2 = str_pad('{"a":"', 65535, 'a') . '"}';
-        $thrown = false;
-        try {
-            $service->amendCandidate($candidate['id'], $actorId, [
-                'title' => 'Title',
-                'summary' => 'Summary',
-                'metadata' => $json2,
-            ]);
-        } catch (IntakeReviewException $e) {
-            $thrown = true;
-            $this->assertStringContainsString('64KiB', $e->getMessage());
-        }
-        $this->assertTrue($thrown);
+        ], $overrides);
     }
 
-    public function test_target_pair_stale_rejection()
+    private function insertReceipt(string $actorId, string $facts = '{}', string $metadata = '{}', string $sourceId = 'test-source', ?string $sourceDigest = null): string
     {
-        $actorId = (string) Str::uuid7();
-        $receiptId1 = (string) Str::uuid7();
-        $receiptId2 = (string) Str::uuid7();
-        
+        $receiptId = (string) Str::uuid7();
         DB::table('evidence_source_handoff_receipts')->insert([
-            ['id' => $receiptId1, 'subject_actor_id' => $actorId, 'registered_by' => $actorId, 'source_type' => 'test', 'source_id' => 's1', 'source_revision' => '1', 'source_digest' => str_repeat('a', 64), 'selected_material_refs' => '[]', 'capability_id' => (string) Str::uuid7(), 'facts' => '{}', 'metadata' => '{}', 'receipt_digest' => str_repeat('b', 64), 'registered_at' => now(), 'created_at' => now(), 'updated_at' => now()],
-            ['id' => $receiptId2, 'subject_actor_id' => $actorId, 'registered_by' => $actorId, 'source_type' => 'test', 'source_id' => 's2', 'source_revision' => '1', 'source_digest' => str_repeat('c', 64), 'selected_material_refs' => '[]', 'capability_id' => (string) Str::uuid7(), 'facts' => '{}', 'metadata' => '{}', 'receipt_digest' => str_repeat('d', 64), 'registered_at' => now(), 'created_at' => now(), 'updated_at' => now()],
+            'id' => $receiptId, 'subject_actor_id' => $actorId, 'registered_by' => $actorId,
+            'source_type' => 'test_type', 'source_id' => $sourceId, 'source_revision' => '1',
+            'source_digest' => $sourceDigest ?? str_repeat('a', 64), 'selected_material_refs' => '[]',
+            'capability_id' => (string) Str::uuid7(), 'facts' => $facts, 'metadata' => $metadata,
+            'receipt_digest' => str_repeat('b', 64), 'registered_at' => now(), 'created_at' => now(), 'updated_at' => now(),
         ]);
+        return $receiptId;
+    }
 
-        $service = $this->app->make(EvidenceIntakeService::class);
-        $base = $service->receive($actorId, $actorId, [
-            'handoff_receipt_id' => $receiptId1,
-            'evidence_claim' => 'base',
-            'governed_purpose' => 'GOVERNED_PROVENANCE_ATTESTATION',
-            'title' => 'Title',
-            'summary' => 'Summary',
-        ]);
-        
-        $service->transitionCandidate($base['id'], $actorId, CandidateEvidenceState::PREPARED->value);
-        $service->transitionCandidate($base['id'], $actorId, CandidateEvidenceState::SUBMITTED_FOR_INTAKE->value);
-        $admittedBase = $service->admitCandidate($base['id'], $actorId);
-        
-        $canonicalEvidenceId = $admittedBase['evidence']['id'];
-        $canonicalEvidenceRevisionId = $admittedBase['revision']['id'];
-        
-        $n1 = $service->receive($actorId, $actorId, [
-            'handoff_receipt_id' => $receiptId2,
-            'evidence_claim' => 'n1',
-            'governed_purpose' => 'GOVERNED_PROVENANCE_ATTESTATION',
-            'title' => 'Title N1',
-            'summary' => 'Summary N1',
-            'target_evidence_id' => $canonicalEvidenceId,
-            'target_evidence_revision_id' => $canonicalEvidenceRevisionId,
-        ]);
-        
-        $service->transitionCandidate($n1['id'], $actorId, CandidateEvidenceState::PREPARED->value);
-        $service->transitionCandidate($n1['id'], $actorId, CandidateEvidenceState::SUBMITTED_FOR_INTAKE->value);
-        $admittedN1 = $service->admitCandidate($n1['id'], $actorId);
-        
-        $n2 = $service->receive($actorId, $actorId, [
-            'handoff_receipt_id' => $receiptId2,
-            'evidence_claim' => 'n2 stale',
-            'governed_purpose' => 'GOVERNED_PROVENANCE_ATTESTATION',
-            'title' => 'Title N2',
-            'summary' => 'Summary N2',
-            'target_evidence_id' => $canonicalEvidenceId,
-            'target_evidence_revision_id' => $canonicalEvidenceRevisionId,
-        ]);
-        
-        $service->transitionCandidate($n2['id'], $actorId, CandidateEvidenceState::PREPARED->value);
-        $service->transitionCandidate($n2['id'], $actorId, CandidateEvidenceState::SUBMITTED_FOR_INTAKE->value);
-        
-        $thrown = false;
-        try {
-            $service->admitCandidate($n2['id'], $actorId);
-        } catch (IntakeReviewException $e) {
-            $thrown = true;
-            $this->assertStringContainsString('does not match candidate target revision', $e->getMessage());
-        }
-        $this->assertTrue($thrown);
-        
+    private function cleanupAppendAdmission(string $admissionId): void
+    {
         DB::statement('ALTER TABLE evidence_admission_records DISABLE TRIGGER evidence_admission_records_immutable');
         DB::statement('ALTER TABLE evidence_admission_candidate_revisions DISABLE TRIGGER trg_evidence_admission_candidate_revisions_immutable');
-        DB::table('evidence_admission_candidate_revisions')->where('admission_id', $admittedN1['admission']['id'])->delete();
-        DB::table('evidence_admission_records')->where('id', $admittedN1['admission']['id'])->delete();
+        DB::table('evidence_admission_candidate_revisions')->where('admission_id', $admissionId)->delete();
+        DB::table('evidence_admission_records')->where('id', $admissionId)->delete();
         DB::statement('ALTER TABLE evidence_admission_candidate_revisions ENABLE TRIGGER trg_evidence_admission_candidate_revisions_immutable');
         DB::statement('ALTER TABLE evidence_admission_records ENABLE TRIGGER evidence_admission_records_immutable');
     }

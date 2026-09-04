@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Evidence\IntakeReview\Application\ProvenanceDigest;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -10,27 +11,46 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // 1. Structural preflight: Ensure representability BEFORE any DDL
+        $digest = new ProvenanceDigest();
+
+        // Structural/content preflight before DDL.
         $duplicatesCount = DB::table('evidence_candidates')
             ->select('subject_actor_id', 'semantic_identity_digest')
             ->groupBy('subject_actor_id', 'semantic_identity_digest')
             ->havingRaw('COUNT(*) > 1')
             ->count();
-            
         if ($duplicatesCount > 0) {
             throw new \Exception('Cannot upgrade: legacy schema contains ambiguous candidates.');
         }
 
-        // Admitted candidates must map to exactly one admission record
-        $admittedCandidates = DB::table('evidence_candidates')->where('state', 'ADMITTED')->get();
-        foreach ($admittedCandidates as $c) {
-            $admissionsCount = DB::table('evidence_admission_records')->where('candidate_id', $c->id)->count();
-            if ($admissionsCount !== 1) {
-                throw new \Exception("Cannot upgrade: Admitted candidate {$c->id} resolves to {$admissionsCount} Admissions. Exactly 1 is required for safe upgrade.");
+        $candidates = DB::table('evidence_candidates')->get();
+        $legacyCanonical = [];
+        foreach ($candidates as $candidate) {
+            if ($candidate->state === 'ADMITTED') {
+                $admissionsCount = DB::table('evidence_admission_records')->where('candidate_id', $candidate->id)->count();
+                if ($admissionsCount !== 1) {
+                    throw new \Exception("Cannot upgrade: Admitted candidate {$candidate->id} resolves to {$admissionsCount} Admissions. Exactly 1 is required for safe upgrade.");
+                }
             }
+
+            $factsJson = $digest->canonicalJson($this->decodeLegacyJson($candidate->proposed_facts, 'proposed_facts'));
+            $metadataJson = $digest->canonicalJson($this->decodeLegacyJson($candidate->metadata, 'metadata'));
+            if (strlen($factsJson) > 65536 || strlen($metadataJson) > 65536) {
+                throw new \Exception("Cannot upgrade: Candidate {$candidate->id} contains JSON above the 64KiB canonical boundary.");
+            }
+            $legacyCanonical[(string) $candidate->id] = [
+                'facts' => $factsJson,
+                'metadata' => $metadataJson,
+                'content_digest' => $digest->digest([
+                    'candidate_id' => (string) $candidate->id,
+                    'proposed_title' => (string) $candidate->proposed_title,
+                    'proposed_summary' => (string) $candidate->proposed_summary,
+                    'proposed_facts' => $factsJson,
+                    'metadata' => $metadataJson,
+                ]),
+            ];
         }
 
-        // 2. Add structural changes
         DB::statement('ALTER TABLE evidence_admission_records DROP CONSTRAINT IF EXISTS evidence_admission_records_evidence_id_unique');
         DB::statement('DROP INDEX IF EXISTS evidence_admission_records_evidence_id_unique');
         Schema::table('evidence_admission_records', function (Blueprint $table) {
@@ -41,13 +61,8 @@ return new class extends Migration
             $table->integer('preparation_revision')->default(1)->after('semantic_identity_digest');
             $table->uuid('target_evidence_id')->nullable()->after('preparation_revision');
             $table->uuid('target_evidence_revision_id')->nullable()->after('target_evidence_id');
-            
-            $table->foreign('target_evidence_id')
-                ->references('id')
-                ->on('governed_evidence');
-            $table->foreign('target_evidence_revision_id')
-                ->references('id')
-                ->on('governed_evidence_revisions');
+            $table->foreign('target_evidence_id')->references('id')->on('governed_evidence');
+            $table->foreign('target_evidence_revision_id')->references('id')->on('governed_evidence_revisions');
         });
 
         Schema::create('evidence_candidate_revisions', function (Blueprint $table) {
@@ -62,7 +77,6 @@ return new class extends Migration
             $table->uuid('created_by');
             $table->timestamp('created_at')->useCurrent();
             $table->timestamp('updated_at')->useCurrent();
-            
             $table->foreign('candidate_id')->references('id')->on('evidence_candidates');
             $table->unique(['candidate_id', 'preparation_revision']);
         });
@@ -71,12 +85,10 @@ return new class extends Migration
             $table->uuid('admission_id')->primary();
             $table->uuid('candidate_revision_id');
             $table->timestamp('created_at')->useCurrent();
-            
             $table->foreign('admission_id')->references('id')->on('evidence_admission_records');
             $table->foreign('candidate_revision_id')->references('id')->on('evidence_candidate_revisions');
         });
-        
-        // Update admission validation trigger to support N+1 candidates
+
         DB::unprepared("
             CREATE OR REPLACE FUNCTION cep_validate_evidence_admission_record()
             RETURNS trigger
@@ -86,10 +98,8 @@ return new class extends Migration
                 IF NOT EXISTS (
                     SELECT 1
                     FROM governed_evidence AS evidence
-                    INNER JOIN governed_evidence_revisions AS revision
-                        ON revision.evidence_id = evidence.id
-                    INNER JOIN evidence_candidates AS candidate
-                        ON candidate.admitted_evidence_id = evidence.id
+                    INNER JOIN governed_evidence_revisions AS revision ON revision.evidence_id = evidence.id
+                    INNER JOIN evidence_candidates AS candidate ON candidate.admitted_evidence_id = evidence.id
                     WHERE evidence.id = NEW.evidence_id
                       AND candidate.id = NEW.candidate_id
                       AND revision.id = NEW.evidence_revision_id
@@ -97,13 +107,11 @@ return new class extends Migration
                 ) THEN
                     RAISE EXCEPTION 'Evidence admission provenance does not match the canonical Candidate/Evidence/Revision chain';
                 END IF;
-            
                 RETURN NEW;
             END;
             $$;
         ");
 
-        // 3. Add immutability DB-level triggers
         DB::unprepared("
             CREATE OR REPLACE FUNCTION cep_reject_update_delete()
             RETURNS TRIGGER AS $$
@@ -115,50 +123,30 @@ return new class extends Migration
             CREATE TRIGGER trg_evidence_candidate_revisions_immutable
             BEFORE UPDATE OR DELETE ON evidence_candidate_revisions
             FOR EACH ROW EXECUTE FUNCTION cep_reject_update_delete();
-            
+
             CREATE TRIGGER trg_evidence_admission_candidate_revisions_immutable
             BEFORE UPDATE OR DELETE ON evidence_admission_candidate_revisions
             FOR EACH ROW EXECUTE FUNCTION cep_reject_update_delete();
         ");
 
-        // 4. Backfill existing data
-        $candidates = DB::table('evidence_candidates')->get();
-        foreach ($candidates as $c) {
+        foreach ($candidates as $candidate) {
             $revisionId = (string) Str::uuid7();
-            
-            // Canonical content digest reconstruction for legacy candidate (no sequence!)
-            $payload = json_encode([
-                'candidate_id' => $c->id,
-                'proposed_title' => $c->proposed_title,
-                'proposed_summary' => $c->proposed_summary,
-                'proposed_facts' => $c->proposed_facts,
-                'metadata' => $c->metadata,
-            ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            
-            $contentDigest = hash('sha256', $payload);
-            
-            // Note: intentionally preserving legacy timestamp via $c->created_at
+            $canonical = $legacyCanonical[(string) $candidate->id];
             DB::table('evidence_candidate_revisions')->insert([
                 'id' => $revisionId,
-                'candidate_id' => $c->id,
+                'candidate_id' => $candidate->id,
                 'preparation_revision' => 1,
-                'proposed_title' => $c->proposed_title,
-                'proposed_summary' => $c->proposed_summary,
-                'proposed_facts' => $c->proposed_facts,
-                'metadata' => $c->metadata,
-                'content_digest' => $contentDigest,
-                'created_by' => $c->submitted_by,
-                'created_at' => $c->created_at,
-                'updated_at' => $c->created_at,
+                'proposed_title' => $candidate->proposed_title,
+                'proposed_summary' => $candidate->proposed_summary,
+                'proposed_facts' => $canonical['facts'],
+                'metadata' => $canonical['metadata'],
+                'content_digest' => $canonical['content_digest'],
+                'created_by' => $candidate->submitted_by,
+                'created_at' => $candidate->created_at,
+                'updated_at' => $candidate->created_at,
             ]);
-            
-            // Link admissions for admitted candidates
-            if ($c->state === 'ADMITTED') {
-                $admissions = DB::table('evidence_admission_records')
-                    ->where('candidate_id', $c->id)
-                    ->get();
-                    
-                $admission = $admissions->first();
+            if ($candidate->state === 'ADMITTED') {
+                $admission = DB::table('evidence_admission_records')->where('candidate_id', $candidate->id)->first();
                 DB::table('evidence_admission_candidate_revisions')->insert([
                     'admission_id' => $admission->id,
                     'candidate_revision_id' => $revisionId,
@@ -170,18 +158,15 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Preflight DOWN: Ensure no duplicate admissions exist that would violate the original unique index BEFORE any DDL
         $duplicatesCount = DB::table('evidence_admission_records')
             ->select('evidence_id')
             ->groupBy('evidence_id')
             ->havingRaw('COUNT(*) > 1')
             ->count();
-            
         if ($duplicatesCount > 0) {
             throw new \Exception('Cannot rollback: database contains multiple admissions for the same evidence, violating the legacy schema.');
         }
 
-        // Restore old admission validation trigger
         DB::unprepared("
             CREATE OR REPLACE FUNCTION cep_validate_evidence_admission_record()
             RETURNS trigger
@@ -191,10 +176,8 @@ return new class extends Migration
                 IF NOT EXISTS (
                     SELECT 1
                     FROM governed_evidence AS evidence
-                    INNER JOIN governed_evidence_revisions AS revision
-                        ON revision.evidence_id = evidence.id
-                    INNER JOIN evidence_candidates AS candidate
-                        ON candidate.id = evidence.candidate_id
+                    INNER JOIN governed_evidence_revisions AS revision ON revision.evidence_id = evidence.id
+                    INNER JOIN evidence_candidates AS candidate ON candidate.id = evidence.candidate_id
                     WHERE evidence.id = NEW.evidence_id
                       AND evidence.candidate_id = NEW.candidate_id
                       AND revision.id = NEW.evidence_revision_id
@@ -203,20 +186,16 @@ return new class extends Migration
                 ) THEN
                     RAISE EXCEPTION 'Evidence admission provenance does not match the canonical Candidate/Evidence/Revision chain';
                 END IF;
-            
                 RETURN NEW;
             END;
             $$;
         ");
 
-        // Drop triggers
         DB::unprepared("
             DROP TRIGGER IF EXISTS trg_evidence_admission_candidate_revisions_immutable ON evidence_admission_candidate_revisions;
             DROP TRIGGER IF EXISTS trg_evidence_candidate_revisions_immutable ON evidence_candidate_revisions;
             DROP FUNCTION IF EXISTS cep_reject_update_delete();
         ");
-
-        // Drop new schema structures explicitly
         Schema::dropIfExists('evidence_admission_candidate_revisions');
         Schema::dropIfExists('evidence_candidate_revisions');
 
@@ -224,14 +203,12 @@ return new class extends Migration
         DB::statement('DROP INDEX IF EXISTS evidence_admission_records_evidence_id_evidence_revision_id_unique');
         DB::statement('ALTER TABLE evidence_admission_records DROP CONSTRAINT IF EXISTS evidence_admission_records_evidence_id_unique');
         DB::statement('DROP INDEX IF EXISTS evidence_admission_records_evidence_id_unique');
-        
         Schema::table('evidence_admission_records', function (Blueprint $table) {
             $table->unique('evidence_id');
         });
 
         DB::statement('ALTER TABLE evidence_candidates DROP CONSTRAINT IF EXISTS evidence_candidates_target_evidence_id_foreign');
         DB::statement('ALTER TABLE evidence_candidates DROP CONSTRAINT IF EXISTS evidence_candidates_target_evidence_revision_id_foreign');
-        
         Schema::table('evidence_candidates', function (Blueprint $table) {
             if (Schema::hasColumn('evidence_candidates', 'preparation_revision')) {
                 $table->dropColumn('preparation_revision');
@@ -243,5 +220,21 @@ return new class extends Migration
                 $table->dropColumn('target_evidence_revision_id');
             }
         });
+    }
+
+    /** @return array<mixed> */
+    private function decodeLegacyJson(mixed $value, string $field): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+        if (! is_string($value) || strlen($value) > 65536) {
+            throw new \Exception("Cannot upgrade: legacy {$field} is not bounded JSON.");
+        }
+        $decoded = json_decode($value, true);
+        if (json_last_error() !== JSON_ERROR_NONE || ! is_array($decoded)) {
+            throw new \Exception("Cannot upgrade: legacy {$field} is invalid or non-associative JSON.");
+        }
+        return $decoded;
     }
 };
