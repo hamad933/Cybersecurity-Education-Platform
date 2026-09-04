@@ -13,11 +13,13 @@ def git_blob_sha(path: Path) -> str:
 
 
 class ShadowSecurityWorkflowTests(unittest.TestCase):
-    def test_v1_and_read_only_foundation_workflows_remain_byte_identical(self):
+    def test_unchanged_v1_evidence_and_read_only_foundation_workflows_remain_byte_identical(self):
+        # Control/Inspect are intentionally excluded: issue #8583 authorizes their
+        # migration to the shared bounded implementation and dedicated regression
+        # tests now guard that contract. Keep the unrelated v1 evidence and v2
+        # read-only foundation transports byte-locked.
         expected = {
-            ".github/workflows/cep-jules-control.yml": "931a24d00c431c8d56de86726e0aa3ac8043eed6",
             ".github/workflows/cep-jules-evidence.yml": "19030ce70a5527a27a2a4b690c3d5d624d1c28d8",
-            ".github/workflows/cep-jules-inspect.yml": "dee7df76f4f90c67a0058571dbd93c85206c4ae2",
             ".github/workflows/cep-jules-v2.yml": "e461b94a34c55b8d1c4f6b80ab599afa6bdd0554",
         }
         for relative, expected_sha in expected.items():
