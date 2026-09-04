@@ -12,10 +12,12 @@ SCHEMA_VERSION = "2.0"
 MUTATION_SCHEMA_VERSION = "2.1"
 
 _CONTROLLER_LANES = {
-    "PARENT": {"PARENT", "W01_W02", "W03_W04", "W05"},
-    "A": {"W03_W04"},
-    "B": {"W01_W02"},
-    "C": {"W05"},
+    "PARENT": {"PARENT", "W01", "W02", "W03", "W04", "W05", "W01_W02", "W03_W04"},
+    "A": {"W01"},
+    "B": {"W02"},
+    "C": {"W03"},
+    "D": {"W04"},
+    "E": {"W05"},
 }
 _READ_ACTIONS = {"inspect_bundle", "get_session", "list_sessions", "list_activities"}
 _MUTATION_ACTIONS = {"create_session", "send_message", "approve_plan"}
