@@ -36,7 +36,7 @@ def send_envelope(request_id: str, controller: str, lane: str, session_id: str):
                 "controller_id": controller,
                 "lane": lane,
                 "logical_task_id": "CEP-TASK-1",
-                "write_domain": "W03/simulator",
+                "write_domain": "shared/effect-key-test",
                 "action": "send_message",
                 "session_id": session_id,
                 "expected_state": "IN_PROGRESS",
@@ -47,14 +47,14 @@ def send_envelope(request_id: str, controller: str, lane: str, session_id: str):
     )
 
 
-def create_envelope(request_id: str, *, logical_task: str = "CEP-TASK-1", write_domain: str = "W03/simulator"):
+def create_envelope(request_id: str, *, logical_task: str = "CEP-TASK-1", write_domain: str = "W01/simulator"):
     return parse_envelope(
         json.dumps(
             {
                 "schema_version": "2.1",
                 "request_id": request_id,
                 "controller_id": "A",
-                "lane": "W03_W04",
+                "lane": "W01",
                 "logical_task_id": logical_task,
                 "write_domain": write_domain,
                 "action": "create_session",
@@ -114,13 +114,13 @@ class IdentityConcurrencyIdempotencyTests(unittest.TestCase):
         )
 
     def test_same_session_two_controllers_share_effect_key(self):
-        a = send_envelope("REQ-A", "A", "W03_W04", "123")
-        b = send_envelope("REQ-B", "B", "W01_W02", "123")
+        a = send_envelope("REQ-A", "A", "W01", "123")
+        b = send_envelope("REQ-B", "B", "W02", "123")
         self.assertEqual(effect_concurrency_key(a), effect_concurrency_key(b))
 
     def test_independent_sessions_remain_parallel_by_key(self):
-        a = send_envelope("REQ-A", "A", "W03_W04", "123")
-        b = send_envelope("REQ-B", "B", "W01_W02", "456")
+        a = send_envelope("REQ-A", "A", "W01", "123")
+        b = send_envelope("REQ-B", "B", "W02", "456")
         self.assertNotEqual(effect_concurrency_key(a), effect_concurrency_key(b))
 
     def test_same_pre_session_logical_effect_serializes_across_request_ids(self):
