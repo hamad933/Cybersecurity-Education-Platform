@@ -1,0 +1,11 @@
+{
+  "project": "CEP",
+  "route": "W02",
+  "workspace": "CONTROLLER B",
+  "logical_task": "STATIC_RQ_HANDOFF",
+  "session_id": "7425653947220179579",
+  "run_id": "7425653947220179579",
+  "base_commit": "ca36e75c116a9ba00b5d25d358bd68c10990bd6e",
+  "evidence_classification": "WRITER_SELF_EVIDENCE_RUNTIME_BLOCKED",
+  "PRE_GATE_RECOVERY_SEED_REVALIDATED_AFTER_GATES": "PASS"
+}

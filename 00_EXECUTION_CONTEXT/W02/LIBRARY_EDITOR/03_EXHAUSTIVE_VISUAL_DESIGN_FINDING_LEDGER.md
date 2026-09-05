@@ -1,0 +1,1969 @@
+PROJECT: Cybersecurity Education Platform (CEP)
+ROUTE: PERSONAL:CEP
+SURFACE: W02 Library + Unified Editor
+AUDIT MODE: EXHAUSTIVE_READ_ONLY_DEEP_AUDIT
+EXACT GITHUB SHA: `ca36e75c116a9ba00b5d25d358bd68c10990bd6e`
+EXPECTED PARENT: `7fa8714dc6d0beec6ec77ba8a673140301b066cf`
+PRODUCT MUTATION: NONE
+WRITER DISPATCH: NONE
+ACCEPTANCE: NOT GRANTED
+DATE: 2026-09-04
+
+# 02 — Exhaustive Visual / Product / Data Finding Ledger
+## Ledger summary
+- Material findings: **65**
+- Discovery: `KNOWN=10` / `UNDER_SPECIFIED=15` / `MISSED_NEW=40` / `REGRESSED=0`
+- Classification counts: `ALLOWED_INTENTIONAL_DEVIATION=1` / `AUTHORITY_DECISION_REQUIRED=1` / `CANONICAL_RUNTIME_BINDING_GAP=6` / `CONTRACT_OVERRIDES_IMAGE=2` / `DATA_FIXTURE_REPRESENTATIVENESS_GAP=9` / `EVIDENCE_INSUFFICIENT=12` / `FUNCTIONAL_DEFECT=6` / `PRODUCT_VISUAL_DESIGN_DEFECT=27` / `REQUIRED_MATCH=1`
+## Reading law
+كل finding أدناه مستقل ماديًا. لا يجوز دمج findings متعددة في “polish” واحد. `root_cause_confidence=NOT_YET_PROVEN` يعني أن السبب لم يُثبت، وليس أن العيب غير موجود. `EVIDENCE_INSUFFICIENT` لا يساوي failure.
+
+## W02-DA-001 — Recovery conflict
+- **finding_id:** `W02-DA-001`
+- **category:** Editor integrity
+- **subcategory:** Recovery conflict
+- **surface/state/view:** Unified Editor / stale local recovery vs newer server revision
+- **viewport:** all
+- **direction:** RTL + mixed
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** loadRecovery() removes a syntactically valid local recovery record whenever its lock_version differs from the current revision.
+- **governed_expected_intent:** Local recovery must preserve a stale-but-valid draft as an explicit conflict until the user resolves or discards it.
+- **material_delta:** Recoverable work is destructively collapsed into the same path as invalid storage.
+- **user/product_consequence:** A user can lose the only local draft precisely when concurrent server progress makes recovery most important.
+- **severity:** `P0`
+- **classification:** `FUNCTIONAL_DEFECT`
+- **root_cause_file_or_symbol:** resources/js/pages/KnowledgeLearning/Library.vue::loadRecovery/removeRecovery
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library/Editor
+- **dependencies:** LessonRevision lock semantics; localStorage
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Induce a valid stale recovery record against a newer server lock; verify it remains inspectable and no silent deletion occurs.
+- **required_browser_state:** Editable draft with a syntactically valid local recovery record whose lock_version is stale.
+- **required_screenshot_state:** Conflict banner/dialog showing stale local version and explicit user choices.
+- **closure_criterion:** Stale valid recovery is preserved, surfaced as conflict, and removed only after explicit discard or acknowledged save.
+- **prior_finding_mapping:** LIB-02 / RC-01
+- **discovery_status:** `KNOWN`
+
+## W02-DA-002 — Storage failure boundary
+- **finding_id:** `W02-DA-002`
+- **category:** Editor integrity
+- **subcategory:** Storage failure boundary
+- **surface/state/view:** Unified Editor / local recovery persistence
+- **viewport:** all
+- **direction:** RTL + mixed
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Library.vue calls localStorage get/set/remove directly without a bounded storage-failure state.
+- **governed_expected_intent:** Recovery availability and autosave/recovery messaging must remain truthful when browser storage is denied, full, or throws.
+- **material_delta:** Persistence failures can escape state transitions or leave the UI implying recoverability that was not achieved.
+- **user/product_consequence:** Users may trust a recovery path that silently failed.
+- **severity:** `P1`
+- **classification:** `FUNCTIONAL_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue::persistRecovery/loadRecovery/removeRecovery
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library/Editor
+- **dependencies:** browser storage policy
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Run with localStorage set/get/remove throwing SecurityError and quota errors.
+- **required_browser_state:** Editable draft with storage blocked and then restored.
+- **required_screenshot_state:** Explicit bounded recovery-storage unavailable/error state without losing editor content.
+- **closure_criterion:** No storage exception escapes; the UI never claims local recovery exists unless persistence succeeded.
+- **prior_finding_mapping:** LIB-02 / RC-02
+- **discovery_status:** `KNOWN`
+
+## W02-DA-003 — Return-state ownership
+- **finding_id:** `W02-DA-003`
+- **category:** Workspace continuity
+- **subcategory:** Return-state ownership
+- **surface/state/view:** Library ↔ Learn/Visualize/RQ transitions
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Panel widths/collapse persist, but searchQuery, RIGHT lens, BOTTOM task, compare selection, active block and scroll context are ephemeral; KnowledgeTabs carries only object.
+- **governed_expected_intent:** Returning to Library should preserve a bounded, owned working context without inventing cross-surface state.
+- **material_delta:** Canonical object continuity exists while task/work-position continuity is incomplete.
+- **user/product_consequence:** Users returning from related surfaces can lose place, filter, lens and deep-work state.
+- **severity:** `P1`
+- **classification:** `FUNCTIONAL_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue refs; KnowledgeTabs.vue::withObject; CepWorkspaceLayout workspaceKey
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library + shared navigation
+- **dependencies:** shared return-state contract
+- **collision_risk:** HIGH
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Round-trip Library→RQ/Learn→Library at 1440 and 1024 with non-default search/lens/shelf/scroll state.
+- **required_browser_state:** Active KU with search filter, Sources lens and open deep-work task, then cross-surface navigation and return.
+- **required_screenshot_state:** Before/after state pair showing bounded continuity.
+- **closure_criterion:** Controller-approved owned state survives expected round-trips without leaking foreign surface state.
+- **prior_finding_mapping:** LIB-01 / RC-03
+- **discovery_status:** `KNOWN`
+
+## W02-DA-004 — Duplicate action
+- **finding_id:** `W02-DA-004`
+- **category:** Navigation
+- **subcategory:** Duplicate action
+- **surface/state/view:** RIGHT / Sources lens
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Two adjacent identical Research & Quality deep-link blocks exist under the same v-if condition.
+- **governed_expected_intent:** One information/action owner and one authoritative display location.
+- **material_delta:** Duplicate command hierarchy is rendered by source.
+- **user/product_consequence:** Visual noise and ambiguous click hierarchy undermine the one-owner rule.
+- **severity:** `P2`
+- **classification:** `FUNCTIONAL_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue Sources lens duplicated context.navigation.research_quality blocks
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library
+- **dependencies:** RQ route
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Open Sources lens and inspect DOM/action count.
+- **required_browser_state:** Library with Sources lens and a valid research_quality URL.
+- **required_screenshot_state:** Sources lens showing exactly one RQ deep link.
+- **closure_criterion:** One and only one RQ deep link exists in source, DOM and screenshot.
+- **prior_finding_mapping:** DELTA-06 / LIB-07 / RC-04
+- **discovery_status:** `KNOWN`
+
+## W02-DA-005 — Modal focus lifecycle
+- **finding_id:** `W02-DA-005`
+- **category:** Accessibility
+- **subcategory:** Modal focus lifecycle
+- **surface/state/view:** Link/citation editor modal
+- **viewport:** 1440 + 1024
+- **direction:** RTL + LTR input
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** The modal focuses its input on open but source does not contain a focus trap or deterministic return to the invoker/editor selection on close.
+- **governed_expected_intent:** A modal editing interruption must contain keyboard focus and return it to the invoking editing context.
+- **material_delta:** Focus lifecycle is only partially implemented.
+- **user/product_consequence:** Keyboard users can lose editing position after Escape/Cancel/submit.
+- **severity:** `P2`
+- **classification:** `FUNCTIONAL_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue::openEditorDialog/closeEditorDialog/applyEditorDialog
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library/Editor
+- **dependencies:** editor selection state
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Keyboard-only Tab/Shift+Tab/Escape/Cancel/submit from an active text selection.
+- **required_browser_state:** Editable block with selected text; open Link and Citation dialogs separately.
+- **required_screenshot_state:** Modal open plus post-close focus indication; pair with focus trace.
+- **closure_criterion:** Focus remains contained while open and returns deterministically to the original editing context.
+- **prior_finding_mapping:** LIB-09 / RC-06
+- **discovery_status:** `KNOWN`
+
+## W02-DA-006 — Semantic scope
+- **finding_id:** `W02-DA-006`
+- **category:** Search
+- **subcategory:** Semantic scope
+- **surface/state/view:** LEFT library search
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** filteredStructure filters KU title/id only; domain, cluster and capability labels are not search terms.
+- **governed_expected_intent:** A Library search presented at the hierarchy level should find the visible semantic hierarchy or explicitly scope itself to KUs.
+- **material_delta:** Search affordance and search semantics are misaligned once authoritative hierarchy labels exist.
+- **user/product_consequence:** Users cannot discover KUs by the parent concepts shown in the same LEFT hierarchy.
+- **severity:** `P2`
+- **classification:** `FUNCTIONAL_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue::filterItems/filteredStructure
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library
+- **dependencies:** authoritative hierarchy labels
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Search by domain, cluster, capability, KU Arabic title, English title and technical ID.
+- **required_browser_state:** Canonical human-labeled hierarchy with multiple KUs under multiple parents.
+- **required_screenshot_state:** Search results for a parent semantic label and a KU label.
+- **closure_criterion:** Search behavior matches an explicitly approved scope and visible copy.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-007 — CENTER dominance
+- **finding_id:** `W02-DA-007`
+- **category:** Visual design
+- **subcategory:** CENTER dominance
+- **surface/state/view:** Library primary workspace
+- **viewport:** 1440
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** The governed reference makes the working document the largest and visually dominant region; the candidate CENTER is visually reduced by multiple nested shells and sparse content.
+- **governed_expected_intent:** CENTER must dominate the workspace and carry the actual work with high information utility.
+- **material_delta:** Functional region ownership is correct, but perceived work-surface dominance remains materially weaker.
+- **user/product_consequence:** The Library reads as a collection of panels around an empty form rather than a knowledge workbench.
+- **severity:** `P1`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** CepWorkspaceLayout + Library.vue .library-document
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** Library + shared shell
+- **dependencies:** representative content
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Compare region area and above-the-fold useful-content area against the governed reference at a reset layout.
+- **required_browser_state:** 1440 reset panel widths, representative long editable KU.
+- **required_screenshot_state:** Full 1440 Library with CENTER filled by representative document work.
+- **closure_criterion:** CENTER is unambiguously largest in visual priority and useful-content area, without violating LEFT/RIGHT ownership.
+- **prior_finding_mapping:** DELTA-02
+- **discovery_status:** `UNDER_SPECIFIED`
+
+## W02-DA-008 — Artificial dead space
+- **finding_id:** `W02-DA-008`
+- **category:** Visual design
+- **subcategory:** Artificial dead space
+- **surface/state/view:** CENTER document body
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** .library-document-body enforces min-height:32rem while the exact candidate contains only two sparse blocks, producing a large empty reservoir.
+- **governed_expected_intent:** Whitespace must support reading rhythm, not dominate the primary working surface.
+- **material_delta:** A fixed minimum body height magnifies sparse-fixture emptiness.
+- **user/product_consequence:** The user sees a large inactive field that weakens hierarchy and creates a false sense of unfinished/empty content.
+- **severity:** `P1`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue style::.library-document-body min-height:32rem
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library
+- **dependencies:** fixture density
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Test sparse and long documents; no fixed dead-space reservoir should dominate sparse state.
+- **required_browser_state:** Exact sparse fixture and representative long fixture.
+- **required_screenshot_state:** Side-by-side sparse/long states showing intentional empty-state treatment and dense normal state.
+- **closure_criterion:** Sparse content does not create unexplained dead space; long content remains stable.
+- **prior_finding_mapping:** DELTA-02
+- **discovery_status:** `UNDER_SPECIFIED`
+
+## W02-DA-009 — Above-the-fold information density
+- **finding_id:** `W02-DA-009`
+- **category:** Visual design
+- **subcategory:** Above-the-fold information density
+- **surface/state/view:** CENTER document
+- **viewport:** 1440
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** The reference exposes title, metadata, toolbar, multiple semantic sections, code/list content and related context above the fold; current evidence exposes a title and two tiny blocks.
+- **governed_expected_intent:** Primary desktop should provide dense but legible knowledge work above the fold.
+- **material_delta:** Current useful-content density is an order of magnitude below the reference intent.
+- **user/product_consequence:** Reviewers and users cannot judge or use the surface as a serious long-form knowledge editor.
+- **severity:** `P1`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue document composition + current fixture
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** Library/Editor
+- **dependencies:** representative data
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Capture an approved representative KU with headings, prose, technical block, callout/list and citations.
+- **required_browser_state:** 1440 editable representative mixed-content KU.
+- **required_screenshot_state:** Reference-aligned dense document state with multiple meaningful sections visible.
+- **closure_criterion:** Above-the-fold density is comparable in information utility, not necessarily pixel identity.
+- **prior_finding_mapping:** DELTA-02
+- **discovery_status:** `UNDER_SPECIFIED`
+
+## W02-DA-010 — Nested surface framing
+- **finding_id:** `W02-DA-010`
+- **category:** Visual design
+- **subcategory:** Nested surface framing
+- **surface/state/view:** CENTER
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** cep-primary-surface is a bordered rounded shadowed panel, inside which library-document is another bordered rounded shadowed panel.
+- **governed_expected_intent:** The document should feel like the primary continuous work surface, not a card nested inside another card.
+- **material_delta:** Two full-depth framed containers create redundant containment hierarchy.
+- **user/product_consequence:** The editor feels dashboard-like and visually smaller than the available CENTER region.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** resources/css/app.css::.cep-primary-surface; Library.vue::.library-document
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library + shared shell
+- **dependencies:** cross-surface shell consistency
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Visual compare with other W02 primary surfaces after any shared-shell change.
+- **required_browser_state:** 1440 and 1024 default Library.
+- **required_screenshot_state:** CENTER showing a single clear primary work-plane hierarchy.
+- **closure_criterion:** Containment layers are intentional and non-redundant; document reads as the primary plane.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-011 — Cumulative horizontal padding
+- **finding_id:** `W02-DA-011`
+- **category:** Visual design
+- **subcategory:** Cumulative horizontal padding
+- **surface/state/view:** CENTER
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Workspace padding + primary-surface clamp padding + document header/body clamp padding consume substantial horizontal width before content begins.
+- **governed_expected_intent:** Desktop CENTER width should be spent primarily on document work while preserving readable line length.
+- **material_delta:** Multi-layer padding compounds with fixed LEFT/RIGHT widths.
+- **user/product_consequence:** At 1024 especially, the editor becomes narrow while surrounding chrome remains generous.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** app.css::.cep-workspace/.cep-primary-surface; Library.vue document header/body padding
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library + shared shell
+- **dependencies:** responsive shell
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Measure content-column width at 1440 and 1024 under default/reset panel widths.
+- **required_browser_state:** Reset panel widths; 1440 and 1024.
+- **required_screenshot_state:** Full workspace with measurement annotations in validation notes, not in product.
+- **closure_criterion:** CENTER content width supports long-form editing and technical blocks without excessive nested padding.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-012 — Vertical chrome budget
+- **finding_id:** `W02-DA-012`
+- **category:** Visual design
+- **subcategory:** Vertical chrome budget
+- **surface/state/view:** TOP + global/primary navigation
+- **viewport:** 1440
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Global header, primary knowledge tabs and a separate bordered action bar stack before the document starts.
+- **governed_expected_intent:** TOP must stay dense and task-oriented so the work surface begins early in the viewport.
+- **material_delta:** The candidate spends more vertical budget on chrome than the reference’s tighter layered hierarchy.
+- **user/product_consequence:** Less of the knowledge document is visible without scrolling.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** app.css::.cep-global-header/.cep-primary-navigation/.cep-action-bar
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** Shared shell + Library
+- **dependencies:** global navigation contract
+- **collision_risk:** HIGH
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Compare y-position of first semantic document section at 1440 against reference intent.
+- **required_browser_state:** 1440 default Library, reset browser zoom 100%.
+- **required_screenshot_state:** Full viewport showing compact but complete navigation and action hierarchy.
+- **closure_criterion:** Chrome remains complete while materially increasing useful document area above the fold.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-013 — Work-area continuity
+- **finding_id:** `W02-DA-013`
+- **category:** Visual design
+- **subcategory:** Work-area continuity
+- **surface/state/view:** CENTER editor
+- **viewport:** 1440
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Large blank document body separates the visible editor controls from footer metadata, with no meaningful intermediate content or progress cue.
+- **governed_expected_intent:** Long-form work should have continuous semantic rhythm; sparse states should be explicitly presented as sparse/empty.
+- **material_delta:** Current composition resembles an unfinished form rather than intentional sparse content.
+- **user/product_consequence:** Users lack a clear sense of document scope and completion.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue .library-document-body + current fixture
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** Library/Editor
+- **dependencies:** fixture data
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Test intentionally sparse KU state separately from representative normal KU state.
+- **required_browser_state:** Sparse valid KU with explicit sparse-state UX, then long normal KU.
+- **required_screenshot_state:** Both sparse and normal compositions.
+- **closure_criterion:** Sparse state is intentional and normal state has continuous content rhythm.
+- **prior_finding_mapping:** DELTA-02
+- **discovery_status:** `UNDER_SPECIFIED`
+
+## W02-DA-014 — LEFT/CENTER/RIGHT proportion
+- **finding_id:** `W02-DA-014`
+- **category:** Visual design
+- **subcategory:** LEFT/CENTER/RIGHT proportion
+- **surface/state/view:** Three-region workspace
+- **viewport:** 1440
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Default widths 280px LEFT and 330px RIGHT plus resize handles/gaps leave CENTER with a narrower useful column than the reference’s document emphasis suggests.
+- **governed_expected_intent:** CENTER must be the largest and highest-priority region while LEFT/RIGHT remain compact contextual supports.
+- **material_delta:** Default geometry gives substantial fixed width to context while CENTER also loses space to nested padding.
+- **user/product_consequence:** Long lines, code, tables and mixed technical content have less room than expected.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** CepWorkspaceLayout initial widths + gridStyle; Library.vue initial-left/right
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library + shared shell
+- **dependencies:** shared resize contract
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Assess useful content widths at 1440 with default and persisted extremes.
+- **required_browser_state:** Fresh storage/default widths plus min/max panel widths.
+- **required_screenshot_state:** 1440 default and extreme-width stress states.
+- **closure_criterion:** Default and bounded resize states preserve CENTER dominance and readable technical content.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-015 — Panel vertical utilization
+- **finding_id:** `W02-DA-015`
+- **category:** Visual design
+- **subcategory:** Panel vertical utilization
+- **surface/state/view:** LEFT and RIGHT
+- **viewport:** 1440
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Both side regions terminate meaningful content high in the viewport while the document body remains mostly blank.
+- **governed_expected_intent:** Side panels should carry compact, useful hierarchy/context and remain visually subordinate but information-rich.
+- **material_delta:** Current sparse fixtures leave all three columns underutilized simultaneously.
+- **user/product_consequence:** The entire product reads like test scaffolding rather than an operational knowledge surface.
+- **severity:** `P1`
+- **classification:** `DATA_FIXTURE_REPRESENTATIVENESS_GAP`
+- **root_cause_file_or_symbol:** Current exact screenshot + fixture-scale runtime
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library evidence/runtime data
+- **dependencies:** representative corpus
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Use a governed representative dataset with multiple hierarchy levels, sources and revisions.
+- **required_browser_state:** 1440 with representative hierarchy/context cardinality.
+- **required_screenshot_state:** Full workspace showing realistic side-panel density and scrolling.
+- **closure_criterion:** Side-panel density is realistic and does not require synthetic inflation.
+- **prior_finding_mapping:** DELTA-02
+- **discovery_status:** `UNDER_SPECIFIED`
+
+## W02-DA-016 — Title-to-body scale
+- **finding_id:** `W02-DA-016`
+- **category:** Visual design
+- **subcategory:** Title-to-body scale
+- **surface/state/view:** Document header
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** The 2xl/3xl title dominates a document whose body is only text-sm and extremely sparse.
+- **governed_expected_intent:** Title prominence should lead into a substantial document hierarchy rather than visually consume the content hierarchy.
+- **material_delta:** Scale relationships are unbalanced under realistic sparse and medium content.
+- **user/product_consequence:** The page over-emphasizes object naming and under-emphasizes the knowledge body.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue h1 classes + textarea/text body classes
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library/Editor
+- **dependencies:** representative content
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Check title, H2/H3, paragraph and code scale relationships with long content.
+- **required_browser_state:** Representative long KU at 1440 and 1024.
+- **required_screenshot_state:** Document showing title + at least three heading depths + prose + code.
+- **closure_criterion:** Type hierarchy is clear, compact and proportional across content lengths.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-017 — Metadata legibility
+- **finding_id:** `W02-DA-017`
+- **category:** Visual design
+- **subcategory:** Metadata legibility
+- **surface/state/view:** Document metadata
+- **viewport:** 1440 + 1024
+- **direction:** mixed
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Multiple metadata items and internal identifiers use 9–10px mono/muted styling.
+- **governed_expected_intent:** Metadata should remain secondary but comfortably legible on desktop and resilient under scaling.
+- **material_delta:** Current micro-type is too low-salience for frequently inspected provenance/version information.
+- **user/product_consequence:** Users must strain to distinguish revision, dates, IDs and state.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue text-[9px]/text-[10px] metadata classes
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library
+- **dependencies:** accessibility/zoom
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Inspect at 100%, 125%, 200% zoom and normal contrast.
+- **required_browser_state:** 1440 + 1024 with realistic metadata lengths.
+- **required_screenshot_state:** Metadata region at default zoom plus accessibility trace.
+- **closure_criterion:** Secondary metadata remains legible without overpowering document content.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-018 — Vertical rhythm
+- **finding_id:** `W02-DA-018`
+- **category:** Visual design
+- **subcategory:** Vertical rhythm
+- **surface/state/view:** Editor blocks
+- **viewport:** 1440 + 1024
+- **direction:** RTL + mixed
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Nontechnical textareas use leading-8 while surrounding block labels are extremely small; technical and callout blocks add my-3/py-3 or py-4.
+- **governed_expected_intent:** Rhythm should encode semantic hierarchy consistently across headings, prose, technical blocks and callouts.
+- **material_delta:** Spacing increments are component-local rather than visually calibrated to the dense reference.
+- **user/product_consequence:** Mixed documents can alternate between overly loose prose and card-like technical islands.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue editor block classes/editorRows; LessonContentRenderer.vue spacing
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** Library/Editor
+- **dependencies:** mixed-content evidence
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Render a sequence heading→paragraph→code→callout→list/rules→heading.
+- **required_browser_state:** Representative mixed-content editable and published states.
+- **required_screenshot_state:** Long mixed document section at 1440 and 1024.
+- **closure_criterion:** Vertical rhythm remains consistent and semantically meaningful across block types.
+- **prior_finding_mapping:** DELTA-02
+- **discovery_status:** `UNDER_SPECIFIED`
+
+## W02-DA-019 — Muted contrast hierarchy
+- **finding_id:** `W02-DA-019`
+- **category:** Visual design
+- **subcategory:** Muted contrast hierarchy
+- **surface/state/view:** Micro labels and secondary copy
+- **viewport:** all
+- **direction:** RTL + mixed
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Frequent text-slate-500/600 at 9–10px is used on dark navy/black layers; disabled opacity further reduces salience.
+- **governed_expected_intent:** Secondary information must remain visibly distinct and readable, with disabled state differentiated by more than near-disappearance.
+- **material_delta:** Low size and low contrast are compounded.
+- **user/product_consequence:** Important state/metadata can become effectively invisible, especially at 1024 or non-ideal displays.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue muted classes; app.css tokens
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** Library + shared design system
+- **dependencies:** accessibility contrast audit
+- **collision_risk:** HIGH
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Automated contrast measurement plus human review at 100%/200% zoom.
+- **required_browser_state:** Default, disabled Undo/Redo, muted metadata, LEFT/RIGHT secondary copy.
+- **required_screenshot_state:** Representative state with contrast report references.
+- **closure_criterion:** All meaningful text meets approved contrast/legibility thresholds and disabled controls remain recognizable.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-020 — Technical-ID prominence
+- **finding_id:** `W02-DA-020`
+- **category:** Visual design
+- **subcategory:** Technical-ID prominence
+- **surface/state/view:** LEFT hierarchy + document metadata
+- **viewport:** 1440 + 1024
+- **direction:** LTR islands
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** KU IDs and parent IDs are repeatedly shown in monospace directly under/alongside human labels, and some parent titles are themselves IDs.
+- **governed_expected_intent:** Technical identifiers should support provenance without competing with human semantic hierarchy.
+- **material_delta:** Identity metadata is too visually frequent relative to human meaning.
+- **user/product_consequence:** The interface reads like an internal registry/debug view rather than a learner/knowledge-authoring product.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** LibraryHierarchyTree.vue; Library.vue metadata
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library
+- **dependencies:** authoritative human labels
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Review canonical hierarchy with real human labels and long IDs.
+- **required_browser_state:** Multi-domain canonical hierarchy with active KU.
+- **required_screenshot_state:** LEFT and document header showing balanced human/technical hierarchy.
+- **closure_criterion:** Human semantic labels lead; IDs remain available but visually subordinate.
+- **prior_finding_mapping:** DELTA-01
+- **discovery_status:** `UNDER_SPECIFIED`
+
+## W02-DA-021 — Footer diagnostic typography
+- **finding_id:** `W02-DA-021`
+- **category:** Visual design
+- **subcategory:** Footer diagnostic typography
+- **surface/state/view:** Document footer
+- **viewport:** 1440 + 1024
+- **direction:** RTL + LTR
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** The footer exposes content-contract version and an explanatory Bidi implementation sentence at tiny size.
+- **governed_expected_intent:** The visible footer should convey user-relevant document state/provenance, not implementation diagnostics.
+- **material_delta:** Internal contract/debug language consumes a user-facing hierarchy layer.
+- **user/product_consequence:** It signals test/engineering scaffolding and distracts from meaningful provenance.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue .library-document-footer
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library
+- **dependencies:** product copy authority
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Review footer with product copy owner and canonical provenance requirements.
+- **required_browser_state:** Any active KU.
+- **required_screenshot_state:** Final document footer with user-relevant information only.
+- **closure_criterion:** No implementation/debug sentence or internal contract version is presented as primary user-facing footer copy unless explicitly governed.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-022 — Bilingual tab density
+- **finding_id:** `W02-DA-022`
+- **category:** Visual design
+- **subcategory:** Bilingual tab density
+- **surface/state/view:** Primary knowledge tabs
+- **viewport:** 1440 + 1024
+- **direction:** RTL with LTR labels
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Every primary tab combines emoji + Arabic label + English mono label inside a pill.
+- **governed_expected_intent:** Arabic-first navigation should remain compact; English/technical islands should be used where they add semantic value rather than duplicate every label.
+- **material_delta:** The duplicated bilingual label and emoji make each gateway visually heavy.
+- **user/product_consequence:** At 1024 the tabs contribute to wrapping and reduce work-area height.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** KnowledgeTabs.vue::tabs/template
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Shared Knowledge/Learning navigation
+- **dependencies:** cross-surface consistency
+- **collision_risk:** HIGH
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Evaluate compact Arabic-first labels and any approved bilingual policy across all four W02 surfaces.
+- **required_browser_state:** 1440 and 1024 with all tabs visible.
+- **required_screenshot_state:** Primary navigation showing stable compact hierarchy.
+- **closure_criterion:** Navigation remains understandable, consistent and compact without redundant label duplication.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-023 — Visual language consistency
+- **finding_id:** `W02-DA-023`
+- **category:** Visual design
+- **subcategory:** Visual language consistency
+- **surface/state/view:** Global/primary icons
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** KnowledgeTabs and hierarchy use emoji glyphs (📖🎓🕸️⚖️📁📂⚡🛡️), while the governed reference uses a consistent professional icon system.
+- **governed_expected_intent:** Cross-surface iconography should be stable, intentional and visually consistent with the professional high-density design language.
+- **material_delta:** Platform-dependent emoji introduce inconsistent color, weight and baseline metrics.
+- **user/product_consequence:** The product can look consumer/toy-like and differ across OS/browser.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** KnowledgeTabs.vue; LibraryHierarchyTree.vue
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Shared W02 design system
+- **dependencies:** icon system authority
+- **collision_risk:** HIGH
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Cross-platform Windows/Linux/macOS browser render of final icon set.
+- **required_browser_state:** 1440 + 1024 hierarchy expanded and all tabs visible.
+- **required_screenshot_state:** Full nav + LEFT tree with consistent icons.
+- **closure_criterion:** No platform-dependent emoji are relied on for core navigation semantics unless explicitly approved.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-024 — Action priority hierarchy
+- **finding_id:** `W02-DA-024`
+- **category:** Visual design
+- **subcategory:** Action priority hierarchy
+- **surface/state/view:** TOP command bar
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** History, Compare, Recovery, Undo, Redo, save status and Save sit in one visually similar command band; only Save is strongly colored.
+- **governed_expected_intent:** TOP should encode current task, secondary deep-work tasks, transient edit history and primary save action with clear hierarchy.
+- **material_delta:** Secondary tasks and editing micro-actions remain too flat and crowded.
+- **user/product_consequence:** Users must parse many peer controls before identifying task state.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue #top; .library-command
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library/Editor
+- **dependencies:** TOP shell
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Task-priority review at 1440 and 1024 with dirty/clean states.
+- **required_browser_state:** Editable draft clean, dirty, saving, error.
+- **required_screenshot_state:** TOP command hierarchy in clean and dirty states.
+- **closure_criterion:** Primary, secondary and transient actions are visually and spatially distinguishable.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-025 — 1024 action wrapping
+- **finding_id:** `W02-DA-025`
+- **category:** Visual design
+- **subcategory:** 1024 action wrapping
+- **surface/state/view:** TOP command bar
+- **viewport:** 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1HRvqqX7ay4n8q__PX6Z1lJUwFZc47vKa
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** At 1024 the action bar wraps into multiple rows around save/history/panel toggles, significantly increasing chrome height.
+- **governed_expected_intent:** Responsive compaction should preserve task hierarchy while minimizing loss of CENTER workspace.
+- **material_delta:** Controls wrap rather than progressively compact/prioritize.
+- **user/product_consequence:** The user gets a cramped document and a tall command header simultaneously.
+- **severity:** `P1`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue flex-wrap top + app.css <=79.99rem command padding
+- **root_cause_confidence:** `PROVEN_VISUAL`
+- **surface_or_shared_owner:** Library + shared shell
+- **dependencies:** responsive action policy
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** 1024×768/900/1110 at 100% zoom with clean/dirty states.
+- **required_browser_state:** 1024 editable draft with both panel toggles and all task buttons.
+- **required_screenshot_state:** Exact 1024 full viewport showing compact TOP.
+- **closure_criterion:** No avoidable multi-row command sprawl; primary actions remain discoverable.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-026 — Panel-toggle footprint
+- **finding_id:** `W02-DA-026`
+- **category:** Visual design
+- **subcategory:** Panel-toggle footprint
+- **surface/state/view:** TOP panel controls
+- **viewport:** 1024 + 1440
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Full text buttons for hiding structure/context are rendered in the same action band as editor tasks.
+- **governed_expected_intent:** Panel visibility controls should remain available but visually subordinate to editing and deep-work actions.
+- **material_delta:** Layout controls occupy scarce task-bar real estate.
+- **user/product_consequence:** At medium width they contribute directly to wrapping and blur task vs layout controls.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** CepWorkspaceLayout.vue .cep-panel-controls
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Shared shell
+- **dependencies:** panel accessibility
+- **collision_risk:** HIGH
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Compare compact panel-control patterns across W02 surfaces.
+- **required_browser_state:** 1024 with LEFT visible and RIGHT collapsed.
+- **required_screenshot_state:** TOP showing subordinate but accessible layout controls.
+- **closure_criterion:** Panel controls remain keyboard/AT accessible without dominating or wrapping the task bar.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-027 — Editor toolbar density
+- **finding_id:** `W02-DA-027`
+- **category:** Visual design
+- **subcategory:** Editor toolbar density
+- **surface/state/view:** Active block toolbar
+- **viewport:** 1440 + 1024
+- **direction:** RTL + mixed
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** The block-type select consumes a large horizontal field while move/indent/format/link/citation/add/delete actions are tiny symbols/text with weak grouping.
+- **governed_expected_intent:** Unified Editor controls should be compact, predictable, semantically grouped and clearly associated with the active block.
+- **material_delta:** The toolbar has both an oversized selector and underspecified micro-actions.
+- **user/product_consequence:** Authors face high scanning cost and low affordance clarity.
+- **severity:** `P1`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue .library-editor-toolbar / editor-tool controls
+- **root_cause_confidence:** `PROVEN_VISUAL`
+- **surface_or_shared_owner:** Library/Editor
+- **dependencies:** editor command grammar
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Usability pass for add/move/nest/format/link/reference using keyboard and pointer.
+- **required_browser_state:** Active heading, paragraph and technical blocks.
+- **required_screenshot_state:** Toolbar in multiple block types at 1440/1024.
+- **closure_criterion:** All required operations are discoverable with a compact, grouped hierarchy and clear disabled states.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-028 — Block manipulation affordance
+- **finding_id:** `W02-DA-028`
+- **category:** Visual design
+- **subcategory:** Block manipulation affordance
+- **surface/state/view:** Editor blocks
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Move/indent/outdent capabilities exist only as compact toolbar symbols; there is no strong spatial/drag/section ownership cue in the exact screenshot.
+- **governed_expected_intent:** Block structure and hierarchy operations should be understandable without memorizing tiny glyphs.
+- **material_delta:** Capability exists functionally but is visually under-signaled.
+- **user/product_consequence:** Authors can miss how to reorder or nest content, reducing the value of the block model.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue moveBlock/canIndentBlock/editor-tool markup
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** Library/Editor
+- **dependencies:** accessibility labels/tooltips
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Task test: new user moves, nests and unnests a section without source knowledge.
+- **required_browser_state:** Document with at least 5 nested blocks.
+- **required_screenshot_state:** Active block showing movement/nesting controls and hierarchy cues.
+- **closure_criterion:** Manipulation intent is clear by visible affordance and accessible labels.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-029 — Selected vs warning semantics
+- **finding_id:** `W02-DA-029`
+- **category:** Visual design
+- **subcategory:** Selected vs warning semantics
+- **surface/state/view:** LEFT unresolved hierarchy
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** The active Test KU is displayed inside an amber unresolved-warning container, so selection and structural-warning semantics visually overlap.
+- **governed_expected_intent:** Selected state, warning state and unavailable/unresolved state must be independently perceivable.
+- **material_delta:** Current fixture makes the active row inherit warning-heavy context.
+- **user/product_consequence:** Users may interpret selection as an error or miss the actual unresolved parent issue.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** LibraryHierarchyTree.vue unresolved_capabilities section + active row classes
+- **root_cause_confidence:** `PROVEN_VISUAL`
+- **surface_or_shared_owner:** Library
+- **dependencies:** authoritative hierarchy context
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Capture selected normal, selected unresolved, unselected unresolved and hover states.
+- **required_browser_state:** One canonical placed KU plus one unresolved capability KU.
+- **required_screenshot_state:** State matrix for LEFT rows.
+- **closure_criterion:** Selection and warning states are independently legible and semantically stable.
+- **prior_finding_mapping:** DELTA-01
+- **discovery_status:** `UNDER_SPECIFIED`
+
+## W02-DA-030 — Disabled-state visibility
+- **finding_id:** `W02-DA-030`
+- **category:** Visual design
+- **subcategory:** Disabled-state visibility
+- **surface/state/view:** Undo/Redo and editor controls
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Disabled library commands use opacity .38 and editor tools opacity .3 with otherwise low-contrast styling.
+- **governed_expected_intent:** Disabled state must be obvious without making the control visually disappear.
+- **material_delta:** State differentiation depends primarily on large opacity loss.
+- **user/product_consequence:** Users may not understand that functionality exists or why it is unavailable.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue styles::.library-command:disabled/.editor-tool:disabled
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library/Editor
+- **dependencies:** design token accessibility
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Contrast/state review for enabled/hover/focus/disabled under dark theme.
+- **required_browser_state:** Clean draft with Undo/Redo disabled and block controls selectively disabled.
+- **required_screenshot_state:** Enabled vs disabled control state matrix.
+- **closure_criterion:** Disabled controls remain recognizable, distinguishable and accessible.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-031 — Micro-action consistency
+- **finding_id:** `W02-DA-031`
+- **category:** Visual design
+- **subcategory:** Micro-action consistency
+- **surface/state/view:** Document header and block actions
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Copy uses ⧉/✓, fold uses ▼/◀, toolbar uses arrows/text/symbols; iconography has no shared visual grammar.
+- **governed_expected_intent:** Micro-actions should share consistent icon size, stroke/style, tooltip behavior and state feedback.
+- **material_delta:** Multiple symbol families are mixed in one surface.
+- **user/product_consequence:** The UI looks assembled rather than systematized and increases learnability cost.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue library-icon-button/editor-tool symbol content
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library + shared design system
+- **dependencies:** icon system
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Inventory all Library micro-actions and compare against shared W02 icon grammar.
+- **required_browser_state:** Header + active editor block + open BOTTOM task.
+- **required_screenshot_state:** Representative micro-action set.
+- **closure_criterion:** Core micro-actions use one governed visual/interaction grammar.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-032 — Hover/focus/disabled states
+- **finding_id:** `W02-DA-032`
+- **category:** Evidence
+- **subcategory:** Hover/focus/disabled states
+- **surface/state/view:** Interactive controls
+- **viewport:** 1440 + 1024
+- **direction:** RTL + mixed
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Source defines hover/focus/disabled states, but current evidence set does not directly capture a systematic state matrix for all primary Library/Editor controls.
+- **governed_expected_intent:** PORT-METHOD-032 requires visual state closure, not source-only confidence.
+- **material_delta:** Interaction-state fidelity remains unproven.
+- **user/product_consequence:** Visual regressions in focus visibility, hover contrast or disabled hierarchy can pass static review.
+- **severity:** `P2`
+- **classification:** `EVIDENCE_INSUFFICIENT`
+- **root_cause_file_or_symbol:** multiple CSS/markup paths; root cause NOT_YET_PROVEN
+- **root_cause_confidence:** `NOT_YET_PROVEN`
+- **surface_or_shared_owner:** Library/Editor evidence
+- **dependencies:** browser interaction capture
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Capture keyboard focus and pointer hover for nav, panel toggles, editor toolbar, context lenses and deep-work tabs.
+- **required_browser_state:** State-matrix capture session on exact SHA.
+- **required_screenshot_state:** Annotated evidence set of focus/hover/disabled states.
+- **closure_criterion:** Every material interactive class has direct exact-SHA visual evidence.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-033 — Authoritative human labels
+- **finding_id:** `W02-DA-033`
+- **category:** Hierarchy
+- **subcategory:** Authoritative human labels
+- **surface/state/view:** LEFT Domain→Cluster→Capability→KU
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** hierarchyContexts() copies lifecycle IDs into *_title_ar fields; current exact evidence falls back to unresolved hierarchy instead of authoritative human parent labels.
+- **governed_expected_intent:** Reference and contract require compact human-labeled semantic hierarchy; IDs must not masquerade as labels.
+- **material_delta:** Parent semantic naming is not bound to an authoritative current read model.
+- **user/product_consequence:** Users cannot navigate by meaningful domain/cluster/capability names.
+- **severity:** `P1`
+- **classification:** `REQUIRED_MATCH`
+- **root_cause_file_or_symbol:** KnowledgeLearningWorkspace.php::hierarchyContexts; LibraryHierarchyProjector::normalizeContext
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Shared hierarchy read contract
+- **dependencies:** Controller B authoritative labels
+- **collision_risk:** HIGH
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Feed approved human-label hierarchy and verify no ID-as-title fallback is accepted.
+- **required_browser_state:** Multiple domains/clusters/capabilities with representative KUs.
+- **required_screenshot_state:** 1440 and 1024 expanded hierarchy with human labels.
+- **closure_criterion:** Every visible parent has authoritative human labels or remains explicitly unresolved; no synthetic title substitution.
+- **prior_finding_mapping:** DELTA-01 / LIB-05 / RC-05
+- **discovery_status:** `KNOWN`
+
+## W02-DA-034 — Unresolved-state dominance
+- **finding_id:** `W02-DA-034`
+- **category:** Hierarchy
+- **subcategory:** Unresolved-state dominance
+- **surface/state/view:** LEFT
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Current LEFT is mostly one amber warning group containing all six KUs, rather than the normal semantic hierarchy.
+- **governed_expected_intent:** Unresolved state should be truthful but exceptional; normal evidence must demonstrate the primary hierarchy grammar.
+- **material_delta:** The only exact Library evidence overrepresents an exceptional state.
+- **user/product_consequence:** Reviewers cannot validate normal hierarchy density, nesting, selection or scrolling.
+- **severity:** `P1`
+- **classification:** `EVIDENCE_INSUFFICIENT`
+- **root_cause_file_or_symbol:** runtime hierarchy context + current fixture
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** Library evidence
+- **dependencies:** authoritative hierarchy dataset
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Capture both normal authoritative hierarchy and unresolved exception states.
+- **required_browser_state:** Normal multi-domain hierarchy and a separate unresolved test case.
+- **required_screenshot_state:** Normal + exception LEFT evidence pair.
+- **closure_criterion:** Primary hierarchy grammar is directly evidenced; unresolved remains a bounded exception.
+- **prior_finding_mapping:** DELTA-01
+- **discovery_status:** `UNDER_SPECIFIED`
+
+## W02-DA-035 — RIGHT semantic richness
+- **finding_id:** `W02-DA-035`
+- **category:** Context
+- **subcategory:** RIGHT semantic richness
+- **surface/state/view:** RIGHT Overview
+- **viewport:** 1440
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** RIGHT contains four tiny stats and three diagnostic cards; its remaining vertical space is largely unused.
+- **governed_expected_intent:** RIGHT should provide unique, current-object context with compact useful density while remaining subordinate to CENTER.
+- **material_delta:** Ownership is correct, but content/presentation richness is much lower than the reference intent.
+- **user/product_consequence:** Context feels like diagnostics rather than a high-value semantic companion.
+- **severity:** `P2`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** Library.vue #right Overview composition + current fixture
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** Library
+- **dependencies:** representative sources/placements/revisions
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Use a representative KU with multiple sources, revisions, placements and meaningful human context.
+- **required_browser_state:** 1440 normal Overview lens.
+- **required_screenshot_state:** RIGHT with realistic but non-duplicative context.
+- **closure_criterion:** RIGHT is information-rich, unique and compact without recreating RQ deep work.
+- **prior_finding_mapping:** DELTA-04
+- **discovery_status:** `UNDER_SPECIFIED`
+
+## W02-DA-036 — Fixture cardinality realism
+- **finding_id:** `W02-DA-036`
+- **category:** Context
+- **subcategory:** Fixture cardinality realism
+- **surface/state/view:** RIGHT stats
+- **viewport:** 1440
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Exact evidence shows 1 source, 1 supported claim, 1 placement and 3 revisions for a synthetic Test KU.
+- **governed_expected_intent:** Validation data should exercise realistic cardinality, wrapping, overflow and scrolling.
+- **material_delta:** All RIGHT metrics remain in trivial single-digit cases.
+- **user/product_consequence:** Layout failures for real claim/source counts are untested and current density is misleading.
+- **severity:** `P1`
+- **classification:** `DATA_FIXTURE_REPRESENTATIVENESS_GAP`
+- **root_cause_file_or_symbol:** current runtime fixture / Library.vue stats
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library evidence/data
+- **dependencies:** representative acceptance data
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Exercise low, medium and high cardinality contexts.
+- **required_browser_state:** Representative KU with multiple sources/claims/placements/revisions.
+- **required_screenshot_state:** RIGHT normal and overflow/scroll states.
+- **closure_criterion:** RIGHT has direct evidence at realistic cardinalities and remains usable.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-037 — Source-lens evidence
+- **finding_id:** `W02-DA-037`
+- **category:** Context
+- **subcategory:** Source-lens evidence
+- **surface/state/view:** RIGHT Sources
+- **viewport:** 1440 + 1024
+- **direction:** RTL + LTR links
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** No exact current screenshot directly demonstrates source cards, claim rows, external links and the single RQ deep link after deduplication.
+- **governed_expected_intent:** Library provenance must be bounded yet visibly usable, with safe source anchors and no duplicate ownership.
+- **material_delta:** Source-projection code exists but visual/runtime presentation is not fully evidenced.
+- **user/product_consequence:** Broken wrapping, unsafe-looking identifiers or duplicate actions could escape closure.
+- **severity:** `P1`
+- **classification:** `EVIDENCE_INSUFFICIENT`
+- **root_cause_file_or_symbol:** Library.vue Sources lens; KnowledgeLearningWorkspace::librarySourceProjection
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** Library + RQ boundary
+- **dependencies:** source dataset
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Open Sources with multiple long titles, IDs, authority states, claims and HTTPS/no-URL cases.
+- **required_browser_state:** Representative active KU with ≥4 sources and mixed claim assessments.
+- **required_screenshot_state:** Sources lens 1440 and 1024 RIGHT-open.
+- **closure_criterion:** Source lens renders realistic provenance cleanly with exactly one RQ deep link.
+- **prior_finding_mapping:** LIB-07 evidence gap
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-038 — Reference micro-actions without owned semantics
+- **finding_id:** `W02-DA-038`
+- **category:** Authority
+- **subcategory:** Reference micro-actions without owned semantics
+- **surface/state/view:** Reference filter/tags/header actions
+- **viewport:** 1440
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** The reference includes richer filter/tag/header micro-actions whose authoritative data/behavior owners are not established by the read contracts inspected.
+- **governed_expected_intent:** No new filter/tag/action may be invented solely to mimic pixels.
+- **material_delta:** Visual distance exists, but semantic authority is incomplete.
+- **user/product_consequence:** Blindly recreating controls would introduce synthetic behavior and hidden ownership.
+- **severity:** `P2`
+- **classification:** `AUTHORITY_DECISION_REQUIRED`
+- **root_cause_file_or_symbol:** NOT_YET_PROVEN
+- **root_cause_confidence:** `NOT_YET_PROVEN`
+- **surface_or_shared_owner:** Controller B
+- **dependencies:** future explicit data/action contract
+- **collision_risk:** HIGH
+- **prohibited_shortcut:** Do not implement inert or synthetic controls merely to resemble the reference.
+- **future_validation_required:** Controller B must decide whether each micro-action is required, omitted or owned elsewhere.
+- **required_browser_state:** Only after authority decision.
+- **required_screenshot_state:** Only after authority decision.
+- **closure_criterion:** Each reference-only micro-action has an explicit governed disposition.
+- **prior_finding_mapping:** DELTA-05
+- **discovery_status:** `KNOWN`
+
+## W02-DA-039 — Global-header wrap
+- **finding_id:** `W02-DA-039`
+- **category:** Responsive design
+- **subcategory:** Global-header wrap
+- **surface/state/view:** Global shell
+- **viewport:** 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1HRvqqX7ay4n8q__PX6Z1lJUwFZc47vKa
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** At 1024 the global header/nav wraps into a taller composition; app.css explicitly orders the global nav as a full-width third row below 80rem.
+- **governed_expected_intent:** ~1024 desktop is a secondary but still desktop-grade target; work-area loss should be minimized.
+- **material_delta:** Responsive behavior preserves all items by adding vertical chrome rather than compacting them.
+- **user/product_consequence:** Users on half-desktop lose substantial document height before reaching the editor.
+- **severity:** `P1`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** app.css @media(max-width:80rem) .cep-global-header__inner/.cep-global-nav
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Shared global shell
+- **dependencies:** cross-surface navigation
+- **collision_risk:** HIGH
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** 1024 across Library/Learn/Visualize/RQ with 100%/125% zoom.
+- **required_browser_state:** 1024 desktop, fresh session.
+- **required_screenshot_state:** Full viewport showing compact shared shell.
+- **closure_criterion:** Shared shell remains complete but does not consume disproportionate vertical space at 1024.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-040 — CENTER width at medium desktop
+- **finding_id:** `W02-DA-040`
+- **category:** Responsive design
+- **subcategory:** CENTER width at medium desktop
+- **surface/state/view:** LEFT + CENTER
+- **viewport:** 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1HRvqqX7ay4n8q__PX6Z1lJUwFZc47vKa
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Medium layout fixes LEFT up to 15rem plus handle, while CENTER retains nested padding and document framing.
+- **governed_expected_intent:** At 1024, CENTER should still support substantive editing and readable technical content.
+- **material_delta:** The compaction strategy hides RIGHT but does not sufficiently reclaim width from LEFT/internal padding.
+- **user/product_consequence:** Code and long lines face wrapping/narrow-column pressure.
+- **severity:** `P1`
+- **classification:** `PRODUCT_VISUAL_DESIGN_DEFECT`
+- **root_cause_file_or_symbol:** app.css @media 48rem–79.99rem; Library.vue padding
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** Shared shell + Library
+- **dependencies:** LEFT width policy
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Render code, long Arabic prose, long English identifiers and nested lists at 1024.
+- **required_browser_state:** 1024 representative mixed-content KU.
+- **required_screenshot_state:** 1024 editor with code/prose/list visible without awkward compression.
+- **closure_criterion:** CENTER remains materially usable for long-form editing at 1024.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-041 — RIGHT overlay evidence
+- **finding_id:** `W02-DA-041`
+- **category:** Responsive design
+- **subcategory:** RIGHT overlay evidence
+- **surface/state/view:** RIGHT context toggle
+- **viewport:** 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1HRvqqX7ay4n8q__PX6Z1lJUwFZc47vKa
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** RIGHT is intentionally collapsed under 1280 and becomes a fixed overlay when opened, but no direct exact evidence was found for the open overlay state.
+- **governed_expected_intent:** Responsive compaction may hide context by default if the open state remains usable, bounded and non-destructive.
+- **material_delta:** Implementation strategy is plausible but visual closure is absent.
+- **user/product_consequence:** Overlay clipping, focus order, close affordance and content scroll are unverified.
+- **severity:** `P1`
+- **classification:** `EVIDENCE_INSUFFICIENT`
+- **root_cause_file_or_symbol:** CepWorkspaceLayout initialRightCollapsed + app.css medium context-panel fixed rules
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** Shared shell + Library evidence
+- **dependencies:** responsive overlay/focus
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Open/close RIGHT at 1024 with keyboard and pointer; test long context.
+- **required_browser_state:** 1024 Library with RIGHT overlay opened, long Sources/Overview content.
+- **required_screenshot_state:** RIGHT-open and RIGHT-closed exact pair.
+- **closure_criterion:** Overlay is fully usable, non-obscuring beyond approved bounds and keyboard-manageable.
+- **prior_finding_mapping:** prior 1024 RIGHT-open evidence gap
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-042 — RIGHT default collapse
+- **finding_id:** `W02-DA-042`
+- **category:** Responsive design
+- **subcategory:** RIGHT default collapse
+- **surface/state/view:** Library / default medium state
+- **viewport:** 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1HRvqqX7ay4n8q__PX6Z1lJUwFZc47vKa
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Library deliberately initializes RIGHT collapsed when window.innerWidth <1280.
+- **governed_expected_intent:** The contract permits medium-desktop compaction as long as CENTER remains primary and context is easily recoverable.
+- **material_delta:** This differs from the 1440 reference but is an intentional responsive adaptation, not itself a defect.
+- **user/product_consequence:** Without preserving this distinction, a later remediation could incorrectly force three cramped columns at 1024.
+- **severity:** `P3`
+- **classification:** `ALLOWED_INTENTIONAL_DEVIATION`
+- **root_cause_file_or_symbol:** Library.vue::initialRightCollapsed; app.css medium layout
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Shared shell + Library
+- **dependencies:** RIGHT-open validation
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not force the 1440 three-column composition into 1024 solely for visual mimicry.
+- **future_validation_required:** Validate discoverability and overlay usability rather than three-column pixel identity.
+- **required_browser_state:** 1024 default + user-opened RIGHT.
+- **required_screenshot_state:** Default collapsed and explicit open context states.
+- **closure_criterion:** Responsive compaction is approved and directly evidenced.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-043 — Mixed RTL/LTR editing evidence
+- **finding_id:** `W02-DA-043`
+- **category:** Bidi
+- **subcategory:** Mixed RTL/LTR editing evidence
+- **surface/state/view:** Editor caret/selection/IME
+- **viewport:** 1440 + 1024
+- **direction:** RTL + LTR islands
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Source uses dir=auto, explicit LTR technical blocks, bdi and unicode-bidi:plaintext/isolate, but current evidence does not prove caret motion, selection, Home/End/Delete or IME behavior.
+- **governed_expected_intent:** Production-grade Bidi editing must work interactively, not only render statically.
+- **material_delta:** Static direction code is necessary but insufficient evidence.
+- **user/product_consequence:** Cursor jumps, deletion surprises or selection reversal can make the editor unusable for Arabic technical content.
+- **severity:** `P1`
+- **classification:** `EVIDENCE_INSUFFICIENT`
+- **root_cause_file_or_symbol:** Library.vue textarea direction; LessonContentRenderer.vue bidi classes; app.css bdi
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** Library/Editor evidence
+- **dependencies:** browser engine/IME
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Run Arabic+English+code+ID selection/caret matrix in Firefox/Chromium with Arabic IME.
+- **required_browser_state:** Editable mixed RTL/LTR paragraph and technical code block.
+- **required_screenshot_state:** Representative selection/caret states plus recorded interaction trace.
+- **closure_criterion:** Required Bidi interaction matrix passes without cursor/selection corruption.
+- **prior_finding_mapping:** LIB-04
+- **discovery_status:** `KNOWN`
+
+## W02-DA-044 — AR/EN evidence duplication
+- **finding_id:** `W02-DA-044`
+- **category:** Locale evidence
+- **subcategory:** AR/EN evidence duplication
+- **surface/state/view:** Library screenshot matrix
+- **viewport:** 1440 + 1024
+- **direction:** AR/EN labels
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** The final freeze records byte-identical SHA-256 for the Library AR and EN screenshots at both 1440 and 1024.
+- **governed_expected_intent:** If AR and EN are claimed as distinct validation states, they must exercise distinct locale behavior; otherwise labels must not imply independent proof.
+- **material_delta:** Two evidence labels point to the same pixels.
+- **user/product_consequence:** Reviewers can overcount locale coverage that was never exercised.
+- **severity:** `P1`
+- **classification:** `EVIDENCE_INSUFFICIENT`
+- **root_cause_file_or_symbol:** final freeze manifest 1KpivulqWabpfB2T_a0KDY4wUX6u9HUQ_
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Evidence pipeline
+- **dependencies:** locale contract
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not count duplicate bytes as independent locale evidence.
+- **future_validation_required:** Either recapture genuine locale states or explicitly de-scope full EN UI validation.
+- **required_browser_state:** AR state and, only if governed, independent EN state.
+- **required_screenshot_state:** Distinct evidence or a documented single-locale scope.
+- **closure_criterion:** Evidence labels correspond to real distinct states or are corrected to a truthful scope.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-045 — Hard-coded shell language
+- **finding_id:** `W02-DA-045`
+- **category:** Locale/Bidi
+- **subcategory:** Hard-coded shell language
+- **surface/state/view:** Shared workspace shell
+- **viewport:** all
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** CepWorkspaceLayout hardcodes lang='ar' and dir='rtl'; technical islands are isolated LTR but a full LTR shell mode is not represented.
+- **governed_expected_intent:** Arabic-first is governed; full EN/LTR shell behavior should only be claimed if an explicit product contract requires it.
+- **material_delta:** Current code supports Arabic-first + technical islands, while evidence naming suggests broader locale coverage than proven.
+- **user/product_consequence:** Ambiguous scope can create false acceptance criteria and misleading evidence.
+- **severity:** `P2`
+- **classification:** `EVIDENCE_INSUFFICIENT`
+- **root_cause_file_or_symbol:** CepWorkspaceLayout.vue root lang/dir
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Shared shell + Controller B
+- **dependencies:** locale product authority
+- **collision_risk:** HIGH
+- **prohibited_shortcut:** Do not add a full English/LTR shell without explicit authority; do not label Arabic screenshots as EN validation.
+- **future_validation_required:** Controller B confirms locale scope; then validate only the governed modes.
+- **required_browser_state:** Governed locale modes only.
+- **required_screenshot_state:** Evidence matching the approved locale scope.
+- **closure_criterion:** Code, evidence labels and locale authority are aligned.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-046 — Modal composition at medium width
+- **finding_id:** `W02-DA-046`
+- **category:** Responsive/accessibility
+- **subcategory:** Modal composition at medium width
+- **surface/state/view:** Link/citation modal
+- **viewport:** 1024
+- **direction:** RTL + LTR input
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1HRvqqX7ay4n8q__PX6Z1lJUwFZc47vKa
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Modal CSS/markup is source-visible but no exact 1024 evidence proves composition, soft keyboard/IME behavior, overflow or focus against the compact shell.
+- **governed_expected_intent:** Dialogs must remain bounded and readable in the secondary desktop target.
+- **material_delta:** Responsive modal behavior is unproven.
+- **user/product_consequence:** An otherwise functional dialog may obscure context or break editing flow at 1024.
+- **severity:** `P2`
+- **classification:** `EVIDENCE_INSUFFICIENT`
+- **root_cause_file_or_symbol:** Library.vue editorDialog modal
+- **root_cause_confidence:** `NOT_YET_PROVEN`
+- **surface_or_shared_owner:** Library/Editor evidence
+- **dependencies:** focus lifecycle finding W02-DA-005
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Open both dialog types at 1024 with long values/error messages.
+- **required_browser_state:** 1024 editable block with selected text, Link and Citation modal error/success.
+- **required_screenshot_state:** 1024 modal normal/error states.
+- **closure_criterion:** Dialogs fit, focus correctly, show errors and return to editor without clipping.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-047 — Synthetic visible object labels
+- **finding_id:** `W02-DA-047`
+- **category:** Data realism
+- **subcategory:** Synthetic visible object labels
+- **surface/state/view:** LEFT + CENTER
+- **viewport:** 1440 + 1024
+- **direction:** mixed
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Exact evidence shows 'Test KU 1' through 'Test KU 6' and 'Test Section', not meaningful production-like knowledge titles.
+- **governed_expected_intent:** Acceptance evidence must exercise semantically realistic user-facing data while remaining explicitly non-canonical.
+- **material_delta:** Fixture naming is directly visible as product content.
+- **user/product_consequence:** The UI appears unfinished and cannot validate wrapping, hierarchy comprehension or knowledge density.
+- **severity:** `P1`
+- **classification:** `DATA_FIXTURE_REPRESENTATIVENESS_GAP`
+- **root_cause_file_or_symbol:** exact runtime fixture provenance NOT_YET_PROVEN
+- **root_cause_confidence:** `NOT_YET_PROVEN`
+- **surface_or_shared_owner:** W02 evidence/data
+- **dependencies:** acceptance dataset
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Use a governed representative fixture derived from approved canonical-shaped content without claiming production import.
+- **required_browser_state:** Representative six-KU acceptance corpus with realistic titles.
+- **required_screenshot_state:** 1440 and 1024 Library using semantically realistic fixture content.
+- **closure_criterion:** No generic Test KU/Test Section labels are used for visual acceptance evidence.
+- **prior_finding_mapping:** DELTA-02
+- **discovery_status:** `UNDER_SPECIFIED`
+
+## W02-DA-048 — Canonical-content richness mismatch
+- **finding_id:** `W02-DA-048`
+- **category:** Data realism
+- **subcategory:** Canonical-content richness mismatch
+- **surface/state/view:** CENTER document
+- **viewport:** 1440 + 1024
+- **direction:** mixed
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** The selected B09 KUs are substantial documents (about 520–3,782 words, 17–25 headings in inspected Balanced_6 records), while current exact evidence contains only a few visible words/blocks.
+- **governed_expected_intent:** Representative evidence should stress the same structural richness as governed knowledge without silently treating fixtures as canonical runtime.
+- **material_delta:** Current candidate evidence is far below the known content shape.
+- **user/product_consequence:** Long-document layout, folding, scrolling, rhythm and mixed-content usability remain untested.
+- **severity:** `P1`
+- **classification:** `DATA_FIXTURE_REPRESENTATIVENESS_GAP`
+- **root_cause_file_or_symbol:** B09 archive 1P9... vs exact runtime screenshot
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** W02 evidence/data
+- **dependencies:** B09-derived bounded acceptance corpus
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Use multiple inspected B09-shaped fixtures including the longest representative KU.
+- **required_browser_state:** Long editable document with ≥15 headings and mixed blocks.
+- **required_screenshot_state:** Top/mid/bottom long-document states at 1440 and 1024.
+- **closure_criterion:** Acceptance data exercises realistic document scale and mixed structure without claiming canonical production import.
+- **prior_finding_mapping:** DELTA-02 / LIB-06
+- **discovery_status:** `UNDER_SPECIFIED`
+
+## W02-DA-049 — Corpus scale
+- **finding_id:** `W02-DA-049`
+- **category:** Data realism
+- **subcategory:** Corpus scale
+- **surface/state/view:** LEFT catalog
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** B09 contains 224 canonical KUs, but the current visual evidence shows six KUs.
+- **governed_expected_intent:** Acceptance evidence should exercise scale-sensitive hierarchy, search, scrolling and active-state behavior.
+- **material_delta:** A six-item corpus cannot expose density and performance/layout behaviors of the governed corpus shape.
+- **user/product_consequence:** Hierarchy overflow, search result density and selected-item persistence are not validated realistically.
+- **severity:** `P1`
+- **classification:** `DATA_FIXTURE_REPRESENTATIVENESS_GAP`
+- **root_cause_file_or_symbol:** B09 summary 143X...; current exact screenshot
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** W02 evidence/data
+- **dependencies:** bounded large representative dataset
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Test at least a multi-domain, multi-cluster representative corpus large enough to force scroll/search.
+- **required_browser_state:** Large acceptance corpus with dozens of KUs and multiple hierarchy branches.
+- **required_screenshot_state:** LEFT normal, scrolled, searched and active-item states.
+- **closure_criterion:** Scale-sensitive behaviors are directly proven without importing production data solely for screenshots.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-050 — Provenance cardinality
+- **finding_id:** `W02-DA-050`
+- **category:** Data realism
+- **subcategory:** Provenance cardinality
+- **surface/state/view:** RIGHT Sources/context
+- **viewport:** 1440 + 1024
+- **direction:** RTL + LTR
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** B09 has 2,603 unique claims; exact Library evidence shows only one source and one supported claim for the active test object.
+- **governed_expected_intent:** Representative source/claim relationships must exercise long lists, mixed assessments and source metadata safely.
+- **material_delta:** Current fixture is cardinality-trivial.
+- **user/product_consequence:** Provenance wrapping, scrolling and deep-link behavior at realistic sizes are unproven.
+- **severity:** `P1`
+- **classification:** `DATA_FIXTURE_REPRESENTATIVENESS_GAP`
+- **root_cause_file_or_symbol:** B09 summary; exact candidate
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** W02 evidence/data
+- **dependencies:** bounded representative claims/sources
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Exercise multiple sources with many claims, partial/unresolved/excluded states and long titles.
+- **required_browser_state:** Representative Sources lens with realistic provenance cardinality.
+- **required_screenshot_state:** 1440 and 1024 Sources lens including scroll.
+- **closure_criterion:** Provenance UI handles realistic cardinality without duplication or truncation failures.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-051 — Fixture authority leakage
+- **finding_id:** `W02-DA-051`
+- **category:** Data realism
+- **subcategory:** Fixture authority leakage
+- **surface/state/view:** RIGHT Overview
+- **viewport:** 1440
+- **direction:** LTR island
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** The visible 'سلطة المراجعة' value is ACCEPTANCE_BALANCED_6, an acceptance profile identifier rather than user-meaningful provenance.
+- **governed_expected_intent:** Fixture lineage may be retained internally, but user-facing provenance should present meaningful governed authority semantics.
+- **material_delta:** Test harness vocabulary leaks into the product surface.
+- **user/product_consequence:** Users/reviewers see implementation profile names instead of understandable authority context.
+- **severity:** `P2`
+- **classification:** `DATA_FIXTURE_REPRESENTATIVENESS_GAP`
+- **root_cause_file_or_symbol:** W02AcceptanceSeeder::PROFILE; Library.vue authority_baseline_id display
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library + acceptance data
+- **dependencies:** provenance copy model
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Render user-meaningful authority/provenance while retaining exact internal IDs in inspectable details if required.
+- **required_browser_state:** Representative active KU with fixture lineage.
+- **required_screenshot_state:** RIGHT authority card free of test-harness jargon.
+- **closure_criterion:** Acceptance profile identifiers are not mistaken for user-facing authority labels.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-052 — Exact runtime lineage ambiguity
+- **finding_id:** `W02-DA-052`
+- **category:** Runtime binding
+- **subcategory:** Exact runtime lineage ambiguity
+- **surface/state/view:** CENTER citation + RIGHT context
+- **viewport:** 1440
+- **direction:** LTR islands
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Exact evidence pairs KU-D03-0001/Test KU 1 with visible [cite:VS3-AUTH-001] while the repository also defines VS3-AUTH-001 as a synthetic vertical-slice source; the exact data path that produced this pairing is not proven.
+- **governed_expected_intent:** Every visible citation/source in acceptance evidence should have a reconstructable, intentionally scoped provenance chain.
+- **material_delta:** The screenshot demonstrates synthetic cross-fixture-looking identifiers without an audit receipt tying them together.
+- **user/product_consequence:** Reviewers cannot tell whether the pair is intentional fixture composition, stale data or lineage contamination.
+- **severity:** `P1`
+- **classification:** `CANONICAL_RUNTIME_BINDING_GAP`
+- **root_cause_file_or_symbol:** exact runtime DB seed/setup path NOT_YET_PROVEN; Vs003Seeder.php defines VS3-AUTH-001
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** Evidence/runtime setup
+- **dependencies:** exact DB snapshot/seed receipt
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not infer corruption; do not claim canonical lineage without the exact runtime setup receipt.
+- **future_validation_required:** Record exact database seed/import steps and map every visible KU/revision/citation/source to its fixture source.
+- **required_browser_state:** Same exact candidate after a clean, fully receipted data setup.
+- **required_screenshot_state:** Representative state paired with data provenance manifest.
+- **closure_criterion:** Visible data lineage is reconstructable end-to-end and intentionally scoped.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-053 — BOTTOM launcher depiction
+- **finding_id:** `W02-DA-053`
+- **category:** Visual authority
+- **subcategory:** BOTTOM launcher depiction
+- **surface/state/view:** BOTTOM closed
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** The reference depicts a collapsed BOTTOM affordance; current contract/source open History/Compare/Recovery from TOP and render BOTTOM only when open.
+- **governed_expected_intent:** Higher authority assigns launchers to TOP and BOTTOM to temporary deep work.
+- **material_delta:** The image-level difference is intentional under the current contract.
+- **user/product_consequence:** Treating it as a defect would create duplicate launch ownership.
+- **severity:** `P3`
+- **classification:** `CONTRACT_OVERRIDES_IMAGE`
+- **root_cause_file_or_symbol:** Library.vue::openShelf; CepTemporaryWorkspace
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library/Editor
+- **dependencies:** none
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not add a second collapsed BOTTOM launcher only for pixel similarity.
+- **future_validation_required:** Verify TOP opener→BOTTOM open/close behavior.
+- **required_browser_state:** BOTTOM closed then History opened.
+- **required_screenshot_state:** Closed state and open History state.
+- **closure_criterion:** One launcher owner remains in TOP and BOTTOM behaves as temporary deep workspace.
+- **prior_finding_mapping:** DELTA-03
+- **discovery_status:** `KNOWN`
+
+## W02-DA-054 — RIGHT scope vs reference tabs
+- **finding_id:** `W02-DA-054`
+- **category:** Visual authority
+- **subcategory:** RIGHT scope vs reference tabs
+- **surface/state/view:** RIGHT
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** The reference shows broader context tabs; current contract bounds Library RIGHT to unique context/provenance and keeps deeper research work in RQ.
+- **governed_expected_intent:** One information item must have one owner; Library must not duplicate RQ work.
+- **material_delta:** The reference is narrower in authority than the current functional boundary.
+- **user/product_consequence:** Pixel matching broader tabs would recreate duplicated ownership and cross-surface collision.
+- **severity:** `P3`
+- **classification:** `CONTRACT_OVERRIDES_IMAGE`
+- **root_cause_file_or_symbol:** Library.vue lenses; KnowledgeLearningWorkspace::librarySourceProjection
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Library + RQ
+- **dependencies:** RQ boundary
+- **collision_risk:** HIGH
+- **prohibited_shortcut:** Do not reproduce RQ deep-work tabs inside Library.
+- **future_validation_required:** Validate bounded Overview/Sources and one RQ deep link.
+- **required_browser_state:** Overview and Sources lenses.
+- **required_screenshot_state:** Both RIGHT lenses with one deep link.
+- **closure_criterion:** RIGHT remains unique and bounded while still information-rich.
+- **prior_finding_mapping:** DELTA-04
+- **discovery_status:** `KNOWN`
+
+## W02-DA-055 — Full canonical B09→runtime import
+- **finding_id:** `W02-DA-055`
+- **category:** Runtime binding
+- **subcategory:** Full canonical B09→runtime import
+- **surface/state/view:** Knowledge DB/runtime
+- **viewport:** n/a
+- **direction:** n/a
+- **reference_authority:** Drive:143XnqYySfgYM04AslzvMxq03gWpBNZpd; Drive:1P9RW1rIAVdJNuoQqqgaJZ_IZcDpm-Si6
+- **reference_evidence_id:** Drive:143XnqYySfgYM04AslzvMxq03gWpBNZpd
+- **candidate_evidence:** GitHub exact SHA runtime paths
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** B09 is structurally complete at 224 KUs/2,603 claims, but its own baseline boundary says it does not import runtime data; no exact-SHA full canonical import path was proven.
+- **governed_expected_intent:** Presence of canonical knowledge must not be conflated with runtime binding; full import requires separate authority and a deterministic path.
+- **material_delta:** Canonical knowledge exists, runtime full-corpus binding is NOT_PROVEN.
+- **user/product_consequence:** The product can appear data-complete in governance while the actual UI is fixture-only.
+- **severity:** `P1`
+- **classification:** `CANONICAL_RUNTIME_BINDING_GAP`
+- **root_cause_file_or_symbol:** canonical import path NOT_YET_PROVEN
+- **root_cause_confidence:** `NOT_YET_PROVEN`
+- **surface_or_shared_owner:** Shared data/runtime authority
+- **dependencies:** B09 import authorization
+- **collision_risk:** HIGH
+- **prohibited_shortcut:** Do not copy B09 directly into production/runtime merely to close this audit.
+- **future_validation_required:** Controller-authorized deterministic import/projection receipt or explicit decision that full runtime import is out of scope.
+- **required_browser_state:** Only if/when canonical runtime projection is authorized.
+- **required_screenshot_state:** Not sufficient alone; requires data lineage receipt plus UI sampling.
+- **closure_criterion:** Canonical→runtime disposition is explicitly governed and reconstructable.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-056 — Acceptance seeder boundary
+- **finding_id:** `W02-DA-056`
+- **category:** Runtime binding
+- **subcategory:** Acceptance seeder boundary
+- **surface/state/view:** Local/test DB
+- **viewport:** n/a
+- **direction:** n/a
+- **reference_authority:** W02 Staged Convergence + exact-SHA code
+- **reference_evidence_id:** Drive:1NEBfWyOlGLmR6AZjlQDJkOt4fx_6iTRn
+- **candidate_evidence:** GitHub:W02AcceptanceSeeder.php; DatabaseSeeder.php
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** W02AcceptanceSeeder explicitly refuses production, is not called by DatabaseSeeder, requires exactly six IDs and asserts canonical_runtime_import_authorized=false.
+- **governed_expected_intent:** Acceptance fixtures may validate shape/behavior but must never be mistaken for a canonical production binding.
+- **material_delta:** The strongest explicit W02 data adapter is deliberately TEST_FIXTURE_ONLY.
+- **user/product_consequence:** Passing acceptance on this dataset does not prove production data readiness.
+- **severity:** `P1`
+- **classification:** `CANONICAL_RUNTIME_BINDING_GAP`
+- **root_cause_file_or_symbol:** database/seeders/W02AcceptanceSeeder.php; DatabaseSeeder.php
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Shared data/runtime authority
+- **dependencies:** production import contract
+- **collision_risk:** HIGH
+- **prohibited_shortcut:** Do not change fixture flags or production guards to make the UI look data-rich.
+- **future_validation_required:** Document production/canonical projection owner separately from acceptance fixture setup.
+- **required_browser_state:** Acceptance fixture remains local/testing only.
+- **required_screenshot_state:** Not a visual closure item; lineage receipt required.
+- **closure_criterion:** Acceptance and production binding paths are explicitly separated and governed.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-057 — History composition
+- **finding_id:** `W02-DA-057`
+- **category:** Evidence
+- **subcategory:** History composition
+- **surface/state/view:** BOTTOM History
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** History code exists, but no direct governed screenshot in the inspected evidence set proves the open composition with realistic revision history.
+- **governed_expected_intent:** History is a first-class deep-work task and requires visual closure.
+- **material_delta:** Static implementation is ahead of browser evidence.
+- **user/product_consequence:** Timeline density, current marker, restore/compare actions and BOTTOM geometry may still fail visually.
+- **severity:** `P1`
+- **classification:** `EVIDENCE_INSUFFICIENT`
+- **root_cause_file_or_symbol:** Library.vue #bottom history
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** Library/Editor evidence
+- **dependencies:** representative revisions
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Open History with ≥5 revisions including published/draft states.
+- **required_browser_state:** BOTTOM History open at 1440 and 1024.
+- **required_screenshot_state:** History open full-width deep workspace.
+- **closure_criterion:** History composition is directly validated with realistic revisions.
+- **prior_finding_mapping:** LIB-08 evidence gap
+- **discovery_status:** `UNDER_SPECIFIED`
+
+## W02-DA-058 — Compare composition
+- **finding_id:** `W02-DA-058`
+- **category:** Evidence
+- **subcategory:** Compare composition
+- **surface/state/view:** BOTTOM Compare
+- **viewport:** 1440 + 1024
+- **direction:** RTL + mixed
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Compare implementation exists but no inspected exact screenshot proves long mixed-direction side-by-side/diff rows, loading or error states.
+- **governed_expected_intent:** Compare must remain a distinct deep-work task with readable current/compared content.
+- **material_delta:** Visual and data stress states are unproven.
+- **user/product_consequence:** Diff rows can become unreadable or overly tall with real content.
+- **severity:** `P1`
+- **classification:** `EVIDENCE_INSUFFICIENT`
+- **root_cause_file_or_symbol:** Library.vue compareRevision/comparisonRows/#bottom compare
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** Library/Editor evidence
+- **dependencies:** historical revisions
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Compare short/long, added/removed/moved/modified blocks including code and Arabic/English.
+- **required_browser_state:** BOTTOM Compare open at 1440 and 1024.
+- **required_screenshot_state:** Compare normal, loading and error states.
+- **closure_criterion:** Compare remains readable and semantically clear for realistic diffs.
+- **prior_finding_mapping:** LIB-08 evidence gap
+- **discovery_status:** `UNDER_SPECIFIED`
+
+## W02-DA-059 — Recovery/diagnostics composition
+- **finding_id:** `W02-DA-059`
+- **category:** Evidence
+- **subcategory:** Recovery/diagnostics composition
+- **surface/state/view:** BOTTOM Recovery
+- **viewport:** 1440 + 1024
+- **direction:** RTL + LTR digest
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Recovery diagnostics are implemented but current exact visual proof of open normal/error/conflict states is absent; stale-conflict state is not implemented.
+- **governed_expected_intent:** Recovery must communicate save state, local copy, lock and digest without exposing users to opaque diagnostics only.
+- **material_delta:** Critical recovery workflow lacks direct state evidence.
+- **user/product_consequence:** Data-loss handling cannot be accepted from code inspection.
+- **severity:** `P0`
+- **classification:** `EVIDENCE_INSUFFICIENT`
+- **root_cause_file_or_symbol:** Library.vue #bottom diagnostics + W02-DA-001/002
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** Library/Editor evidence
+- **dependencies:** recovery conflict implementation
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Capture normal saved, local recovery available, storage failure, stale conflict and resolved states.
+- **required_browser_state:** BOTTOM Recovery open through each state.
+- **required_screenshot_state:** State-specific recovery evidence.
+- **closure_criterion:** Every recovery state is visually explicit and data integrity is proven.
+- **prior_finding_mapping:** LIB-02 evidence gap
+- **discovery_status:** `UNDER_SPECIFIED`
+
+## W02-DA-060 — Empty/loading/error/unavailable states
+- **finding_id:** `W02-DA-060`
+- **category:** Evidence
+- **subcategory:** Empty/loading/error/unavailable states
+- **surface/state/view:** Library/Editor state family
+- **viewport:** 1440 + 1024
+- **direction:** RTL
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** Drive:1pyYAIfWkuTHc1Zsddria0xOgVpJ5YgQs; Drive:1D5GbUPDpJeoeinV9plYuy1FnEd57XK_U
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Source contains some empty/fallback/error messages, but the inspected evidence set does not systematically prove empty library, no revision, requested-unit fallback, requested-revision fallback, save error and unavailable contexts.
+- **governed_expected_intent:** The product must fail truthfully and coherently across non-happy paths.
+- **material_delta:** State components exist without a complete visual validation matrix.
+- **user/product_consequence:** Rare but important states can regress unnoticed or expose technical language.
+- **severity:** `P1`
+- **classification:** `EVIDENCE_INSUFFICIENT`
+- **root_cause_file_or_symbol:** Library.vue status/alert/empty branches; root cause NOT_YET_PROVEN
+- **root_cause_confidence:** `NOT_YET_PROVEN`
+- **surface_or_shared_owner:** Library/Editor evidence
+- **dependencies:** controlled test fixtures
+- **collision_risk:** LOW
+- **prohibited_shortcut:** Do not fake the visual state or mutate canonical truth to satisfy a screenshot.
+- **future_validation_required:** Induce every bounded non-happy state with deterministic fixtures.
+- **required_browser_state:** Empty catalog; no revision; invalid object; invalid revision; save validation error; unavailable source/context.
+- **required_screenshot_state:** One exact screenshot per material non-happy state at primary viewport; 1024 for layout-sensitive states.
+- **closure_criterion:** All non-happy states are truthful, readable and visually coherent.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-061 — Prepared B09 subset→exact runtime proof
+- **finding_id:** `W02-DA-061`
+- **category:** Runtime binding
+- **subcategory:** Prepared B09 subset→exact runtime proof
+- **surface/state/view:** Acceptance runtime DB
+- **viewport:** n/a
+- **direction:** n/a
+- **reference_authority:** W02 Staged Convergence + exact-SHA code
+- **reference_evidence_id:** Drive:1NEBfWyOlGLmR6AZjlQDJkOt4fx_6iTRn
+- **candidate_evidence:** GitHub:W02AcceptanceSeeder.php + exact screenshot evidence
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** W02AcceptanceSeeder can consume a Controller-prepared six-KU dataset containing B09/B10-shaped material, but the exact dataset/setup receipt that produced the reviewed screenshots was not proven.
+- **governed_expected_intent:** A bounded acceptance subset must have a deterministic, receipted chain from prepared input to DB rows to screenshot state.
+- **material_delta:** Code capability exists; exact run binding remains NOT_PROVEN.
+- **user/product_consequence:** Reviewers cannot distinguish a governed acceptance import from ad-hoc seeded browser data.
+- **severity:** `P1`
+- **classification:** `CANONICAL_RUNTIME_BINDING_GAP`
+- **root_cause_file_or_symbol:** W02AcceptanceSeeder::datasetPath/run + external packet path
+- **root_cause_confidence:** `PROVEN_PARTIAL`
+- **surface_or_shared_owner:** W02 evidence/runtime
+- **dependencies:** Controller-prepared execution packet
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not assume the reviewed browser DB used W02AcceptanceSeeder merely because the seeder exists.
+- **future_validation_required:** Provide exact dataset hash/path, seeder invocation, DB row counts/IDs and screenshot run ID.
+- **required_browser_state:** Clean exact-SHA run created from the receipted dataset.
+- **required_screenshot_state:** Library screenshot paired with the runtime data receipt.
+- **closure_criterion:** The exact candidate screenshot state can be deterministically rebuilt from the governed acceptance input.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-062 — Canonical hierarchy labels→runtime projection
+- **finding_id:** `W02-DA-062`
+- **category:** Runtime binding
+- **subcategory:** Canonical hierarchy labels→runtime projection
+- **surface/state/view:** Hierarchy read model
+- **viewport:** n/a
+- **direction:** n/a
+- **reference_authority:** Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P; shared hierarchy authority
+- **reference_evidence_id:** Drive:1-1EUeL56tcRKUOFDaLa-1Aey6zABnXPJ
+- **candidate_evidence:** GitHub:KnowledgeLearningWorkspace.php; LibraryHierarchyProjector.php
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Curriculum lifecycle IDs are available, but KnowledgeLearningWorkspace synthesizes title fields from IDs and no authoritative human label provider is bound.
+- **governed_expected_intent:** Canonical/approved hierarchy semantics must reach runtime through one shared authoritative read contract.
+- **material_delta:** Structural IDs reach the UI; human semantic labels do not have proven lineage.
+- **user/product_consequence:** Even a fully populated catalog cannot render the governed semantic tree correctly.
+- **severity:** `P1`
+- **classification:** `CANONICAL_RUNTIME_BINDING_GAP`
+- **root_cause_file_or_symbol:** KnowledgeLearningWorkspace::hierarchyContexts; CurriculumKnowledgeService data boundary
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Shared curriculum/knowledge read model
+- **dependencies:** Controller B label authority
+- **collision_risk:** HIGH
+- **prohibited_shortcut:** Do not hardcode labels in Library or convert IDs into display labels.
+- **future_validation_required:** Trace approved Domain/Cluster/Capability titles from source of truth through provider payload into LibraryHierarchyProjector.
+- **required_browser_state:** Canonical human-labeled hierarchy.
+- **required_screenshot_state:** Expanded hierarchy plus payload/provenance receipt.
+- **closure_criterion:** Every parent display label has a reconstructable authoritative source.
+- **prior_finding_mapping:** DELTA-01 / LIB-05
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-063 — Default database seed vs Library acceptance truth
+- **finding_id:** `W02-DA-063`
+- **category:** Runtime binding
+- **subcategory:** Default database seed vs Library acceptance truth
+- **surface/state/view:** Database bootstrap
+- **viewport:** n/a
+- **direction:** n/a
+- **reference_authority:** Exact-SHA technical truth + W02 staged convergence
+- **reference_evidence_id:** Drive:1NEBfWyOlGLmR6AZjlQDJkOt4fx_6iTRn
+- **candidate_evidence:** GitHub:DatabaseSeeder.php; Vs003Seeder.php; W02AcceptanceSeeder.php
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** DatabaseSeeder invokes Vs001/Vs002/Vs003/Task010 seeders and does not invoke W02AcceptanceSeeder; Vs003 explicitly seeds synthetic vertical-slice knowledge and sources.
+- **governed_expected_intent:** The runtime bootstrap used for acceptance must be explicit and must not be conflated with default development seed data.
+- **material_delta:** Default seed path and W02 acceptance path are materially different.
+- **user/product_consequence:** A clean environment may present a different Library corpus than the reviewed evidence unless setup is explicitly controlled.
+- **severity:** `P1`
+- **classification:** `CANONICAL_RUNTIME_BINDING_GAP`
+- **root_cause_file_or_symbol:** database/seeders/DatabaseSeeder.php; Vs003Seeder.php; W02AcceptanceSeeder.php
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** W02 runtime/evidence
+- **dependencies:** environment bootstrap contract
+- **collision_risk:** MEDIUM
+- **prohibited_shortcut:** Do not alter DatabaseSeeder to force acceptance data globally without governance.
+- **future_validation_required:** Document and automate the exact W02 acceptance bootstrap separately from default dev seeds.
+- **required_browser_state:** Fresh clean DB using the approved W02 acceptance bootstrap.
+- **required_screenshot_state:** Screenshot run paired with seed/bootstrap manifest.
+- **closure_criterion:** A clean reviewer can reproduce the same scoped Library dataset deterministically.
+- **prior_finding_mapping:** none
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-064 — Table semantic flattening
+- **finding_id:** `W02-DA-064`
+- **category:** Mixed-content data realism
+- **subcategory:** Table semantic flattening
+- **surface/state/view:** Library canonical document + Unified Editor / B09-shaped acceptance content
+- **viewport:** 1440 + 1024
+- **direction:** RTL + mixed technical cells
+- **reference_authority:** Drive:1P9RW1rIAVdJNuoQqqgaJZ_IZcDpm-Si6; Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P
+- **reference_evidence_id:** Drive:1P9RW1rIAVdJNuoQqqgaJZ_IZcDpm-Si6
+- **candidate_evidence:** GitHub:database/seeders/W02AcceptanceSeeder.php::markdownBlocks; GitHub:LessonContentContract.php::BLOCK_REGISTRY; GitHub:LessonContentRenderer.vue
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Inspected B09 Balanced_6 records contain substantial Markdown tables (roughly 21–37 table lines in four sampled KUs). `markdownBlocks()` discards table separator rows and converts each table row to a bullet-like `• cell — cell ...` string inside a paragraph buffer. The content contract has no table block type and the renderer has no semantic table path.
+- **governed_expected_intent:** Representative canonical-document evidence must preserve materially meaningful structured relationships from governed knowledge rather than flattening row/column semantics merely to fit the fixture adapter.
+- **material_delta:** Table structure, column association and compact comparison grammar are lost before runtime rendering.
+- **user/product_consequence:** Claim matrices, provenance relationships and other row/column knowledge become harder to scan, compare, edit and access; visual acceptance no longer represents the governed knowledge shape.
+- **severity:** `P1`
+- **classification:** `DATA_FIXTURE_REPRESENTATIVENESS_GAP`
+- **root_cause_file_or_symbol:** W02AcceptanceSeeder::markdownBlocks table-row transform + LessonContentContract::BLOCK_REGISTRY + LessonContentRenderer
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Knowledge content contract + W02 acceptance adapter + Library/Learn renderer
+- **dependencies:** Controller B content-structure authority; canonical projection boundary
+- **collision_risk:** HIGH
+- **prohibited_shortcut:** Do not style flattened bullet text to look like a table, and do not mutate B09 solely for screenshot similarity.
+- **future_validation_required:** Use a governed B09-shaped table fixture; verify row/column structure survives adapter/storage/Library render/editor round-trip and remains usable at 1440/1024 and keyboard/screen-reader semantics.
+- **required_browser_state:** Representative KU containing a multi-column claims/provenance table with enough rows to wrap and scroll.
+- **required_screenshot_state:** Library view plus editable state showing preserved table structure at 1440 and 1024.
+- **closure_criterion:** Structured table relationships are preserved through the approved content contract/runtime projection and render accessibly, or Controller B explicitly governs a different lossless representation with equivalent semantics.
+- **prior_finding_mapping:** DELTA-02 / W02-DA-048 (previously too broad)
+- **discovery_status:** `MISSED_NEW`
+
+## W02-DA-065 — List semantic flattening
+- **finding_id:** `W02-DA-065`
+- **category:** Mixed-content data realism
+- **subcategory:** List semantic flattening
+- **surface/state/view:** Library canonical document + Unified Editor / B09-shaped acceptance content
+- **viewport:** 1440 + 1024
+- **direction:** RTL + mixed technical tokens
+- **reference_authority:** Drive:1P9RW1rIAVdJNuoQqqgaJZ_IZcDpm-Si6; Drive:1hJQzFnwN1VNtbAJi3wiAtBQy07IxLD1P
+- **reference_evidence_id:** Drive:1P9RW1rIAVdJNuoQqqgaJZ_IZcDpm-Si6
+- **candidate_evidence:** GitHub:database/seeders/W02AcceptanceSeeder.php::markdownBlocks; GitHub:LessonContentContract.php::BLOCK_REGISTRY; GitHub:LessonContentRenderer.vue
+- **exact_candidate_SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed_current_state:** Every inspected Balanced_6 B09 record contains many Markdown list items (roughly 24–93 bullet lines). `markdownBlocks()` converts `-`/`*` items to `• ...` strings inside paragraph text. The content contract has no list block type and the renderer therefore exposes no semantic list-item hierarchy.
+- **governed_expected_intent:** Repeated/ordered knowledge items must remain structurally distinguishable and accessible when representative canonical content is projected into Library/Editor.
+- **material_delta:** List item identity, nesting/ordering semantics and list-level editing affordance are flattened into paragraph characters.
+- **user/product_consequence:** Long security checklists, boundaries and rule sets become less scannable and less accessible; editing an item cannot preserve or manipulate list structure independently.
+- **severity:** `P2`
+- **classification:** `DATA_FIXTURE_REPRESENTATIVENESS_GAP`
+- **root_cause_file_or_symbol:** W02AcceptanceSeeder::markdownBlocks list-item transform + LessonContentContract::BLOCK_REGISTRY + LessonContentRenderer
+- **root_cause_confidence:** `PROVEN`
+- **surface_or_shared_owner:** Knowledge content contract + W02 acceptance adapter + Library/Learn renderer
+- **dependencies:** Controller B content-structure authority; accessibility semantics
+- **collision_risk:** HIGH
+- **prohibited_shortcut:** Do not replace list semantics with decorative bullet glyphs only, and do not invent Library-only list storage incompatible with Learn.
+- **future_validation_required:** Exercise flat and nested governed list content through adapter/storage/render/edit/save/restore; verify keyboard and accessibility semantics at 1440/1024.
+- **required_browser_state:** Representative KU with long flat and nested lists containing Arabic prose plus LTR IDs/code tokens.
+- **required_screenshot_state:** Library and editable list states showing hierarchy, wrapping and active-item affordance at 1440/1024.
+- **closure_criterion:** List item and hierarchy semantics survive the approved content model and render accessibly, or Controller B explicitly governs an equivalent lossless representation.
+- **prior_finding_mapping:** DELTA-02 / W02-DA-048 (previously too broad)
+- **discovery_status:** `MISSED_NEW`
+

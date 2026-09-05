@@ -1,0 +1,107 @@
+diff --git a/resources/js/pages/KnowledgeLearning/Visualize.vue b/resources/js/pages/KnowledgeLearning/Visualize.vue
+index 4b7798e..ad0b400 100644
+--- a/resources/js/pages/KnowledgeLearning/Visualize.vue
++++ b/resources/js/pages/KnowledgeLearning/Visualize.vue
+@@ -407,9 +407,8 @@ onBeforeUnmount(() => window.removeEventListener('popstate', restoreFromLocation
+                   :key="node.id"
+                   class="rounded-lg border border-slate-800/70 bg-slate-950/40 px-2.5 py-2"
+                 >
+-                  <span dir="auto" class="block truncate text-[10px] font-bold text-slate-200">{{
+-                    node.label
+-                  }}</span>
++                  <bdi v-if="node.label_source === 'technical_fallback'" dir="ltr" class="block truncate font-mono text-[10px] text-slate-400">{{ node.label }}</bdi>
++                  <span v-else dir="auto" class="block truncate text-[10px] font-bold text-slate-200">{{ node.label }}</span>
+                   <bdi dir="ltr" class="mt-0.5 block truncate font-mono text-[8px] text-slate-600">
+                     {{ node.technical_label }}
+                   </bdi>
+@@ -546,7 +545,8 @@ onBeforeUnmount(() => window.removeEventListener('popstate', restoreFromLocation
+               >
+                 {{ selectedNode.kind }}
+               </span>
+-              <p dir="auto" class="font-bold text-slate-100">{{ selectedNode.label }}</p>
++              <bdi v-if="selectedNode.label_source === 'technical_fallback'" dir="ltr" class="font-mono text-slate-400">{{ selectedNode.label }}</bdi>
++              <p v-else dir="auto" class="font-bold text-slate-100">{{ selectedNode.label }}</p>
+               <bdi dir="ltr" class="block font-mono text-[10px] break-all text-slate-400">{{
+                 selectedNode.technical_label
+               }}</bdi>
+@@ -585,14 +585,14 @@ onBeforeUnmount(() => window.removeEventListener('popstate', restoreFromLocation
+                 <div>
+                   <span class="text-[9px] text-slate-500">من</span>
+                   <p dir="auto" class="mt-1 font-bold text-slate-200">
+-                    {{ selectedEdgeEndpoints?.from?.label ?? selectedEdge.from }}
++                    <template v-if="selectedEdgeEndpoints?.from?.label">{{ selectedEdgeEndpoints.from.label }}</template><bdi v-else dir="ltr">{{ selectedEdge.from }}</bdi>
+                   </p>
+                   <bdi dir="ltr" class="font-mono text-[8px] text-slate-500">{{ selectedEdge.from }}</bdi>
+                 </div>
+                 <div>
+                   <span class="text-[9px] text-slate-500">إلى</span>
+                   <p dir="auto" class="mt-1 font-bold text-slate-200">
+-                    {{ selectedEdgeEndpoints?.to?.label ?? selectedEdge.to }}
++                    <template v-if="selectedEdgeEndpoints?.to?.label">{{ selectedEdgeEndpoints.to.label }}</template><bdi v-else dir="ltr">{{ selectedEdge.to }}</bdi>
+                   </p>
+                   <bdi dir="ltr" class="font-mono text-[8px] text-slate-500">{{ selectedEdge.to }}</bdi>
+                 </div>
+diff --git a/resources/js/pages/KnowledgeLearning/components/visualize/views/CanvasView.vue b/resources/js/pages/KnowledgeLearning/components/visualize/views/CanvasView.vue
+index 792d154..f798153 100644
+--- a/resources/js/pages/KnowledgeLearning/components/visualize/views/CanvasView.vue
++++ b/resources/js/pages/KnowledgeLearning/components/visualize/views/CanvasView.vue
+@@ -216,9 +216,8 @@ defineExpose({ zoomIn, zoomOut, fit });
+             @pointerdown="beginDrag(node, $event)"
+             @keydown.stop="moveWithKeyboard(node, $event)"
+           >
+-            <span dir="auto" class="block truncate text-[11px] font-bold text-slate-100">{{
+-              node.label
+-            }}</span>
++            <bdi v-if="node.label_source === 'technical_fallback'" dir="ltr" class="block truncate font-mono text-[11px] text-slate-400">{{ node.label }}</bdi>
++            <span v-else dir="auto" class="block truncate text-[11px] font-bold text-slate-100">{{ node.label }}</span>
+             <bdi dir="ltr" class="mt-1 block truncate font-mono text-[8px] text-slate-400">
+               {{ node.technical_label }}
+             </bdi>
+diff --git a/resources/js/pages/KnowledgeLearning/components/visualize/views/GraphView.vue b/resources/js/pages/KnowledgeLearning/components/visualize/views/GraphView.vue
+index 1caf7d1..ae5b039 100644
+--- a/resources/js/pages/KnowledgeLearning/components/visualize/views/GraphView.vue
++++ b/resources/js/pages/KnowledgeLearning/components/visualize/views/GraphView.vue
+@@ -200,9 +200,8 @@ defineExpose({ zoomIn, zoomOut, fit });
+             :aria-pressed="selection?.kind === 'node' && selection.id === node.id"
+             @click="selectNode(node.id)"
+           >
+-            <span dir="auto" class="block truncate text-[11px] font-bold text-slate-100">{{
+-              node.label
+-            }}</span>
++            <bdi v-if="node.label_source === 'technical_fallback'" dir="ltr" class="block truncate font-mono text-[11px] text-slate-400">{{ node.label }}</bdi>
++            <span v-else dir="auto" class="block truncate text-[11px] font-bold text-slate-100">{{ node.label }}</span>
+             <bdi dir="ltr" class="mt-1 block truncate font-mono text-[8px] text-slate-400">
+               {{ node.technical_label }}
+             </bdi>
+diff --git a/resources/js/pages/KnowledgeLearning/components/visualize/views/PathView.vue b/resources/js/pages/KnowledgeLearning/components/visualize/views/PathView.vue
+index 0bf6306..9a13788 100644
+--- a/resources/js/pages/KnowledgeLearning/components/visualize/views/PathView.vue
++++ b/resources/js/pages/KnowledgeLearning/components/visualize/views/PathView.vue
+@@ -77,9 +77,8 @@ const overlayTargets = computed(() => observationTargets(props.overlayLayer, 'Pa
+               :aria-pressed="selection?.kind === 'node' && selection.id === node.id"
+               @click="emit('select', { kind: 'node', id: node.id })"
+             >
+-              <span dir="auto" class="block text-xs font-bold text-slate-100">{{
+-                node.label
+-              }}</span>
++              <bdi v-if="node.label_source === 'technical_fallback'" dir="ltr" class="block font-mono text-xs text-slate-400">{{ node.label }}</bdi>
++              <span v-else dir="auto" class="block text-xs font-bold text-slate-100">{{ node.label }}</span>
+               <bdi dir="ltr" class="mt-1 block font-mono text-[9px] text-slate-500">
+                 {{ node.technical_label }}
+               </bdi>
+diff --git a/resources/js/pages/KnowledgeLearning/components/visualize/views/TreeBranch.vue b/resources/js/pages/KnowledgeLearning/components/visualize/views/TreeBranch.vue
+index 767a361..0bef7dd 100644
+--- a/resources/js/pages/KnowledgeLearning/components/visualize/views/TreeBranch.vue
++++ b/resources/js/pages/KnowledgeLearning/components/visualize/views/TreeBranch.vue
+@@ -44,7 +44,10 @@ const emit = defineEmits<{
+         :aria-pressed="selected?.kind === 'node' && selected.id === branch.node.id"
+         @click="emit('select', { kind: 'node', id: branch.node.id })"
+       >
+-        <span dir="auto" class="block truncate text-xs font-bold text-slate-100">
++        <bdi v-if="branch.node.label_source === 'technical_fallback'" dir="ltr" class="block truncate font-mono text-xs text-slate-400">
++          {{ branch.node.label }}
++        </bdi>
++        <span v-else dir="auto" class="block truncate text-xs font-bold text-slate-100">
+           {{ branch.node.label }}
+         </span>
+         <bdi dir="ltr" class="mt-0.5 block truncate font-mono text-[9px] text-slate-500">

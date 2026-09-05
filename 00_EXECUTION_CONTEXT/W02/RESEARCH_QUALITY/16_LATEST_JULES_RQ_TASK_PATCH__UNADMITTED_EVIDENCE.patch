@@ -1,0 +1,377 @@
+diff --git a/app/Modules/SourceGovernance/Application/ResearchQuality/ResearchQualityWorkbench.php b/app/Modules/SourceGovernance/Application/ResearchQuality/ResearchQualityWorkbench.php
+index 6559fa7..cb64234 100644
+--- a/app/Modules/SourceGovernance/Application/ResearchQuality/ResearchQualityWorkbench.php
++++ b/app/Modules/SourceGovernance/Application/ResearchQuality/ResearchQualityWorkbench.php
+@@ -19,6 +19,7 @@ final class ResearchQualityWorkbench
+ 
+         return [
+             'comparison' => [
++                'claims' => $canonicalClaimIds,
+                 'rows' => array_map(
+                     fn (array $source): array => $this->comparisonRow($source, $canonicalClaimIds),
+                     $sources,
+@@ -72,6 +73,14 @@ final class ResearchQualityWorkbench
+             'is_string',
+         )));
+ 
++        $claimAssessments = [];
++        foreach ($claims as $claim) {
++            $cId = $claim['claim_id'] ?? null;
++            if (is_string($cId)) {
++                $claimAssessments[$cId] = $claim['assessment'] ?? 'UNKNOWN';
++            }
++        }
++
+         return [
+             'source_id' => (string) ($source['id'] ?? ''),
+             'title' => (string) ($source['title'] ?? ''),
+@@ -84,6 +93,7 @@ final class ResearchQualityWorkbench
+                 static fn (array $claim): bool => is_string($claim['segment_ref'] ?? null) && $claim['segment_ref'] !== '',
+             )),
+             'has_integrity_digest' => is_string($source['sha256'] ?? null) && $source['sha256'] !== '',
++            'claims_map' => $claimAssessments,
+         ];
+     }
+ 
+@@ -154,7 +164,6 @@ final class ResearchQualityWorkbench
+                 static fn (array $variant): string => json_encode([
+                     $variant['supported_scope'],
+                     $variant['excluded_semantics'],
+-                    $variant['assessment'],
+                 ], JSON_THROW_ON_ERROR),
+                 $variants,
+             ));
+diff --git a/resources/js/pages/KnowledgeLearning/ResearchQuality.vue b/resources/js/pages/KnowledgeLearning/ResearchQuality.vue
+index cdabee1..b0685d0 100644
+--- a/resources/js/pages/KnowledgeLearning/ResearchQuality.vue
++++ b/resources/js/pages/KnowledgeLearning/ResearchQuality.vue
+@@ -1,6 +1,6 @@
+ <script setup lang="ts">
+-import { Head, Link } from '@inertiajs/vue3';
+-import { computed, ref } from 'vue';
++import { Head, Link, router } from '@inertiajs/vue3';
++import { computed, ref, onMounted } from 'vue';
+ import CepWorkspaceLayout from '../../layouts/CepWorkspaceLayout.vue';
+ import KnowledgeTabs from './components/KnowledgeTabs.vue';
+ import type { KnowledgeUnitSelection } from './components/content/lessonContent';
+@@ -44,6 +44,31 @@ const mode = ref<Mode>('claims');
+ const workbenchMode = computed<'claims' | 'conflicts' | 'revision'>(() =>
+   mode.value === 'compare' ? 'claims' : mode.value,
+ );
++
++onMounted(() => {
++  const params = new URLSearchParams(window.location.search);
++  if (params.has('mode')) {
++    const queryMode = params.get('mode') as Mode;
++    if (modes.some((m) => m.key === queryMode)) {
++      mode.value = queryMode;
++    }
++  }
++});
++
++const updateMode = (newMode: Mode) => {
++  mode.value = newMode;
++  const url = new URL(window.location.href);
++  url.searchParams.set('mode', newMode);
++  if (typeof router.visit === 'function') {
++    router.visit(url.pathname + url.search, {
++      preserveState: true,
++      preserveScroll: true,
++      replace: true,
++    });
++  } else if (typeof window !== 'undefined' && window.history) {
++    window.history.replaceState({}, '', url.pathname + url.search);
++  }
++};
+ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
+   { key: 'claims', ar: 'الادعاءات', en: 'Claims', icon: '📋' },
+   { key: 'compare', ar: 'المقارنة', en: 'Compare', icon: '⚖️' },
+@@ -121,7 +146,7 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
+                     : 'text-slate-400 hover:text-slate-200'
+                 "
+                 :aria-pressed="mode === item.key"
+-                @click="mode = item.key"
++                @click="updateMode(item.key)"
+               >
+                 <span>{{ item.icon }}</span>
+                 <span>{{ item.ar }}</span>
+@@ -157,29 +182,62 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
+               </p>
+             </div>
+ 
+-            <ul v-if="quality.sources.length" class="mt-4 flex-1 space-y-2 overflow-y-auto pr-0.5">
+-              <li v-for="source in quality.sources" :key="source.id">
+-                <Link
+-                  :href="`/knowledge/research-quality?${active ? `object=${encodeURIComponent(active.id)}&` : ''}source=${encodeURIComponent(source.id)}`"
+-                  class="focus-ring block rounded-xl border p-3 text-xs transition"
+-                  :class="
+-                    source.id === quality.active_source?.id
+-                      ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-100 shadow-sm'
+-                      : 'border-slate-800/80 bg-slate-950/40 text-slate-300 hover:border-slate-700'
+-                  "
+-                >
+-                  <span class="block text-sm leading-snug font-bold">{{ source.title }}</span>
+-                  <div class="mt-2.5 flex flex-wrap items-center gap-1.5 text-[10px]">
+-                    <span class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-cyan-300">
+-                      {{ source.authority_class }}
+-                    </span>
+-                    <span class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-emerald-400">
+-                      {{ source.review_status }}
+-                    </span>
+-                  </div>
+-                </Link>
+-              </li>
+-            </ul>
++            <div v-if="quality.sources.length" class="mt-4 flex-1 overflow-y-auto pr-0.5">
++              <template
++                v-for="group in [
++                  {
++                    id: 'current',
++                    title: 'مصادر حالية مرتبطة',
++                    sources: quality.sources.filter((s) =>
++                      s.claims.some((c) => c.used_by_active_revision),
++                    ),
++                  },
++                  {
++                    id: 'historical',
++                    title: 'تاريخية وغير مرتبطة',
++                    sources: quality.sources.filter(
++                      (s) => !s.claims.some((c) => c.used_by_active_revision),
++                    ),
++                  },
++                ]"
++                :key="group.id"
++              >
++                <div v-if="group.sources.length > 0" class="mb-5">
++                  <h3 class="mb-2 text-[10px] font-bold text-slate-500">{{ group.title }}</h3>
++                  <ul class="space-y-2">
++                    <li v-for="source in group.sources" :key="source.id">
++                      <Link
++                        :href="`/knowledge/research-quality?${active ? `object=${encodeURIComponent(active.id)}&` : ''}source=${encodeURIComponent(source.id)}`"
++                        class="focus-ring block rounded-xl border p-3 text-xs transition"
++                        :class="
++                          source.id === quality.active_source?.id
++                            ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-100 shadow-sm'
++                            : 'border-slate-800/80 bg-slate-950/40 text-slate-300 hover:border-slate-700'
++                        "
++                      >
++                        <span class="block text-sm leading-snug font-bold">{{ source.title }}</span>
++                        <div class="mt-2.5 flex flex-wrap items-center gap-1.5 text-[10px]">
++                          <span class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-cyan-300">
++                            {{ source.authority_class }}
++                          </span>
++                          <span
++                            class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-emerald-400"
++                          >
++                            {{ source.review_status }}
++                          </span>
++                          <span
++                            v-if="group.id === 'historical'"
++                            class="rounded border border-rose-800/50 bg-rose-950/80 px-1.5 py-0.5 font-mono text-rose-300"
++                          >
++                            Historical
++                          </span>
++                        </div>
++                      </Link>
++                    </li>
++                  </ul>
++                </div>
++              </template>
++            </div>
+             <p v-else class="mt-4 text-xs leading-6 text-slate-500">
+               لا توجد مصادر محفوظة؛ لن تُنشأ مصادر وهمية.
+             </p>
+@@ -251,18 +309,13 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
+             </div>
+           </main>
+ 
+-          <!-- RIGHT: Provenance & Review Boundary (Visual RIGHT) -->
++          <!-- RIGHT: Review Boundary (Visual RIGHT) -->
+           <aside
+             dir="rtl"
+             class="order-3 flex min-h-[740px] min-w-0 flex-col rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 shadow-lg backdrop-blur md:col-span-2 xl:col-span-1 dark:bg-[#0b1322]/90"
+-            aria-label="تتبّع المنشأ وحدود المراجعة"
++            aria-label="حدود المراجعة"
+           >
+-            <ProvenancePanel
+-              :source="quality.active_source"
+-              :provenance="quality.analysis?.provenance.sources ?? []"
+-            />
+-
+-            <section class="mt-6 border-t border-slate-800/80 pt-4">
++            <section class="border-slate-800/80">
+               <div class="flex items-center justify-between">
+                 <h2 class="text-xs font-bold text-slate-200">حدود الحكم والمراجعة</h2>
+                 <span
+@@ -326,7 +379,7 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
+           </aside>
+         </div>
+ 
+-        <!-- BOTTOM: Trace Telemetry Drawer (Closed by default) -->
++        <!-- BOTTOM: Provenance & Trace Telemetry Drawer (Closed by default) -->
+         <details
+           dir="rtl"
+           class="mt-4 rounded-2xl border border-slate-800/80 bg-slate-900/40 px-4 py-3 shadow-lg"
+@@ -334,10 +387,15 @@ const modes: Array<{ key: Mode; ar: string; en: string; icon: string }> = [
+           <summary
+             class="flex cursor-pointer items-center justify-between text-xs font-bold text-slate-300"
+           >
+-            <span>أثر التوفيق والمراجعة (Reconciliation & Revision) — مساحة مقارنة مؤقتة</span>
++            <span>المنشأ وأثر التوفيق والمراجعة (Provenance, Reconciliation & Revision)</span>
+             <span class="font-mono text-[10px] text-cyan-400">تفاصيل التتبع</span>
+           </summary>
+-          <div class="mt-4 grid gap-4 md:grid-cols-2">
++          <div class="mt-4 grid gap-4 md:grid-cols-3">
++            <ProvenancePanel
++              :source="quality.active_source"
++              :provenance="quality.analysis?.provenance.sources ?? []"
++              class="md:col-span-1"
++            />
+             <section>
+               <h3 class="text-xs font-bold text-slate-400">ادعاءات قانونية غير محلولة</h3>
+               <div class="mt-2 space-y-1.5">
+diff --git a/resources/js/pages/KnowledgeLearning/components/research-quality/ResearchQualityWorkbench.vue b/resources/js/pages/KnowledgeLearning/components/research-quality/ResearchQualityWorkbench.vue
+index f35d9df..23da3f7 100644
+--- a/resources/js/pages/KnowledgeLearning/components/research-quality/ResearchQualityWorkbench.vue
++++ b/resources/js/pages/KnowledgeLearning/components/research-quality/ResearchQualityWorkbench.vue
+@@ -178,19 +178,28 @@ const copyReconciliationNote = async (claimId: string) => {
+             <p class="text-[10px] leading-5 text-slate-500">
+               ذاكرة واجهة مؤقتة فقط؛ لا تُكتب في metadata أو assessment أو Evidence.
+             </p>
+-            <button
+-              type="button"
+-              class="focus-ring rounded-lg border border-slate-700 px-2.5 py-1 text-[10px] font-bold text-slate-300 hover:bg-slate-800 disabled:opacity-40"
+-              :disabled="!reconciliationNotes[conflict.claim_id]?.trim()"
+-              @click="copyReconciliationNote(conflict.claim_id)"
+-              :aria-label="
+-                copiedClaimId === conflict.claim_id
+-                  ? `نُسخت مذكرة التعارض للادعاء ${conflict.claim_id}`
+-                  : `نسخ المذكرة المؤقتة للادعاء ${conflict.claim_id}`
+-              "
+-            >
+-              {{ copiedClaimId === conflict.claim_id ? 'نُسخت المذكرة' : 'نسخ المذكرة المؤقتة' }}
+-            </button>
++            <div class="flex flex-wrap items-center gap-2">
++              <button
++                type="button"
++                class="focus-ring rounded-lg border border-slate-700 px-2.5 py-1 text-[10px] font-bold text-slate-300 hover:bg-slate-800 disabled:opacity-40"
++                :disabled="!reconciliationNotes[conflict.claim_id]?.trim()"
++                @click="copyReconciliationNote(conflict.claim_id)"
++                :aria-label="
++                  copiedClaimId === conflict.claim_id
++                    ? `نُسخت مذكرة التعارض للادعاء ${conflict.claim_id}`
++                    : `نسخ المذكرة المؤقتة للادعاء ${conflict.claim_id}`
++                "
++              >
++                {{ copiedClaimId === conflict.claim_id ? 'نُسخت المذكرة' : 'نسخ المذكرة المؤقتة' }}
++              </button>
++              <a
++                v-if="analysis?.review.decision_authority === 'human'"
++                :href="`/knowledge/library?draft_ephemeral_reconciliation_note=${encodeURIComponent(reconciliationNotes[conflict.claim_id] || '')}`"
++                class="focus-ring inline-flex items-center gap-1 rounded-lg border border-cyan-800 bg-cyan-950/40 px-2.5 py-1 text-[10px] font-bold text-cyan-300 hover:bg-cyan-900/60"
++              >
++                المتابعة في مسودة المكتبة
++              </a>
++            </div>
+           </div>
+         </section>
+       </article>
+diff --git a/resources/js/pages/KnowledgeLearning/components/research-quality/SourceComparisonTable.vue b/resources/js/pages/KnowledgeLearning/components/research-quality/SourceComparisonTable.vue
+index 3ab4d8c..d92cd7e 100644
+--- a/resources/js/pages/KnowledgeLearning/components/research-quality/SourceComparisonTable.vue
++++ b/resources/js/pages/KnowledgeLearning/components/research-quality/SourceComparisonTable.vue
+@@ -1,7 +1,7 @@
+ <script setup lang="ts">
+ import type { ComparisonRow } from './types';
+ 
+-defineProps<{ rows: ComparisonRow[] }>();
++defineProps<{ rows: ComparisonRow[]; claims?: string[] }>();
+ </script>
+ 
+ <template>
+@@ -32,12 +32,14 @@ defineProps<{ rows: ComparisonRow[] }>();
+         </caption>
+         <thead class="sticky top-0 z-10 bg-slate-900/95 text-[11px] font-bold text-slate-400">
+           <tr>
+-            <th scope="col" class="px-4 py-3.5 text-right">المصدر</th>
+-            <th scope="col" class="px-4 py-3.5 text-right">Authority</th>
+-            <th scope="col" class="px-4 py-3.5 text-right">Claims</th>
+-            <th scope="col" class="px-4 py-3.5 text-right">Active revision</th>
+-            <th scope="col" class="px-4 py-3.5 text-right">Anchors</th>
+-            <th scope="col" class="px-4 py-3.5 text-right">Digest</th>
++            <th scope="col" class="px-4 py-3.5 text-right whitespace-nowrap">المصدر</th>
++            <th scope="col" class="px-4 py-3.5 text-right whitespace-nowrap">Authority</th>
++            <th scope="col" class="px-4 py-3.5 text-right whitespace-nowrap">Digest</th>
++            <th v-for="cId in claims" :key="cId" scope="col" class="px-4 py-3.5 text-center">
++              <bdi dir="ltr" class="font-mono text-[9px] text-slate-400" :title="cId">
++                {{ cId.length > 8 ? cId.substring(0, 8) + '...' : cId }}
++              </bdi>
++            </th>
+           </tr>
+         </thead>
+         <tbody class="divide-y divide-slate-800/60">
+@@ -50,21 +52,14 @@ defineProps<{ rows: ComparisonRow[] }>();
+             </td>
+             <td class="px-4 py-3">
+               <span
+-                class="rounded-full border border-slate-800 bg-slate-900 px-2 py-0.5 font-mono text-[10px] text-slate-300"
++                class="rounded-full border border-slate-800 bg-slate-900 px-2 py-0.5 font-mono text-[10px] whitespace-nowrap text-slate-300"
+               >
+                 {{ row.authority_class }}
+               </span>
+             </td>
+-            <td class="px-4 py-3 font-mono font-semibold text-slate-300">
+-              {{ row.claim_count }}
+-            </td>
+-            <td class="px-4 py-3 font-mono font-bold text-cyan-300">
+-              {{ row.active_revision_claim_count }}
+-            </td>
+-            <td class="px-4 py-3 font-mono text-slate-300">{{ row.anchor_count }}</td>
+             <td class="px-4 py-3">
+               <span
+-                class="rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold"
++                class="rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold whitespace-nowrap"
+                 :class="
+                   row.has_integrity_digest
+                     ? 'border border-emerald-500/40 bg-emerald-950/80 text-emerald-300'
+@@ -74,6 +69,15 @@ defineProps<{ rows: ComparisonRow[] }>();
+                 {{ row.has_integrity_digest ? 'present' : 'missing' }}
+               </span>
+             </td>
++            <td v-for="cId in claims" :key="cId" class="px-4 py-3 text-center">
++              <span
++                v-if="row.claims_map && row.claims_map[cId]"
++                class="inline-block rounded border border-cyan-800/50 bg-cyan-950/30 px-1.5 py-0.5 font-mono text-[10px] text-cyan-300"
++              >
++                {{ row.claims_map[cId] }}
++              </span>
++              <span v-else class="text-slate-600">-</span>
++            </td>
+           </tr>
+         </tbody>
+       </table>
+diff --git a/resources/js/pages/KnowledgeLearning/components/research-quality/types.ts b/resources/js/pages/KnowledgeLearning/components/research-quality/types.ts
+index 7e4dce5..b99e7c6 100644
+--- a/resources/js/pages/KnowledgeLearning/components/research-quality/types.ts
++++ b/resources/js/pages/KnowledgeLearning/components/research-quality/types.ts
+@@ -29,6 +29,7 @@ export type ComparisonRow = {
+   active_revision_claim_count: number;
+   anchor_count: number;
+   has_integrity_digest: boolean;
++  claims_map?: Record<string, string>;
+ };
+ 
+ export type ConflictVariant = {
+diff --git a/resources/js/tests/W02StaticResearchQuality.spec.ts b/resources/js/tests/W02StaticResearchQuality.spec.ts
+index ec595ef..928dc40 100644
+--- a/resources/js/tests/W02StaticResearchQuality.spec.ts
++++ b/resources/js/tests/W02StaticResearchQuality.spec.ts
+@@ -220,7 +220,7 @@ describe('W02 Static Research Quality Surface', () => {
+     expect(main.attributes('dir')).toBe('rtl');
+     expect(main.classes()).toContain('dark:bg-[#0b1322]/90');
+ 
+-    const aside = wrapper.find('aside[aria-label="تتبّع المنشأ وحدود المراجعة"]');
++    const aside = wrapper.find('aside[aria-label="حدود المراجعة"]');
+     expect(aside.attributes('dir')).toBe('rtl');
+   });
+ });

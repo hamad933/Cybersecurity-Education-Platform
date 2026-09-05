@@ -1,0 +1,1457 @@
+# CEP W02 Learn — Exhaustive Visual / Design Finding Ledger
+
+- Project: CEP / W02 Learn
+- Mode: READ-ONLY DEEP AUDIT / DISCOVERY ONLY
+- Candidate: `ca36e75c116a9ba00b5d25d358bd68c10990bd6e`
+- Parent: `7fa8714dc6d0beec6ec77ba8a673140301b066cf`
+- Baseline drift: `NO_BASELINE_DRIFT`
+- Date: 2026-09-04
+
+## Ledger summary
+Total: **51**. Statuses: KNOWN 19, UNDER_SPECIFIED 13, MISSED_NEW 17, REGRESSED 2.
+
+## LRN-DA-V01 — workspace-region-ownership
+- **category/subcategory:** VISUAL_DESIGN / workspace-region-ownership
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; resources/js/pages/KnowledgeLearning/Learn.vue; resources/js/layouts/CepWorkspaceLayout.vue
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** Learn يعيد بناء LEFT/CENTER/RIGHT/BOTTOM داخل الـ default CENTER في CepWorkspaceLayout.
+- **expected governed intent:** مالك واحد للمناطق المشتركة، ويستهلك Learn فتحات TOP/LEFT/CENTER/RIGHT/BOTTOM مباشرة.
+- **material delta:** Learn يعيد بناء LEFT/CENTER/RIGHT/BOTTOM داخل الـ default CENTER في CepWorkspaceLayout. ⇢ مالك واحد للمناطق المشتركة، ويستهلك Learn فتحات TOP/LEFT/CENTER/RIGHT/BOTTOM مباشرة.
+- **user consequence:** يزداد إحساس الواجهة بأنها صفحة داخل صفحة، وتتقلص مساحة العمل، وتنفصل ضوابط اللوحات عن السطح.
+- **severity:** P1
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** Learn.vue يمرر primaryNavigation فقط ثم ينشئ grid محلياً؛ البنية المشتركة موجودة لكنها غير مستهلكة.
+- **owner:** LEARN_OWNED
+- **shared dependency:** CepWorkspaceLayout/app.css
+- **collision risk:** HIGH
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** LRN-01 + ARCH-SHARED-01-S1
+- **reconciliation status:** KNOWN
+
+## LRN-DA-V02 — outer-frame-and-workstation-span
+- **category/subcategory:** VISUAL_DESIGN / outer-frame-and-workstation-span
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ مقابل 1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; Learn.vue classes py-3 sm:px-4 xl:px-6 + inner rounded panels
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** السطح الحالي محاط بهوامش/padding خارجية واضحة وبـ rounded container يترك planes فارغة حول محطة التعلم.
+- **expected governed intent:** محطة تعلم desktop كثيفة تستفيد من عرض الشاشة وتقترب من توزيع المرجع edge-to-edge ضمن shell منضبط.
+- **material delta:** السطح الحالي محاط بهوامش/padding خارجية واضحة وبـ rounded container يترك planes فارغة حول محطة التعلم. ⇢ محطة تعلم desktop كثيفة تستفيد من عرض الشاشة وتقترب من توزيع المرجع edge-to-edge ضمن shell منضبط.
+- **user consequence:** يُهدر العرض الذي يحتاجه CENTER و RIGHT ، ويبدو المنتج أخف وأقل احترافية من workstation المقصود.
+- **severity:** P1
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** nested local grid + outer padding + card containment المتكرر.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior ledger bundled this only under shared-region ownership; geometry/span delta not independently specified.
+- **reconciliation status:** MISSED_NEW
+
+## LRN-DA-V03 — top-local-context-layer
+- **category/subcategory:** VISUAL_DESIGN / top-local-context-layer
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; Learn.vue لا يستخدم #top; prior package maps resume to CENTER
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** لا توجد طبقة TOP محلية فعالة؛ resume/current-activity metadata موزعة داخل CENTER.
+- **expected governed intent:** TOP يملك current activity/resume/status والتبديل السياقي وفق master plan من دون semantics تحرير.
+- **material delta:** لا توجد طبقة TOP محلية فعالة؛ resume/current-activity metadata موزعة داخل CENTER. ⇢ TOP يملك current activity/resume/status والتبديل السياقي وفق master plan من دون semantics تحرير.
+- **user consequence:** يفقد المتعلم نقطة ارتكاز ثابتة للحالة والإجراء الحالي، وتتكرر metadata داخل مساحة المحتوى.
+- **severity:** P1
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** عدم استهلاك #top في CepWorkspaceLayout.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior Reference Delta: resume copy inside CENTER / TOP required
+- **reconciliation status:** KNOWN
+
+## LRN-DA-V04 — center-dominance
+- **category/subcategory:** VISUAL_DESIGN / center-dominance
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ مقابل 1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; Learn.vue CENTER renders Lesson then practice/assessment/lab sections
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** CENTER هو الأكبر هندسياً لكنه لا يهيمن معرفياً: درس قصير جداً يليه بطاقات نشاط وحالة كثيرة وفراغ رأسي كبير.
+- **expected governed intent:** CENTER يملك نشاطاً واحداً ثرياً ومركّزاً، مع نسبة أعلى من المعلومات/الإجراء إلى المساحة.
+- **material delta:** CENTER هو الأكبر هندسياً لكنه لا يهيمن معرفياً: درس قصير جداً يليه بطاقات نشاط وحالة كثيرة وفراغ رأسي كبير. ⇢ CENTER يملك نشاطاً واحداً ثرياً ومركّزاً، مع نسبة أعلى من المعلومات/الإجراء إلى المساحة.
+- **user consequence:** الانتباه يتشتت بين status cards والفراغ؛ لا يشعر المستخدم بوجود deep-work learning surface.
+- **severity:** P1
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** selected activity architecture غير موحدة + fixture sparse.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** LRN-01-S1 / CENTER selectedActivity was behavioral; visual dominance not decomposed
+- **reconciliation status:** UNDER_SPECIFIED
+
+## LRN-DA-V05 — dead-space-distribution
+- **category/subcategory:** VISUAL_DESIGN / dead-space-distribution
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF broad visual inspection vs 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** توجد مساحة فارغة ممتدة تحت محتوى Test Section وفي مناطق CENTER/RIGHT مع محتوى قليل جداً.
+- **expected governed intent:** توزيع فراغ يخدم grouping والقراءة، مع محتوى سياقي/نشاطي كثيف ومتناسب مع المرجع.
+- **material delta:** توجد مساحة فارغة ممتدة تحت محتوى Test Section وفي مناطق CENTER/RIGHT مع محتوى قليل جداً. ⇢ توزيع فراغ يخدم grouping والقراءة، مع محتوى سياقي/نشاطي كثيف ومتناسب مع المرجع.
+- **user consequence:** الشاشة تبدو unfinished/sparse حتى مع اكتمال shell ، ويصعب تقييم المنتج الحقيقي من اللقطة.
+- **severity:** P2
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** مزيج من fixture sparsity ، card heights/padding ، ونقص contextual channels.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior only said sparse fixture/structural gap; dead-space not isolated
+- **reconciliation status:** MISSED_NEW
+
+## LRN-DA-V06 — left-pathway-journey
+- **category/subcategory:** VISUAL_DESIGN / left-pathway-journey
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ/1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; backend context.pathway shallow; no pathwayJourney payload
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** LEFT يمثل outline للوحدة الحالية ولا يعرض previous/current/next KUs في مسار تعليمي مرتب.
+- **expected governed intent:** Learning Journey يوضح موضع الوحدة داخل pathway أوسع مع current unit expanded ونقاط النشاط.
+- **material delta:** LEFT يمثل outline للوحدة الحالية ولا يعرض previous/current/next KUs في مسار تعليمي مرتب. ⇢ Learning Journey يوضح موضع الوحدة داخل pathway أوسع مع current unit expanded ونقاط النشاط.
+- **user consequence:** المتعلم لا يعرف من أين أتى، أين هو في المسار، وما الوحدة التالية.
+- **severity:** P1
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** لا يوجد ordered pathway projection في Learn payload/UI.
+- **owner:** LEARN_OWNED
+- **shared dependency:** Curriculum projection authority
+- **collision risk:** HIGH
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** LRN-N06 + Reference Delta LEFT previous/current/next
+- **reconciliation status:** KNOWN
+
+## LRN-DA-V07 — duplicate-section-node
+- **category/subcategory:** VISUAL_DESIGN / duplicate-section-node
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; Learn.vue renders LearningPathNode v-for + ordered outline; LearningPathNode.vue
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** Test Section يظهر مرتين في LEFT: LearningPathNode كبير ثم صف 01 Test Section.
+- **expected governed intent:** تمثيل بصري واحد لكل semantic lesson section.
+- **material delta:** Test Section يظهر مرتين في LEFT: LearningPathNode كبير ثم صف 01 Test Section. ⇢ تمثيل بصري واحد لكل semantic lesson section.
+- **user consequence:** التكرار يربك موقع المستخدم ويضاعف hierarchy بصرياً بلا معنى.
+- **severity:** P1
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** إضافة component جديد بجوار القائمة القديمة بدلاً من استبدالها.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** LRN-C01
+- **reconciliation status:** REGRESSED
+
+## LRN-DA-V08 — selected-current-state-grammar
+- **category/subcategory:** VISUAL_DESIGN / selected-current-state-grammar
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ/1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; LearningPathNode.vue state set locked|available|completed + active boolean
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** current/selected يعتمد على ring/card واحد مع state colors عامة، بينما الخط البصري للرحلة غير متصل ولا يوضح current مقابل available/locked بوضوح.
+- **expected governed intent:** current node واضح ضمن journey مستمر، مع selected/current/available/completed/unknown semantics منفصلة بصرياً ونصياً.
+- **material delta:** current/selected يعتمد على ring/card واحد مع state colors عامة، بينما الخط البصري للرحلة غير متصل ولا يوضح current مقابل available/locked بوضوح. ⇢ current node واضح ضمن journey مستمر، مع selected/current/available/completed/unknown semantics منفصلة بصرياً ونصياً.
+- **user consequence:** يزداد الحمل الإدراكي ويصعب تمييز الموضع الحالي من العناصر المتاحة أو المكتملة.
+- **severity:** P2
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** component state model فقير بالنسبة لدلالة journey.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** LRN-C01 described index/state bug but not full selected-state visual grammar
+- **reconciliation status:** UNDER_SPECIFIED
+
+## LRN-DA-V09 — activity-transition-hierarchy
+- **category/subcategory:** VISUAL_DESIGN / activity-transition-hierarchy
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Learn.vue left activity sections; Drive 1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** Practice/Assessment/Lab في LEFT تظهر كصفوف حالة منفصلة وغير متجانسة مع lesson nodes ؛ Assessment/Lab غير قابلة للاختيار.
+- **expected governed intent:** كل activity kind عقدة ضمن نفس Learning Journey ويدخل CENTER بحالة truthful.
+- **material delta:** Practice/Assessment/Lab في LEFT تظهر كصفوف حالة منفصلة وغير متجانسة مع lesson nodes ؛ Assessment/Lab غير قابلة للاختيار. ⇢ كل activity kind عقدة ضمن نفس Learning Journey ويدخل CENTER بحالة truthful.
+- **user consequence:** الرحلة تبدو قائمة محتوى + status footer بدلاً من workflow قابل للتنقل.
+- **severity:** P1
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** selectedStep مخصص للممارسة ولا يوجد SelectedActivity موحد.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** LRN-01-S1 + Assessment/Lab non-selectable
+- **reconciliation status:** KNOWN
+
+## LRN-DA-V10 — route-orientation-and-breadcrumb
+- **category/subcategory:** VISUAL_DESIGN / route-orientation-and-breadcrumb
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; Learn.vue header; W02 contract route orientation/deep-link requirements
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** تظهر هوية KU التقنية لكن لا يوجد breadcrumb/path orientation غني يربط Domain/Capability/Pathway/KU/current activity كما في المرجع.
+- **expected governed intent:** orientation compact يشرح pathway + canonical object + current activity دون تحويل CENTER إلى metadata wall.
+- **material delta:** تظهر هوية KU التقنية لكن لا يوجد breadcrumb/path orientation غني يربط Domain/Capability/Pathway/KU/current activity كما في المرجع. ⇢ orientation compact يشرح pathway + canonical object + current activity دون تحويل CENTER إلى metadata wall.
+- **user consequence:** المستخدم يرى معرفاً لكنه لا يرى سياق الرحلة أو المستوى التنظيمي الذي ينتمي إليه.
+- **severity:** P2
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** context.pathway shallow ، وعدم وجود current activity model أو breadcrumb projection.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior covered pathway and canonical object but did not isolate route-orientation presentation
+- **reconciliation status:** MISSED_NEW
+
+## LRN-DA-V11 — objective-presentation
+- **category/subcategory:** VISUAL_DESIGN / objective-presentation
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; Learn.vue context.objectives conditional rendering
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** اللقطة الحالية لا تعرض objective فعلياً؛ objective section تختفي بالكامل عندما fixture.lifecycle.objectives فارغة.
+- **expected governed intent:** current objective سياق دائم وواضح عندما يوجد، وحالة truthful عند غياب بيانات objective في fixture/contract.
+- **material delta:** اللقطة الحالية لا تعرض objective فعلياً؛ objective section تختفي بالكامل عندما fixture.lifecycle.objectives فارغة. ⇢ current objective سياق دائم وواضح عندما يوجد، وحالة truthful عند غياب بيانات objective في fixture/contract.
+- **user consequence:** لا يعرف المتعلم ما الذي يجب أن يحققه من النشاط الحالي.
+- **severity:** P1
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** objective يعتمد على lifecycle data ؛ sparse fixture لا يمده.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Reference Delta RIGHT current objective REQUIRED_MATCH
+- **reconciliation status:** KNOWN
+
+## LRN-DA-V12 — readiness-presentation
+- **category/subcategory:** VISUAL_DESIGN / readiness-presentation
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ/1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; Learn.vue assessment/lab cards and right sidebar
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** لا توجد readiness summary موحدة للنشاط؛ readiness موزعة بين unavailable labels و Lab blueprint/assessment states.
+- **expected governed intent:** RIGHT/selected activity يوضح Ready/Blocked/Prerequisites/Integration required بصورة متماسكة.
+- **material delta:** لا توجد readiness summary موحدة للنشاط؛ readiness موزعة بين unavailable labels و Lab blueprint/assessment states. ⇢ RIGHT/selected activity يوضح Ready/Blocked/Prerequisites/Integration required بصورة متماسكة.
+- **user consequence:** يصعب معرفة هل يمكن البدء الآن وما الذي يمنع التقدم.
+- **severity:** P1
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** لا يوجد normalized readiness projection للنشاط المحدد.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior: Lab readiness REQUIRED_MATCH; broader activity readiness not decomposed
+- **reconciliation status:** UNDER_SPECIFIED
+
+## LRN-DA-V13 — prerequisite-presentation
+- **category/subcategory:** VISUAL_DESIGN / prerequisite-presentation
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ/1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; context.prerequisites rendering in Learn.vue
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** prerequisites تظهر كسياق بسيط/empty message ولا ترتبط بصرياً بالـ current activity أو lock/readiness.
+- **expected governed intent:** prerequisite context يوضح dependency relation وحالتها وتأثيرها على readiness دون اختلاق completion.
+- **material delta:** prerequisites تظهر كسياق بسيط/empty message ولا ترتبط بصرياً بالـ current activity أو lock/readiness. ⇢ prerequisite context يوضح dependency relation وحالتها وتأثيرها على readiness دون اختلاق completion.
+- **user consequence:** المستخدم لا يفهم لماذا prerequisite مهم أو هل يمنع النشاط.
+- **severity:** P2
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** backend يرسل IDs/titles منفصلة دون presentation model لحالة dependency.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior mentioned prerequisites but did not decompose relation/readiness visual semantics
+- **reconciliation status:** UNDER_SPECIFIED
+
+## LRN-DA-V14 — practice-composition
+- **category/subcategory:** VISUAL_DESIGN / practice-composition
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Learn.vue permanent practice section + selectedStep; current screenshot fixture has none
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** Practice في CENTER عبارة عن sibling card/list أسفل lesson وليست focused practice surface.
+- **expected governed intent:** اختيار Practice ينقل CENTER إلى prompt/attempt/activity state واضح ويترك lesson خارج active surface.
+- **material delta:** Practice في CENTER عبارة عن sibling card/list أسفل lesson وليست focused practice surface. ⇢ اختيار Practice ينقل CENTER إلى prompt/attempt/activity state واضح ويترك lesson خارج active surface.
+- **user consequence:** الممارسة تبدو ملحقاً للدرس وليست نشاطاً تعلمياً كاملاً.
+- **severity:** P1
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** Lesson ثابت كمالك CENTER و selectedStep لا يغيّر activity surface.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** LRN-01-S1 / Practice does not replace CENTER
+- **reconciliation status:** KNOWN
+
+## LRN-DA-V15 — assessment-composition
+- **category/subcategory:** VISUAL_DESIGN / assessment-composition
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Learn.vue assessment left row + center blueprint card; KnowledgeJourneyService assessment state
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** Assessment يظهر كـ preview/unavailable card مضاف أسفل lesson وصف حالة في LEFT ، دون selected Assessment workspace.
+- **expected governed intent:** Assessment node قابل للاختيار ويملك CENTER truthful preview/unavailable state ، بلا fake attempt/score.
+- **material delta:** Assessment يظهر كـ preview/unavailable card مضاف أسفل lesson وصف حالة في LEFT ، دون selected Assessment workspace. ⇢ Assessment node قابل للاختيار ويملك CENTER truthful preview/unavailable state ، بلا fake attempt/score.
+- **user consequence:** الحالة صحيحة دلالياً لكنها ضعيفة كتجربة نشاط وتضاعف التمثيل.
+- **severity:** P1
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** authoritative assessment state غير مستهلك كـ selected activity.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** LRN-03-S1 PARTIAL / prior focused truthfulness more than composition
+- **reconciliation status:** UNDER_SPECIFIED
+
+## LRN-DA-V16 — lab-composition
+- **category/subcategory:** VISUAL_DESIGN / lab-composition
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Learn.vue lab blueprint + journey.labs; KnowledgeJourneyService prepare_run_handoff
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** Lab يظهر كـ blueprint/unavailable card وصف حالة، لا كـ preview/readiness activity selected surface.
+- **expected governed intent:** Lab node قابل للاختيار، CENTER يعرض preview/readiness/handoff الحقيقة، و RIGHT سياق readiness.
+- **material delta:** Lab يظهر كـ blueprint/unavailable card وصف حالة، لا كـ preview/readiness activity selected surface. ⇢ Lab node قابل للاختيار، CENTER يعرض preview/readiness/handoff الحقيقة، و RIGHT سياق readiness.
+- **user consequence:** المتعلم لا يملك مكاناً واضحاً لفهم متطلبات المختبر قبل handoff.
+- **severity:** P1
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** selectedLab لا يملك CENTER ولا يوجد activity union.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** LRN-03-S1 + Lab readiness REQUIRED_MATCH
+- **reconciliation status:** UNDER_SPECIFIED
+
+## LRN-DA-V17 — right-context-depth
+- **category/subcategory:** VISUAL_DESIGN / right-context-depth
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ مقابل 1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; Learn.vue right aside
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** RIGHT الحالي ثلاثة/أربعة أقسام بسيطة بلا طبقات contextual navigation أو summaries كثيفة، بينما المرجع يضم objective/prereqs/sources/labs/evidence/notes/history وغيرها.
+- **expected governed intent:** RIGHT يحتوي معلومات فريدة، كثيفة ومجمعة بحسب سياق النشاط، وليس مجرد cards قليلة.
+- **material delta:** RIGHT الحالي ثلاثة/أربعة أقسام بسيطة بلا طبقات contextual navigation أو summaries كثيفة، بينما المرجع يضم objective/prereqs/sources/labs/evidence/notes/history وغيرها. ⇢ RIGHT يحتوي معلومات فريدة، كثيفة ومجمعة بحسب سياق النشاط، وليس مجرد cards قليلة.
+- **user consequence:** يفقد المتعلم explainability والعمق المطلوب لاتخاذ قرار أو متابعة المصدر/الاعتماد.
+- **severity:** P1
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** frontend context projection محدود + fixture sparse + لا توجد contextual subviews.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior allowed exact tab count deviation but did not quantify/decompose context-depth loss
+- **reconciliation status:** UNDER_SPECIFIED
+
+## LRN-DA-V18 — right-quick-access
+- **category/subcategory:** VISUAL_DESIGN / right-quick-access
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Learn.vue right aside; KnowledgeTabs global only
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** لا توجد مجموعة quick access واضحة في RIGHT لنفس canonical object عبر Library/Visualize/RQ.
+- **expected governed intent:** cross-surface access ضمن RIGHT/TOP حسب action ownership مع object continuity.
+- **material delta:** لا توجد مجموعة quick access واضحة في RIGHT لنفس canonical object عبر Library/Visualize/RQ. ⇢ cross-surface access ضمن RIGHT/TOP حسب action ownership مع object continuity.
+- **user consequence:** التنقل العميق يحتاج الرجوع لل tabs العامة بدلاً من سياق مباشر.
+- **severity:** P2
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** cross-surface links ليست في contextual owner المقصود.
+- **owner:** LEARN_OWNED
+- **shared dependency:** KnowledgeTabs/return state if shared change needed
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior Reference Delta quick access REQUIRED_MATCH
+- **reconciliation status:** KNOWN
+
+## LRN-DA-V19 — bottom-deep-work-capability
+- **category/subcategory:** VISUAL_DESIGN / bottom-deep-work-capability
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ/1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; Learn.vue local bottom drawer
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** BOTTOM الحالي bar محلي واحد يفتح أربع status cards ؛ لا يقدم channels مثل Knowledge/Relations/Practice/Assessment/Labs/Evidence/Claims التي تجعل deep-work usable.
+- **expected governed intent:** BOTTOM مؤقت لكنه متعدد السياقات/العدّادات ويكشف detail عند الحاجة دون سرقة CENTER.
+- **material delta:** BOTTOM الحالي bar محلي واحد يفتح أربع status cards ؛ لا يقدم channels مثل Knowledge/Relations/Practice/Assessment/Labs/Evidence/Claims التي تجعل deep-work usable. ⇢ BOTTOM مؤقت لكنه متعدد السياقات/العدّادات ويكشف detail عند الحاجة دون سرقة CENTER.
+- **user consequence:** يفتقد المستخدم مساحة فحص معمقة أثناء التعلم، خصوصاً sources/evidence/relations.
+- **severity:** P1
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** BOTTOM model محلي ومحدود إلى activity summary/reading position.
+- **owner:** LEARN_OWNED
+- **shared dependency:** Shared CepTemporaryWorkspace + evidence/curriculum projections
+- **collision risk:** HIGH
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior only said shared bottom owner; deep-work channel/content parity under-specified
+- **reconciliation status:** UNDER_SPECIFIED
+
+## LRN-DA-V20 — bottom-affordance-and-counts
+- **category/subcategory:** VISUAL_DESIGN / bottom-affordance-and-counts
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF مقابل bottom band في 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** الحالة المغلقة تظهر كسطر عام “مساحة السياق المؤقتة” بلا counts/active channel/context cue.
+- **expected governed intent:** closed bottom affordance يبين بوضوح ما يمكن فتحه ولماذا، مع channel/count cues عندما تكون authoritative.
+- **material delta:** الحالة المغلقة تظهر كسطر عام “مساحة السياق المؤقتة” بلا counts/active channel/context cue. ⇢ closed bottom affordance يبين بوضوح ما يمكن فتحه ولماذا، مع channel/count cues عندما تكون authoritative.
+- **user consequence:** لا توجد إشارة إلى وجود evidence/relations/practice detail ، فيُهمل المستخدم المنطقة.
+- **severity:** P2
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** local drawer لديه toggle واحد بلا channel model.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior judged closed presentation close to target; missed information-affordance gap
+- **reconciliation status:** MISSED_NEW
+
+## LRN-DA-V21 — information-density
+- **category/subcategory:** VISUAL_DESIGN / information-density
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ/1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; broad composition comparison
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** الكثافة الحالية منخفضة: أسطح كبيرة، نص قليل، أشرطة/بطاقات متباعدة، ومعلومات سياق قليلة لكل viewport.
+- **expected governed intent:** mature desktop density مشابهة المرجع: تفاصيل أكثر في نفس المساحة مع وضوح hierarchy.
+- **material delta:** الكثافة الحالية منخفضة: أسطح كبيرة، نص قليل، أشرطة/بطاقات متباعدة، ومعلومات سياق قليلة لكل viewport. ⇢ mature desktop density مشابهة المرجع: تفاصيل أكثر في نفس المساحة مع وضوح hierarchy.
+- **user consequence:** المنتج يبدو prototype/course page وليس professional learning workstation.
+- **severity:** P1
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** nested shell + generous spacing + fixture sparse + missing contextual channels.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Not decomposed in prior ledger
+- **reconciliation status:** MISSED_NEW
+
+## LRN-DA-V22 — card-geometry-overfragmentation
+- **category/subcategory:** VISUAL_DESIGN / card-geometry-overfragmentation
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive current screenshot + repeated rounded-xl/border classes in Learn.vue/KnowledgeTabs/LearningPathNode
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** تقريباً كل مجموعة محاطة ب rounded border card ، بما فيها navigation/status ، فتتساوى مستويات الأهمية.
+- **expected governed intent:** استخدام cards محدود للعناصر ذات ownership واضح؛ بقية hierarchy عبر rows/separators/typography.
+- **material delta:** تقريباً كل مجموعة محاطة ب rounded border card ، بما فيها navigation/status ، فتتساوى مستويات الأهمية. ⇢ استخدام cards محدود للعناصر ذات ownership واضح؛ بقية hierarchy عبر rows/separators/typography.
+- **user consequence:** تتضخم chrome نسبةً للمحتوى ويضعف التسلسل البصري.
+- **severity:** P2
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** component grammar يعتمد card كحل افتراضي.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Not independently identified
+- **reconciliation status:** MISSED_NEW
+
+## LRN-DA-V23 — borders-elevation-separators
+- **category/subcategory:** VISUAL_DESIGN / borders-elevation-separators
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive current screenshot; Learn.vue border classes throughout
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** حدود متعددة ومتكررة حول panels/cards بينما separators الداخلية وال row hierarchy أقل قوة.
+- **expected governed intent:** حدود/elevation قليلة ذات معنى مع separators واضحة بين dense rows/context groups.
+- **material delta:** حدود متعددة ومتكررة حول panels/cards بينما separators الداخلية وال row hierarchy أقل قوة. ⇢ حدود/elevation قليلة ذات معنى مع separators واضحة بين dense rows/context groups.
+- **user consequence:** الواجهة تبدو مجزأة إلى صناديق بدلاً من workspace متصل.
+- **severity:** P2
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** visual system local composition overuses borders.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Not independently identified
+- **reconciliation status:** MISSED_NEW
+
+## LRN-DA-V24 — typography-hierarchy
+- **category/subcategory:** VISUAL_DESIGN / typography-hierarchy
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive reference/current visual comparison; Learn.vue text-3xl/text-xl and spacing
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** H1 والعناوين/labels كبيرة نسبياً مقارنة بحجم المعلومات؛ مستويات text كثيرة لكنها لا تنتج hierarchy كثيفاً مثل المرجع.
+- **expected governed intent:** typography compact مع تمييز واضح للعنوان/metadata/label/value/activity ، والمحافظة على Arabic readability.
+- **material delta:** H1 والعناوين/labels كبيرة نسبياً مقارنة بحجم المعلومات؛ مستويات text كثيرة لكنها لا تنتج hierarchy كثيفاً مثل المرجع. ⇢ typography compact مع تمييز واضح للعنوان/metadata/label/value/activity ، والمحافظة على Arabic readability.
+- **user consequence:** العناوين تستهلك vertical space وتزيد الإحساس بالفراغ.
+- **severity:** P2
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** typographic scale غير مضبوطة على dense desktop target.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Not decomposed
+- **reconciliation status:** MISSED_NEW
+
+## LRN-DA-V25 — spacing-padding-vertical-rhythm
+- **category/subcategory:** VISUAL_DESIGN / spacing-padding-vertical-rhythm
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive current screenshot; Learn.vue p-4/p-5/gap-4/gap-6 classes
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** padding/gaps كبيرة ومتكررة بين cards وال sections وتنتج rhythm بطيئاً.
+- **expected governed intent:** spacing system أكثر إحكاماً، يميز macro regions عن micro rows ويزيد visible learning content.
+- **material delta:** padding/gaps كبيرة ومتكررة بين cards وال sections وتنتج rhythm بطيئاً. ⇢ spacing system أكثر إحكاماً، يميز macro regions عن micro rows ويزيد visible learning content.
+- **user consequence:** المتعلم يمرر أكثر للوصول لنفس كمية المعلومات ويقل overview عند 1440.
+- **severity:** P2
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** default spacious utility composition rather than workstation-specific density.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Not decomposed
+- **reconciliation status:** MISSED_NEW
+
+## LRN-DA-V26 — iconography
+- **category/subcategory:** VISUAL_DESIGN / iconography
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** KnowledgeTabs.vue literal emoji icons; current screenshot
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** التبويبات وبعض الأفعال تستخدم Emoji (📖🎓🕸️⚖️ وغيرها) داخل واجهة enterprise.
+- **expected governed intent:** icon system ثابت بصرياً، monochrome/vector-like ، متناسق بالحجم والمحاذاة عبر المنصات.
+- **material delta:** التبويبات وبعض الأفعال تستخدم Emoji (📖🎓🕸️⚖️ وغيرها) داخل واجهة enterprise. ⇢ icon system ثابت بصرياً، monochrome/vector-like ، متناسق بالحجم والمحاذاة عبر المنصات.
+- **user consequence:** Emoji تختلف حسب OS/browser وتضعف الاتساق والاحترافية وتخلق baseline alignment variance.
+- **severity:** P2
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** الرموز معرفة كنص Unicode بدلاً من icon components.
+- **owner:** LEARN_OWNED
+- **shared dependency:** Shared W02 icon/navigation system
+- **collision risk:** MEDIUM
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior treated exact iconography as allowed deviation; deep audit finds platform-dependent glyph system issue
+- **reconciliation status:** MISSED_NEW
+
+## LRN-DA-V27 — secondary-tabs-density
+- **category/subcategory:** VISUAL_DESIGN / secondary-tabs-density
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** KnowledgeTabs.vue rounded-xl border px-3.5 py-2; Drive current screenshot
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** بوابات W02 تظهر كبطاقات pill منفصلة بارتفاع/padding ملحوظ داخل top shell ، بدلاً من tab strip مضغوط.
+- **expected governed intent:** secondary nav يستهلك أقل vertical chrome مع selected state واضح ومتصل بال workspace.
+- **material delta:** بوابات W02 تظهر كبطاقات pill منفصلة بارتفاع/padding ملحوظ داخل top shell ، بدلاً من tab strip مضغوط. ⇢ secondary nav يستهلك أقل vertical chrome مع selected state واضح ومتصل بال workspace.
+- **user consequence:** تضيع مساحة رأسية قبل الوصول للمحتوى ويزداد card-on-card appearance.
+- **severity:** P2
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** shared tabs component uses chip/card grammar.
+- **owner:** SHARED_W02_NAV_OWNED
+- **shared dependency:** KnowledgeTabs across Library/Learn/Visualize/RQ
+- **collision risk:** HIGH
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior did not decompose tab geometry
+- **reconciliation status:** MISSED_NEW
+
+## LRN-DA-V28 — panel-width-balance
+- **category/subcategory:** VISUAL_DESIGN / panel-width-balance
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Learn.vue xl:grid-cols-[280px_minmax(0,1fr)_300px] داخل outer padding; Visual Contract target bands
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** الـ inner three-column grid 280/flex/300 داخل shell padded يقلل effective CENTER width مقارنة بالمرجع الواسع ويجعل RIGHT ضيقاً لمحتوى غني.
+- **expected governed intent:** widths تضبط على shared desktop contract مع CENTER dominant ، و RIGHT قادر على context depth دون nested-shell tax.
+- **material delta:** الـ inner three-column grid 280/flex/300 داخل shell padded يقلل effective CENTER width مقارنة بالمرجع الواسع ويجعل RIGHT ضيقاً لمحتوى غني. ⇢ widths تضبط على shared desktop contract مع CENTER dominant ، و RIGHT قادر على context depth دون nested-shell tax.
+- **user consequence:** عند إضافة rich fixture سيزداد wrapping/height وقد تتفاقم كثافة البطاقات.
+- **severity:** P1
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** local fixed inner widths + nested workspace.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior shared-layout finding did not isolate future rich-data width pressure
+- **reconciliation status:** UNDER_SPECIFIED
+
+## LRN-DA-V29 — technical-islands-and-bidi
+- **category/subcategory:** VISUAL_DESIGN / technical-islands-and-bidi
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Learn.vue/LessonContentRenderer.vue static bdi support; sparse current screenshot
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** الكود يستخدم bdi/dir=ltr في كثير من IDs ، لكن التغطية البصرية لم تُثبت rich mixed strings داخل objectives/sources/pathway/labels.
+- **expected governed intent:** كل LTR technical island يبقى سليماً ضمن RTL عند بيانات واقعية طويلة ومتنوعة.
+- **material delta:** الكود يستخدم bdi/dir=ltr في كثير من IDs ، لكن التغطية البصرية لم تُثبت rich mixed strings داخل objectives/sources/pathway/labels. ⇢ كل LTR technical island يبقى سليماً ضمن RTL عند بيانات واقعية طويلة ومتنوعة.
+- **user consequence:** قد تظهر انقلابات/تداخلات فقط عند بيانات canonical حقيقية لا تظهر في Test KU.
+- **severity:** P2
+- **classification:** EVIDENCE_INSUFFICIENT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** الدعم الساكن موجود، لكن representative runtime Bidi evidence ناقص.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior validation matrix requires mixed Arabic/English; no rich Learn screenshot
+- **reconciliation status:** UNDER_SPECIFIED
+
+## LRN-DA-V30 — visual-accessibility-states
+- **category/subcategory:** VISUAL_DESIGN / visual-accessibility-states
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; static classes only; no dynamic browser traces
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** اللقطة لا تثبت hover/focus/disabled/keyboard-selected states للنشاطات واللوحات، وبعض nodes غير interactive أصلاً.
+- **expected governed intent:** states قابلة للإدراك بصرياً وبـ keyboard/focus مع no-color-only semantics.
+- **material delta:** اللقطة لا تثبت hover/focus/disabled/keyboard-selected states للنشاطات واللوحات، وبعض nodes غير interactive أصلاً. ⇢ states قابلة للإدراك بصرياً وبـ keyboard/focus مع no-color-only semantics.
+- **user consequence:** لا يمكن قبول التفاعل البصري/accessibility من لقطة static واحدة.
+- **severity:** P2
+- **classification:** EVIDENCE_INSUFFICIENT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** غياب evidence ديناميكي؛ ليس دليلاً على فشل كل state.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior V-40..V-45 evidence requirements
+- **reconciliation status:** KNOWN
+
+## LRN-DA-V31 — progressbar-accessible-name-and-semantic-value
+- **category/subcategory:** VISUAL_DESIGN / visual-accessibility-progress-semantics
+- **view/state:** Learn primary / reading progress
+- **viewport/direction:** Dark 1440 RTL + accessibility tree
+- **reference authority:** W02 Visual Contract accessibility intent + prior `LRN-C-A11Y-01` + owner Learn reference progress language
+- **exact evidence:** `resources/js/pages/KnowledgeLearning/components/learn/ProgressIndicator.vue` at exact candidate SHA; current 1440 Learn evidence; prior Learn reconciliation package
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** `ProgressIndicator.vue` exposes `role="progressbar"` and numeric aria min/max/now but has no accessible name or `aria-valuetext`; it is also fed raw block-position semantics rather than a governed semantic-section vocabulary.
+- **expected governed intent:** progress must expose a localized accessible name and value text whose meaning is explicit (for example semantic reading position), using the same governed denominator presented visually.
+- **material delta:** the visual control exists, but assistive technology cannot reliably identify what the percentage means, and the underlying denominator is not the final semantic-section contract.
+- **user consequence:** screen-reader and accessibility-tree users can encounter an unnamed percentage with ambiguous meaning; visual and non-visual progress semantics diverge.
+- **severity:** P2
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** `ProgressIndicator.vue` omits `aria-label`/`aria-labelledby` and `aria-valuetext`; `Learn.vue` supplies raw block current/total values.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** do not add a generic label while leaving raw-block progress semantics ambiguous; accessible and visual semantics must use the same governed progress model.
+- **future validation:** DOM/accessibility assertion for computed accessible name/value text plus integrated rich-lesson browser proof.
+- **required browser state:** Dark 1440 RTL with progress visible and accessibility tree captured.
+- **required screenshot state:** exact-candidate screenshot showing the progress state, paired with DOM/accessibility evidence of the localized accessible name/value.
+- **closure criterion:** progressbar has a localized accessible name and value text, semantic-section current/total is coherent, and no raw-block denominator leaks into user-facing progress.
+- **prior finding mapping:** LRN-C-A11Y-01
+- **reconciliation status:** KNOWN
+
+## LRN-DA-V32 — action-and-control-hierarchy
+- **category/subcategory:** VISUAL_DESIGN / buttons-controls-action-hierarchy
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference + W02 Master Plan TOP/RIGHT action ownership
+- **exact evidence:** current 1440 Learn screenshot; `Learn.vue`; `KnowledgeTabs.vue`; absence of shared `#top` consumption
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** resume/status, “فتح الكائن في المكتبة”, “فحص المصادر”, pathway-map access and global W02 gateways are visually scattered across CENTER/LEFT/top navigation without one clear primary-versus-contextual control hierarchy.
+- **expected governed intent:** current/resume actions belong to TOP, contextual cross-surface access belongs to RIGHT/TOP according to ownership, and secondary controls use a compact consistent hierarchy that does not compete with the active learning surface.
+- **material delta:** controls exist, but their placement and visual weight do not communicate a coherent task hierarchy; navigation, resume and contextual actions compete across regions.
+- **user consequence:** the learner must scan multiple regions to determine the primary next action, while CENTER loses focus and quick-access semantics are diluted.
+- **severity:** P2
+- **classification:** PRODUCT_VISUAL_DESIGN_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** Learn does not consume shared TOP and places cross-surface/action controls locally; `KnowledgeTabs` uses a high-chrome pill/card grammar.
+- **owner:** LEARN_OWNED
+- **shared dependency:** KnowledgeTabs only if shared control styling/return contract must change
+- **collision risk:** MEDIUM
+- **prohibited shortcut:** do not simply recolor buttons or increase contrast; establish region ownership and primary/secondary/contextual action semantics first.
+- **future validation:** 1440 rich-state screenshot and DOM owner census showing one clear current/resume action tier and contextual quick-access placement.
+- **required browser state:** Dark 1440 RTL, rich lesson and selected Practice states.
+- **required screenshot state:** screenshots demonstrating TOP current/resume hierarchy and RIGHT contextual quick access without duplicated controls.
+- **closure criterion:** every visible control has a clear owner and hierarchy; CENTER is not used as a miscellaneous action shelf; quick access and resume are discoverable without competing with active activity content.
+- **prior finding mapping:** prior TOP resume + RIGHT quick-access items covered ownership but under-specified button/control hierarchy
+- **reconciliation status:** UNDER_SPECIFIED
+
+## LRN-DA-F01 — mixed-index-space-state
+- **category/subcategory:** FUNCTIONAL / mixed-index-space-state
+- **view/state:** Lesson outline navigation
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Learn.vue LearningPathNode props + lessonOutline item.index vs loop index; LearningPathNode.vue
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** LearningPathNode v-for ordinal يُقارن بـ selectedBlockIndex الخام عبر جميع blocks.
+- **expected governed intent:** state/current/completed يعتمد semantic heading index/identity واحد.
+- **material delta:** LearningPathNode v-for ordinal يُقارن بـ selectedBlockIndex الخام عبر جميع blocks. ⇢ state/current/completed يعتمد semantic heading index/identity واحد.
+- **user consequence:** عند وجود paragraph/code/callout بين headings قد تُعلَّم العقدة الخطأ current/completed.
+- **severity:** P1
+- **classification:** FUNCTIONAL_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** خلط loop ordinal مع raw block index.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** LRN-C01
+- **reconciliation status:** REGRESSED
+
+## LRN-DA-F02 — selected-activity-center-binding
+- **category/subcategory:** FUNCTIONAL / selected-activity-center-binding
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Learn.vue selectedStepId/selectedStep/selectStep + permanent lesson CENTER
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** selectedStepId يمكن أن يشير إلى Practice بينما CENTER يظل Lesson.
+- **expected governed intent:** selectedActivity يساوي دائماً surface الظاهر في CENTER.
+- **material delta:** selectedStepId يمكن أن يشير إلى Practice بينما CENTER يظل Lesson. ⇢ selectedActivity يساوي دائماً surface الظاهر في CENTER.
+- **user consequence:** selection state لا يطابق ما يراه المستخدم؛ navigation/return behavior غير موثوق.
+- **severity:** P1
+- **classification:** FUNCTIONAL_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** لا يوجد SelectedActivity union.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** LRN-01-S1
+- **reconciliation status:** KNOWN
+
+## LRN-DA-F03 — recommendation-selection-conflation
+- **category/subcategory:** FUNCTIONAL / recommendation-selection-conflation
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Learn.vue selectedStep in RIGHT; KnowledgeJourneyService returns journey.next.practice_id
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** RIGHT “الخطوة التالية المقترحة” مشتقة من selectedStep لا من journey.next.
+- **expected governed intent:** التوصية backend-driven من journey.next وتبقى مستقلة عن اختيار المستخدم.
+- **material delta:** RIGHT “الخطوة التالية المقترحة” مشتقة من selectedStep لا من journey.next. ⇢ التوصية backend-driven من journey.next وتبقى مستقلة عن اختيار المستخدم.
+- **user consequence:** اختيار Practice A قد يعرض A كتوصية رغم أن backend يوصي B.
+- **severity:** P1
+- **classification:** FUNCTIONAL_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** conflation بين UI selection و recommendation state.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** LRN-N01
+- **reconciliation status:** KNOWN
+
+## LRN-DA-F04 — reading-resume-capture-restore
+- **category/subcategory:** FUNCTIONAL / reading-resume-capture-restore
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Learn.vue resumeKey/restoreReadingPosition/selectLessonBlock/onMounted
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** resume يحفظ selectedBlockIndex عند explicit selection ولا يلتقط natural scroll ؛ restore يضبط index ولا يعيد viewport فعلياً.
+- **expected governed intent:** semantic reading anchor يُلتقط passively ويعيد viewport بعد render.
+- **material delta:** resume يحفظ selectedBlockIndex عند explicit selection ولا يلتقط natural scroll ؛ restore يضبط index ولا يعيد viewport فعلياً. ⇢ semantic reading anchor يُلتقط passively ويعيد viewport بعد render.
+- **user consequence:** زر/نسخة continue قد تعطي انطباعاً بالاستئناف دون إعادة موضع القراءة الحقيقي.
+- **severity:** P1
+- **classification:** FUNCTIONAL_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** localStorage index-only + no observer/scroll restoration.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** LRN-02-S1
+- **reconciliation status:** KNOWN
+
+## LRN-DA-F05 — resume-scope-isolation
+- **category/subcategory:** FUNCTIONAL / resume-scope-isolation
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Learn.vue resumeKey = cep:knowledge-learn:position:<revision-id>; backend has actorId
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** مفتاح resume يحتوي revision id فقط ولا يضم user/session scope.
+- **expected governed intent:** browser resume معزول بسياق opaque آمن أو يُعطّل إذا لم يمكن ضمان العزل.
+- **material delta:** مفتاح resume يحتوي revision id فقط ولا يضم user/session scope. ⇢ browser resume معزول بسياق opaque آمن أو يُعطّل إذا لم يمكن ضمان العزل.
+- **user consequence:** يمكن لمستخدمين على نفس المتصفح مشاركة موضع قراءة غير مقصود.
+- **severity:** P2
+- **classification:** FUNCTIONAL_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** storage namespace غير scoped للهوية/الجلسة.
+- **owner:** LEARN_OWNED
+- **shared dependency:** Bounded identity/session scope
+- **collision risk:** MEDIUM
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** LRN-N04 / A07
+- **reconciliation status:** KNOWN
+
+## LRN-DA-F06 — localized-unavailable-reason
+- **category/subcategory:** FUNCTIONAL / localized-unavailable-reason
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** KnowledgeLibraryService::learningUnit unavailable_reason; Learn.vue v-else render
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** KnowledgeLibraryService يرسل unavailable_reason إنجليزي كامل و Learn يعرضه مباشرة في Arabic UI.
+- **expected governed intent:** machine reason code → localized Arabic product state ؛ diagnostic text لا يعبر presentation boundary مباشرة.
+- **material delta:** KnowledgeLibraryService يرسل unavailable_reason إنجليزي كامل و Learn يعرضه مباشرة في Arabic UI. ⇢ machine reason code → localized Arabic product state ؛ diagnostic text لا يعبر presentation boundary مباشرة.
+- **user consequence:** حالة عربية قد تحتوي رسالة إنجليزية خام وتكسر Bidi/consistency.
+- **severity:** P2
+- **classification:** FUNCTIONAL_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** presentation consumes backend diagnostic sentence.
+- **owner:** LEARN_OWNED
+- **shared dependency:** KnowledgeLibraryService additive reason code may be shared
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** LRN-N05
+- **reconciliation status:** KNOWN
+
+## LRN-DA-F07 — source-provenance-rendering
+- **category/subcategory:** FUNCTIONAL / source-provenance-rendering
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Learn.vue SourceContext type + right sources template; KnowledgeLearningWorkspace quality.sourcesForClaims
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** SourceContext يتضمن authority_class و review_status ، لكن RIGHT يرسم title فقط؛ fixture يظهر C1.
+- **expected governed intent:** source summary يعرض provenance/authority/review state اللازمة لاتخاذ قرار تعلم/ثقة.
+- **material delta:** SourceContext يتضمن authority_class و review_status ، لكن RIGHT يرسم title فقط؛ fixture يظهر C1. ⇢ source summary يعرض provenance/authority/review state اللازمة لاتخاذ قرار تعلم/ثقة.
+- **user consequence:** المستخدم يرى اسم مصدر بلا جودة/سلطة، رغم أن البيانات موجودة في payload.
+- **severity:** P1
+- **classification:** FUNCTIONAL_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** frontend drops available provenance fields at rendering layer.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior required source/context generally but did not identify bound fields being discarded
+- **reconciliation status:** MISSED_NEW
+
+## LRN-DA-F08 — assessment-authoritative-state-consumption
+- **category/subcategory:** FUNCTIONAL / assessment-authoritative-state-consumption
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** KnowledgeJourneyService assessments; KnowledgeLearningWorkspace context.assessment_blueprints; Learn.vue assessment card
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** backend يرسل journey.assessments authoritative state ، بينما UI يعتمد lifecycle assessment_blueprints لأول placement ولا يعرض journey.assessments كمالك للحالة.
+- **expected governed intent:** selected Assessment presentation يستمد availability/integration truth من journey.assessments ويستخدم blueprint للإثراء فقط.
+- **material delta:** backend يرسل journey.assessments authoritative state ، بينما UI يعتمد lifecycle assessment_blueprints لأول placement ولا يعرض journey.assessments كمالك للحالة. ⇢ selected Assessment presentation يستمد availability/integration truth من journey.assessments ويستخدم blueprint للإثراء فقط.
+- **user consequence:** قد تعرض الواجهة blueprint دون إبراز سبب عدم القابلية للتنفيذ أو تخلط definition مع runtime truth.
+- **severity:** P1
+- **classification:** FUNCTIONAL_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** مصدر truth authoritative غير مربوط مباشرة بالعرض.
+- **owner:** LEARN_OWNED
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** LRN-03-S1
+- **reconciliation status:** KNOWN
+
+## LRN-DA-F09 — selected-activity-return-state
+- **category/subcategory:** FUNCTIONAL / navigation-return-state
+- **view/state:** Learn selected activity → cross-surface navigation → Back/return
+- **viewport/direction:** Dark 1440 RTL (behavioral; must also survive ~1024)
+- **reference authority:** W02 continuity contract + prior `LRN-02-S3`
+- **exact evidence:** `Learn.vue` local `selectedStepId`; `KnowledgeTabs.vue::withObject()` preserves only `?object=<id>`; no selected-activity route/history/session contract is present at the exact candidate SHA
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** selected Practice/activity is a local reactive value and is not persisted in navigation/return state; cross-surface links preserve canonical object identity only.
+- **expected governed intent:** canonical object remains stable while Learn transient state independently preserves selected curriculum context, selected activity and reading anchor across reload/Back/return according to an approved bounded policy.
+- **material delta:** object continuity exists, but selected Learn activity continuity does not; returning to Learn can lose the learner’s active task even when the canonical KU is preserved.
+- **user consequence:** the learner can be returned to the correct KU but the wrong activity/reading state, breaking task continuity and making deep links/navigation feel unreliable.
+- **severity:** P1
+- **classification:** FUNCTIONAL_DEFECT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** transient selection is local-only; shared navigation serializes only the canonical object query and there is no Learn-owned history/session restoration contract.
+- **owner:** LEARN_OWNED
+- **shared dependency:** KnowledgeTabs only if an opaque shared return token is proven necessary
+- **collision risk:** MEDIUM
+- **prohibited shortcut:** do not overload the canonical `object` query with raw Learn internals or conflate selected activity with reading anchor.
+- **future validation:** select Practice B → navigate to Visualize/RQ → browser Back/return → Practice B restored; reading anchor remains independent.
+- **required browser state:** Dark 1440 RTL and Dark ~1024 RTL with cross-surface navigation available.
+- **required screenshot state:** before-navigation selected Practice screenshot plus after-return screenshot, paired with route/history/state trace.
+- **closure criterion:** same canonical KU, same approved curriculum context, same selected Learn activity and independent reading anchor are restored deterministically after Back/return/reload policy.
+- **prior finding mapping:** LRN-02-S3
+- **reconciliation status:** KNOWN
+
+## LRN-DA-D01 — screenshot-test-fixture
+- **category/subcategory:** DATA_REALISM / screenshot-test-fixture
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; prior package explicitly classifies Test KU fixture; B09 active KU evidence
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** لقطة Learn الحالية تستخدم Test KU 1 / Test Section / C1 و1/1؛ لا تمثل canonical learning content الحقيقي.
+- **expected governed intent:** evidence fixture deterministic غني يغطي journey/content/objectives/prereqs/practices/sources/states.
+- **material delta:** لقطة Learn الحالية تستخدم Test KU 1 / Test Section / C1 و1/1؛ لا تمثل canonical learning content الحقيقي. ⇢ evidence fixture deterministic غني يغطي journey/content/objectives/prereqs/practices/sources/states.
+- **user consequence:** الفارق البصري الكبير قد يُنسب خطأ للتصميم أو يُخفى بسبب بيانات فقيرة.
+- **severity:** P1
+- **classification:** DATA_FIXTURE_REPRESENTATIVENESS_GAP
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** browser evidence ran with sparse test fixture, not a representative canonical/rich acceptance profile.
+- **owner:** EVIDENCE_FIXTURE_OWNER
+- **shared dependency:** W02 acceptance dataset/browser harness
+- **collision risk:** MEDIUM
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior ledger: labels/content differ from Test KU fixture = allowed deviation; deep audit reclassifies representativeness separately
+- **reconciliation status:** UNDER_SPECIFIED
+
+## LRN-DA-D02 — active-ku-canonical-richness-gap
+- **category/subcategory:** DATA_REALISM / active-ku-canonical-richness-gap
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** B09 ZIP 1P9RW1rIAVdJNuoQqqgaJZ_IZcDpm-Si6 KU-D03-0001.md + Drive 1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; B09 summary 143XnqYySfgYM04AslzvMxq03gWpBNZpd
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** الـ object id الظاهر KU-D03-0001 يطابق B09 record غني بعنوان Authentication Protocol Ceremonies and Trust Boundaries مع 8 normalized claims وعلاقات/limitations ؛ اللقطة تعرض Test KU 1 ومحتوى فقيراً.
+- **expected governed intent:** عند مراجعة fidelity يجب استخدام محتوى deterministic يعكس ثراء بنية canonical KU دون الادعاء بأنه importer كامل.
+- **material delta:** الـ object id الظاهر KU-D03-0001 يطابق B09 record غني بعنوان Authentication Protocol Ceremonies and Trust Boundaries مع 8 normalized claims وعلاقات/limitations ؛ اللقطة تعرض Test KU 1 ومحتوى فقيراً. ⇢ عند مراجعة fidelity يجب استخدام محتوى deterministic يعكس ثراء بنية canonical KU دون الادعاء بأنه importer كامل.
+- **user consequence:** اللقطة الحالية لا تختبر typography/code/callouts/sources/objectives/relationships تحت data pressure حقيقي.
+- **severity:** P1
+- **classification:** DATA_FIXTURE_REPRESENTATIVENESS_GAP
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** fixture runtime record لا يعكس canonical B09 record ذي الهوية نفسها.
+- **owner:** EVIDENCE_FIXTURE_OWNER
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** No prior item bound Test KU identity to the exact B09 KU richness
+- **reconciliation status:** MISSED_NEW
+
+## LRN-DA-D03 — six-ku-acceptance-subset
+- **category/subcategory:** DATA_REALISM / six-ku-acceptance-subset
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** database/seeders/W02AcceptanceSeeder.php exact SHA
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** W02AcceptanceSeeder يزرع 6 KUs فقط في local/testing ويشترط canonical_runtime_import_authorized=false.
+- **expected governed intent:** تُصنَّف هذه البيانات REPRESENTATIVE_SUBSET فقط، ولا تستخدم كدليل على full 224-KU runtime integration.
+- **material delta:** W02AcceptanceSeeder يزرع 6 KUs فقط في local/testing ويشترط canonical_runtime_import_authorized=false. ⇢ تُصنَّف هذه البيانات REPRESENTATIVE_SUBSET فقط، ولا تستخدم كدليل على full 224-KU runtime integration.
+- **user consequence:** نجاح ست وحدات قد يُفهم خطأ كاكتمال الربط canonical/runtime.
+- **severity:** P1
+- **classification:** DATA_FIXTURE_REPRESENTATIVENESS_GAP
+- **authority/disposition:** ALLOWED_INTENTIONAL_DEVIATION
+- **root cause / NOT_YET_PROVEN:** acceptance profile متعمد ومحدود ومفصول عن B09/B10 import.
+- **owner:** DATA_EVIDENCE_OWNER
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior package required rich fixture but did not classify the six-KU seeder against the 224-KU canonical baseline
+- **reconciliation status:** MISSED_NEW
+
+## LRN-DA-D04 — state-coverage-fixture-gap
+- **category/subcategory:** DATA_REALISM / state-coverage-fixture-gap
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; prior validation matrix deterministic rich fixture requirements
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** لقطة primary لا تحتوي multiple lesson sections أو two Practices أو objective/prerequisite richness أو selected!=recommended scenario.
+- **expected governed intent:** fixture يغطي على الأقل 3 semantic sections بأنواع blocks مختلطة، 2 Practices ، objective ، prerequisite ، 2 sources ، وتوصية تختلف عن الاختيار.
+- **material delta:** لقطة primary لا تحتوي multiple lesson sections أو two Practices أو objective/prerequisite richness أو selected!=recommended scenario. ⇢ fixture يغطي على الأقل 3 semantic sections بأنواع blocks مختلطة، 2 Practices ، objective ، prerequisite ، 2 sources ، وتوصية تختلف عن الاختيار.
+- **user consequence:** لا يمكن رؤية/اختبار عيوب hierarchy والاختيار والتوصية تحت states المهمة.
+- **severity:** P1
+- **classification:** DATA_FIXTURE_REPRESENTATIVENESS_GAP
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** evidence fixture sparse.
+- **owner:** EVIDENCE_FIXTURE_OWNER
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior V-02..V-11 + rich fixture requirements
+- **reconciliation status:** KNOWN
+
+## LRN-DA-D05 — assessment-lab-fixture-state-coverage
+- **category/subcategory:** DATA_REALISM / assessment-lab-fixture-state-coverage
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Drive 1_AgqoAWNdvztmRWzfPEb6lPG4CqvVaoF; KnowledgeJourneyService explicit states; prior browser matrix missing 1440 Assessment/Lab
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** primary screenshot يثبت unavailable labels فقط ولا يعرض selected Assessment أو Lab preview/readiness داخل CENTER/RIGHT.
+- **expected governed intent:** separate deterministic fixture states لأ Assessment unavailable/preview و Lab reference/non-executable ، دون fake execution.
+- **material delta:** primary screenshot يثبت unavailable labels فقط ولا يعرض selected Assessment أو Lab preview/readiness داخل CENTER/RIGHT. ⇢ separate deterministic fixture states لأ Assessment unavailable/preview و Lab reference/non-executable ، دون fake execution.
+- **user consequence:** لا يمكن قبول visual composition لكل activity type من state واحد.
+- **severity:** P2
+- **classification:** DATA_FIXTURE_REPRESENTATIVENESS_GAP
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** browser evidence matrix incomplete for activity variants.
+- **owner:** EVIDENCE_FIXTURE_OWNER
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior V-05/V-06/V-31/V-32
+- **reconciliation status:** UNDER_SPECIFIED
+
+## LRN-DA-R01 — full-canonical-import-not-proven
+- **category/subcategory:** RUNTIME_BINDING / full-canonical-import-not-proven
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** B09 summary 143XnqYySfgYM04AslzvMxq03gWpBNZpd; B09 archive 1P9RW1rIAVdJNuoQqqgaJZ_IZcDpm-Si6; W02AcceptanceSeeder.php; DatabaseSeeder.php
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** B09 يثبت 224 physical KUs و2603 claims structur ياً، لكن W02AcceptanceSeeder يعلن صراحة أنه لا يستورد B09/B10 وأن canonical runtime import غير مصرح.
+- **expected governed intent:** حالة الربط full canonical→DB→Learn يجب أن تبقى NOT_PROVEN حتى وجود importer/evidence مستقل.
+- **material delta:** B09 يثبت 224 physical KUs و2603 claims structur ياً، لكن W02AcceptanceSeeder يعلن صراحة أنه لا يستورد B09/B10 وأن canonical runtime import غير مصرح. ⇢ حالة الربط full canonical→DB→Learn يجب أن تبقى NOT_PROVEN حتى وجود importer/evidence مستقل.
+- **user consequence:** القول إن Learn مربوط بكل 224 KU سيكون overclaim ؛ والقول إنها غائبة كلياً أيضاً غير مبرر.
+- **severity:** P1
+- **classification:** CANONICAL_RUNTIME_BINDING_GAP
+- **authority/disposition:** AUTHORITY_DECISION_REQUIRED
+- **root cause / NOT_YET_PROVEN:** لا يوجد في المسار المراجع دليل تشغيل full B09 importer ؛ default seeder لا يستدعي W02AcceptanceSeeder أصلاً.
+- **owner:** CANONICAL_RUNTIME_INTEGRATION_OWNER
+- **shared dependency:** Knowledge ingestion/runtime integration
+- **collision risk:** HIGH
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior package did not audit B09 224→runtime completeness directly
+- **reconciliation status:** MISSED_NEW
+
+## LRN-DA-R02 — db-to-learn-partial-binding
+- **category/subcategory:** RUNTIME_BINDING / db-to-learn-partial-binding
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** KnowledgeLibraryService.php; KnowledgeLearningWorkspace.php; KnowledgeJourneyService.php; CurriculumKnowledgeService.php
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** Learn runtime يقرأ persisted KnowledgeUnit + latest published LessonRevision + CurriculumPlacement + MicroPractice/Attempts + source quality ؛ هذا الربط PROVEN_PARTIAL فقط.
+- **expected governed intent:** توثيق صريح للطبقات المثبتة مقابل غير المثبتة، مع عدم الخلط بين DB-backed و full canonical integration.
+- **material delta:** Learn runtime يقرأ persisted KnowledgeUnit + latest published LessonRevision + CurriculumPlacement + MicroPractice/Attempts + source quality ؛ هذا الربط PROVEN_PARTIAL فقط. ⇢ توثيق صريح للطبقات المثبتة مقابل غير المثبتة، مع عدم الخلط بين DB-backed و full canonical integration.
+- **user consequence:** قد تُعطى ثقة زائفة لأن الشاشة ليست hardcoded بينما provenance upstream ما زال غير مكتمل.
+- **severity:** P1
+- **classification:** CANONICAL_RUNTIME_BINDING_GAP
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** runtime services موصولة بجداول التطبيق، لكن upstream canonical ingestion coverage غير مثبت.
+- **owner:** CANONICAL_RUNTIME_INTEGRATION_OWNER
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior acknowledged canonical continuity but not end-to-end binding classification
+- **reconciliation status:** MISSED_NEW
+
+## LRN-DA-R03 — multi-placement-context-selection
+- **category/subcategory:** RUNTIME_BINDING / multi-placement-context-selection
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** KnowledgeLearningWorkspace::learningContext; CurriculumKnowledgeService::placementsForUnit orders by capability_id
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** learningContext يقرأ placements[0].lifecycle لكل pathway/objectives/prereqs/blueprints.
+- **expected governed intent:** context selection صريح أو canonical default governed ؛ عند ambiguity تُعرض حالة truthful.
+- **material delta:** learningContext يقرأ placements[0].lifecycle لكل pathway/objectives/prereqs/blueprints. ⇢ context selection صريح أو canonical default governed ؛ عند ambiguity تُعرض حالة truthful.
+- **user consequence:** KU متعدد placements قد يعرض pathway/objectives/prereqs من placement غير المقصود.
+- **severity:** P1
+- **classification:** CANONICAL_RUNTIME_BINDING_GAP
+- **authority/disposition:** AUTHORITY_DECISION_REQUIRED
+- **root cause / NOT_YET_PROVEN:** first-row database order مستخدم كسياسة semantic.
+- **owner:** CURRICULUM_CONTEXT_AUTHORITY
+- **shared dependency:** CurriculumKnowledgeService + Controller A01
+- **collision risk:** HIGH
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** LRN-N03 / A01
+- **reconciliation status:** KNOWN
+
+## LRN-DA-R04 — assessment-runtime-contract-gap
+- **category/subcategory:** RUNTIME_BINDING / assessment-runtime-contract-gap
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** KnowledgeJourneyService.php assessment state + Learn tests
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** journey.assessments = NO_CANONICAL_ASSESSMENT_PERSISTENCE_IN_CURRENT_ARCHITECTURE / AUTHORITATIVE_ASSESSMENT_CONTRACT_REQUIRED / executable=false.
+- **expected governed intent:** تبقى Assessment presentation truthful preview/unavailable حتى تعيين canonical owner/persistence contract.
+- **material delta:** journey.assessments = NO_CANONICAL_ASSESSMENT_PERSISTENCE_IN_CURRENT_ARCHITECTURE / AUTHORITATIVE_ASSESSMENT_CONTRACT_REQUIRED / executable=false. ⇢ تبقى Assessment presentation truthful preview/unavailable حتى تعيين canonical owner/persistence contract.
+- **user consequence:** تنفيذ assessment الآن سيختلق truth ؛ لكن غياب التنفيذ لا يجب أن يُحسب ك frontend defect.
+- **severity:** P2
+- **classification:** CANONICAL_RUNTIME_BINDING_GAP
+- **authority/disposition:** ALLOWED_INTENTIONAL_DEVIATION
+- **root cause / NOT_YET_PROVEN:** canonical Assessment persistence/owner غير موجود ضمن المعمارية الحالية.
+- **owner:** ASSESSMENT_AUTHORITY_UNASSIGNED
+- **shared dependency:** Future authoritative Assessment contract
+- **collision risk:** HIGH
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** A05 + allowed intentional deviation
+- **reconciliation status:** KNOWN
+
+## LRN-DA-R05 — lab-handoff-gap
+- **category/subcategory:** RUNTIME_BINDING / lab-handoff-gap
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** KnowledgeJourneyService::labReference + LearnJourneyProjectionTest
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** lab references تأتي من practice definition ؛ prepare_run_handoff = PARENT_INTEGRATION_REQUIRED, executable=false, href=null.
+- **expected governed intent:** Learn يعرض preview/readiness فقط إلى أن يثبت W03 authoritative route/payload/handoff.
+- **material delta:** lab references تأتي من practice definition ؛ prepare_run_handoff = PARENT_INTEGRATION_REQUIRED, executable=false, href=null. ⇢ Learn يعرض preview/readiness فقط إلى أن يثبت W03 authoritative route/payload/handoff.
+- **user consequence:** إظهار Start Run سيخلق route/permission غير قانوني؛ بينما preview وحده ليس defect وظيفياً.
+- **severity:** P2
+- **classification:** CANONICAL_RUNTIME_BINDING_GAP
+- **authority/disposition:** ALLOWED_INTENTIONAL_DEVIATION
+- **root cause / NOT_YET_PROVEN:** W03 handoff authority غير متاح في baseline.
+- **owner:** W03_SIMULATION_ENTERPRISE_OWNER
+- **shared dependency:** W03 authoritative handoff
+- **collision risk:** HIGH
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** A06 + fake Lab guardrail
+- **reconciliation status:** KNOWN
+
+## LRN-DA-R06 — practice-ordering-authority-not-proven
+- **category/subcategory:** RUNTIME_BINDING / pedagogical-practice-order
+- **view/state:** Learn journey / recommended-next sequencing
+- **viewport/direction:** Data/runtime semantic state; browser validation at Dark 1440 RTL
+- **reference authority:** prior A02 Practice ordering decision + Learning journey semantics
+- **exact evidence:** `KnowledgeJourneyService.php::forUnit()` orders latest Practices with `orderBy('practice_id')`; no reviewed contract proves lexical ID order is pedagogical sequence
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** Practice order and the first incomplete `journey.next.practice_id` are derived from lexical `practice_id` ordering.
+- **expected governed intent:** Practice sequence and “next” semantics come from an explicit pedagogical order contract, or lexical ID ordering is explicitly ratified as a canonical invariant by the responsible authority.
+- **material delta:** persisted Practice truth is real, but the semantic ordering source is not proven; “next” may therefore be deterministic without being pedagogically authoritative.
+- **user consequence:** the learner can receive a stable but semantically incorrect next Practice or journey order, undermining pathway intent and recommendation credibility.
+- **severity:** P1
+- **classification:** CANONICAL_RUNTIME_BINDING_GAP
+- **authority/disposition:** AUTHORITY_DECISION_REQUIRED
+- **root cause / NOT_YET_PROVEN:** model/service has no explicit sequence field/approved ordering projection in the reviewed path and falls back to lexical `practice_id`.
+- **owner:** LEARNING_ORDER_AUTHORITY / CONTROLLER_B_DECISION
+- **shared dependency:** Learning/Curriculum ordering contract if sequence is owned outside Learn
+- **collision risk:** HIGH
+- **prohibited shortcut:** do not assume lexical identifiers encode pedagogy and do not sort by title/creation time as an ungoverned replacement.
+- **future validation:** deterministic multi-Practice fixture with an approved non-lexical sequence; verify LEFT order and `journey.next` match the approved contract.
+- **required browser state:** Dark 1440 RTL with at least three Practices and one incomplete recommended next.
+- **required screenshot state:** rich Learn screenshot showing approved Practice ordering, paired with backend payload/assertion proving the same order.
+- **closure criterion:** an authority-approved sequence source is recorded and both journey ordering and next recommendation are derived/tested from it.
+- **prior finding mapping:** Practice ordering / A02
+- **reconciliation status:** KNOWN
+
+## LRN-DA-E01 — 1024-runtime-visual-proof
+- **category/subcategory:** EVIDENCE / 1024-runtime-visual-proof
+- **view/state:** Learn primary
+- **viewport/direction:** Dark ~1024 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Prior evidence folder listing; Learn.vue responsive classes; prior V-33..V-37
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** لا توجد لقطة Learn exact-candidate عند ~1024 في evidence folder ؛ static Learn grid عند md يتحول إلى 2 columns ثم RIGHT full-width row ، بينما shared layout لديه context-toggle mode.
+- **expected governed intent:** browser proof يثبت LEFT + dominant CENTER + on-demand RIGHT من نفس owner بلا stacked context wall/overflow.
+- **material delta:** لا توجد لقطة Learn exact-candidate عند ~1024 في evidence folder ؛ static Learn grid عند md يتحول إلى 2 columns ثم RIGHT full-width row ، بينما shared layout لديه context-toggle mode. ⇢ browser proof يثبت LEFT + dominant CENTER + on-demand RIGHT من نفس owner بلا stacked context wall/overflow.
+- **user consequence:** لا يمكن قبول responsive fidelity أو رفضها نهائياً بالاستدلال من 1440/static فقط.
+- **severity:** P1
+- **classification:** EVIDENCE_INSUFFICIENT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** غياب exact 1024 capture على candidate.
+- **owner:** VALIDATION_EVIDENCE_OWNER
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark ~1024 RTL
+- **required screenshot state:** لقطتان exact-candidate: context closed + same RIGHT context open ؛ مع no horizontal overflow.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior 1024 EVIDENCE_GAP
+- **reconciliation status:** KNOWN
+
+## LRN-DA-E02 — representative-rich-runtime-screenshot
+- **category/subcategory:** EVIDENCE / representative-rich-runtime-screenshot
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Evidence folder has only one primary Learn screenshot; W02AcceptanceSeeder rich fields exist in code
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** لا توجد لقطة exact-candidate تثبت Learn مع W02AcceptanceSeeder six-KU أو fixture غني comparable للـ canonical structure ؛ primary screenshot ما زالت Test KU.
+- **expected governed intent:** rich deterministic browser state يفصل design defect عن fixture sparsity ويختبر renderer/context under load.
+- **material delta:** لا توجد لقطة exact-candidate تثبت Learn مع W02AcceptanceSeeder six-KU أو fixture غني comparable للـ canonical structure ؛ primary screenshot ما زالت Test KU. ⇢ rich deterministic browser state يفصل design defect عن fixture sparsity ويختبر renderer/context under load.
+- **user consequence:** لا يمكن قياس typography/wrapping/vertical rhythm/right depth على بيانات حقيقية التمثيل.
+- **severity:** P1
+- **classification:** EVIDENCE_INSUFFICIENT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** evidence capture لم يشمل representative dataset.
+- **owner:** VALIDATION_EVIDENCE_OWNER
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior asked richer fixture but did not record absence as separate end-to-end evidence classification
+- **reconciliation status:** MISSED_NEW
+
+## LRN-DA-E03 — dynamic-interaction-a11y-proof
+- **category/subcategory:** EVIDENCE / dynamic-interaction-a11y-proof
+- **view/state:** Learn primary
+- **viewport/direction:** Dark 1440 RTL
+- **reference authority:** Owner Learn reference Drive 1HLU4FemcxptjirsUlXKf_dzTARiu6rSJ + W02 Visual Contract/PRD
+- **exact evidence:** Prior validation matrix V-12..V-17/V-40..V-45; current evidence folder; static component tests
+- **exact candidate SHA:** ca36e75c116a9ba00b5d25d358bd68c10990bd6e
+- **observed state:** لا يوجد direct runtime proof لـ focus order, keyboard activity selection, disabled/hover, expanded BOTTOM, context toggle identity, passive-scroll behavior.
+- **expected governed intent:** traces + DOM assertions + screenshots للحالات الديناميكية المطلوبة.
+- **material delta:** لا يوجد direct runtime proof لـ focus order, keyboard activity selection, disabled/hover, expanded BOTTOM, context toggle identity, passive-scroll behavior. ⇢ traces + DOM assertions + screenshots للحالات الديناميكية المطلوبة.
+- **user consequence:** نجاح unit/static tests لا يغلق interaction/accessibility findings.
+- **severity:** P2
+- **classification:** EVIDENCE_INSUFFICIENT
+- **authority/disposition:** REQUIRED_MATCH
+- **root cause / NOT_YET_PROVEN:** browser evidence coverage محدود.
+- **owner:** VALIDATION_EVIDENCE_OWNER
+- **shared dependency:** NONE
+- **collision risk:** LOW
+- **prohibited shortcut:** لا تُخفِ العرض أو تحاكي المرجع بـ CSS فقط؛ أصلح مصدر الحقيقة/الملكية.
+- **future validation:** إعادة اختبار الحالة بدليل DOM ولقطة exact-candidate.
+- **required browser state:** Dark 1440 RTL
+- **required screenshot state:** لقطة exact-candidate تُظهر الحالة المستهدفة بوضوح.
+- **closure criterion:** لا يبقى الفرق المادي الموصوف، وتنجح دلالة الحالة في DOM واللقطة.
+- **prior finding mapping:** Prior validation matrix, but no consolidated evidence-insufficiency finding
+- **reconciliation status:** UNDER_SPECIFIED
+## Governed reference-delta dispositions — non-defect controls (not included in the actionable finding count)
+These items are material reference differences or semantic guardrails that must be recorded so future remediation does not create false parity. They are intentionally **not** counted as product defects/gaps above.
+
+| Delta ID | Reference/current difference | Governed disposition | Deep-audit rule |
+|---|---|---|---|
+| LRN-DA-G01 | Reference shows Save/Undo/editor-like controls | CONTRACT_OVERRIDES_IMAGE | Learn must remain a learner surface; canonical editing stays in Library/Unified Editor. |
+| LRN-DA-G02 | Reference has a richer contextual tab strip / exact tab count | ALLOWED_INTENTIONAL_DEVIATION | Exact tab count is optional; the information-depth loss itself remains actionable under `LRN-DA-V17`. |
+| LRN-DA-G03 | Reference shows overall journey percentage such as 28% | AUTHORITY_DECISION_REQUIRED | Omit until denominator, weights and completion source are governed; never infer Mastery. |
+| LRN-DA-G04 | Reference shows previous-unit completion checkmarks | AUTHORITY_DECISION_REQUIRED | Structural previous/current/next may render, but completion remains `unknown` without an authoritative Learning completion source. |
+| LRN-DA-G05 | Exact palette shade / literal reference glyph parity | ALLOWED_INTENTIONAL_DEVIATION | Pixel-level shade/glyph copying is not required; systemic Emoji inconsistency is separately actionable under `LRN-DA-V26`. |
+| LRN-DA-G06 | No executable Assessment in current candidate | ALLOWED_INTENTIONAL_DEVIATION | Truthful unavailable/preview state is correct until an authoritative Assessment persistence/execution contract exists. |
+| LRN-DA-G07 | No executable Lab run in current candidate | ALLOWED_INTENTIONAL_DEVIATION | Preview/readiness only is correct while W03 handoff remains `executable=false` and `href=null`. |
+| LRN-DA-G08 | Reference lesson text differs from the Test KU screenshot | ALLOWED_INTENTIONAL_DEVIATION | Literal lesson text need not match; evidence representativeness remains a separate gap under `D01`–`D05`. |
+
+Classification coverage is therefore explicit across `REQUIRED_MATCH`, `ALLOWED_INTENTIONAL_DEVIATION`, `CONTRACT_OVERRIDES_IMAGE`, and `AUTHORITY_DECISION_REQUIRED`, while defect/gap classes remain separated into visual, functional, fixture/data, canonical/runtime and evidence-insufficient categories.
+

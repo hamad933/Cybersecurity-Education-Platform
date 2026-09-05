@@ -1,0 +1,133 @@
+diff --git a/resources/js/pages/KnowledgeLearning/Library.vue b/resources/js/pages/KnowledgeLearning/Library.vue
+index 825241d..06bb309 100644
+--- a/resources/js/pages/KnowledgeLearning/Library.vue
++++ b/resources/js/pages/KnowledgeLearning/Library.vue
+@@ -147,7 +147,7 @@ const placementContext = computed(() => {
+       if (capability) {
+         return {
+           label: capability.title_ar || capability.title_en || 'قدرة دون تسمية متاحة',
+-          detail: `${domain.title_ar} ← ${cluster.title_ar}`,
++          detail: `${domain.title_ar || 'نطاق غير متوفر'} ← ${cluster.title_ar || 'مجموعة غير متوفرة'}`,
+         };
+       }
+     }
+@@ -469,7 +469,10 @@ const editorDialog = ref<EditorDialogKind | null>(null);
+ const editorDialogValue = ref('');
+ const editorDialogError = ref('');
+ const editorDialogSelection = ref<(SelectionRange & { index: number }) | null>(null);
++const dialogInvoker = ref<HTMLElement | null>(null);
++
+ const openEditorDialog = (kind: EditorDialogKind, index: number) => {
++  dialogInvoker.value = document.activeElement as HTMLElement | null;
+   const input = document.getElementById(`knowledge-block-${index}`) as HTMLTextAreaElement | null;
+   editorDialog.value = kind;
+   editorDialogValue.value = '';
+@@ -481,11 +484,47 @@ const openEditorDialog = (kind: EditorDialogKind, index: number) => {
+   };
+   void nextTick(() => document.getElementById('editor-dialog-value')?.focus());
+ };
++
+ const closeEditorDialog = () => {
+   editorDialog.value = null;
+   editorDialogValue.value = '';
+   editorDialogError.value = '';
+   editorDialogSelection.value = null;
++  if (dialogInvoker.value) {
++    dialogInvoker.value.focus();
++    dialogInvoker.value = null;
++  }
++};
++
++const handleDialogKeydown = (e: KeyboardEvent) => {
++  if (e.key === 'Escape') {
++    closeEditorDialog();
++    return;
++  }
++  
++  if (e.key === 'Tab') {
++    const dialog = document.getElementById('editor-dialog-container');
++    if (!dialog) return;
++    const focusableElements = dialog.querySelectorAll<HTMLElement>(
++      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
++    );
++    if (focusableElements.length === 0) return;
++    
++    const firstElement = focusableElements[0];
++    const lastElement = focusableElements[focusableElements.length - 1];
++
++    if (e.shiftKey) {
++      if (document.activeElement === firstElement) {
++        lastElement?.focus();
++        e.preventDefault();
++      }
++    } else {
++      if (document.activeElement === lastElement) {
++        firstElement?.focus();
++        e.preventDefault();
++      }
++    }
++  }
+ };
+ const insertLink = (index: number) => {
+   openEditorDialog('link', index);
+@@ -1120,11 +1159,13 @@ const loadComparison = async () => {
+ 
+       <div
+         v-if="editorDialog"
++        id="editor-dialog-container"
+         class="fixed inset-0 z-50 grid place-items-center bg-slate-950/80 p-4 backdrop-blur-sm"
+         role="dialog"
+         aria-modal="true"
+         :aria-labelledby="editorDialog + '-dialog-title'"
+         @keydown.esc="closeEditorDialog"
++        @keydown="handleDialogKeydown"
+       >
+         <form
+           class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl"
+diff --git a/resources/js/tests/KnowledgeEditorCorrection.spec.ts b/resources/js/tests/KnowledgeEditorCorrection.spec.ts
+index 52690ce..9fc78fc 100644
+--- a/resources/js/tests/KnowledgeEditorCorrection.spec.ts
++++ b/resources/js/tests/KnowledgeEditorCorrection.spec.ts
+@@ -165,7 +165,8 @@ describe('KnowledgeEditorCorrection', () => {
+       form: { blocks: Array<{ body: string }> };
+     };
+     const input = second.element as HTMLTextAreaElement;
+-    input.setSelectionRange(input.value.length, input.value.length);
++    const len = vm.form.blocks[1].body.length;
++    input.setSelectionRange(len, len);
+     vm.replaceSelection(1, '**', '**', 'نص بارز');
+     await nextTick();
+ 
+diff --git a/resources/js/tests/W02StaticLibraryEditor.spec.ts b/resources/js/tests/W02StaticLibraryEditor.spec.ts
+index 7efc6b3..29db77c 100644
+--- a/resources/js/tests/W02StaticLibraryEditor.spec.ts
++++ b/resources/js/tests/W02StaticLibraryEditor.spec.ts
+@@ -121,4 +121,28 @@ describe('W02 Static Library Editor', () => {
+ 
+     expect(wrapper2.html()).toContain('مقارنة بنيوية بالهوية المستقرة');
+   });
++
++  it('manages modal focus cycle and restoration for accessibility', async () => {
++    const wrapper = mount(Library, { props: defaultProps, attachTo: document.body });
++
++    const insertLinkBtn = wrapper.findAll('button[title="إدراج رابط مرجعي"]').at(0);
++    expect(insertLinkBtn).toBeDefined();
++
++    (insertLinkBtn!.element as HTMLElement).focus();
++    await insertLinkBtn!.trigger('click');
++    await nextTick();
++    await new Promise(resolve => setTimeout(resolve, 50));
++
++    expect(wrapper.html()).toContain('إدراج رابط مرجعي');
++    const input = document.getElementById('editor-dialog-value');
++    expect(input).toBeDefined();
++    expect(document.activeElement).toBe(input);
++
++    const cancelBtn = wrapper.findAll('button.library-command').find(b => b.text().includes('إلغاء'));
++    await cancelBtn!.trigger('click');
++    await nextTick();
++
++    expect(document.getElementById('editor-dialog-value')).toBeNull();
++    expect(document.activeElement).toBe(insertLinkBtn!.element);
++  });
+ });
