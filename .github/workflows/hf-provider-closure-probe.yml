@@ -1,0 +1,172 @@
+name: HF Provider Closure Probe
+
+on:
+  push:
+    branches:
+      - hf-provider-closure-temp-20260913
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install HF client
+        run: python -m pip install --upgrade huggingface_hub requests
+
+      - name: Read public HF bucket evidence
+        shell: bash
+        run: |
+          python - <<'PY'
+          import csv, hashlib, json, re
+          from pathlib import Path
+          import requests
+          from huggingface_hub import get_bucket_paths_info, download_bucket_files
+
+          BUCKET = "hamad9333/cep-runtime-offload"
+          TARGETS = [
+            "v150/UR1/CEP_V150_UR1_LOCAL_OFFLOAD_20260910T031540Z.tar",
+            "v150/UR1/CEP_V150_UR1_LOCAL_OFFLOAD_20260910T031540Z.tar.sha256",
+            "v150/UR2/CEP_V150_UR2_LOCAL_OFFLOAD_20260910T031632Z.tar",
+            "v150/UR2/CEP_V150_UR2_LOCAL_OFFLOAD_20260910T031632Z.tar.sha256",
+            "v150/UR3/CEP_V150_UR3_LOCAL_OFFLOAD_20260910T031945Z.tar",
+            "v150/UR3/CEP_V150_UR3_LOCAL_OFFLOAD_20260910T031945Z.tar.sha256",
+            "v150/UR4/CEP_V150_UR4_LOCAL_OFFLOAD_20260910T031709Z.tar",
+            "v171-control/UR2/latest.pointer.json",
+            "v171-control/UR2/snapshots/172828db5aef4da79fc1724cd08d08000d38623ae33ce355bf6889da9c6da3a8.control.tar.gz",
+            "v171-control/UR2/snapshots/41b874e45ef017f262217b64c211749f2d102d773aea0ff91d253a881ff33c3d.control.tar.gz",
+            "v171-control/UR2/snapshots/89b14c03f3a5cd5deb2d0b7a2e7804dec8388e4a17bb1b396f9b45b384bb5813.control.tar.gz",
+            "v171-control/UR2/snapshots/8f606b437718c61dbbf04c759da18a6e135428988707e021fc5cb749edccc624.control.tar.gz",
+            "v171-control/UR2/snapshots/a51cce10a21982a0aa2dfa24da55299d2be2ab7becd018db6b8041176e68bc62.control.tar.gz",
+            "v171-control/UR2/snapshots/bb5765387bf9e8fe70577f14b6f43355e62537d00c72b296167e90ec08880491.control.tar.gz",
+            "v171-control/UR2/snapshots/c175f6ffed78721483b2f0cd029b2a7fe25edabe159b37ab08babf036b1294d5.control.tar.gz",
+            "v171-control/UR2/snapshots/d579555f7ef0896bf34c18ce082c431916241be63f2ab387703191d3d2a214ac.control.tar.gz",
+            "v171-control/UR2/snapshots/dd093d0a1e429a8ef3c8b8864a9c91a6f3f68f22652ee12aaa84ce556688f4f8.control.tar.gz",
+            "v171-control/UR2/snapshots/e7d6f19d67e202f95101c7f2559e4714e5477e65218c1a857c5278e25cf34aa8.control.tar.gz",
+            "v171-control/UR2/snapshots/f38b4681a45038015e89bcc5e56a52ce1fcf8cf13e0767342d5a4cec97531d88.control.tar.gz",
+            "v171-control/UR3/latest.pointer.json",
+            "v171-control/UR3/snapshots/a6c6f5a00e085aa9d758373c93f0c08311e9f92948336d7ad2b5984ef94114f4.control.tar.gz",
+            "v171-control/UR3/snapshots/f0966fca6747a8b3f777b269ddbae7906029cdd551f8bd02958f394020669f3b.control.tar.gz",
+            "v171-control/UR4/latest.pointer.json",
+            "v171-control/UR4/snapshots/8f979780d5bd09157026a842b7177ce1b84f6a7688fcc4dbadc8adb9a22c7a22.control.tar.gz",
+            "v171-control/UR4/snapshots/e859f1406646898add3a4241209d06a96553941ae3f098372ee0187296e60f7b.control.tar.gz"
+          ]
+          SIDECARS = [p for p in TARGETS if p.endswith(".tar.sha256")]
+          TARS = [p for p in TARGETS if p.endswith(".tar")]
+          CONTROLS = [p for p in TARGETS if p.startswith("v171-control/")]
+
+          out = Path("hf_probe_out")
+          out.mkdir(parents=True, exist_ok=True)
+
+          infos = list(get_bucket_paths_info(BUCKET, TARGETS, token=False))
+          by_path = {i.path: i for i in infos}
+
+          rows = []
+          for p in TARGETS:
+              i = by_path.get(p)
+              rows.append({
+                  "path": p,
+                  "found": bool(i),
+                  "size": getattr(i, "size", None) if i else None,
+                  "xet_hash": getattr(i, "xet_hash", None) if i else None,
+                  "mtime": str(getattr(i, "mtime", "")) if i else "",
+                  "type": getattr(i, "type", "") if i else "",
+              })
+
+          with open(out / "provider_metadata.csv", "w", newline="", encoding="utf-8") as f:
+              w = csv.DictWriter(f, fieldnames=["path","found","size","xet_hash","mtime","type"])
+              w.writeheader()
+              w.writerows(rows)
+
+          download_specs = []
+          for p in SIDECARS + CONTROLS:
+              local = out / "downloaded" / p
+              local.parent.mkdir(parents=True, exist_ok=True)
+              download_specs.append((p, str(local)))
+          download_bucket_files(BUCKET, files=download_specs, token=False)
+
+          evidence_rows = []
+          for p in SIDECARS + CONTROLS:
+              local = out / "downloaded" / p
+              h = hashlib.sha256()
+              n = 0
+              with open(local, "rb") as f:
+                  while True:
+                      b = f.read(1024 * 1024)
+                      if not b:
+                          break
+                      n += len(b)
+                      h.update(b)
+              evidence_rows.append({
+                  "path": p,
+                  "downloaded_bytes": n,
+                  "content_sha256": h.hexdigest(),
+                  "xet_hash": getattr(by_path.get(p), "xet_hash", "") if by_path.get(p) else "",
+              })
+
+          with open(out / "downloaded_hashes.csv", "w", newline="", encoding="utf-8") as f:
+              w = csv.DictWriter(f, fieldnames=["path","downloaded_bytes","content_sha256","xet_hash"])
+              w.writeheader()
+              w.writerows(evidence_rows)
+
+          sidecar_rows = []
+          for p in SIDECARS:
+              local = out / "downloaded" / p
+              raw = local.read_text(encoding="utf-8", errors="replace").strip()
+              m = re.search(r"(?i)\b([0-9a-f]{64})\b", raw)
+              sidecar_rows.append({
+                  "path": p,
+                  "raw_text": raw,
+                  "declared_tar_sha256": m.group(1).lower() if m else "",
+                  "paired_tar": p[:-7],
+              })
+
+          with open(out / "sidecars.csv", "w", newline="", encoding="utf-8") as f:
+              w = csv.DictWriter(f, fieldnames=["path","raw_text","declared_tar_sha256","paired_tar"])
+              w.writeheader()
+              w.writerows(sidecar_rows)
+
+          tar_headers = {}
+          for p in TARS:
+              url = "https://huggingface.co/buckets/" + BUCKET + "/resolve/" + p
+              rec = {"url": url}
+              try:
+                  r = requests.head(url, allow_redirects=False, timeout=30)
+                  rec["head_status"] = r.status_code
+                  rec["head_headers"] = dict(r.headers)
+                  if r.status_code in (400, 403, 404, 405):
+                      r2 = requests.get(url, headers={"Range":"bytes=0-0"}, stream=True, allow_redirects=False, timeout=30)
+                      rec["range_status"] = r2.status_code
+                      rec["range_headers"] = dict(r2.headers)
+                      r2.close()
+              except Exception as e:
+                  rec["error"] = repr(e)
+              tar_headers[p] = rec
+
+          (out / "tar_headers.json").write_text(json.dumps(tar_headers, indent=2, sort_keys=True), encoding="utf-8")
+          (out / "summary.json").write_text(json.dumps({
+              "bucket": BUCKET,
+              "target_count": len(TARGETS),
+              "metadata_found": sum(1 for r in rows if r["found"]),
+              "sidecars_downloaded": len(SIDECARS),
+              "controls_downloaded": len(CONTROLS),
+              "tar_bodies_downloaded": 0,
+              "hf_mutations": 0
+          }, indent=2), encoding="utf-8")
+
+          print((out / "summary.json").read_text())
+          for row in sidecar_rows:
+              print("SIDECAR", row["path"], row["declared_tar_sha256"], row["raw_text"])
+          PY
+
+      - name: Upload provider closure evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: hf-provider-closure-evidence
+          path: hf_probe_out/
+          retention-days: 1
+          if-no-files-found: error
