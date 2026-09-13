@@ -11,15 +11,16 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - name: Probe TAR headers by sparse HTTP ranges
+      - name: Probe TAR structure through direct CDN ranges
         shell: bash
         run: |
           python - <<'PY'
-          import concurrent.futures, json, math, re, requests
+          import concurrent.futures, hashlib, json, re, time
           from pathlib import Path
+          import requests
 
           BUCKET='hamad9333/cep-runtime-offload'
           TARS=[
@@ -28,8 +29,9 @@ jobs:
             'v150/UR3/CEP_V150_UR3_LOCAL_OFFLOAD_20260910T031945Z.tar',
             'v150/UR4/CEP_V150_UR4_LOCAL_OFFLOAD_20260910T031709Z.tar',
           ]
-          MAX_ENTRIES=3000
-          CAND=re.compile(r'(?i)(manifest|receipt|summary|index|catalog|report|metadata|sha256|hash|inventory|mapping|state|checkpoint)')
+          MAX_ENTRIES=20000
+          WINDOW=4*1024*1024
+          CAND=re.compile(r'(?i)(manifest|receipt|summary|index|catalog|report|metadata|sha256|hash|inventory|mapping|state|checkpoint|pointer|control)')
           out=Path('tar_probe_out'); out.mkdir(exist_ok=True)
 
           def parse_octal(b):
@@ -38,71 +40,126 @@ jobs:
               try: return int(s,8)
               except: return None
 
-          def fetch_range(sess,url,start,end):
-              r=sess.get(url,headers={'Range':f'bytes={start}-{end}','Accept-Encoding':'identity'},allow_redirects=True,timeout=60)
-              if r.status_code not in (200,206):
-                  raise RuntimeError(f'HTTP {r.status_code} for range {start}-{end}')
-              data=r.content
-              # Never accept an accidental full multi-GB response into memory; requests has already read content,
-              # but public HF resolver/CDN honors ranges for these Xet-backed objects.
-              return data
+          def get_cdn_url(path):
+              resolver=f'https://huggingface.co/buckets/{BUCKET}/resolve/{path}'
+              r=requests.head(resolver,allow_redirects=False,timeout=60)
+              if r.status_code not in (301,302,303,307,308):
+                  raise RuntimeError(f'HEAD resolver status {r.status_code}: {resolver}')
+              loc=r.headers.get('Location')
+              if not loc:
+                  raise RuntimeError('No CDN Location header')
+              return resolver,loc,{k:v for k,v in r.headers.items() if k.lower() in ('x-xet-hash','x-linked-etag','x-linked-size','last-modified','ratelimit','ratelimit-policy')}
+
+          def fetch_range(sess,url,start,end,retries=8):
+              for attempt in range(retries):
+                  r=sess.get(url,headers={'Range':f'bytes={start}-{end}','Accept-Encoding':'identity'},stream=True,timeout=90)
+                  if r.status_code in (200,206):
+                      data=r.content
+                      r.close()
+                      # Guard against accidental full-object delivery.
+                      if len(data) > max((end-start+1)*2, WINDOW*2):
+                          raise RuntimeError(f'Unexpected oversized response {len(data)} for {start}-{end}')
+                      return data
+                  retry_after=r.headers.get('Retry-After')
+                  status=r.status_code
+                  r.close()
+                  if status in (429,500,502,503,504):
+                      delay=float(retry_after) if retry_after and retry_after.isdigit() else min(2**attempt,30)
+                      time.sleep(delay)
+                      continue
+                  raise RuntimeError(f'HTTP {status} for range {start}-{end}')
+              raise RuntimeError(f'Exhausted retries for range {start}-{end}')
+
+          def parse_header(h,idx,offset):
+              if len(h)<512: return None,'SHORT_HEADER'
+              if h==b'\0'*512: return None,'ZERO_HEADER'
+              name=h[0:100].split(b'\0',1)[0].decode('utf-8','replace')
+              prefix=h[345:500].split(b'\0',1)[0].decode('utf-8','replace')
+              if prefix: name=prefix+'/'+name
+              size=parse_octal(h[124:136])
+              if size is None: return None,'INVALID_SIZE'
+              typ=chr(h[156]) if h[156] else '0'
+              return {'index':idx,'offset':offset,'name':name,'size':size,'typeflag':typ},None
 
           def probe(path):
-              url=f'https://huggingface.co/buckets/{BUCKET}/resolve/{path}'
+              resolver,cdn,head_meta=get_cdn_url(path)
               sess=requests.Session()
-              offset=0; entries=[]; candidates=[]; header_bytes=0; body_bytes=0; stop='MAX_ENTRIES'
-              for idx in range(MAX_ENTRIES):
-                  h=fetch_range(sess,url,offset,offset+511)
-                  header_bytes += len(h)
-                  if len(h)<512:
-                      stop='SHORT_HEADER'; break
-                  if h==b'\0'*512:
-                      stop='ZERO_HEADER'; break
-                  name=h[0:100].split(b'\0',1)[0].decode('utf-8','replace')
-                  prefix=h[345:500].split(b'\0',1)[0].decode('utf-8','replace')
-                  if prefix: name=prefix+'/'+name
-                  size=parse_octal(h[124:136])
-                  if size is None:
-                      stop='INVALID_SIZE'; break
-                  typ=chr(h[156]) if h[156] else '0'
-                  rec={'index':idx,'offset':offset,'name':name,'size':size,'typeflag':typ}
-                  entries.append(rec)
-                  if CAND.search(name) and size <= 2*1024*1024 and typ in ('0','\x00','7'):
-                      b=fetch_range(sess,url,offset+512,offset+512+size-1) if size else b''
-                      body_bytes += len(b)
-                      cand={'entry':rec,'sha256':__import__('hashlib').sha256(b).hexdigest(),'bytes':len(b)}
-                      try:
-                          text=b.decode('utf-8')
-                          cand['text']=text[:1000000]
-                      except Exception:
-                          cand['hex_prefix']=b[:512].hex()
-                      candidates.append(cand)
-                  offset += 512 + ((size + 511)//512)*512
-              return {'path':path,'url':url,'entries':entries,'candidate_bodies':candidates,'stop_reason':stop,'next_offset':offset,'header_bytes_downloaded':header_bytes,'candidate_body_bytes_downloaded':body_bytes}
+              entries=[]; candidates=[]; offset=0; downloaded=0; candidate_bytes=0; stop='MAX_ENTRIES'; error=''
+              idx=0
+              try:
+                  while idx<MAX_ENTRIES:
+                      buf=fetch_range(sess,cdn,offset,offset+WINDOW-1)
+                      downloaded += len(buf)
+                      cursor=0
+                      progressed=False
+                      while idx<MAX_ENTRIES and cursor+512<=len(buf):
+                          abs_off=offset+cursor
+                          rec,reason=parse_header(buf[cursor:cursor+512],idx,abs_off)
+                          if reason:
+                              stop=reason
+                              return {'path':path,'resolver_url':resolver,'head_meta':head_meta,'entries':entries,'candidate_bodies':candidates,'stop_reason':stop,'next_offset':abs_off,'range_bytes_downloaded':downloaded,'candidate_body_bytes_downloaded':candidate_bytes,'error':error}
+                          entries.append(rec); idx+=1; progressed=True
+                          size=rec['size']; typ=rec['typeflag']
+                          data_start=cursor+512
+                          padded=((size+511)//512)*512
+                          next_cursor=data_start+padded
+                          if CAND.search(rec['name']) and size<=4*1024*1024 and typ in ('0','\x00','7'):
+                              if data_start+size<=len(buf):
+                                  body=buf[data_start:data_start+size]
+                              else:
+                                  body=fetch_range(sess,cdn,abs_off+512,abs_off+512+size-1) if size else b''
+                                  downloaded += len(body); candidate_bytes += len(body)
+                              cand={'entry':rec,'sha256':hashlib.sha256(body).hexdigest(),'bytes':len(body)}
+                              try: cand['text']=body.decode('utf-8')[:1000000]
+                              except Exception: cand['hex_prefix']=body[:512].hex()
+                              candidates.append(cand)
+                          if next_cursor+512<=len(buf):
+                              cursor=next_cursor
+                              continue
+                          offset=abs_off+512+padded
+                          break
+                      else:
+                          if not progressed:
+                              stop='NO_PROGRESS'; break
+                          offset += cursor
+                          continue
+                      # inner loop broke because next header is outside this window
+                      continue
+                  stop='MAX_ENTRIES'
+              except Exception as e:
+                  stop='ERROR'; error=repr(e)
+              return {'path':path,'resolver_url':resolver,'head_meta':head_meta,'entries':entries,'candidate_bodies':candidates,'stop_reason':stop,'next_offset':offset,'range_bytes_downloaded':downloaded,'candidate_body_bytes_downloaded':candidate_bytes,'error':error}
 
           with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
               results=list(ex.map(probe,TARS))
+
           for r in results:
               fn=out/(Path(r['path']).name+'.structure.json')
               fn.write_text(json.dumps(r,indent=2,ensure_ascii=False),encoding='utf-8')
               print('\n###',r['path'])
-              print('entries',len(r['entries']),'stop',r['stop_reason'],'next_offset',r['next_offset'],'headers_bytes',r['header_bytes_downloaded'],'candidate_bytes',r['candidate_body_bytes_downloaded'])
+              print('entries',len(r['entries']),'stop',r['stop_reason'],'next_offset',r['next_offset'],'range_bytes',r['range_bytes_downloaded'],'candidate_bytes',r['candidate_body_bytes_downloaded'],'error',r['error'])
               print('first20:')
               for e in r['entries'][:20]: print(e)
+              print('last10:')
+              for e in r['entries'][-10:]: print(e)
               print('candidates:',[(c['entry']['name'],c['entry']['size'],c['sha256']) for c in r['candidate_bodies']])
-          (out/'summary.json').write_text(json.dumps({
+
+          summary={
               'bucket':BUCKET,
               'tar_count':len(TARS),
               'tar_bodies_downloaded':False,
-              'sparse_header_probe':True,
+              'direct_cdn_sparse_ranges':True,
+              'window_bytes':WINDOW,
               'max_entries_per_tar':MAX_ENTRIES,
-              'results':[{'path':r['path'],'entries':len(r['entries']),'stop_reason':r['stop_reason'],'next_offset':r['next_offset'],'header_bytes_downloaded':r['header_bytes_downloaded'],'candidate_body_bytes_downloaded':r['candidate_body_bytes_downloaded']} for r in results]
-          },indent=2),encoding='utf-8')
+              'results':[{'path':r['path'],'entries':len(r['entries']),'stop_reason':r['stop_reason'],'next_offset':r['next_offset'],'range_bytes_downloaded':r['range_bytes_downloaded'],'candidate_body_bytes_downloaded':r['candidate_body_bytes_downloaded'],'error':r['error'],'head_meta':r['head_meta']} for r in results]
+          }
+          (out/'summary.json').write_text(json.dumps(summary,indent=2),encoding='utf-8')
           PY
       - name: Upload TAR structure evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: hf-v150-tar-structure-evidence
           path: tar_probe_out/
           retention-days: 1
-          if-no-files-found: error
+          if-no-files-found: warn
