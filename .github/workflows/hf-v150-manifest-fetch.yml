@@ -1,0 +1,53 @@
+name: HF V150 Manifest Fetch
+on:
+  push:
+    branches: [hf-provider-closure-temp-20260913]
+permissions:
+  contents: read
+jobs:
+  manifests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch four offload manifests
+        run: |
+          python - <<'PY'
+          import hashlib,json,time,requests
+          from pathlib import Path
+          bucket='hamad9333/cep-runtime-offload'
+          paths=[
+          'v150/UR1/CEP_V150_UR1_LOCAL_OFFLOAD_20260910T031540Z.tar',
+          'v150/UR2/CEP_V150_UR2_LOCAL_OFFLOAD_20260910T031632Z.tar',
+          'v150/UR3/CEP_V150_UR3_LOCAL_OFFLOAD_20260910T031945Z.tar',
+          'v150/UR4/CEP_V150_UR4_LOCAL_OFFLOAD_20260910T031709Z.tar']
+          out=Path('manifest_out'); out.mkdir(exist_ok=True)
+          report=[]
+          for p in paths:
+              resolver=f'https://huggingface.co/buckets/{bucket}/resolve/{p}'
+              h=requests.head(resolver,allow_redirects=False,timeout=60)
+              cdn=h.headers['Location']
+              def rg(a,b):
+                  for i in range(8):
+                      r=requests.get(cdn,headers={'Range':f'bytes={a}-{b}','Accept-Encoding':'identity'},timeout=90)
+                      if r.status_code in (200,206): return r.content
+                      if r.status_code in (429,500,502,503,504): time.sleep(min(2**i,30)); continue
+                      raise Exception(f'HTTP {r.status_code}')
+                  raise Exception('range retry exhausted')
+              header=rg(0,511)
+              name=header[:100].split(b'\0',1)[0].decode()
+              size=int(header[124:136].split(b'\0',1)[0].strip() or b'0',8)
+              assert name=='CEP_OFFLOAD_MANIFEST.json'
+              body=rg(512,511+size)
+              obj=json.loads(body)
+              rid=obj['runtime_id']
+              (out/f'{rid}_CEP_OFFLOAD_MANIFEST.json').write_bytes(body)
+              report.append({'runtime_id':rid,'tar_path':p,'manifest_bytes':len(body),'manifest_sha256':hashlib.sha256(body).hexdigest(),'file_count':obj.get('file_count'),'payload_bytes':obj.get('payload_bytes'),'source_roots':obj.get('source_roots',[]),'xet_hash':h.headers.get('X-Xet-Hash','')})
+              print(rid,len(body),obj.get('file_count'),obj.get('payload_bytes'))
+          (out/'report.json').write_text(json.dumps(report,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hf-v150-full-manifests
+          path: manifest_out/
+          retention-days: 1
