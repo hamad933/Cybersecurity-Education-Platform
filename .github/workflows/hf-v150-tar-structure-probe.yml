@@ -1,0 +1,108 @@
+name: HF V150 TAR Structure Probe
+
+on:
+  push:
+    branches:
+      - hf-provider-closure-temp-20260913
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe TAR headers by sparse HTTP ranges
+        shell: bash
+        run: |
+          python - <<'PY'
+          import concurrent.futures, json, math, re, requests
+          from pathlib import Path
+
+          BUCKET='hamad9333/cep-runtime-offload'
+          TARS=[
+            'v150/UR1/CEP_V150_UR1_LOCAL_OFFLOAD_20260910T031540Z.tar',
+            'v150/UR2/CEP_V150_UR2_LOCAL_OFFLOAD_20260910T031632Z.tar',
+            'v150/UR3/CEP_V150_UR3_LOCAL_OFFLOAD_20260910T031945Z.tar',
+            'v150/UR4/CEP_V150_UR4_LOCAL_OFFLOAD_20260910T031709Z.tar',
+          ]
+          MAX_ENTRIES=3000
+          CAND=re.compile(r'(?i)(manifest|receipt|summary|index|catalog|report|metadata|sha256|hash|inventory|mapping|state|checkpoint)')
+          out=Path('tar_probe_out'); out.mkdir(exist_ok=True)
+
+          def parse_octal(b):
+              s=b.split(b'\0',1)[0].strip().strip(b' ')
+              if not s: return 0
+              try: return int(s,8)
+              except: return None
+
+          def fetch_range(sess,url,start,end):
+              r=sess.get(url,headers={'Range':f'bytes={start}-{end}','Accept-Encoding':'identity'},allow_redirects=True,timeout=60)
+              if r.status_code not in (200,206):
+                  raise RuntimeError(f'HTTP {r.status_code} for range {start}-{end}')
+              data=r.content
+              # Never accept an accidental full multi-GB response into memory; requests has already read content,
+              # but public HF resolver/CDN honors ranges for these Xet-backed objects.
+              return data
+
+          def probe(path):
+              url=f'https://huggingface.co/buckets/{BUCKET}/resolve/{path}'
+              sess=requests.Session()
+              offset=0; entries=[]; candidates=[]; header_bytes=0; body_bytes=0; stop='MAX_ENTRIES'
+              for idx in range(MAX_ENTRIES):
+                  h=fetch_range(sess,url,offset,offset+511)
+                  header_bytes += len(h)
+                  if len(h)<512:
+                      stop='SHORT_HEADER'; break
+                  if h==b'\0'*512:
+                      stop='ZERO_HEADER'; break
+                  name=h[0:100].split(b'\0',1)[0].decode('utf-8','replace')
+                  prefix=h[345:500].split(b'\0',1)[0].decode('utf-8','replace')
+                  if prefix: name=prefix+'/'+name
+                  size=parse_octal(h[124:136])
+                  if size is None:
+                      stop='INVALID_SIZE'; break
+                  typ=chr(h[156]) if h[156] else '0'
+                  rec={'index':idx,'offset':offset,'name':name,'size':size,'typeflag':typ}
+                  entries.append(rec)
+                  if CAND.search(name) and size <= 2*1024*1024 and typ in ('0','\x00','7'):
+                      b=fetch_range(sess,url,offset+512,offset+512+size-1) if size else b''
+                      body_bytes += len(b)
+                      cand={'entry':rec,'sha256':__import__('hashlib').sha256(b).hexdigest(),'bytes':len(b)}
+                      try:
+                          text=b.decode('utf-8')
+                          cand['text']=text[:1000000]
+                      except Exception:
+                          cand['hex_prefix']=b[:512].hex()
+                      candidates.append(cand)
+                  offset += 512 + ((size + 511)//512)*512
+              return {'path':path,'url':url,'entries':entries,'candidate_bodies':candidates,'stop_reason':stop,'next_offset':offset,'header_bytes_downloaded':header_bytes,'candidate_body_bytes_downloaded':body_bytes}
+
+          with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
+              results=list(ex.map(probe,TARS))
+          for r in results:
+              fn=out/(Path(r['path']).name+'.structure.json')
+              fn.write_text(json.dumps(r,indent=2,ensure_ascii=False),encoding='utf-8')
+              print('\n###',r['path'])
+              print('entries',len(r['entries']),'stop',r['stop_reason'],'next_offset',r['next_offset'],'headers_bytes',r['header_bytes_downloaded'],'candidate_bytes',r['candidate_body_bytes_downloaded'])
+              print('first20:')
+              for e in r['entries'][:20]: print(e)
+              print('candidates:',[(c['entry']['name'],c['entry']['size'],c['sha256']) for c in r['candidate_bodies']])
+          (out/'summary.json').write_text(json.dumps({
+              'bucket':BUCKET,
+              'tar_count':len(TARS),
+              'tar_bodies_downloaded':False,
+              'sparse_header_probe':True,
+              'max_entries_per_tar':MAX_ENTRIES,
+              'results':[{'path':r['path'],'entries':len(r['entries']),'stop_reason':r['stop_reason'],'next_offset':r['next_offset'],'header_bytes_downloaded':r['header_bytes_downloaded'],'candidate_body_bytes_downloaded':r['candidate_body_bytes_downloaded']} for r in results]
+          },indent=2),encoding='utf-8')
+          PY
+      - name: Upload TAR structure evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: hf-v150-tar-structure-evidence
+          path: tar_probe_out/
+          retention-days: 1
+          if-no-files-found: error
