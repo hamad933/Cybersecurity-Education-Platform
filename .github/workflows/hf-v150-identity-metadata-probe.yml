@@ -1,0 +1,99 @@
+name: HF V150 Identity Metadata Probe
+on:
+  push:
+    branches: [hf-provider-closure-temp-20260913]
+permissions:
+  contents: read
+jobs:
+  identity-metadata:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read TAR table and small identity metadata by CDN ranges only
+        run: |
+          python - <<'PY'
+          import io,json,hashlib,tarfile,time,requests,re
+          from pathlib import Path
+          BUCKET='hamad9333/cep-runtime-offload'
+          TARS={
+            'UR1':'v150/UR1/CEP_V150_UR1_LOCAL_OFFLOAD_20260910T031540Z.tar',
+            'UR2':'v150/UR2/CEP_V150_UR2_LOCAL_OFFLOAD_20260910T031632Z.tar',
+            'UR3':'v150/UR3/CEP_V150_UR3_LOCAL_OFFLOAD_20260910T031945Z.tar',
+            'UR4':'v150/UR4/CEP_V150_UR4_LOCAL_OFFLOAD_20260910T031709Z.tar',
+          }
+          TARGET_BASENAMES={'binary_metadata.json','media_identity.json','ffprobe.json'}
+          TARGET_RE=re.compile(r'(?i)(receipt|manifest|summary|pointer|custody|state|checkpoint|mapping|identity|metadata)')
+          out=Path('identity_probe_out'); out.mkdir(exist_ok=True)
+
+          class RangeReader(io.RawIOBase):
+              def __init__(self,url,size,block=1024*1024):
+                  self.url=url; self.size=size; self.pos=0; self.block=block; self.cache={}; self.s=requests.Session(); self.bytes_fetched=0; self.requests=0
+              def readable(self): return True
+              def seekable(self): return True
+              def tell(self): return self.pos
+              def seek(self,off,whence=0):
+                  if whence==0: self.pos=off
+                  elif whence==1: self.pos+=off
+                  elif whence==2: self.pos=self.size+off
+                  return self.pos
+              def _getblock(self,bidx):
+                  if bidx in self.cache: return self.cache[bidx]
+                  a=bidx*self.block; b=min(self.size-1,a+self.block-1)
+                  for i in range(8):
+                      r=self.s.get(self.url,headers={'Range':f'bytes={a}-{b}','Accept-Encoding':'identity'},stream=True,timeout=90)
+                      if r.status_code in (200,206):
+                          data=r.content; r.close(); self.bytes_fetched+=len(data); self.requests+=1
+                          # keep modest rolling cache
+                          if len(self.cache)>32: self.cache.pop(next(iter(self.cache)))
+                          self.cache[bidx]=data; return data
+                      st=r.status_code; ra=r.headers.get('Retry-After'); r.close()
+                      if st in (429,500,502,503,504): time.sleep(float(ra) if ra and ra.isdigit() else min(2**i,30)); continue
+                      raise OSError(f'HTTP {st} range {a}-{b}')
+                  raise OSError('range retry exhausted')
+              def readinto(self,b):
+                  if self.pos>=self.size: return 0
+                  want=min(len(b),self.size-self.pos); done=0
+                  mv=memoryview(b)
+                  while done<want:
+                      bi=self.pos//self.block; bo=self.pos%self.block; data=self._getblock(bi)
+                      n=min(want-done,len(data)-bo)
+                      mv[done:done+n]=data[bo:bo+n]
+                      self.pos+=n; done+=n
+                  return done
+
+          all_report=[]
+          for ur,path in TARS.items():
+              resolver=f'https://huggingface.co/buckets/{BUCKET}/resolve/{path}'
+              h=requests.head(resolver,allow_redirects=False,timeout=60)
+              assert h.status_code in (301,302,303,307,308), (h.status_code,path)
+              cdn=h.headers['Location']; size=int(h.headers.get('X-Linked-Size') or h.headers.get('Content-Length') or 0)
+              rr=RangeReader(cdn,size)
+              bf=io.BufferedReader(rr,buffer_size=256*1024)
+              selected=[]; members=[]; category={}
+              with tarfile.open(fileobj=bf,mode='r:') as tf:
+                  for idx,m in enumerate(tf):
+                      members.append({'index':idx,'name':m.name,'size':m.size,'type':m.type.decode('latin1') if isinstance(m.type,bytes) else str(m.type),'offset_data':m.offset_data})
+                      root=m.name.split('/')[1] if m.name.startswith('payload/') and '/' in m.name else ('TOP' if not m.name.startswith('payload/') else 'payload')
+                      st=category.setdefault(root,{'count':0,'bytes':0}); st['count']+=1; st['bytes']+=m.size
+                      base=Path(m.name).name
+                      is_small=(m.size<=2*1024*1024)
+                      want=is_small and (base in TARGET_BASENAMES or TARGET_RE.search(base) or '/CEP_UR_V150_' in m.name)
+                      if want and m.isfile():
+                          f=tf.extractfile(m); body=f.read() if f else b''
+                          rec={'index':idx,'name':m.name,'size':m.size,'offset_data':m.offset_data,'content_sha256':hashlib.sha256(body).hexdigest()}
+                          try: rec['text']=body.decode('utf-8')[:1500000]
+                          except Exception: rec['hex_prefix']=body[:512].hex()
+                          selected.append(rec)
+              (out/f'{ur}_members.json').write_text(json.dumps(members,ensure_ascii=False),encoding='utf-8')
+              (out/f'{ur}_selected_metadata.json').write_text(json.dumps(selected,ensure_ascii=False,indent=2),encoding='utf-8')
+              rep={'runtime_id':ur,'tar_path':path,'tar_bytes':size,'xet_hash':h.headers.get('X-Xet-Hash',''),'member_count':len(members),'selected_metadata_count':len(selected),'range_requests':rr.requests,'range_bytes_fetched':rr.bytes_fetched,'categories':category}
+              all_report.append(rep); print(json.dumps(rep))
+          (out/'report.json').write_text(json.dumps(all_report,indent=2),encoding='utf-8')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hf-v150-identity-metadata-evidence
+          path: identity_probe_out/
+          retention-days: 1
+          if-no-files-found: error
