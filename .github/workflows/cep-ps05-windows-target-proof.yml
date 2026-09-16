@@ -72,6 +72,36 @@ jobs:
           $env:PS05_NPM_VERSION = (npm --version)
           node "ps05_windows_proof/run.mjs" "ps05_windows_proof/evidence"
 
+      - name: Finalize stable evidence checksums
+        if: always()
+        run: |
+          $evidence = "ps05_windows_proof/evidence"
+          $names = @(
+            "environment.json",
+            "source_binding.json",
+            "driver_matrix.json",
+            "save_autosave_recovery.json",
+            "local_runtime_gate_e.json",
+            "benchmark.json",
+            "install_receipts.json",
+            "test_output.log",
+            "summary.json",
+            "npm-install.log",
+            "npm-install-first-exit-code.txt",
+            "npm-install-second-exit-code.txt",
+            "node-version.txt",
+            "npm-version.txt"
+          )
+          $files = [ordered]@{}
+          foreach ($name in $names) {
+            $file = Join-Path $evidence $name
+            if (Test-Path $file) {
+              $files[$name] = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            }
+          }
+          $receipt = [ordered]@{ algorithm = "SHA-256"; finalizedAfterHarness = $true; files = $files }
+          $receipt | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $evidence "checksums.json")
+
       - name: Build machine-readable evidence bundle
         if: always()
         run: |
