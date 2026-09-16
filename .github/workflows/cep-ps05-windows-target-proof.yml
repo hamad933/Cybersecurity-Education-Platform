@@ -1,0 +1,104 @@
+name: CEP PS05 Windows Target Proof
+
+on:
+  push:
+    branches: [cep-ps05-windows-target-proof]
+    paths:
+      - '.github/workflows/cep-ps05-windows-target-proof.yml'
+      - 'ps05_windows_proof/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cep-ps05-windows-target-proof-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows-proof:
+    name: PS05 ${{ matrix.os }} x64
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout isolated proof branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup exact Node runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          architecture: x64
+
+      - name: Prepare evidence directory
+        run: |
+          New-Item -ItemType Directory -Force -Path "ps05_windows_proof/evidence" | Out-Null
+          node --version | Set-Content "ps05_windows_proof/evidence/node-version.txt"
+          npm --version | Set-Content "ps05_windows_proof/evidence/npm-version.txt"
+
+      - name: Clean install and reinstall better-sqlite3
+        id: install
+        continue-on-error: true
+        working-directory: ps05_windows_proof
+        run: |
+          $ErrorActionPreference = 'Continue'
+          "ATTEMPT_1" | Set-Content "evidence/npm-install.log"
+          npm install --no-save --package-lock=false --no-audit --no-fund better-sqlite3@latest 2>&1 | Tee-Object -FilePath "evidence/npm-install.log" -Append
+          $code1 = $LASTEXITCODE
+          Set-Content -Path "evidence/npm-install-first-exit-code.txt" -Value "$code1"
+          if ($code1 -eq 0) {
+            node -e "const p=require('better-sqlite3'); const db=new p(':memory:'); console.log('BETTER_SQLITE3_FIRST_IMPORT_OK', db.prepare('select sqlite_version() v').get()); db.close()" 2>&1 | Tee-Object -FilePath "evidence/npm-install.log" -Append
+          }
+          if (Test-Path "node_modules") { Remove-Item "node_modules" -Recurse -Force }
+          "ATTEMPT_2_AFTER_CLEAN_REMOVAL" | Tee-Object -FilePath "evidence/npm-install.log" -Append
+          npm install --no-save --package-lock=false --no-audit --no-fund better-sqlite3@latest 2>&1 | Tee-Object -FilePath "evidence/npm-install.log" -Append
+          $code2 = $LASTEXITCODE
+          Set-Content -Path "evidence/npm-install-second-exit-code.txt" -Value "$code2"
+          exit 0
+
+      - name: Execute bounded Gate A / Gate C / Gate E harness
+        id: harness
+        continue-on-error: true
+        run: |
+          $env:PS05_NPM_VERSION = (npm --version)
+          node "ps05_windows_proof/run.mjs" "ps05_windows_proof/evidence"
+
+      - name: Build machine-readable evidence bundle
+        if: always()
+        run: |
+          $bundle = "ps05_windows_proof/cep-ps05-${{ matrix.os }}-x64-evidence.zip"
+          if (Test-Path $bundle) { Remove-Item $bundle -Force }
+          Compress-Archive -Path "ps05_windows_proof/evidence/*" -DestinationPath $bundle -Force
+          Get-FileHash $bundle -Algorithm SHA256 | Select-Object Algorithm, Hash, Path | ConvertTo-Json | Set-Content "ps05_windows_proof/evidence-bundle-sha256.json"
+
+      - name: Upload Windows evidence artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cep-ps05-${{ matrix.os }}-x64
+          path: |
+            ps05_windows_proof/cep-ps05-${{ matrix.os }}-x64-evidence.zip
+            ps05_windows_proof/evidence-bundle-sha256.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce proof result after artifact upload
+        if: always()
+        run: |
+          $summaryPath = "ps05_windows_proof/evidence/summary.json"
+          if (-not (Test-Path $summaryPath)) { throw "SUMMARY_MISSING" }
+          $summary = Get-Content $summaryPath -Raw | ConvertFrom-Json
+          if (-not $summary.overallPass) {
+            Write-Error ("PS05_PROOF_FAILED: " + (Get-Content $summaryPath -Raw))
+            exit 1
+          }
+          Write-Host "PS05_WINDOWS_PROOF_PASS"

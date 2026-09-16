@@ -1,0 +1,6 @@
+{
+  "name": "cep-ps05-windows-proof",
+  "private": true,
+  "type": "module",
+  "engines": {"node": "22.16.0"}
+}
