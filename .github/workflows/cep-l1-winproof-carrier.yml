@@ -20,7 +20,7 @@ jobs:
           New-Item -ItemType Directory -Force artifact | Out-Null
           $src = Get-Content -Raw tmp/cep-l1-winproof/main.cpp
           $src = $src.Replace('PIPE_ACCESS_INBOUND,PIPE_TYPE_MESSAGE|PIPE_READMODE_MESSAGE|PIPE_WAIT','PIPE_ACCESS_DUPLEX,PIPE_TYPE_BYTE|PIPE_READMODE_BYTE|PIPE_WAIT')
-          Set-Content -NoNewline tmp/cep-l1-winproof/main-fixed.cpp $src
+          [IO.File]::WriteAllText((Join-Path $PWD 'tmp/cep-l1-winproof/main-fixed.cpp'), $src, [Text.UTF8Encoding]::new($false))
           cl /nologo /std:c++17 /O2 /EHsc /MT /DUNICODE /D_UNICODE /DNOMINMAX tmp/cep-l1-winproof/main-fixed.cpp /Fe:artifact/cep-win-sidecar.exe user32.lib shell32.lib advapi32.lib
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Get-FileHash artifact/cep-win-sidecar.exe -Algorithm SHA256 | Format-List
