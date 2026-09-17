@@ -61,6 +61,13 @@ jobs:
           $hashes=$items | ForEach-Object { $h=Get-FileHash $_ -Algorithm SHA256; "$($h.Hash.ToLower())  $($_ -replace '\\','/')" }
           $hashes | Set-Content -Encoding ascii lane1/out/sha256.txt
           @("image=$env:ImageOS","runner=$env:RUNNER_NAME","arch=$env:RUNNER_ARCH","github_run_id=$env:GITHUB_RUN_ID","github_sha=$env:GITHUB_SHA") | Set-Content -Encoding ascii lane1/out/build-environment.txt
+      - name: Publish transient carrier bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: lane1-windows-carrier-output
+          path: lane1/out
+          if-no-files-found: error
+          retention-days: 1
       - name: Commit carrier outputs to temporary branch
         shell: pwsh
         run: |
