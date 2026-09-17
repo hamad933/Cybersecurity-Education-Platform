@@ -1,0 +1,5 @@
+image=win25-vs2026
+runner=GitHub Actions 1000021677
+arch=X64
+github_run_id=35177810249
+github_sha=4dfc5fc72a388e9e1af1326eff52a710153b359c

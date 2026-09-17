@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 1,
+  "classification": "MANAGED_WINDOWS_NONINTERACTIVE_CARRIER__CANDIDATE_ONLY__NOT_NATIVE_INTERACTIVE_ACCEPTANCE",
+  "runner": {
+    "os": "Microsoft Windows NT 10.0.26100.0",
+    "arch": "X64",
+    "powershell": "7.6.5",
+    "computer": "runnervmvmocb",
+    "githubRunId": "35177810249",
+    "githubSha": "4dfc5fc72a388e9e1af1326eff52a710153b359c"
+  },
+  "status": "PASS",
+  "pass": 11,
+  "fail": 0,
+  "noninteractiveCases": [
+    {
+      "id": "CAR-WIN-01-provider-descriptor",
+      "status": "PASS",
+      "detail": {
+        "conptyAvailable": true,
+        "platform": "windows",
+        "providerEpoch": 280001000000.0,
+        "providerId": "cep-win32-sidecar",
+        "providerVersion": "1.0.0",
+        "webView2RuntimeAvailable": true,
+        "webView2RuntimeVersion": "152.0.4191.66"
+      }
+    },
+    {
+      "id": "CAR-WIN-02-platform-descriptor-truth",
+      "status": "PASS",
+      "detail": {
+        "availability": "AVAILABLE",
+        "capabilities": {
+          "alwaysOnTop": true,
+          "detachedWindow": true,
+          "focus": true,
+          "inputDirection": true,
+          "nativeBounds": true
+        },
+        "contract": {
+          "id": "PlatformWindowCapability",
+          "version": "1.0.0"
+        },
+        "hostTechnology": "INSTALLED_WEBVIEW2_RUNTIME_NATIVE_HWND",
+        "platform": "windows",
+        "providerEpoch": 280001000000.0,
+        "providerId": "cep-win32-sidecar",
+        "providerVersion": "1.0.0"
+      }
+    },
+    {
+      "id": "CAR-INP-01-layout-observer-noninteractive",
+      "status": "PASS",
+      "detail": {
+        "direction": "ltr",
+        "rawHint": null,
+        "source": null
+      }
+    },
+    {
+      "id": "CAR-TERM-01-cmd-raw-io",
+      "status": "PASS",
+      "detail": {
+        "sessionId": "conpty-5280-1",
+        "text": "\u001b[?9001h\u001b[?1004h\u001b[?25l\u001b[2J\u001b[m\u001b[HMicrosoft Windows [Version 10.0.26100.33296]\u001b]0;C:\\Windows\\System32\\cmd.exe\u0007\u001b[?25h\u001b[?25l\r\n(c) Microsoft Corporation. All rights reserved.\u001b[4;1HD:\\a\\_temp>echo CEP_CMD_OK\r\nCEP_CMD_OK\u001b[7;1HD:\\a\\_temp>\u001b]0;Administrator: C:\\Windows\\System32\\cmd.exe\u0007\u001b[?25h"
+      }
+    },
+    {
+      "id": "CAR-TERM-02-resize",
+      "status": "PASS",
+      "detail": {
+        "cols": 132,
+        "ok": true,
+        "providerEpoch": 280001000000.0,
+        "providerId": "cep-win32-sidecar",
+        "requestId": "carrier-7",
+        "rows": 43,
+        "sessionId": "conpty-5280-1"
+      }
+    },
+    {
+      "id": "CAR-TERM-03-restart-stable-session-id",
+      "status": "PASS",
+      "detail": {
+        "sessionId": "conpty-5280-1",
+        "restart": {
+          "ok": true,
+          "providerEpoch": 280001000000.0,
+          "providerId": "cep-win32-sidecar",
+          "requestId": "carrier-8",
+          "restartCount": 1,
+          "sessionId": "conpty-5280-1"
+        },
+        "text": "\u001b[?9001h\u001b[?1004h\u001b[?25l\u001b[2J\u001b[m\u001b[HMicrosoft Windows [Version 10.0.26100.33296]\u001b]0;C:\\Windows\\System32\\cmd.exe\u0007\u001b[?25h\u001b[?25l\r\n(c) Microsoft Corporation. All rights reserved.\u001b[4;1HD:\\a\\_temp>echo CEP_RESTART_OK\r\nCEP_RESTART_OK\u001b[7;1HD:\\a\\_temp>\u001b]0;Administrator: C:\\Windows\\System32\\cmd.exe\u0007\u001b[?25h"
+      }
+    },
+    {
+      "id": "CAR-TERM-04-powershell-profile",
+      "status": "PASS",
+      "detail": {
+        "sessionId": "conpty-5280-2",
+        "text": "\u001b[?9001h\u001b[?1004h\u001b[?25l\u001b[2J\u001b[m\u001b[H\u001b]0;Administrator: C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\u0007\u001b[?25hPS D:\\a\\_temp> \u001b[?25l\u001b[93mW\u001b[?25h\u001b[m\u001b[93m\bWrite-Output \u001b[37mCEP_PS_OK; \u001b[92mexit\u001b[?25l\u001b[m\r\n\u001b[?25hCEP_PS_OK\r\n",
+        "lifecycle": {
+          "detail": "Process exited with code 0",
+          "exitCode": 0,
+          "state": "exited"
+        }
+      }
+    },
+    {
+      "id": "CAR-TERM-05-arbitrary-extra-executable-profile",
+      "status": "PASS",
+      "detail": {
+        "sessionId": "conpty-5280-3",
+        "text": "\u001b[?9001h\u001b[?1004h\u001b[?25l\u001b[2J\u001b[m\u001b[Hrunnervmvmocb\\runneradmin\u001b]0;C:\\Windows\\System32\\whoami.exe\u0007\u001b[?25h\r\n",
+        "lifecycle": {
+          "detail": "Process exited with code 0",
+          "exitCode": 0,
+          "state": "exited"
+        }
+      }
+    },
+    {
+      "id": "CAR-TERM-06-exit-code",
+      "status": "PASS",
+      "detail": {
+        "detail": "Process exited with code 7",
+        "exitCode": 7,
+        "state": "exited"
+      }
+    },
+    {
+      "id": "CAR-TERM-07-error-truth",
+      "status": "PASS",
+      "detail": {
+        "code": "CONPTY_OPEN_FAILED",
+        "message": "The system cannot find the path specified.\r\n (3)",
+        "ok": false,
+        "providerEpoch": 280001000000.0,
+        "providerId": "cep-win32-sidecar",
+        "requestId": "carrier-26"
+      }
+    },
+    {
+      "id": "CAR-TERM-08-system-ssh-profile",
+      "status": "PASS",
+      "detail": {
+        "sessionId": "conpty-5280-6",
+        "text": "\u001b[?9001h\u001b[?1004h\u001b[?25l\u001b[2J\u001b[m\u001b[HOpenSSH_for_Windows_9.5p2, LibreSSL 3.8.2\r\n\u001b]0;C:\\Windows\\System32\\OpenSSH\\ssh.exe\u0007\u001b[?25h",
+        "lifecycle": {
+          "detail": "Process exited with code 0",
+          "exitCode": 0,
+          "state": "exited"
+        }
+      }
+    }
+  ],
+  "interactiveCases": [
+    {
+      "id": "WIN-01",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "WIN-02",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "WIN-03",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "WIN-04",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "WIN-05",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "WIN-06",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "WIN-07",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "WIN-08",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "WIN-09",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "WIN-10",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "WIN-11",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "WIN-12",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "WIN-13",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "INP-01",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "INP-02",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "INP-03",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "INP-04",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "INP-05",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "INP-06",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "INP-07",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "INP-08",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    },
+    {
+      "id": "INP-09",
+      "status": "NOT_RUN_PENDING_OWNER_INTERACTIVE_PROOF",
+      "reason": "Managed carrier is noninteractive; no HWND/topmost/focus/layout-switch acceptance claim."
+    }
+  ]
+}
