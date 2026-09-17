@@ -1,0 +1,46 @@
+name: CEP Lane1 Windows ConPTY Carrier
+on:
+  push:
+    branches: [cep-l1-winproof-carrier-20260917]
+    paths:
+      - 'tmp/cep-l1-winproof/**'
+      - '.github/workflows/cep-l1-winproof-carrier.yml'
+permissions:
+  contents: read
+jobs:
+  windows-conpty:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Build C++17 Win32 sidecar
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifact | Out-Null
+          cl /nologo /std:c++17 /O2 /EHsc /MT /DUNICODE /D_UNICODE tmp/cep-l1-winproof/main.cpp /Fe:artifact/cep-win-sidecar.exe user32.lib shell32.lib advapi32.lib
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-FileHash artifact/cep-win-sidecar.exe -Algorithm SHA256 | Format-List
+      - name: Prove ConPTY profiles, raw IO, resize, failure, restart
+        shell: pwsh
+        run: node tmp/cep-l1-winproof/proof.mjs artifact
+      - name: Acquire official xterm.js 6.0.0 assets
+        shell: pwsh
+        run: |
+          npm install --prefix .carrier/npm --ignore-scripts --no-audit --no-fund @xterm/xterm@6.0.0
+          New-Item -ItemType Directory -Force artifact/xterm | Out-Null
+          Copy-Item .carrier/npm/node_modules/@xterm/xterm/lib/xterm.mjs artifact/xterm/xterm.mjs
+          Copy-Item .carrier/npm/node_modules/@xterm/xterm/css/xterm.css artifact/xterm/xterm.css
+          Copy-Item .carrier/npm/node_modules/@xterm/xterm/LICENSE artifact/xterm/LICENSE
+          Copy-Item .carrier/npm/node_modules/@xterm/xterm/package.json artifact/xterm/package.json
+          Get-FileHash artifact/xterm/* -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  xterm/$([IO.Path]::GetFileName($_.Path))" } | Set-Content artifact/xterm-sha256.txt
+      - name: Emit carrier receipt
+        shell: pwsh
+        run: |
+          @{ classification='NON_AUTHORITATIVE_EXECUTION_CARRIER'; runner=$env:RUNNER_NAME; image=$env:ImageOS; source_commit=$env:GITHUB_SHA; utc=(Get-Date).ToUniversalTime().ToString('o') } | ConvertTo-Json | Set-Content artifact/carrier-receipt.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cep-l1-windows-conpty-proof
+          path: artifact
+          if-no-files-found: error
+          retention-days: 1
