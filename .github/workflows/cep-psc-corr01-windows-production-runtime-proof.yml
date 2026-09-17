@@ -6,11 +6,14 @@ on:
       - cep-ps05-windows-target-proof
     paths:
       - '.github/workflows/cep-psc-corr01-windows-production-runtime-proof.yml'
-      - 'psc_corr01_proof/**'
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: cep-psc-corr01-windows-proof-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   windows-proof:
@@ -26,24 +29,26 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
           architecture: x64
 
-      - name: Download exact corrected candidate and exact proof harness
+      - name: Download exact corrected candidate and corrected proof harness
         shell: pwsh
         env:
           CANDIDATE_URL: 'https://sdmntprnortheu.oaiusercontent.com/files/00000000-9db4-81f4-b6dd-231d42c237e0/raw?se=2026-09-17T00%3A28%3A42Z&sp=r&sv=2026-02-06&sr=b&scid=ff2ba45c-0082-5457-83db-cea581283413&skoid=a0b9f82a-c86e-4064-a822-2aa38890bb37&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-16T19%3A59%3A43Z&ske=2026-09-17T19%3A59%3A43Z&sks=b&skv=2026-02-06&sig=UX3YDDSxDF0dt0Eb8kvr0qRnBsM00HXOcksR0I4u5Eo%3D'
-          HARNESS_URL: 'https://sdmntprdenmarkeast.oaiusercontent.com/files/00000000-0334-8210-818b-cc360ba6b6c4/raw?se=2026-09-17T00%3A28%3A45Z&sp=r&sv=2026-02-06&sr=b&scid=3c3da5fb-f259-5a81-b6f2-6268606b55e7&skoid=a0b9f82a-c86e-4064-a822-2aa38890bb37&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-16T19%3A03%3A25Z&ske=2026-09-17T19%3A03%3A25Z&sks=b&skv=2026-02-06&sig=ykBS6d3cZ8BjfWSt3QX6MU4MaDm1E8D2ambkzW4gdQI%3D'
+          HARNESS_URL: 'https://sdmntprnortheu.oaiusercontent.com/files/00000000-7a5c-81f4-b30f-b70b0dffcfd5/raw?se=2026-09-17T00%3A32%3A01Z&sp=r&sv=2026-02-06&sr=b&scid=b3c879dc-f394-5984-92a3-5bdb9e674668&skoid=a0b9f82a-c86e-4064-a822-2aa38890bb37&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-16T20%3A04%3A38Z&ske=2026-09-17T20%3A04%3A38Z&sks=b&skv=2026-02-06&sig=YN%2BWK5IoVqM4AI/lvJkP1qtP3ZtwaOE/mT8qFbVOa1s%3D'
         run: |
           Invoke-WebRequest -Uri $env:CANDIDATE_URL -OutFile candidate.zip -UseBasicParsing
           Invoke-WebRequest -Uri $env:HARNESS_URL -OutFile harness.zip -UseBasicParsing
           $candidate = (Get-FileHash candidate.zip -Algorithm SHA256).Hash.ToLowerInvariant()
           $harness = (Get-FileHash harness.zip -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($candidate -ne 'd6815e72f882c249685dfd5da0ce4eb44cfb081e6b223cf6a11ad9a6d8edac9b') { throw "candidate sha mismatch: $candidate" }
-          if ($harness -ne 'fc026597f59fe2c77b21d822de12cb305c99c8fffebfabe8b551f6ffba8079d8') { throw "harness sha mismatch: $harness" }
+          if ($harness -ne 'ab4258f0f0a73581a18fd04f972b45019e37e1beee44e335810d6375b17bdcee') { throw "harness sha mismatch: $harness" }
           New-Item -ItemType Directory -Force psc_corr01_proof | Out-Null
           Expand-Archive -Path harness.zip -DestinationPath psc_corr01_proof -Force
           "PSC_HARNESS_SHA256=$harness" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
