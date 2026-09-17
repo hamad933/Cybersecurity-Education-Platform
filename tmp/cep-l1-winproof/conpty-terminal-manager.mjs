@@ -1,5 +1,5 @@
 import {spawn} from 'node:child_process';
-import net from 'node:net';
+import {writeFile} from 'node:fs/promises';
 import {EventEmitter} from 'node:events';
 import {randomUUID} from 'node:crypto';
 import {existsSync} from 'node:fs';
@@ -8,7 +8,7 @@ import {fileURLToPath} from 'node:url';
 const here=fileURLToPath(new URL('.',import.meta.url));
 export const DEFAULT_WINDOWS_SIDECAR=resolve(here,'../../windows-platform/bin/cep-win-sidecar.exe');
 const copy=v=>structuredClone(v);
-function control(pipe,line){return new Promise((resolve,reject)=>{const socket=net.createConnection(pipe,()=>{socket.end(line+'\n')});socket.once('error',reject);socket.once('close',()=>resolve(true))})}
+async function control(pipe,line){await writeFile(pipe,Buffer.from(line+'\n','utf8'));return true;}
 export class ConptyTerminalManager extends EventEmitter{
   constructor({helperPath=process.env.CEP_WINDOWS_SIDECAR||DEFAULT_WINDOWS_SIDECAR}={}){super();this.helperPath=resolve(helperPath);this.sessions=new Map();this.providerId='cep-win32-conpty';this.providerVersion='1.0.0';}
   available(){return process.platform==='win32'&&existsSync(this.helperPath)}
