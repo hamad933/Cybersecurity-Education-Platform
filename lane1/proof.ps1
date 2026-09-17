@@ -105,6 +105,8 @@ try {
     try { $null = Send 'terminal' 'close' @{sessionId=$sid} } catch {}
   }
 } catch {
+  Write-Host ("HARNESS_ERROR: " + $_.Exception.Message) -ForegroundColor Red
+  Write-Host $_.ScriptStackTrace -ForegroundColor DarkRed
   Add-Case 'CAR-HARNESS-UNCAUGHT' 'FAIL' @{error=$_.Exception.Message;stack=$_.ScriptStackTrace}
 } finally {
   try { $null = Send 'provider' 'shutdown' @{} } catch {}
