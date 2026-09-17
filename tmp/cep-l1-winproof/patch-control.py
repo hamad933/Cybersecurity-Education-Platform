@@ -2,6 +2,18 @@ from pathlib import Path
 
 cpp=Path('tmp/cep-l1-winproof/main.cpp')
 s=cpp.read_text(encoding='utf-8')
+
+# Microsoft ConPTY lifetime requirement: the input-read/output-write handles passed
+# to CreatePseudoConsole remain open until after CreateProcess attaches the child.
+old="""  HPCON pc=nullptr; COORD size{(SHORT)std::max<short>(1,a.cols),(SHORT)std::max<short>(1,a.rows)}; HRESULT hr=CreatePseudoConsole(size,inRead,outWrite,0,&pc); CloseHandle(inRead);CloseHandle(outWrite); if(FAILED(hr)){emitErr(\"{\\\"event\\\":\\\"error\\\",\\\"code\\\":\\\"CREATE_PSEUDOCONSOLE_FAILED\\\",\\\"hresult\\\":\"+std::to_string((long)hr)+\"}\");return 4;}\n"""
+new_lifetime="""  HPCON pc=nullptr; COORD size{(SHORT)std::max<short>(1,a.cols),(SHORT)std::max<short>(1,a.rows)}; HRESULT hr=CreatePseudoConsole(size,inRead,outWrite,0,&pc); if(FAILED(hr)){CloseHandle(inRead);CloseHandle(outWrite);emitErr(\"{\\\"event\\\":\\\"error\\\",\\\"code\\\":\\\"CREATE_PSEUDOCONSOLE_FAILED\\\",\\\"hresult\\\":\"+std::to_string((long)hr)+\"}\");return 4;}\n"""
+if old not in s: raise SystemExit('CreatePseudoConsole lifetime target missing')
+s=s.replace(old,new_lifetime,1)
+old_cp="""  BOOL ok=CreateProcessW(a.exe.c_str(),mutableCmd.data(),nullptr,nullptr,FALSE,EXTENDED_STARTUPINFO_PRESENT|CREATE_UNICODE_ENVIRONMENT,eb.data(),a.cwd.empty()?nullptr:a.cwd.c_str(),&si.StartupInfo,&pi);\n  DeleteProcThreadAttributeList(attrs);HeapFree(GetProcessHeap(),0,attrs); if(!ok){ClosePseudoConsole(pc); emitErr(\"{\\\"event\\\":\\\"error\\\",\\\"code\\\":\\\"CREATE_PROCESS_FAILED\\\",\\\"win32\\\":\"+std::to_string(GetLastError())+\"}\");return 6;}\n"""
+new_cp="""  BOOL ok=CreateProcessW(a.exe.c_str(),mutableCmd.data(),nullptr,nullptr,FALSE,EXTENDED_STARTUPINFO_PRESENT|CREATE_UNICODE_ENVIRONMENT,eb.data(),a.cwd.empty()?nullptr:a.cwd.c_str(),&si.StartupInfo,&pi);\n  CloseHandle(inRead);CloseHandle(outWrite);\n  DeleteProcThreadAttributeList(attrs);HeapFree(GetProcessHeap(),0,attrs); if(!ok){ClosePseudoConsole(pc); emitErr(\"{\\\"event\\\":\\\"error\\\",\\\"code\\\":\\\"CREATE_PROCESS_FAILED\\\",\\\"win32\\\":\"+std::to_string(GetLastError())+\"}\");return 6;}\n"""
+if old_cp not in s: raise SystemExit('CreateProcess lifetime target missing')
+s=s.replace(old_cp,new_cp,1)
+
 s=s.replace('#include <windows.h>','#include <winsock2.h>\n#include <ws2tcpip.h>\n#include <windows.h>',1)
 start=s.index('  std::wstring pipe=')
 end=s.index('  emitErr("{\\\"event\\\":\\\"ready', start)
