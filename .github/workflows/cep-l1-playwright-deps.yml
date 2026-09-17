@@ -1,0 +1,27 @@
+name: CEP Lane1 Playwright Dependency Carrier
+on:
+  push:
+    branches: [cep-l1-winproof-carrier-20260917]
+    paths:
+      - '.github/workflows/cep-l1-playwright-deps.yml'
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Acquire exact Playwright package without browser download
+        run: |
+          mkdir -p artifact
+          npm install --prefix artifact --ignore-scripts --no-audit --no-fund playwright@1.62.1
+          node -e "const p=require('./artifact/node_modules/playwright/package.json');const c=require('./artifact/node_modules/playwright-core/package.json');if(p.version!=='1.62.1'||c.version!=='1.62.1')process.exit(2);console.log(p.version,c.version)"
+      - name: Receipt
+        run: |
+          printf '%s\n' '{"classification":"NON_AUTHORITATIVE_TEST_DEPENDENCY_CARRIER","playwright":"1.62.1","browser_binaries":"NOT_INCLUDED"}' > artifact/carrier-receipt.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cep-l1-playwright-1.62.1
+          path: artifact
+          if-no-files-found: error
+          retention-days: 1
