@@ -16,7 +16,7 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Patch carrier to exact TCP control variant
         shell: pwsh
-        run: python tmp/cep-l1-winproof/patch-control.py
+        run: python tmp/cep-l1-winproof/patch-control-official.py
       - name: Build C++17 Win32 sidecar and deterministic stdin probe
         shell: pwsh
         run: |
