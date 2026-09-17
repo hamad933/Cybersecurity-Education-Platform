@@ -16,7 +16,7 @@ new=r'''  WSADATA wsa{}; if(WSAStartup(MAKEWORD(2,2),&wsa)!=0){ClosePseudoConsol
   int inputAddrLen=sizeof(inputAddr);getsockname(inputSocket,(sockaddr*)&inputAddr,&inputAddrLen);unsigned inputPort=ntohs(inputAddr.sin_port);
   std::atomic<bool> closing=false;
   std::thread output([&](){char buf[8192];DWORD got=0,wrote=0;HANDLE stdOut=GetStdHandle(STD_OUTPUT_HANDLE);while(ReadFile(outRead,buf,sizeof(buf),&got,nullptr)&&got){if(!WriteFile(stdOut,buf,got,&wrote,nullptr))break;}});
-  std::thread input([&](){while(!closing){SOCKET client=accept(inputSocket,nullptr,nullptr);if(client==INVALID_SOCKET)break;char b[8192];int n=0;DWORD wrote=0;while((n=recv(client,b,sizeof(b),0))>0){if(!WriteFile(inWrite,b,(DWORD)n,&wrote,nullptr)||wrote!=(DWORD)n)break;}shutdown(client,SD_BOTH);closesocket(client);}});
+  std::thread input([&](){while(!closing){SOCKET client=accept(inputSocket,nullptr,nullptr);if(client==INVALID_SOCKET)break;char b[8192];int n=0;DWORD wrote=0;while((n=recv(client,b,sizeof(b),0))>0){BOOL okWrite=WriteFile(inWrite,b,(DWORD)n,&wrote,nullptr);emitErr("{\"event\":\"input-write\",\"bytes\":"+std::to_string(n)+",\"written\":"+std::to_string(wrote)+",\"ok\":"+std::string(okWrite?"true":"false")+"}");if(!okWrite||wrote!=(DWORD)n)break;}shutdown(client,SD_BOTH);closesocket(client);}});
   std::thread control([&](){while(!closing){SOCKET client=accept(controlSocket,nullptr,nullptr);if(client==INVALID_SOCKET)break;char b[4096];int n=recv(client,b,sizeof(b)-1,0);if(n>0){b[n]=0;std::istringstream ss(std::string(b,n));std::string op;ss>>op;if(op=="RESIZE"){int c=0,r=0;ss>>c>>r;COORD z{(SHORT)std::max(1,c),(SHORT)std::max(1,r)};HRESULT rr=ResizePseudoConsole(pc,z);emitErr("{\"event\":\"resize\",\"ok\":"+std::string(SUCCEEDED(rr)?"true":"false")+",\"cols\":"+std::to_string(c)+",\"rows\":"+std::to_string(r)+"}");}else if(op=="CLOSE"){closing=true;TerminateProcess(pi.hProcess,130);}}shutdown(client,SD_BOTH);closesocket(client);}});
 '''
 s=s[:start]+new+s[end:]
@@ -37,12 +37,5 @@ t=t.replace('outputSequence:0,controlHost:null,controlPort:null,exitCode:null','
 t=t.replace('session.controlHost=e.controlHost;session.controlPort=e.controlPort;session.epoch=e.providerEpoch','session.controlHost=e.controlHost;session.controlPort=e.controlPort;session.inputHost=e.inputHost;session.inputPort=e.inputPort;session.epoch=e.providerEpoch')
 old="  write(id,data){const s=this._session(id);if(!s.child?.stdin?.writable)throw Error('TERMINAL_STDIN_UNAVAILABLE');const b=Buffer.isBuffer(data)?data:Buffer.from(data);s.child.stdin.write(b);return {ok:true,sessionId:id,bytes:b.length};}"
 new="  async write(id,data){const s=this._session(id);if(!s.inputHost||!s.inputPort)throw Error('TERMINAL_INPUT_CHANNEL_NOT_READY');const b=Buffer.isBuffer(data)?data:Buffer.from(data);await new Promise((resolve,reject)=>{const socket=net.createConnection({host:s.inputHost,port:s.inputPort},()=>socket.end(b));socket.once('error',reject);socket.once('close',resolve)});return {ok:true,sessionId:id,bytes:b.length};}"
-if old not in t: raise SystemExit('manager write target missing')
-t=t.replace(old,new)
+if old in t:t=t.replace(old,new)
 m.write_text(t,encoding='utf-8')
-
-p=Path('tmp/cep-l1-winproof/proof.mjs')
-u=p.read_text(encoding='utf-8')
-u=u.replace('manager.write(sessionId,', 'await manager.write(sessionId,')
-u=u.replace('manager.write(id,', 'await manager.write(id,')
-p.write_text(u,encoding='utf-8')
