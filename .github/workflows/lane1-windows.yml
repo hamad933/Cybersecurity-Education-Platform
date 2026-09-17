@@ -20,6 +20,9 @@ jobs:
           $parts=Get-ChildItem lane1/cep.cpp.b64.* | Sort-Object Name
           $b64=($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
           [IO.File]::WriteAllBytes('lane1/cep-win32-helper.cpp',[Convert]::FromBase64String(($b64 -replace '\s','')))
+          $src=[IO.File]::ReadAllText('lane1/cep-win32-helper.cpp')
+          $src=$src.Replace("#include <WebView2.h>`n#include <wrl.h>","#include <wrl.h>`n#include <WebView2.h>")
+          [IO.File]::WriteAllText('lane1/cep-win32-helper.cpp',$src,[Text.UTF8Encoding]::new($false))
       - name: Acquire WebView2 SDK build library
         shell: pwsh
         run: nuget install Microsoft.Web.WebView2 -Version 1.0.4191.47 -OutputDirectory lane1/packages -NonInteractive
