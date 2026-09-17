@@ -18,7 +18,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force artifact | Out-Null
-          cl /nologo /std:c++17 /O2 /EHsc /MT /DUNICODE /D_UNICODE tmp/cep-l1-winproof/main.cpp /Fe:artifact/cep-win-sidecar.exe user32.lib shell32.lib advapi32.lib
+          cl /nologo /std:c++17 /O2 /EHsc /MT /DUNICODE /D_UNICODE /DNOMINMAX tmp/cep-l1-winproof/main.cpp /Fe:artifact/cep-win-sidecar.exe user32.lib shell32.lib advapi32.lib
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Get-FileHash artifact/cep-win-sidecar.exe -Algorithm SHA256 | Format-List
       - name: Prove ConPTY profiles, raw IO, resize, failure, restart
