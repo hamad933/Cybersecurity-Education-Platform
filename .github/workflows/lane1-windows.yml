@@ -1,0 +1,66 @@
+name: CEP Lane1 Windows Carrier
+on:
+  push:
+    branches: [lane1-windows-carrier-20260917]
+    paths:
+      - 'lane1/cep.cpp.b64.*'
+      - 'lane1/proof.ps1'
+      - '.github/workflows/lane1-windows.yml'
+permissions:
+  contents: write
+jobs:
+  build-proof:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode helper source
+        shell: pwsh
+        run: |
+          $parts=Get-ChildItem lane1/cep.cpp.b64.* | Sort-Object Name
+          $b64=($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
+          [IO.File]::WriteAllBytes('lane1/cep-win32-helper.cpp',[Convert]::FromBase64String(($b64 -replace '\s','')))
+      - name: Acquire WebView2 SDK build library
+        shell: pwsh
+        run: nuget install Microsoft.Web.WebView2 -Version 1.0.4191.47 -OutputDirectory lane1/packages -NonInteractive
+      - name: Compile static CRT Win32 helper
+        shell: pwsh
+        run: |
+          $sdk=(Resolve-Path 'lane1/packages/Microsoft.Web.WebView2.1.0.4191.47').Path
+          $vs=& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if(-not $vs){ throw 'VISUAL_CPP_TOOLCHAIN_NOT_FOUND_ON_MANAGED_RUNNER' }
+          $vcvars=Join-Path $vs 'VC\Auxiliary\Build\vcvars64.bat'
+          $inc=Join-Path $sdk 'build\native\include'
+          $lib=Join-Path $sdk 'build\native\x64\WebView2LoaderStatic.lib'
+          $cmd="`"$vcvars`" && cl /nologo /std:c++17 /EHsc /O2 /MT /W4 /DUNICODE /D_UNICODE /DCEP_WITH_WEBVIEW2 /I`"$inc`" lane1\cep-win32-helper.cpp /link user32.lib kernel32.lib advapi32.lib shell32.lib ole32.lib version.lib `"$lib`" /OUT:lane1\cep-win32-helper.exe"
+          cmd /d /s /c $cmd
+          if($LASTEXITCODE -ne 0){ exit $LASTEXITCODE }
+      - name: Run noninteractive Windows ConPTY/provider proof
+        shell: pwsh
+        run: pwsh -NoProfile -File lane1/proof.ps1 -HelperPath lane1/cep-win32-helper.exe -OutDir lane1/out
+      - name: Acquire exact xterm browser assets
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force lane1/out/xterm | Out-Null
+          npm pack @xterm/xterm@6.0.0 --pack-destination lane1 | Out-Null
+          $tgz=(Get-ChildItem lane1/xterm-xterm-6.0.0.tgz).FullName
+          New-Item -ItemType Directory -Force lane1/unpack | Out-Null
+          tar -xzf $tgz -C lane1/unpack
+          Copy-Item lane1/unpack/package/lib/xterm.mjs lane1/out/xterm/xterm.mjs
+          Copy-Item lane1/unpack/package/css/xterm.css lane1/out/xterm/xterm.css
+      - name: Hash outputs and record build environment
+        shell: pwsh
+        run: |
+          Copy-Item lane1/cep-win32-helper.exe lane1/out/cep-win32-helper.exe
+          $items=@('lane1/out/cep-win32-helper.exe','lane1/out/xterm/xterm.mjs','lane1/out/xterm/xterm.css')
+          $hashes=$items | ForEach-Object { $h=Get-FileHash $_ -Algorithm SHA256; "$($h.Hash.ToLower())  $($_ -replace '\\','/')" }
+          $hashes | Set-Content -Encoding ascii lane1/out/sha256.txt
+          @("image=$env:ImageOS","runner=$env:RUNNER_NAME","arch=$env:RUNNER_ARCH","github_run_id=$env:GITHUB_RUN_ID","github_sha=$env:GITHUB_SHA") | Set-Content -Encoding ascii lane1/out/build-environment.txt
+      - name: Commit carrier outputs to temporary branch
+        shell: pwsh
+        run: |
+          git config user.name 'cep-managed-carrier'
+          git config user.email 'cep-managed-carrier@users.noreply.github.com'
+          git add lane1/out
+          git commit -m 'lane1 carrier output' || echo 'no changes'
+          git push origin HEAD:lane1-windows-carrier-20260917
