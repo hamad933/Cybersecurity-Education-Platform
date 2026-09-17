@@ -8,8 +8,8 @@ int main(){
   const char ready[]="CEP_PROBE_READY\r\n";
   if(in==INVALID_HANDLE_VALUE||out==INVALID_HANDLE_VALUE||!writeAll(out,ready,(DWORD)sizeof(ready)-1))return 10;
   std::string all; char buf[1024];
-  while(all.find("CEP_PROBE_END") == std::string::npos && all.size()<8192){DWORD n=0;if(!ReadFile(in,buf,sizeof(buf),&n,nullptr)||n==0)return 11;all.append(buf,buf+n);}
+  while(all.find("cepdone") == std::string::npos && all.size()<8192){DWORD n=0;if(!ReadFile(in,buf,sizeof(buf),&n,nullptr)||n==0)return 11;all.append(buf,buf+n);}
   const char prefix[]="CEP_PROBE_RX_BEGIN\r\n"; const char suffix[]="\r\nCEP_PROBE_RX_END\r\n";
   if(!writeAll(out,prefix,(DWORD)sizeof(prefix)-1)||!writeAll(out,all.data(),(DWORD)all.size())||!writeAll(out,suffix,(DWORD)sizeof(suffix)-1))return 12;
-  return all.find("CEP_PROBE_END")!=std::string::npos?0:13;
+  return all.find("cepdone")!=std::string::npos?0:13;
 }
