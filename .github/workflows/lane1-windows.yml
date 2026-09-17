@@ -23,7 +23,7 @@ jobs:
           $src=[IO.File]::ReadAllText('lane1/cep-win32-helper.cpp')
           $src=$src.Replace("#include <WebView2.h>`n#include <wrl.h>","#include <wrl.h>`n#include <WebView2.h>")
           $src=$src.Replace('if(act=="restart"){auto exe=s.executable,args=s.args,cwd=s.cwd,env=s.env,size=s.size,restarts=s.restartCount+1;','if(act=="restart"){auto exe=s.executable;auto args=s.args;auto cwd=s.cwd;auto env=s.env;auto size=s.size;auto restarts=s.restartCount+1;')
-          $src=$src.Replace('EXTENDED_STARTUPINFO_PRESENT|CREATE_UNICODE_ENVIRONMENT,eb.data()','EXTENDED_STARTUPINFO_PRESENT|CREATE_UNICODE_ENVIRONMENT|CREATE_NO_WINDOW,eb.data()')
+          $src=$src.Replace('STARTUPINFOEXW si{};si.StartupInfo.cb=sizeof(si);InitializeProcThreadAttributeList','STARTUPINFOEXW si{};si.StartupInfo.cb=sizeof(si);si.StartupInfo.dwFlags|=STARTF_USESTDHANDLES;InitializeProcThreadAttributeList')
           [IO.File]::WriteAllText('lane1/cep-win32-helper.cpp',$src,[Text.UTF8Encoding]::new($false))
       - name: Acquire WebView2 SDK build library
         shell: pwsh
